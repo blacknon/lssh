@@ -24,6 +24,5 @@ func main() {
 
 	selectServer := nameList[list.DrawList(nameList, listConf)]
 	ssh.ConnectSsh(selectServer, listConf)
-	//fmt.Println(selectServer)
 
 }
