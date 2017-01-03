@@ -22,7 +22,10 @@ func main() {
 	nameList := conf.GetNameList(listConf)
 	sort.Strings(nameList)
 
+	// View List And Get Select Line
 	selectServer := nameList[list.DrawList(nameList, listConf)]
+
+	// Connect SSH
 	ssh.ConnectSsh(selectServer, listConf)
 
 }

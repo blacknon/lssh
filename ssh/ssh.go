@@ -10,7 +10,6 @@ import (
 )
 
 // OS ssh command Rapper
-
 func ConnectSsh(connectServer string, serverList conf.Config) {
 	connectUser := serverList.Server[connectServer].User
 	connectAddr := serverList.Server[connectServer].Addr
@@ -32,7 +31,7 @@ func ConnectSsh(connectServer string, serverList conf.Config) {
 		}
 		defer child.Close()
 
-		child.InteractTimeout(20 * time.Second)
+		child.InteractTimeout(86400 * time.Second)
 	} else {
 		child, _ := gexpect.NewSubProcess("/usr/bin/ssh", connectHost, "-p", connectPort)
 		if err := child.Start(); err != nil {
@@ -44,6 +43,6 @@ func ConnectSsh(connectServer string, serverList conf.Config) {
 				child.SendLine(connectPass)
 			}
 		}
-		child.InteractTimeout(20 * time.Second)
+		child.InteractTimeout(86400 * time.Second)
 	}
 }

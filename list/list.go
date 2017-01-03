@@ -17,6 +17,7 @@ type ListArrayInfo struct {
 	Note    string
 }
 
+// Draw Line
 func drawLine(x, y int, str string, colorNum int, backColorNum int) {
 	color := termbox.Attribute(colorNum + 1)
 	backColor := termbox.Attribute(backColorNum + 1)
@@ -27,22 +28,27 @@ func drawLine(x, y int, str string, colorNum int, backColorNum int) {
 	}
 }
 
+// Draw List
 func draw(serverNameList []string, selectCursor int) {
 	defaultColor := 255
 	defaultBackColor := 255
 	termbox.Clear(termbox.Attribute(defaultColor+1), termbox.Attribute(defaultBackColor+1))
 
+	// Get Terminal Size
 	_, height := termbox.Size()
 	lineHeight := height - 2
 
+	// Set View List Range
 	viewFirstLine := (selectCursor/lineHeight)*lineHeight + 1
 	viewLastLine := viewFirstLine + lineHeight
-	drawLine(0, 0, "lssh>", defaultColor, defaultBackColor)
-	drawLine(2, 1, serverNameList[0], defaultColor, defaultBackColor)
-
 	serverViewList := serverNameList[viewFirstLine:viewLastLine]
 	selectViewCursor := selectCursor - viewFirstLine + 1
 
+	// View Head
+	drawLine(0, 0, "lssh>", defaultColor, defaultBackColor)
+	drawLine(2, 1, serverNameList[0], defaultColor, defaultBackColor)
+
+	// View List
 	for k, v := range serverViewList {
 		cursorColor := defaultColor
 		cursorBackColor := defaultBackColor
@@ -51,15 +57,15 @@ func draw(serverNameList []string, selectCursor int) {
 			cursorBackColor = 2
 		}
 
-		serverName := v
-
-		drawLine(2, k+2, serverName, cursorColor, cursorBackColor)
+		viewListData := v
+		drawLine(2, k+2, viewListData, cursorColor, cursorBackColor)
 		k += 1
 	}
 
 	termbox.Flush()
 }
 
+// Create View List Data (use text/tabwriter)
 func GetListData(serverNameList []string, serverList conf.Config) (listData []string) {
 	buffer := &bytes.Buffer{}
 	w := new(tabwriter.Writer)
@@ -135,6 +141,5 @@ func DrawList(serverNameList []string, serverList conf.Config) (lineNo int) {
 	}
 
 	lineNo = pollEvent(serverNameList, serverList)
-
 	return
 }
