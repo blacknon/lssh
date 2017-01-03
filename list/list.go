@@ -41,7 +41,12 @@ func draw(serverNameList []string, selectCursor int) {
 	// Set View List Range
 	viewFirstLine := (selectCursor/lineHeight)*lineHeight + 1
 	viewLastLine := viewFirstLine + lineHeight
-	serverViewList := serverNameList[viewFirstLine:viewLastLine]
+	var serverViewList []string
+	if viewLastLine > len(serverNameList) {
+		serverViewList = serverNameList[viewFirstLine:len(serverNameList)]
+	} else {
+		serverViewList = serverNameList[viewFirstLine:viewLastLine]
+	}
 	selectViewCursor := selectCursor - viewFirstLine + 1
 
 	// View Head
