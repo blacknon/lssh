@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"fmt"
 	"os"
+	"regexp"
 	"strings"
 	"text/tabwriter"
 
@@ -29,7 +30,7 @@ func drawLine(x, y int, str string, colorNum int, backColorNum int) {
 }
 
 // Draw List
-func draw(serverNameList []string, selectCursor int) {
+func draw(serverNameList []string, selectCursor int, searchText string) {
 	defaultColor := 255
 	defaultBackColor := 255
 	termbox.Clear(termbox.Attribute(defaultColor+1), termbox.Attribute(defaultBackColor+1))
@@ -43,14 +44,14 @@ func draw(serverNameList []string, selectCursor int) {
 	viewLastLine := viewFirstLine + lineHeight
 	var serverViewList []string
 	if viewLastLine > len(serverNameList) {
-		serverViewList = serverNameList[viewFirstLine:len(serverNameList)]
+		serverViewList = serverNameList[viewFirstLine:]
 	} else {
 		serverViewList = serverNameList[viewFirstLine:viewLastLine]
 	}
 	selectViewCursor := selectCursor - viewFirstLine + 1
 
 	// View Head
-	drawLine(0, 0, "lssh>", defaultColor, defaultBackColor)
+	drawLine(0, 0, "lssh>"+searchText, defaultColor, defaultBackColor)
 	drawLine(2, 1, serverNameList[0], defaultColor, defaultBackColor)
 
 	// View List
@@ -67,11 +68,12 @@ func draw(serverNameList []string, selectCursor int) {
 		k += 1
 	}
 
+	termbox.SetCursor(5+len([]rune(searchText)), 0)
 	termbox.Flush()
 }
 
 // Create View List Data (use text/tabwriter)
-func GetListData(serverNameList []string, serverList conf.Config) (listData []string) {
+func getListData(serverNameList []string, serverList conf.Config) (listData []string) {
 	buffer := &bytes.Buffer{}
 	w := new(tabwriter.Writer)
 	w.Init(buffer, 0, 4, 8, ' ', 0)
@@ -90,16 +92,45 @@ func GetListData(serverNameList []string, serverList conf.Config) (listData []st
 	return listData
 }
 
-func pollEvent(serverNameList []string, serverList conf.Config) (selectline int) {
+func insertRune(text string, inputRune rune) (returnText string) {
+	returnText = text + string(inputRune)
+	return
+}
+
+func deleteRune(text string) (returnText string) {
+	s := text
+	sc := []rune(s)
+	returnText = string(sc[:(len(sc) - 1)])
+	return
+}
+
+func getFilterListData(searchText string, listData []string) (retrunListData []string) {
+	re := regexp.MustCompile(searchText)
+	r := listData[1:]
+	line := ""
+
+	retrunListData = append(retrunListData, listData[0])
+	for i := 0; i < len(r); i += 1 {
+		line += string(r[i])
+		if re.MatchString(line) {
+			retrunListData = append(retrunListData, line)
+		}
+		line = ""
+	}
+	return retrunListData
+}
+
+func pollEvent(serverNameList []string, serverList conf.Config) (lineData string) {
 	defer termbox.Close()
-	listData := GetListData(serverNameList, serverList)
-	selectline = 0
+	listData := getListData(serverNameList, serverList)
+	selectline := 0
 
 	_, height := termbox.Size()
 	lineHeight := height - 2
 
-	termbox.SetCursor(5, 0)
-	draw(listData, selectline)
+	searchText := ""
+	filterListData := getFilterListData(searchText, listData)
+	draw(filterListData, selectline, searchText)
 	for {
 		switch ev := termbox.PollEvent(); ev.Type {
 		case termbox.EventKey:
@@ -111,40 +142,57 @@ func pollEvent(serverNameList []string, serverList conf.Config) (selectline int)
 				if selectline > 0 {
 					selectline -= 1
 				}
-				draw(listData, selectline)
+				draw(filterListData, selectline, searchText)
 			case termbox.KeyArrowDown:
-				if selectline < len(serverNameList)-1 {
+				if selectline < len(filterListData)-1 {
 					selectline += 1
 				}
-				draw(listData, selectline)
+				draw(filterListData, selectline, searchText)
 			case termbox.KeyArrowRight:
-				if ((selectline+lineHeight)/lineHeight)*lineHeight <= len(serverNameList) {
+				if ((selectline+lineHeight)/lineHeight)*lineHeight <= len(filterListData) {
 					selectline = ((selectline + lineHeight) / lineHeight) * lineHeight
 				}
-				draw(listData, selectline)
+				draw(filterListData, selectline, searchText)
 			case termbox.KeyArrowLeft:
 				if ((selectline-lineHeight)/lineHeight)*lineHeight >= 0 {
 					selectline = ((selectline - lineHeight) / lineHeight) * lineHeight
 				}
 
-				draw(listData, selectline)
+				draw(filterListData, selectline, searchText)
 			case termbox.KeyEnter:
-				return selectline
+				lineData = strings.Fields(filterListData[selectline+1])[0]
+				return
+			case termbox.KeyBackspace, termbox.KeyBackspace2:
+				if len(searchText) > 0 {
+					searchText = deleteRune(searchText)
+					filterListData = getFilterListData(searchText, listData)
+					if selectline > len(filterListData) {
+						selectline = len(filterListData)
+					}
+					draw(filterListData, selectline, searchText)
+				}
 			default:
-				draw(listData, selectline)
+				if ev.Ch != 0 {
+					searchText = insertRune(searchText, ev.Ch)
+					filterListData = getFilterListData(searchText, listData)
+					if selectline > len(filterListData)-2 {
+						selectline = len(filterListData) - 2
+					}
+					draw(filterListData, selectline, searchText)
+				}
 			}
 		default:
-			draw(listData, selectline)
+			draw(filterListData, selectline, searchText)
 		}
 	}
 }
 
-func DrawList(serverNameList []string, serverList conf.Config) (lineNo int) {
+func DrawList(serverNameList []string, serverList conf.Config) (lineName string) {
 	err := termbox.Init()
 	if err != nil {
 		panic(err)
 	}
 
-	lineNo = pollEvent(serverNameList, serverList)
-	return
+	lineName = pollEvent(serverNameList, serverList)
+	return lineName
 }
