@@ -28,7 +28,7 @@ func main() {
 	selectServer := list.DrawList(nameList, listConf)
 
 	if selectServer == "ServerName" {
-		fmt.Println("Server Not Found.")
+		fmt.Println("Server not selected.")
 		os.Exit(0)
 	}
 
