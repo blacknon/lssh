@@ -1,6 +1,8 @@
 package main
 
 import (
+	"fmt"
+	"os"
 	"os/user"
 	"sort"
 	"strings"
@@ -24,6 +26,11 @@ func main() {
 
 	// View List And Get Select Line
 	selectServer := list.DrawList(nameList, listConf)
+
+	if selectServer == "ServerName" {
+		fmt.Println("Server Not Found.")
+		os.Exit(0)
+	}
 
 	// Connect SSH
 	ssh.ConnectSsh(selectServer, listConf)

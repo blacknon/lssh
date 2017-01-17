@@ -25,7 +25,8 @@ func ConnectSsh(connectServer string, serverList conf.Config) {
 	connectHost := connectUser + "@" + connectAddr
 
 	if connectKey != "" {
-		child, _ := gexpect.NewSubProcess("/usr/bin/ssh", "-i", connectKey, connectHost, "-p", connectPort)
+		//child, _ := gexpect.NewSubProcess("/usr/bin/ssh", "-i", connectKey, connectHost, "-p", connectPort)
+		child, _ := gexpect.NewSubProcess("/usr/bin/ssh", "-o", "StrictHostKeyChecking=no", "-i", connectKey, connectHost, "-p", connectPort)
 		if err := child.Start(); err != nil {
 			fmt.Println(err)
 		}
@@ -33,13 +34,14 @@ func ConnectSsh(connectServer string, serverList conf.Config) {
 
 		child.InteractTimeout(86400 * time.Second)
 	} else {
-		child, _ := gexpect.NewSubProcess("/usr/bin/ssh", connectHost, "-p", connectPort)
+		//child, _ := gexpect.NewSubProcess("/usr/bin/ssh", connectHost, "-p", connectPort)
+		child, _ := gexpect.NewSubProcess("/usr/bin/ssh", "-o", "StrictHostKeyChecking=no", connectHost, "-p", connectPort)
 		if err := child.Start(); err != nil {
 			fmt.Println(err)
 		}
 		defer child.Close()
 		if connectPass != "" {
-			if idx, _ := child.ExpectTimeout(10*time.Second, regexp.MustCompile(":")); idx >= 0 {
+			if idx, _ := child.ExpectTimeout(20*time.Second, regexp.MustCompile("word:")); idx >= 0 {
 				child.SendLine(connectPass)
 			}
 		}

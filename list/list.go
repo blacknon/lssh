@@ -51,7 +51,8 @@ func draw(serverNameList []string, selectCursor int, searchText string) {
 	selectViewCursor := selectCursor - viewFirstLine + 1
 
 	// View Head
-	drawLine(0, 0, "lssh>"+searchText, defaultColor, defaultBackColor)
+	drawLine(0, 0, "lssh>>", defaultColor, defaultBackColor)
+	drawLine(6, 0, searchText, 14, defaultBackColor)
 	drawLine(2, 1, serverNameList[0], defaultColor, defaultBackColor)
 
 	// View List
@@ -68,7 +69,7 @@ func draw(serverNameList []string, selectCursor int, searchText string) {
 		k += 1
 	}
 
-	termbox.SetCursor(5+len([]rune(searchText)), 0)
+	termbox.SetCursor(6+len([]rune(searchText)), 0)
 	termbox.Flush()
 }
 
@@ -144,7 +145,7 @@ func pollEvent(serverNameList []string, serverList conf.Config) (lineData string
 				}
 				draw(filterListData, selectline, searchText)
 			case termbox.KeyArrowDown:
-				if selectline < len(filterListData)-1 {
+				if selectline < len(filterListData)-2 {
 					selectline += 1
 				}
 				draw(filterListData, selectline, searchText)
