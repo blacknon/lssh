@@ -106,14 +106,14 @@ func deleteRune(text string) (returnText string) {
 }
 
 func getFilterListData(searchText string, listData []string) (retrunListData []string) {
-	re := regexp.MustCompile(searchText)
+	re := regexp.MustCompile(strings.ToLower(searchText))
 	r := listData[1:]
 	line := ""
 
 	retrunListData = append(retrunListData, listData[0])
 	for i := 0; i < len(r); i += 1 {
 		line += string(r[i])
-		if re.MatchString(line) {
+		if re.MatchString(strings.ToLower(line)) {
 			retrunListData = append(retrunListData, line)
 		}
 		line = ""
