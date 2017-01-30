@@ -106,7 +106,8 @@ func deleteRune(text string) (returnText string) {
 }
 
 func getFilterListData(searchText string, listData []string) (retrunListData []string) {
-	re := regexp.MustCompile(strings.ToLower(searchText))
+	searchTextMeta := regexp.QuoteMeta(strings.ToLower(searchText))
+	re := regexp.MustCompile(searchTextMeta)
 	r := listData[1:]
 	line := ""
 
