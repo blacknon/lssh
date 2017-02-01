@@ -9,6 +9,7 @@ import (
 	"text/tabwriter"
 
 	"github.com/blacknon/lssh/conf"
+	runewidth "github.com/mattn/go-runewidth"
 	termbox "github.com/nsf/termbox-go"
 )
 
@@ -22,10 +23,10 @@ type ListArrayInfo struct {
 func drawLine(x, y int, str string, colorNum int, backColorNum int) {
 	color := termbox.Attribute(colorNum + 1)
 	backColor := termbox.Attribute(backColorNum + 1)
-	runes := []rune(str)
-
-	for i := 0; i < len(runes); i += 1 {
-		termbox.SetCell(x+i, y, runes[i], color, backColor)
+	// View Multi-Byte
+	for _, c := range str {
+		termbox.SetCell(x, y, c, color, backColor)
+		x += runewidth.RuneWidth(c)
 	}
 }
 
@@ -51,7 +52,8 @@ func draw(serverNameList []string, selectCursor int, searchText string) {
 	selectViewCursor := selectCursor - viewFirstLine + 1
 
 	// View Head
-	drawLine(0, 0, "lssh>>", defaultColor, defaultBackColor)
+	pronpt := "lssh>>"
+	drawLine(0, 0, pronpt, defaultColor, defaultBackColor)
 	drawLine(6, 0, searchText, 14, defaultBackColor)
 	drawLine(2, 1, serverNameList[0], defaultColor, defaultBackColor)
 
@@ -69,7 +71,12 @@ func draw(serverNameList []string, selectCursor int, searchText string) {
 		k += 1
 	}
 
-	termbox.SetCursor(6+len([]rune(searchText)), 0)
+	// Multi-Byte SetCursor
+	x := 0
+	for _, c := range searchText {
+		x += runewidth.RuneWidth(c)
+	}
+	termbox.SetCursor(len(pronpt)+x, 0)
 	termbox.Flush()
 }
 
@@ -137,33 +144,46 @@ func pollEvent(serverNameList []string, serverList conf.Config) (lineData string
 		switch ev := termbox.PollEvent(); ev.Type {
 		case termbox.EventKey:
 			switch ev.Key {
+			// ESC or Ctrl + C Key (Exit)
 			case termbox.KeyEsc, termbox.KeyCtrlC:
 				termbox.Close()
 				os.Exit(0)
+
+			// AllowUp Key
 			case termbox.KeyArrowUp:
 				if selectline > 0 {
 					selectline -= 1
 				}
 				draw(filterListData, selectline, searchText)
+
+			// AllowDown Key
 			case termbox.KeyArrowDown:
 				if selectline < len(filterListData)-2 {
 					selectline += 1
 				}
 				draw(filterListData, selectline, searchText)
+
+			// AllowRight Key
 			case termbox.KeyArrowRight:
 				if ((selectline+lineHeight)/lineHeight)*lineHeight <= len(filterListData) {
 					selectline = ((selectline + lineHeight) / lineHeight) * lineHeight
 				}
 				draw(filterListData, selectline, searchText)
+
+			// AllowLeft Key
 			case termbox.KeyArrowLeft:
 				if ((selectline-lineHeight)/lineHeight)*lineHeight >= 0 {
 					selectline = ((selectline - lineHeight) / lineHeight) * lineHeight
 				}
 
 				draw(filterListData, selectline, searchText)
+
+			// Enter Key
 			case termbox.KeyEnter:
 				lineData = strings.Fields(filterListData[selectline+1])[0]
 				return
+
+			// BackSpace Key
 			case termbox.KeyBackspace, termbox.KeyBackspace2:
 				if len(searchText) > 0 {
 					searchText = deleteRune(searchText)
@@ -173,6 +193,8 @@ func pollEvent(serverNameList []string, serverList conf.Config) (lineData string
 					}
 					draw(filterListData, selectline, searchText)
 				}
+
+			// Other Key
 			default:
 				if ev.Ch != 0 {
 					searchText = insertRune(searchText, ev.Ch)
