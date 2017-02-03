@@ -191,6 +191,9 @@ func pollEvent(serverNameList []string, serverList conf.Config) (lineData string
 					if selectline > len(filterListData) {
 						selectline = len(filterListData)
 					}
+					if selectline < 0 {
+						selectline = 0
+					}
 					draw(filterListData, selectline, searchText)
 				}
 
