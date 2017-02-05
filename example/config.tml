@@ -1,3 +1,7 @@
+[log]
+enable = True
+dirpath = ~/
+
 [server.test1]
 addr = "192.168.100.101"
 port = "22"

@@ -11,17 +11,18 @@ import (
 )
 
 // OS ssh command Rapper
-func ConnectSsh(connectServer string, serverList conf.Config) {
-	connectUser := serverList.Server[connectServer].User
-	connectAddr := serverList.Server[connectServer].Addr
+func ConnectSsh(connectServer string, confList conf.Config) {
+	// Get ssh config value
+	connectUser := confList.Server[connectServer].User
+	connectAddr := confList.Server[connectServer].Addr
 	var connectPort string
-	if serverList.Server[connectServer].Port == "" {
+	if confList.Server[connectServer].Port == "" {
 		connectPort = "22"
 	} else {
-		connectPort = serverList.Server[connectServer].Port
+		connectPort = confList.Server[connectServer].Port
 	}
-	connectPass := serverList.Server[connectServer].Pass
-	connectKey := serverList.Server[connectServer].Key
+	connectPass := confList.Server[connectServer].Pass
+	connectKey := confList.Server[connectServer].Key
 	connectHost := connectUser + "@" + connectAddr
 
 	// ssh command Args
@@ -49,5 +50,4 @@ func ConnectSsh(connectServer string, serverList conf.Config) {
 
 	// timeout
 	child.InteractTimeout(86400 * time.Second)
-
 }

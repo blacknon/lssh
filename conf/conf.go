@@ -8,6 +8,7 @@ import (
 )
 
 type Config struct {
+	Log    LogConfig
 	Server map[string]ReadConfig
 }
 
@@ -18,6 +19,11 @@ type ReadConfig struct {
 	Pass string `toml:"pass"`
 	Key  string `toml:"key"`
 	Note string `toml:"note"`
+}
+
+type LogConfig struct {
+	Enable bool   `toml:"enable"`
+	Dir    string `toml:"dirpath"`
 }
 
 func ConfigCheckRead(confPath string) (checkConf Config) {
