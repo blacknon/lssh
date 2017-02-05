@@ -3,7 +3,6 @@ package ssh
 import (
 	"fmt"
 	"regexp"
-	"strings"
 	"time"
 
 	"github.com/blacknon/lssh/conf"
@@ -26,16 +25,23 @@ func ConnectSsh(connectServer string, confList conf.Config) {
 	connectHost := connectUser + "@" + connectAddr
 
 	// ssh command Args
-	connectArgStr := ""
+	connectCmd := ""
+	//connectArgStr := ""
 	if connectKey != "" {
-		connectArgStr = "-i " + connectKey + " " + connectHost + " -p " + connectPort
+		//connectArgStr = "/usr/bin/ssh" + "-i " + connectKey + " " + connectHost + " -p " + connectPort
+		connectCmd = "/usr/bin/ssh -i " + connectKey + " " + connectHost + " -p " + connectPort
 	} else {
-		connectArgStr = connectHost + " -p " + connectPort
+		//connectArgStr = "/usr/bin/ssh" + connectHost + " -p " + connectPort
+		connectCmd = "/usr/bin/ssh " + connectHost + " -p " + connectPort
 	}
-	connectArgMap := strings.Split(connectArgStr, " ")
+	fmt.Println(connectCmd)
+	//connectArgMap := strings.Split(connectArgStr, " ")
 
 	// exec ssh command
-	child, _ := gexpect.NewSubProcess("/usr/bin/ssh", connectArgMap...)
+	//child, _ := gexpect.NewSubProcess("/usr/bin/ssh", connectArgMap...)
+	//child, _ := gexpect.NewSubProcess("/bin/bash", "-c", connectCmd)
+	child, _ := gexpect.NewSubProcess("/usr/bin/script", "-c", connectCmd)
+
 	if err := child.Start(); err != nil {
 		fmt.Println(err)
 	}
