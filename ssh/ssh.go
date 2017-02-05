@@ -3,6 +3,7 @@ package ssh
 import (
 	"fmt"
 	"regexp"
+	"strings"
 	"time"
 
 	"github.com/blacknon/lssh/conf"
@@ -21,30 +22,32 @@ func ConnectSsh(connectServer string, serverList conf.Config) {
 	}
 	connectPass := serverList.Server[connectServer].Pass
 	connectKey := serverList.Server[connectServer].Key
-
 	connectHost := connectUser + "@" + connectAddr
 
+	// ssh command Args
+	connectArgStr := ""
 	if connectKey != "" {
-		//child, _ := gexpect.NewSubProcess("/usr/bin/ssh", "-i", connectKey, connectHost, "-p", connectPort)
-		child, _ := gexpect.NewSubProcess("/usr/bin/ssh", "-o", "StrictHostKeyChecking=no", "-i", connectKey, connectHost, "-p", connectPort)
-		if err := child.Start(); err != nil {
-			fmt.Println(err)
-		}
-		defer child.Close()
-
-		child.InteractTimeout(86400 * time.Second)
+		connectArgStr = "-i " + connectKey + " " + connectHost + " -p " + connectPort
 	} else {
-		//child, _ := gexpect.NewSubProcess("/usr/bin/ssh", connectHost, "-p", connectPort)
-		child, _ := gexpect.NewSubProcess("/usr/bin/ssh", "-o", "StrictHostKeyChecking=no", connectHost, "-p", connectPort)
-		if err := child.Start(); err != nil {
-			fmt.Println(err)
-		}
-		defer child.Close()
-		if connectPass != "" {
-			if idx, _ := child.ExpectTimeout(20*time.Second, regexp.MustCompile("word:")); idx >= 0 {
-				child.SendLine(connectPass)
-			}
-		}
-		child.InteractTimeout(86400 * time.Second)
+		connectArgStr = connectHost + " -p " + connectPort
 	}
+	connectArgMap := strings.Split(connectArgStr, " ")
+
+	// exec ssh command
+	child, _ := gexpect.NewSubProcess("/usr/bin/ssh", connectArgMap...)
+	if err := child.Start(); err != nil {
+		fmt.Println(err)
+	}
+	defer child.Close()
+
+	// Password Input
+	if connectPass != "" {
+		if idx, _ := child.ExpectTimeout(20*time.Second, regexp.MustCompile("word:")); idx >= 0 {
+			child.SendLine(connectPass)
+		}
+	}
+
+	// timeout
+	child.InteractTimeout(86400 * time.Second)
+
 }
