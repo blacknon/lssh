@@ -3,6 +3,7 @@ package ssh
 import (
 	"fmt"
 	"regexp"
+	"runtime"
 	"time"
 
 	"github.com/blacknon/lssh/conf"
@@ -11,6 +12,10 @@ import (
 
 // OS ssh command Rapper
 func ConnectSsh(connectServer string, confList conf.Config) {
+	// Get log config value
+	logEnable := confList.Log.Enable
+	logDirPath := confList.Log.Dir
+
 	// Get ssh config value
 	connectUser := confList.Server[connectServer].User
 	connectAddr := confList.Server[connectServer].Addr
@@ -25,22 +30,35 @@ func ConnectSsh(connectServer string, confList conf.Config) {
 	connectHost := connectUser + "@" + connectAddr
 
 	// ssh command Args
-	connectCmd := ""
-	//connectArgStr := ""
+	sshCmd := ""
 	if connectKey != "" {
-		//connectArgStr = "/usr/bin/ssh" + "-i " + connectKey + " " + connectHost + " -p " + connectPort
-		connectCmd = "/usr/bin/ssh -i " + connectKey + " " + connectHost + " -p " + connectPort
+		// "/usr/bin/ssh -i connectKey connectUser@connectAddr -p connectPort"
+		sshCmd = "/usr/bin/ssh -i " + connectKey + " " + connectHost + " -p " + connectPort
 	} else {
-		//connectArgStr = "/usr/bin/ssh" + connectHost + " -p " + connectPort
-		connectCmd = "/usr/bin/ssh " + connectHost + " -p " + connectPort
+		// "/usr/bin/ssh connectUser@connectAddr -p connectPort"
+		sshCmd = "/usr/bin/ssh " + connectHost + " -p " + connectPort
 	}
-	fmt.Println(connectCmd)
-	//connectArgMap := strings.Split(connectArgStr, " ")
+
+	// log Enable
+	execCmd := ""
+	if logEnable == true {
+		execOS := runtime.GOOS
+		execCmd = "/usr/bin/script"
+		logFile := "$(date +%Y%m%d_%H%M%S)_" + connectServer + ".log"
+		logFilePATH := logDirPath + "/" + logFile
+		awkCmd := ">(awk '{print strftime(\"%F %T \") $0}{fflush() }'>>" + logFilePATH + ")"
+
+		if execOS == "linux" || execOS == "android" {
+			execCmd = "/usr/bin/script -qf -c \"" + sshCmd + "\" " + awkCmd
+		} else {
+			execCmd = "/usr/bin/script -qF " + awkCmd + " " + sshCmd
+		}
+	} else {
+		execCmd = sshCmd
+	}
 
 	// exec ssh command
-	//child, _ := gexpect.NewSubProcess("/usr/bin/ssh", connectArgMap...)
-	//child, _ := gexpect.NewSubProcess("/bin/bash", "-c", connectCmd)
-	child, _ := gexpect.NewSubProcess("/usr/bin/script", "-c", connectCmd)
+	child, _ := gexpect.NewSubProcess("/bin/bash", "-c", execCmd)
 
 	if err := child.Start(); err != nil {
 		fmt.Println(err)

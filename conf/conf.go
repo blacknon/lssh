@@ -52,11 +52,6 @@ func ConfigCheckRead(confPath string) (checkConf Config) {
 			checkAlertFlag = 1
 		}
 
-		if v.Pass != "" && v.Key != "" {
-			fmt.Printf("%s: Both Password and KeyPath are not entered.Please enter either.\n", k)
-			checkAlertFlag = 1
-		}
-
 	}
 
 	if checkAlertFlag == 1 {
