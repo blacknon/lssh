@@ -9,7 +9,7 @@ lssh is List selection formula ssh wrapper command
 
 ## Demo
 
-(https://asciinema.org/a/bxjwermosc5ie4er45cr3noz1.png)](https://asciinema.org/a/bxjwermosc5ie4er45cr3noz1?autoplay=1)
+[![demo](https://asciinema.org/a/bxjwermosc5ie4er45cr3noz1.png)](https://asciinema.org/a/bxjwermosc5ie4er45cr3noz1?autoplay=1)
 
 ## Requirement
 
