@@ -1,25 +1,18 @@
 [log]
-enable = True
-dirpath = ~/
+enable = true
+dirpath = "/path/to/logdir"
 
-[server.test1]
+[server.PasswordAuth_ServerName]
 addr = "192.168.100.101"
 port = "22"
 user = "test"
-pass = "P@ssw0rd"
-note = "Test1"
+pass = "Password"
+note = "Password Auth Server"
 
-[server.test2]
+[server.KeyAuth_ServerName]
 addr = "192.168.100.102"
 port = "22"
 user = "test"
-pass = "P@ssw0rd"
-note = "Test2 Server Note"
-
-[server.test3]
-addr = "192.168.100.103"
-port = "22"
-user = "test"
 key  = "/tmp/key.pem"
-note = ""
+note = "Key Auth Server"
 
