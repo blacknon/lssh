@@ -32,26 +32,26 @@ need the following command.
 
 Please edit ~/.lssh.conf
 
-~~~
-[log]
-enable = true
-dirpath = "/path/to/logdir"
 
-[server.PasswordAuth_ServerName]
-addr = "192.168.100.101"
-port = "22"
-user = "test"
-pass = "Password"
-note = "Password Auth Server"
+	[log]
+	enable = true
+	dirpath = "/path/to/logdir"
 
-[server.KeyAuth_ServerName]
-addr = "192.168.100.102"
-port = "22"
-user = "test"
-key  = "/tmp/key.pem"
-note = "Key Auth Server"
+	[server.PasswordAuth_ServerName]
+	addr = "192.168.100.101"
+	port = "22"
+	user = "test"
+	pass = "Password"
+	note = "Password Auth Server"
 
-~~~
+	[server.KeyAuth_ServerName]
+	addr = "192.168.100.102"
+	port = "22"
+	user = "test"
+	key  = "/tmp/key.pem"
+	note = "Key Auth Server"
+
+
 
 
 ## Licence
