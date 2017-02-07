@@ -5,9 +5,20 @@ List selection formula ssh wrapper command
 
 ## Description
 
+lssh is List selection formula ssh wrapper command
+
 ## Demo
 
+http://asciinema.org/a/bxjwermosc5ie4er45cr3noz1
+
 ## Requirement
+
+need the following command.
+
+- ssh
+- script (log enable only)
+- awk (log enable only)
+
 
 ## Usage
 
@@ -15,7 +26,7 @@ List selection formula ssh wrapper command
 
 ## Licence
 
-[MIT](https://github.com/tcnksm/tool/blob/master/LICENCE)
+A short snippet describing the license [MIT](https://github.com/tcnksm/tool/blob/master/LICENCE).
 
 ## Author
 
