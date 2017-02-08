@@ -32,13 +32,14 @@ func drawLine(x, y int, str string, colorNum int, backColorNum int) {
 
 // Draw List
 func draw(serverNameList []string, selectCursor int, searchText string) {
+	headLine := 2
 	defaultColor := 255
 	defaultBackColor := 255
 	termbox.Clear(termbox.Attribute(defaultColor+1), termbox.Attribute(defaultBackColor+1))
 
 	// Get Terminal Size
 	_, height := termbox.Size()
-	lineHeight := height - 2
+	lineHeight := height - headLine
 
 	// Set View List Range
 	viewFirstLine := (selectCursor/lineHeight)*lineHeight + 1
@@ -54,8 +55,8 @@ func draw(serverNameList []string, selectCursor int, searchText string) {
 	// View Head
 	pronpt := "lssh>>"
 	drawLine(0, 0, pronpt, defaultColor, defaultBackColor)
-	drawLine(6, 0, searchText, 14, defaultBackColor)
-	drawLine(2, 1, serverNameList[0], defaultColor, defaultBackColor)
+	drawLine(len(pronpt), 0, searchText, 14, defaultBackColor)
+	drawLine(headLine, 1, serverNameList[0], defaultColor, defaultBackColor)
 
 	// View List
 	for k, v := range serverViewList {
