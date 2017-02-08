@@ -30,8 +30,8 @@ need the following command.
 
 ## Usage
 
-Please edit ~/.lssh.conf
-
+Please edit "~/.lssh.conf".
+config ex)
 
 	[log]
 	enable = true
@@ -52,6 +52,25 @@ Please edit ~/.lssh.conf
 	note = "Key Auth Server"
 
 
+After exec command.
+
+    lssh
+
+
+### Use springboard server
+
+
+To use as a steppingstone server, specify it as an execution command with "/etc/passwd" or "authorized_keys"
+
+/etc/passwd ex)
+
+    lssh:x:1000:1000::/home/lssh:/bin/lssh
+
+Arrange "~/.lssh.conf" and connect with ssh.
+
+<p align="center">
+<img src="./example/lssh_withpasswd.gif" />
+</p>
 
 
 ## Licence
