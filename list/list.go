@@ -54,8 +54,8 @@ func draw(serverNameList []string, selectCursor int, searchText string) {
 
 	// View Head
 	pronpt := "lssh>>"
-	drawLine(0, 0, pronpt, defaultColor, defaultBackColor)
-	drawLine(len(pronpt), 0, searchText, 14, defaultBackColor)
+	drawLine(0, 0, pronpt, 3, defaultBackColor)
+	drawLine(len(pronpt), 0, searchText, defaultColor, defaultBackColor)
 	drawLine(headLine, 1, serverNameList[0], defaultColor, defaultBackColor)
 
 	// View List
