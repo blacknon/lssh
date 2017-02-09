@@ -32,11 +32,11 @@ func ConnectSsh(connectServer string, confList conf.Config) {
 	// ssh command Args
 	sshCmd := ""
 	if connectKey != "" {
-		// "/usr/bin/ssh -o 'StrictHostKeyChecking no' -i connectKey connectUser@connectAddr -p connectPort"
-		sshCmd = "/usr/bin/ssh -o 'StrictHostKeyChecking no' -i " + connectKey + " " + connectHost + " -p " + connectPort
+		// "/usr/bin/ssh -o 'StrictHostKeyChecking no' -o 'NumberOfPasswordPrompts 1' -i connectKey connectUser@connectAddr -p connectPort"
+		sshCmd = "/usr/bin/ssh -o 'StrictHostKeyChecking no' -o 'NumberOfPasswordPrompts 1' -i " + connectKey + " " + connectHost + " -p " + connectPort
 	} else {
-		// "/usr/bin/ssh -o 'StrictHostKeyChecking no' connectUser@connectAddr -p connectPort"
-		sshCmd = "/usr/bin/ssh -o 'StrictHostKeyChecking no' " + connectHost + " -p " + connectPort
+		// "/usr/bin/ssh -o 'StrictHostKeyChecking no' -o 'NumberOfPasswordPrompts 1' connectUser@connectAddr -p connectPort"
+		sshCmd = "/usr/bin/ssh -o 'StrictHostKeyChecking no' -o 'NumberOfPasswordPrompts 1' " + connectHost + " -p " + connectPort
 	}
 
 	// log Enable

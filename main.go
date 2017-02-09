@@ -7,23 +7,38 @@ import (
 	"sort"
 	"strings"
 
+	arg "github.com/alexflint/go-arg"
 	"github.com/blacknon/lssh/check"
 	"github.com/blacknon/lssh/conf"
 	"github.com/blacknon/lssh/list"
 	"github.com/blacknon/lssh/ssh"
 )
 
+type CommandOption struct {
+	FilePath string `arg:"-f,help:config file path"`
+}
+
 func main() {
 	// Exec Before Check
 	check.OsCheck()
 	check.CommandExistCheck()
 
+	var args struct {
+		CommandOption
+	}
+	arg.MustParse(&args)
+
+	configFile := ""
 	// Default Config file
-	confFilePath := "~/.lssh.conf"
+	if args.FilePath == "" {
+		defaultConfPath := "~/.lssh.conf"
+		usr, _ := user.Current()
+		configFile = strings.Replace(defaultConfPath, "~", usr.HomeDir, 1)
+	} else {
+		configFile = args.FilePath
+	}
 
 	// Get ConfigFile Path
-	usr, _ := user.Current()
-	configFile := strings.Replace(confFilePath, "~", usr.HomeDir, 1)
 
 	// Get List
 	listConf := conf.ConfigCheckRead(configFile)
