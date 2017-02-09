@@ -48,7 +48,7 @@ config ex)
 	addr = "192.168.100.102"
 	port = "22"
 	user = "test"
-	key  = "/tmp/key.pem"
+	key  = "/path/to/private_key"
 	note = "Key Auth Server"
 
 
@@ -57,10 +57,10 @@ After exec command.
     lssh
 
 
-### Use springboard server
+### Use list select type ssh gateway server
 
 
-To use as a steppingstone server, specify it as an execution command with "/etc/passwd" or "authorized_keys"
+To use as a ssh gateway server as list select type, specify it as an execution command with "/etc/passwd" or "authorized_keys"
 
 /etc/passwd ex)
 
@@ -75,7 +75,7 @@ Arrange "~/.lssh.conf" and connect with ssh.
 
 ## Licence
 
-A short snippet describing the license [MIT](https://github.com/tcnksm/tool/blob/master/LICENCE).
+A short snippet describing the license [MIT](https://github.com/blacknon/lssh/blob/master/LICENSE.md).
 
 ## Author
 

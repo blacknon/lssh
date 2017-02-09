@@ -14,10 +14,12 @@ import (
 )
 
 func main() {
-	confFilePath := "~/.lssh.conf"
 	// Exec Before Check
 	check.OsCheck()
 	check.CommandExistCheck()
+
+	// Default Config file
+	confFilePath := "~/.lssh.conf"
 
 	// Get ConfigFile Path
 	usr, _ := user.Current()
