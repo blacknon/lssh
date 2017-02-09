@@ -7,6 +7,7 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/blacknon/lssh/check"
 	"github.com/blacknon/lssh/conf"
 	"github.com/blacknon/lssh/list"
 	"github.com/blacknon/lssh/ssh"
@@ -14,6 +15,10 @@ import (
 
 func main() {
 	confFilePath := "~/.lssh.conf"
+	// Exec Before Check
+	check.OsCheck()
+	check.CommandExistCheck()
+
 	// Get ConfigFile Path
 	usr, _ := user.Current()
 	configFile := strings.Replace(confFilePath, "~", usr.HomeDir, 1)
@@ -35,5 +40,4 @@ func main() {
 
 	// Connect SSH
 	ssh.ConnectSsh(selectServer, listConf)
-
 }
