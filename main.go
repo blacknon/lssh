@@ -13,9 +13,10 @@ import (
 )
 
 func main() {
+	confFilePath := "~/.lssh.conf"
 	// Get ConfigFile Path
 	usr, _ := user.Current()
-	configFile := strings.Replace("~/.lssh.conf", "~", usr.HomeDir, 1)
+	configFile := strings.Replace(confFilePath, "~", usr.HomeDir, 1)
 
 	// Get List
 	listConf := conf.ConfigCheckRead(configFile)
