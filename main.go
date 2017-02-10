@@ -23,6 +23,7 @@ func main() {
 	check.OsCheck()
 	check.CommandExistCheck()
 
+	// get Command Option
 	var args struct {
 		CommandOption
 	}
@@ -37,8 +38,6 @@ func main() {
 	} else {
 		configFile = args.FilePath
 	}
-
-	// Get ConfigFile Path
 
 	// Get List
 	listConf := conf.ConfigCheckRead(configFile)
