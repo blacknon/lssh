@@ -11,7 +11,7 @@ import (
 )
 
 // OS ssh command Rapper
-func ConnectSsh(connectServer string, confList conf.Config) {
+func ConnectSsh(connectServer string, confList conf.Config, execRemoteCmd string) {
 	// Get log config value
 	logEnable := confList.Log.Enable
 	logDirPath := confList.Log.Dir
@@ -37,6 +37,11 @@ func ConnectSsh(connectServer string, confList conf.Config) {
 	} else {
 		// "/usr/bin/ssh -o 'StrictHostKeyChecking no' -o 'NumberOfPasswordPrompts 1' connectUser@connectAddr -p connectPort"
 		sshCmd = "/usr/bin/ssh -o 'StrictHostKeyChecking no' -o 'NumberOfPasswordPrompts 1' " + connectHost + " -p " + connectPort
+	}
+
+	// exec_command option check
+	if execRemoteCmd != "" {
+		sshCmd = sshCmd + " " + execRemoteCmd
 	}
 
 	// log Enable

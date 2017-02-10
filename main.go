@@ -16,6 +16,7 @@ import (
 
 type CommandOption struct {
 	FilePath string `arg:"-f,help:config file path"`
+	Exec     string `arg:"-e,help:exec_command"`
 }
 
 func main() {
@@ -39,6 +40,11 @@ func main() {
 		configFile = args.FilePath
 	}
 
+	execRemoteCmd := ""
+	if args.Exec != "" {
+		execRemoteCmd = args.Exec
+	}
+
 	// Get List
 	listConf := conf.ConfigCheckRead(configFile)
 
@@ -55,5 +61,5 @@ func main() {
 	}
 
 	// Connect SSH
-	ssh.ConnectSsh(selectServer, listConf)
+	ssh.ConnectSsh(selectServer, listConf, execRemoteCmd)
 }
