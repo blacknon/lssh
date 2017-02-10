@@ -5,7 +5,6 @@ import (
 	"os"
 	"os/user"
 	"sort"
-	"strings"
 
 	arg "github.com/alexflint/go-arg"
 	"github.com/blacknon/lssh/check"
@@ -22,12 +21,11 @@ type CommandOption struct {
 func main() {
 	// Exec Before Check
 	check.OsCheck()
-	check.CommandExistCheck()
+	check.DefCommandExistCheck()
 
 	// Set default value
-	defaultConf := "~/.lssh.conf"
 	usr, _ := user.Current()
-	defaultConfPath := strings.Replace(defaultConf, "~", usr.HomeDir, 1)
+	defaultConfPath := usr.HomeDir + "/.lssh.conf"
 
 	// get Command Option
 	var args struct {

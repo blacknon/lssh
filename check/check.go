@@ -29,11 +29,15 @@ func OsCheck() {
 	}
 }
 
-func CommandExistCheck() {
+func CommandExistCheck(cmd string) {
+	if (isExist(cmd)) == false {
+		fmt.Printf("%s:Not Found.\n", cmd)
+	}
+}
+
+func DefCommandExistCheck() {
 	commandPaths := []string{"/usr/bin/script", "/usr/bin/awk", "/usr/bin/ssh"}
 	for _, v := range commandPaths {
-		if (isExist(v)) == false {
-			fmt.Printf("%s:Not Found.\n", v)
-		}
+		CommandExistCheck(v)
 	}
 }
