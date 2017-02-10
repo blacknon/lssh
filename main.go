@@ -5,7 +5,6 @@ import (
 	"os"
 	"os/user"
 	"sort"
-	"strings"
 
 	arg "github.com/alexflint/go-arg"
 	"github.com/blacknon/lssh/check"
@@ -24,26 +23,23 @@ func main() {
 	check.OsCheck()
 	check.CommandExistCheck()
 
+	// Set default value
+	usr, _ := user.Current()
+	defaultConfPath := usr.HomeDir + "/.lssh.conf"
+
 	// get Command Option
 	var args struct {
 		CommandOption
 	}
+
+	// Default Value
+	args.FilePath = defaultConfPath
+	args.Exec = ""
 	arg.MustParse(&args)
 
-	configFile := ""
-	// Default Config file
-	if args.FilePath == "" {
-		defaultConfPath := "~/.lssh.conf"
-		usr, _ := user.Current()
-		configFile = strings.Replace(defaultConfPath, "~", usr.HomeDir, 1)
-	} else {
-		configFile = args.FilePath
-	}
-
-	execRemoteCmd := ""
-	if args.Exec != "" {
-		execRemoteCmd = args.Exec
-	}
+	// set option value
+	configFile := args.FilePath
+	execRemoteCmd := args.Exec
 
 	// Get List
 	listConf := conf.ConfigCheckRead(configFile)

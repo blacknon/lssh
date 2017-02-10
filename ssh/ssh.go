@@ -2,8 +2,12 @@ package ssh
 
 import (
 	"fmt"
+	"io/ioutil"
+	"os"
+	"os/user"
 	"regexp"
 	"runtime"
+	"strings"
 	"time"
 
 	"github.com/blacknon/lssh/conf"
@@ -39,25 +43,40 @@ func ConnectSsh(connectServer string, confList conf.Config, execRemoteCmd string
 		sshCmd = "/usr/bin/ssh -o 'StrictHostKeyChecking no' -o 'NumberOfPasswordPrompts 1' " + connectHost + " -p " + connectPort
 	}
 
-	// exec_command option check
-	if execRemoteCmd != "" {
-		sshCmd = sshCmd + " " + execRemoteCmd
-	}
-
 	// log Enable
 	execCmd := ""
 	if logEnable == true {
 		execOS := runtime.GOOS
 		execCmd = "/usr/bin/script"
-		logFile := "$(date +%Y%m%d_%H%M%S)_" + connectServer + ".log"
+
+		// ~ replace User current Directory
+		usr, _ := user.Current()
+		logDirPath := strings.Replace(logDirPath, "~", usr.HomeDir, 1)
+
+		// mkdir logDIr
+		if err := os.MkdirAll(logDirPath, 0755); err != nil {
+			fmt.Println(err)
+		}
+
+		// Golang time.format (https://golang.org/src/time/format.go)
+		logFile := time.Now().Format("20060102_150405") + "_" + connectServer + ".log"
 		logFilePATH := logDirPath + "/" + logFile
 		awkCmd := ">(awk '{print strftime(\"%F %T \") $0}{fflush() }'>>" + logFilePATH + ")"
+
+		// exec_command option check
+		if execRemoteCmd != "" {
+			sshCmd = sshCmd + " " + execRemoteCmd
+			logHeadContent := []byte("Exec command: " + execRemoteCmd + "\n\n" +
+				"=============================\n")
+			ioutil.WriteFile(logFilePATH, logHeadContent, os.ModePerm)
+		}
 
 		if execOS == "linux" || execOS == "android" {
 			execCmd = "/usr/bin/script -qf -c \"" + sshCmd + "\" " + awkCmd
 		} else {
 			execCmd = "/usr/bin/script -qF " + awkCmd + " " + sshCmd
 		}
+
 	} else {
 		execCmd = sshCmd
 	}
@@ -72,7 +91,8 @@ func ConnectSsh(connectServer string, confList conf.Config, execRemoteCmd string
 
 	// Password Input
 	if connectPass != "" {
-		if idx, _ := child.ExpectTimeout(20*time.Second, regexp.MustCompile("word:")); idx >= 0 {
+		passwordPrompt := "word:"
+		if idx, _ := child.ExpectTimeout(20*time.Second, regexp.MustCompile(passwordPrompt)); idx >= 0 {
 			child.SendLine(connectPass)
 		}
 	}
