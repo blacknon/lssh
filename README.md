@@ -70,10 +70,9 @@ option
 
 ### Use list select type ssh gateway server
 
-
 #### '/etc/passwd' use
 
-To use as a ssh gateway server as list select type, specify it as an execution command with "/etc/passwd" or "authorized_keys"
+To use as a ssh gateway server as list select type, specify it at an execution command in "/etc/passwd"( or "authorized_keys").
 
 ex) /etc/passwd
 
@@ -88,8 +87,18 @@ Arrange "~/.lssh.conf" and connect with ssh.
 
 #### '/etc/passwd' with 'tmux' use
 
+ex) /etc/passwd
 
+    lssh:x:1000:1000::/home/lssh:/usr/bin/tmux
 
+add this line at lssh exec user's '.tmux.conf'.
+ex) ~/.tmux.conf
+
+    set-option -g default-command /usr/local/bin/lssh
+
+<p align="center">
+<img src="./example/lssh_withtmux.gif" />
+</p>
 
 ## Licence
 
