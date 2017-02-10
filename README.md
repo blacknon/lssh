@@ -57,12 +57,25 @@ After exec command.
     lssh
 
 
+option
+
+    usage: lssh [--filepath FILEPATH] [--exec EXEC]
+
+	options:
+	  --filepath FILEPATH, -f FILEPATH
+	                         config file path [default: /home/blacknon/.lssh.conf]
+	  --exec EXEC, -e EXEC   exec_command
+	  --help, -h             display this help and exit
+
+
 ### Use list select type ssh gateway server
 
 
+#### '/etc/passwd' use
+
 To use as a ssh gateway server as list select type, specify it as an execution command with "/etc/passwd" or "authorized_keys"
 
-/etc/passwd ex)
+ex) /etc/passwd
 
     lssh:x:1000:1000::/home/lssh:/bin/lssh
 
@@ -71,6 +84,11 @@ Arrange "~/.lssh.conf" and connect with ssh.
 <p align="center">
 <img src="./example/lssh_withpasswd.gif" />
 </p>
+
+
+#### '/etc/passwd' with 'tmux' use
+
+
 
 
 ## Licence
