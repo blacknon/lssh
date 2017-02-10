@@ -6,6 +6,11 @@ import (
 	"runtime"
 )
 
+type CommandOption struct {
+	FilePath string `arg:"-f,help:config file path"`
+	Exec     string `arg:"-e,help:exec_command"`
+}
+
 func isExist(filename string) bool {
 	_, err := os.Stat(filename)
 	return err == nil
