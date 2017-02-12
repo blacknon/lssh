@@ -14,8 +14,8 @@ import (
 	"github.com/shavac/gexpect"
 )
 
-// OS ssh command Rapper
-func ConnectSsh(connectServer string, confList conf.Config, execRemoteCmd string) {
+// OS ssh wrapper(terminal connect)
+func ConnectSshTerminal(connectServer string, confList conf.Config, execRemoteCmd string) {
 	// Get log config value
 	logEnable := confList.Log.Enable
 	logDirPath := confList.Log.Dir
@@ -58,7 +58,7 @@ func ConnectSsh(connectServer string, confList conf.Config, execRemoteCmd string
 			fmt.Println(err)
 		}
 
-		// Golang time.format (https://golang.org/src/time/format.go)
+		// Golang time.format YYYYmmdd_HHMMSS = "20060102_150405".(https://golang.org/src/time/format.go)
 		logFile := time.Now().Format("20060102_150405") + "_" + connectServer + ".log"
 		logFilePATH := logDirPath + "/" + logFile
 		awkCmd := ">(awk '{print strftime(\"%F %T \") $0}{fflush() }'>>" + logFilePATH + ")"
@@ -98,5 +98,25 @@ func ConnectSsh(connectServer string, confList conf.Config, execRemoteCmd string
 	}
 
 	// timeout
-	child.InteractTimeout(86400 * time.Second)
+	child.InteractTimeout(2419200 * time.Second)
 }
+
+//func connectSshCommand(connectServer string, confList conf.Config, execRemoteCmd string) {
+//	// Get log config value
+//	logEnable := confList.Log.Enable
+//	logDirPath := confList.Log.Dir
+//
+//	// Get ssh config value
+//	connectUser := confList.Server[connectServer].User
+//	connectAddr := confList.Server[connectServer].Addr
+//	var connectPort string
+//	if confList.Server[connectServer].Port == "" {
+//		connectPort = "22"
+//	} else {
+//		connectPort = confList.Server[connectServer].Port
+//	}
+//	connectPass := confList.Server[connectServer].Pass
+//	connectKey := confList.Server[connectServer].Key
+//	connectHost := connectUser + "@" + connectAddr
+//
+//}
