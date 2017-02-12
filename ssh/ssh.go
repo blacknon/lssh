@@ -10,12 +10,14 @@ import (
 	"strings"
 	"time"
 
+	"golang.org/x/crypto/ssh"
+
 	"github.com/blacknon/lssh/conf"
 	"github.com/shavac/gexpect"
 )
 
 // OS ssh wrapper(terminal connect)
-func ConnectSshTerminal(connectServer string, confList conf.Config, execRemoteCmd string) {
+func ConnectSshTerminal(connectServer string, confList conf.Config, execRemoteCmd string) int {
 	// Get log config value
 	logEnable := confList.Log.Enable
 	logDirPath := confList.Log.Dir
@@ -56,6 +58,7 @@ func ConnectSshTerminal(connectServer string, confList conf.Config, execRemoteCm
 		// mkdir logDIr
 		if err := os.MkdirAll(logDirPath, 0755); err != nil {
 			fmt.Println(err)
+			return 1
 		}
 
 		// Golang time.format YYYYmmdd_HHMMSS = "20060102_150405".(https://golang.org/src/time/format.go)
@@ -86,6 +89,7 @@ func ConnectSshTerminal(connectServer string, confList conf.Config, execRemoteCm
 
 	if err := child.Start(); err != nil {
 		fmt.Println(err)
+		return 1
 	}
 	defer child.Close()
 
@@ -99,24 +103,89 @@ func ConnectSshTerminal(connectServer string, confList conf.Config, execRemoteCm
 
 	// timeout
 	child.InteractTimeout(2419200 * time.Second)
+	return 0
 }
 
-//func connectSshCommand(connectServer string, confList conf.Config, execRemoteCmd string) {
-//	// Get log config value
-//	logEnable := confList.Log.Enable
-//	logDirPath := confList.Log.Dir
-//
-//	// Get ssh config value
-//	connectUser := confList.Server[connectServer].User
-//	connectAddr := confList.Server[connectServer].Addr
-//	var connectPort string
-//	if confList.Server[connectServer].Port == "" {
-//		connectPort = "22"
-//	} else {
-//		connectPort = confList.Server[connectServer].Port
-//	}
-//	connectPass := confList.Server[connectServer].Pass
-//	connectKey := confList.Server[connectServer].Key
-//	connectHost := connectUser + "@" + connectAddr
-//
-//}
+// remote ssh server exec command only
+func ConnectSshCommand(connectServer string, confList conf.Config, execRemoteCmd string) int {
+	// Get log config value
+	//logEnable := confList.Log.Enable
+	//logDirPath := confList.Log.Dir
+
+	// Get ssh config value
+	connectUser := confList.Server[connectServer].User
+	connectAddr := confList.Server[connectServer].Addr
+	var connectPort string
+	if confList.Server[connectServer].Port == "" {
+		connectPort = "22"
+	} else {
+		connectPort = confList.Server[connectServer].Port
+	}
+	connectPass := confList.Server[connectServer].Pass
+	connectKey := confList.Server[connectServer].Key
+
+	// Set ssh client config
+	config := &ssh.ClientConfig{}
+	if connectKey != "" {
+		// Read PublicKey
+		buffer, err := ioutil.ReadFile(connectKey)
+		if err != nil {
+			return 1
+		}
+		key, err := ssh.ParsePrivateKey(buffer)
+		if err != nil {
+			return 1
+		}
+
+		// Create ssh client config
+		config = &ssh.ClientConfig{
+			User: connectUser,
+			Auth: []ssh.AuthMethod{
+				ssh.PublicKeys(key)},
+			Timeout: 60 * time.Second,
+		}
+	} else {
+		// Create ssh client config
+		config = &ssh.ClientConfig{
+			User: connectUser,
+			Auth: []ssh.AuthMethod{
+				ssh.Password(connectPass)},
+			Timeout: 60 * time.Second,
+		}
+	}
+
+	connectHostPort := connectAddr + ":" + connectPort
+
+	conn, err := ssh.Dial("tcp", connectHostPort, config)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "cannot connect %v: %v", connectHostPort, err)
+		return 1
+	}
+	defer conn.Close()
+
+	session, err := conn.NewSession()
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "cannot open new session: %v", err)
+		return 1
+	}
+	defer session.Close()
+
+	go func() {
+		time.Sleep(5 * time.Second)
+		conn.Close()
+	}()
+
+	session.Stdout = os.Stdout
+	session.Stderr = os.Stderr
+	session.Stdin = os.Stdin
+
+	err = session.Run(execRemoteCmd)
+	if err != nil {
+		fmt.Fprint(os.Stderr, err)
+		if ee, ok := err.(*ssh.ExitError); ok {
+			return ee.ExitStatus()
+			//return 1
+		}
+	}
+	return 0
+}
