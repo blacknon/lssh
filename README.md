@@ -59,14 +59,28 @@ After exec command.
 
 option
 
-    usage: lssh [--filepath FILEPATH] [--exec EXEC]
+	usage: lssh [--filepath FILEPATH] [--exec EXEC] [--terminalexec]
 
 	options:
 	  --filepath FILEPATH, -f FILEPATH
 	                         config file path [default: /home/blacknon/.lssh.conf]
-	  --exec EXEC, -e EXEC   exec_command
+ 	 --exec EXEC, -e EXEC   exec_command
+	  --terminalexec, -T     Run specified command at terminal
 	  --help, -h             display this help and exit
 
+### copy files using stdin/stdout to/from remote server
+
+You can scp like copy files using stdin/stdout.
+
+	# from local to remote server
+	cat LOCAL_PATH | lssh -e 'cat > REMOTE_PATH'
+
+	# from remote server to local
+	lssh -e 'cat REMOTE_PATH' | cat > LOCAL_PATH
+
+<p align="center">
+<img src="./example/lssh_stdcp.gif" />
+</p>
 
 ### Use list select type ssh gateway server
 
