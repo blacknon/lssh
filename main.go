@@ -40,6 +40,7 @@ func main() {
 	// set option value
 	configFile := args.FilePath
 	execRemoteCmd := args.Exec
+	//stdinFlag := args.Stdin
 
 	// Get List
 	listConf := conf.ConfigCheckRead(configFile)
@@ -56,6 +57,12 @@ func main() {
 		os.Exit(0)
 	}
 
-	// Connect SSH
-	ssh.ConnectSsh(selectServer, listConf, execRemoteCmd)
+	ssh.ConnectSshTerminal(selectServer, listConf, execRemoteCmd)
+	//if execRemoteCmd == "" {
+	//	// Connect SSH Terminal
+	//	ssh.ConnectSshTerminal(selectServer, listConf)
+	//} else {
+	//	// Exec SSH Command
+	//	ssh.ConnectSshTerminal(selectServer, listConf, execRemoteCmd)
+	//}
 }
