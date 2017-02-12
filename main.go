@@ -14,8 +14,9 @@ import (
 )
 
 type CommandOption struct {
-	FilePath string `arg:"-f,help:config file path"`
-	Exec     string `arg:"-e,help:exec_command"`
+	FilePath     string `arg:"-f,help:config file path"`
+	Exec         string `arg:"-e,help:exec_command"`
+	TerminalExec bool   `arg:"-T,help:Run specified command at terminal"`
 }
 
 func main() {
@@ -40,7 +41,7 @@ func main() {
 	// set option value
 	configFile := args.FilePath
 	execRemoteCmd := args.Exec
-	//stdinFlag := args.Stdin
+	terminalExec := args.TerminalExec
 
 	// Get List
 	listConf := conf.ConfigCheckRead(configFile)
@@ -54,15 +55,14 @@ func main() {
 
 	if selectServer == "ServerName" {
 		fmt.Println("Server not selected.")
-		os.Exit(0)
+		os.Exit(1)
 	}
 
-	ssh.ConnectSshTerminal(selectServer, listConf, execRemoteCmd)
-	//if execRemoteCmd == "" {
-	//	// Connect SSH Terminal
-	//	ssh.ConnectSshTerminal(selectServer, listConf)
-	//} else {
-	//	// Exec SSH Command
-	//	ssh.ConnectSshTerminal(selectServer, listConf, execRemoteCmd)
-	//}
+	if terminalExec == false && execRemoteCmd != "" {
+		// Connect SSH Terminal
+		os.Exit(ssh.ConnectSshCommand(selectServer, listConf, execRemoteCmd))
+	} else {
+		// Exec SSH Command Only
+		os.Exit(ssh.ConnectSshTerminal(selectServer, listConf, execRemoteCmd))
+	}
 }
