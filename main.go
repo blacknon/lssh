@@ -17,6 +17,7 @@ var (
 	lsshVersion = "0.1"
 )
 
+// Command Option
 type CommandOption struct {
 	FilePath     string   `arg:"-f,help:config file path"`
 	TerminalExec bool     `arg:"-T,help:Run specified command at terminal"`
