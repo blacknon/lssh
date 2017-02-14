@@ -35,6 +35,7 @@ func draw(serverNameList []string, selectCursor int, searchText string) {
 	headLine := 2
 	defaultColor := 255
 	defaultBackColor := 255
+	pronpt := "lssh>>"
 	termbox.Clear(termbox.Attribute(defaultColor+1), termbox.Attribute(defaultBackColor+1))
 
 	// Get Terminal Size
@@ -53,7 +54,6 @@ func draw(serverNameList []string, selectCursor int, searchText string) {
 	selectViewCursor := selectCursor - viewFirstLine + 1
 
 	// View Head
-	pronpt := "lssh>>"
 	drawLine(0, 0, pronpt, 3, defaultBackColor)
 	drawLine(len(pronpt), 0, searchText, defaultColor, defaultBackColor)
 	drawLine(headLine, 1, serverNameList[0], 3, defaultBackColor)
@@ -63,6 +63,7 @@ func draw(serverNameList []string, selectCursor int, searchText string) {
 		cursorColor := defaultColor
 		cursorBackColor := defaultBackColor
 		if k == selectViewCursor {
+			// Select line color
 			cursorColor = 0
 			cursorBackColor = 2
 		}
@@ -84,14 +85,20 @@ func draw(serverNameList []string, selectCursor int, searchText string) {
 // Create View List Data (use text/tabwriter)
 func getListData(serverNameList []string, serverList conf.Config) (listData []string) {
 	buffer := &bytes.Buffer{}
-	w := new(tabwriter.Writer)
-	w.Init(buffer, 0, 4, 8, ' ', 0)
-	fmt.Fprintln(w, "ServerName \tConnect Infomation \tNote \t")
+	tabWriterBuffer := new(tabwriter.Writer)
+	tabWriterBuffer.Init(buffer, 0, 4, 8, ' ', 0)
+	fmt.Fprintln(tabWriterBuffer, "ServerName \tConnect Infomation \tNote \t")
 
+	serverName := ""
+	connectInfomation := ""
+	serverNote := ""
 	for _, v := range serverNameList {
-		fmt.Fprintln(w, v+"\t"+serverList.Server[v].User+"@"+serverList.Server[v].Addr+"\t"+serverList.Server[v].Note+"\t")
+		serverName = v
+		connectInfomation = serverList.Server[v].User + "@" + serverList.Server[v].Addr
+		serverNote = serverList.Server[v].Note
+		fmt.Fprintln(tabWriterBuffer, serverName+"\t"+connectInfomation+"\t"+serverNote+"\t")
 	}
-	w.Flush()
+	tabWriterBuffer.Flush()
 	line, err := buffer.ReadString('\n')
 	for err == nil {
 		str := strings.Replace(line, "\t", " ", -1)
@@ -114,6 +121,7 @@ func deleteRune(text string) (returnText string) {
 }
 
 func getFilterListData(searchText string, listData []string) (retrunListData []string) {
+	// Meta character escape
 	searchTextMeta := regexp.QuoteMeta(strings.ToLower(searchText))
 	re := regexp.MustCompile(searchTextMeta)
 	r := listData[1:]
@@ -134,11 +142,13 @@ func pollEvent(serverNameList []string, serverList conf.Config) (lineData string
 	defer termbox.Close()
 	listData := getListData(serverNameList, serverList)
 	selectline := 0
+	headLine := 2
 
 	_, height := termbox.Size()
-	lineHeight := height - 2
+	lineHeight := height - headLine
 
 	searchText := ""
+
 	filterListData := getFilterListData(searchText, listData)
 	draw(filterListData, selectline, searchText)
 	for {
@@ -159,7 +169,7 @@ func pollEvent(serverNameList []string, serverList conf.Config) (lineData string
 
 			// AllowDown Key
 			case termbox.KeyArrowDown:
-				if selectline < len(filterListData)-2 {
+				if selectline < len(filterListData)-headLine {
 					selectline += 1
 				}
 				draw(filterListData, selectline, searchText)
@@ -203,8 +213,8 @@ func pollEvent(serverNameList []string, serverList conf.Config) (lineData string
 				if ev.Ch != 0 {
 					searchText = insertRune(searchText, ev.Ch)
 					filterListData = getFilterListData(searchText, listData)
-					if selectline > len(filterListData)-2 {
-						selectline = len(filterListData) - 2
+					if selectline > len(filterListData)-headLine {
+						selectline = len(filterListData) - headLine
 					}
 					draw(filterListData, selectline, searchText)
 				}
