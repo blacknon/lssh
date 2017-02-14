@@ -139,7 +139,7 @@ func ConnectSshCommand(connectServer string, confList conf.Config, execRemoteCmd
 			return 1
 		}
 
-		// Create ssh client config
+		// Create ssh client config for KeyAuth
 		config = &ssh.ClientConfig{
 			User: connectUser,
 			Auth: []ssh.AuthMethod{
@@ -147,7 +147,7 @@ func ConnectSshCommand(connectServer string, confList conf.Config, execRemoteCmd
 			Timeout: 60 * time.Second,
 		}
 	} else {
-		// Create ssh client config
+		// Create ssh client config for PasswordAuth
 		config = &ssh.ClientConfig{
 			User: connectUser,
 			Auth: []ssh.AuthMethod{
@@ -187,7 +187,6 @@ func ConnectSshCommand(connectServer string, confList conf.Config, execRemoteCmd
 		fmt.Fprint(os.Stderr, err)
 		if ee, ok := err.(*ssh.ExitError); ok {
 			return ee.ExitStatus()
-			//return 1
 		}
 	}
 	return 0

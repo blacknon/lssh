@@ -120,23 +120,51 @@ func deleteRune(text string) (returnText string) {
 	return
 }
 
-func getFilterListData(searchText string, listData []string) (retrunListData []string) {
-	// Meta character escape
-	searchTextMeta := regexp.QuoteMeta(strings.ToLower(searchText))
-	re := regexp.MustCompile(searchTextMeta)
+func getFilterListData(searchText string, listData []string) (returnListData []string) {
+	// SearchText Bounds Space
+	searchWords := strings.Fields(searchText)
+	searchWordMeta := ""
+	re := regexp.MustCompile(searchWordMeta)
 	r := listData[1:]
 	line := ""
+	loopListData := []string{}
+	returnListData = append(returnListData, listData[0])
 
-	retrunListData = append(retrunListData, listData[0])
-	for i := 0; i < len(r); i += 1 {
-		line += string(r[i])
-		if re.MatchString(strings.ToLower(line)) {
-			retrunListData = append(retrunListData, line)
-		}
-		line = ""
+	// if No searchWords
+	if len(searchWords) == 0 {
+		returnListData = listData
+		return returnListData
 	}
-	return retrunListData
+
+	for i := 0; i < len(searchWords); i += 1 {
+		searchWordMeta = regexp.QuoteMeta(strings.ToLower(searchWords[i]))
+		re = regexp.MustCompile(searchWordMeta)
+		loopListData = []string{}
+
+		for j := 0; j < len(r); j += 1 {
+			line += string(r[j])
+			if re.MatchString(strings.ToLower(line)) {
+				loopListData = append(loopListData, line)
+			}
+			line = ""
+		}
+		r = loopListData
+
+	}
+	returnListData = append(returnListData, loopListData...)
+	return returnListData
 }
+
+//func filterListData(searchKeyword string,listData []string) (returnListData []string){
+//	line := ""
+//	for i := 0; i < len(listData); i += 1 {
+//		line += string(listData[i])
+//		if re.MatchString(strings.ToLower(line)) {
+//			returnListData = append(returnListData, line)
+//		}
+//		line = ""
+//	}
+//}
 
 func pollEvent(serverNameList []string, serverList conf.Config) (lineData string) {
 	defer termbox.Close()
@@ -153,6 +181,8 @@ func pollEvent(serverNameList []string, serverList conf.Config) (lineData string
 	draw(filterListData, selectline, searchText)
 	for {
 		switch ev := termbox.PollEvent(); ev.Type {
+
+		// Get Key Event
 		case termbox.EventKey:
 			switch ev.Key {
 			// ESC or Ctrl + C Key (Exit)
@@ -207,6 +237,11 @@ func pollEvent(serverNameList []string, serverList conf.Config) (lineData string
 					}
 					draw(filterListData, selectline, searchText)
 				}
+
+			// Space Key
+			case termbox.KeySpace:
+				searchText = searchText + " "
+				draw(filterListData, selectline, searchText)
 
 			// Other Key
 			default:
