@@ -18,9 +18,9 @@ var (
 )
 
 type CommandOption struct {
-	FilePath     string `arg:"-f,help:config file path"`
-	Exec         string `arg:"-e,help:exec_command"`
-	TerminalExec bool   `arg:"-T,help:Run specified command at terminal"`
+	FilePath     string   `arg:"-f,help:config file path"`
+	TerminalExec bool     `arg:"-T,help:Run specified command at terminal"`
+	ExecCommand  []string `arg:"positional,help:exec_command"`
 }
 
 // Version Setting
@@ -44,12 +44,11 @@ func main() {
 
 	// Default Value
 	args.FilePath = defaultConfPath
-	args.Exec = ""
 	arg.MustParse(&args)
 
 	// set option value
 	configFile := args.FilePath
-	execRemoteCmd := args.Exec
+	execRemoteCmd := args.ExecCommand
 	terminalExec := args.TerminalExec
 
 	// Get List
@@ -67,11 +66,11 @@ func main() {
 		os.Exit(1)
 	}
 
-	if terminalExec == false && execRemoteCmd != "" {
+	if terminalExec == false && len(execRemoteCmd) == 0 {
 		// Connect SSH Terminal
-		os.Exit(ssh.ConnectSshCommand(selectServer, listConf, execRemoteCmd))
+		os.Exit(ssh.ConnectSshCommand(selectServer, listConf, execRemoteCmd...))
 	} else {
 		// Exec SSH Command Only
-		os.Exit(ssh.ConnectSshTerminal(selectServer, listConf, execRemoteCmd))
+		os.Exit(ssh.ConnectSshTerminal(selectServer, listConf, execRemoteCmd...))
 	}
 }
