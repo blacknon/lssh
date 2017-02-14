@@ -59,14 +59,18 @@ After exec command.
 
 option
 
-	usage: lssh [--filepath FILEPATH] [--exec EXEC] [--terminalexec]
+	lssh 0.1
+	usage: lssh [--filepath FILEPATH] [--terminalexec] [EXECCOMMAND [EXECCOMMAND ...]]
+
+	positional arguments:
+	  execcommand            exec_command
 
 	options:
 	  --filepath FILEPATH, -f FILEPATH
-	                         config file path [default: /home/blacknon/.lssh.conf]
- 	 --exec EXEC, -e EXEC   exec_command
+	                         config file path [default: /Users/uesugi/.lssh.conf]
 	  --terminalexec, -T     Run specified command at terminal
 	  --help, -h             display this help and exit
+	  --version              display version and exit
 
 ### copy files using stdin/stdout to/from remote server
 

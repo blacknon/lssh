@@ -75,6 +75,7 @@ func ConnectSshTerminal(connectServer string, confList conf.Config, execRemoteCm
 			ioutil.WriteFile(logFilePATH, logHeadContent, os.ModePerm)
 		}
 
+		// OS check
 		if execOS == "linux" || execOS == "android" {
 			execCmd = "/usr/bin/script -qf -c \"" + sshCmd + "\" " + awkCmd
 		} else {
