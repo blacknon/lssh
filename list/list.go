@@ -41,24 +41,38 @@ func drawFilterLine(x, y int, str string, colorNum int, backColorNum int, keywor
 
 		charLocation := 0
 		for j := 0; j < searchKeywordCount; j += 1 {
-			searchLineData := []rune{}
+			//searchLineData := []rune{}
+			searchLineData := ""
+
 			// Countermeasure "slice bounds out of range"
 			if charLocation < len(str) {
-				searchLineData = []rune(str[charLocation:])
+				//searchLineData = []rune(str[charLocation:])
+				//searchLineData = regexp.QuoteMeta(str[charLocation:])
+				searchLineData = str[charLocation:]
 			}
 			searchLineDataStr := string(searchLineData)
 			searchKeywordIndex := strings.Index(strings.ToLower(searchLineDataStr), searchKeyword)
+			multibyteStrCheckLine := str[:charLocation+searchKeywordIndex]
+			multiByteCharLocation := 0
+			for _, multiByteChar := range multibyteStrCheckLine {
+				multiByteCharLocation += runewidth.RuneWidth(multiByteChar)
+			}
 
 			charLocation = charLocation + searchKeywordIndex
 
 			keyword := ""
 			// Countermeasure "slice bounds out of range"
+			//multiByteCharLocation := 0
 			if charLocation < len(str) {
 				keyword = str[charLocation : charLocation+searchKeywordLen]
-			}
 
-			drawLine(x+charLocation, y, keyword, keywordColorNum, backColorNum)
-			charLocation = charLocation + searchKeywordIndex
+				//multibyteStrCheckLine := []rune(searchLineData[:charLocation])
+				//multibyteStrCheckLine := searchLineData[:charLocation]
+
+			}
+			//fmt.Println(multiByteCharLocation)
+			drawLine(x+multiByteCharLocation, y, keyword, keywordColorNum, backColorNum)
+			charLocation = charLocation + searchKeywordLen + 1
 		}
 	}
 }
