@@ -19,7 +19,6 @@ type ListArrayInfo struct {
 	Note    string
 }
 
-// Draw Line
 func drawLine(x, y int, str string, colorNum int, backColorNum int) {
 	color := termbox.Attribute(colorNum + 1)
 	backColor := termbox.Attribute(backColorNum + 1)
@@ -33,6 +32,7 @@ func drawLine(x, y int, str string, colorNum int, backColorNum int) {
 // Draw List
 func draw(serverNameList []string, selectCursor int, searchText string) {
 	headLine := 2
+	leftMargin := 2
 	defaultColor := 255
 	defaultBackColor := 255
 	pronpt := "lssh>>"
@@ -56,21 +56,21 @@ func draw(serverNameList []string, selectCursor int, searchText string) {
 	// View Head
 	drawLine(0, 0, pronpt, 3, defaultBackColor)
 	drawLine(len(pronpt), 0, searchText, defaultColor, defaultBackColor)
-	drawLine(headLine, 1, serverNameList[0], 3, defaultBackColor)
+	drawLine(leftMargin, 1, serverNameList[0], 3, defaultBackColor)
 
 	// View List
-	for k, v := range serverViewList {
+	for listKey, listValue := range serverViewList {
 		cursorColor := defaultColor
 		cursorBackColor := defaultBackColor
-		if k == selectViewCursor {
+		if listKey == selectViewCursor {
 			// Select line color
 			cursorColor = 0
 			cursorBackColor = 2
 		}
 
-		viewListData := v
-		drawLine(2, k+2, viewListData, cursorColor, cursorBackColor)
-		k += 1
+		viewListData := listValue
+		drawLine(leftMargin, listKey+headLine, viewListData, cursorColor, cursorBackColor)
+		listKey += 1
 	}
 
 	// Multi-Byte SetCursor
@@ -89,13 +89,10 @@ func getListData(serverNameList []string, serverList conf.Config) (listData []st
 	tabWriterBuffer.Init(buffer, 0, 4, 8, ' ', 0)
 	fmt.Fprintln(tabWriterBuffer, "ServerName \tConnect Infomation \tNote \t")
 
-	serverName := ""
-	connectInfomation := ""
-	serverNote := ""
 	for _, v := range serverNameList {
-		serverName = v
-		connectInfomation = serverList.Server[v].User + "@" + serverList.Server[v].Addr
-		serverNote = serverList.Server[v].Note
+		serverName := v
+		connectInfomation := serverList.Server[v].User + "@" + serverList.Server[v].Addr
+		serverNote := serverList.Server[v].Note
 		fmt.Fprintln(tabWriterBuffer, serverName+"\t"+connectInfomation+"\t"+serverNote+"\t")
 	}
 	tabWriterBuffer.Flush()
@@ -123,8 +120,6 @@ func deleteRune(text string) (returnText string) {
 func getFilterListData(searchText string, listData []string) (returnListData []string) {
 	// SearchText Bounds Space
 	searchWords := strings.Fields(searchText)
-	searchWordMeta := ""
-	re := regexp.MustCompile(searchWordMeta)
 	r := listData[1:]
 	line := ""
 	loopListData := []string{}
@@ -137,8 +132,8 @@ func getFilterListData(searchText string, listData []string) (returnListData []s
 	}
 
 	for i := 0; i < len(searchWords); i += 1 {
-		searchWordMeta = regexp.QuoteMeta(strings.ToLower(searchWords[i]))
-		re = regexp.MustCompile(searchWordMeta)
+		searchWordMeta := regexp.QuoteMeta(strings.ToLower(searchWords[i]))
+		re := regexp.MustCompile(searchWordMeta)
 		loopListData = []string{}
 
 		for j := 0; j < len(r); j += 1 {
@@ -149,22 +144,10 @@ func getFilterListData(searchText string, listData []string) (returnListData []s
 			line = ""
 		}
 		r = loopListData
-
 	}
 	returnListData = append(returnListData, loopListData...)
 	return returnListData
 }
-
-//func filterListData(searchKeyword string,listData []string) (returnListData []string){
-//	line := ""
-//	for i := 0; i < len(listData); i += 1 {
-//		line += string(listData[i])
-//		if re.MatchString(strings.ToLower(line)) {
-//			returnListData = append(returnListData, line)
-//		}
-//		line = ""
-//	}
-//}
 
 func pollEvent(serverNameList []string, serverList conf.Config) (lineData string) {
 	defer termbox.Close()
