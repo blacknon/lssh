@@ -17,7 +17,7 @@ import (
 )
 
 // OS ssh wrapper(terminal connect)
-func ConnectSshTerminal(connectServer string, confList conf.Config, execRemoteCmd string) int {
+func ConnectSshTerminal(connectServer string, confList conf.Config, execRemoteCmd ...string) int {
 	// Get log config value
 	logEnable := confList.Log.Enable
 	logDirPath := confList.Log.Dir
@@ -67,9 +67,10 @@ func ConnectSshTerminal(connectServer string, confList conf.Config, execRemoteCm
 		awkCmd := ">(awk '{print strftime(\"%F %T \") $0}{fflush() }'>>" + logFilePATH + ")"
 
 		// exec_command option check
-		if execRemoteCmd != "" {
-			sshCmd = sshCmd + " " + execRemoteCmd
-			logHeadContent := []byte("Exec command: " + execRemoteCmd + "\n\n" +
+		if len(execRemoteCmd) != 0 {
+			execRemoteCmdString := strings.Join(execRemoteCmd, " ")
+			sshCmd = sshCmd + " " + execRemoteCmdString
+			logHeadContent := []byte("Exec command: " + execRemoteCmdString + "\n\n" +
 				"=============================\n")
 			ioutil.WriteFile(logFilePATH, logHeadContent, os.ModePerm)
 		}
@@ -107,7 +108,7 @@ func ConnectSshTerminal(connectServer string, confList conf.Config, execRemoteCm
 }
 
 // remote ssh server exec command only
-func ConnectSshCommand(connectServer string, confList conf.Config, execRemoteCmd string) int {
+func ConnectSshCommand(connectServer string, confList conf.Config, execRemoteCmd ...string) int {
 	// Get log config value
 	//logEnable := confList.Log.Enable
 	//logDirPath := confList.Log.Dir
@@ -179,7 +180,8 @@ func ConnectSshCommand(connectServer string, confList conf.Config, execRemoteCmd
 	session.Stderr = os.Stderr
 	session.Stdin = os.Stdin
 
-	err = session.Run(execRemoteCmd)
+	execRemoteCmdString := strings.Join(execRemoteCmd, " ")
+	err = session.Run(execRemoteCmdString)
 	if err != nil {
 		fmt.Fprint(os.Stderr, err)
 		if ee, ok := err.(*ssh.ExitError); ok {
