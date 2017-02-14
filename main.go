@@ -21,7 +21,7 @@ var (
 type CommandOption struct {
 	FilePath     string   `arg:"-f,help:config file path"`
 	TerminalExec bool     `arg:"-T,help:Run specified command at terminal"`
-	ExecCommand  []string `arg:"positional,help:exec_command"`
+	Command      []string `arg:"positional,help:Remote Server exec command."`
 }
 
 // Version Setting
@@ -49,7 +49,7 @@ func main() {
 
 	// set option value
 	configFile := args.FilePath
-	execRemoteCmd := args.ExecCommand
+	execRemoteCmd := args.Command
 	terminalExec := args.TerminalExec
 
 	// Get List
