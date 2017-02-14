@@ -18,10 +18,14 @@ var (
 )
 
 type CommandOption struct {
-	Version      bool   `arg:"-v,help:lssh version"`
 	FilePath     string `arg:"-f,help:config file path"`
 	Exec         string `arg:"-e,help:exec_command"`
 	TerminalExec bool   `arg:"-T,help:Run specified command at terminal"`
+}
+
+// Version Setting
+func (CommandOption) Version() string {
+	return "lssh 0.1"
 }
 
 func main() {
@@ -47,13 +51,6 @@ func main() {
 	configFile := args.FilePath
 	execRemoteCmd := args.Exec
 	terminalExec := args.TerminalExec
-	version := args.Version
-
-	// View Version
-	if version == true {
-		fmt.Printf("lssh version %s \n", lsshVersion)
-		os.Exit(0)
-	}
 
 	// Get List
 	listConf := conf.ConfigCheckRead(configFile)
