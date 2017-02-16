@@ -105,7 +105,7 @@ func draw(serverNameList []string, selectCursor int, searchText string) {
 		// Set cursor color
 		cursorColor := defaultColor
 		cursorBackColor := defaultBackColor
-		keywordColor := 1
+		keywordColor := 5
 		if listKey == selectViewCursor {
 			// Select line color
 			cursorColor = 0
