@@ -66,7 +66,7 @@ func drawFilterLine(x, y int, str string, colorNum int, backColorNum int, keywor
 			}
 
 			drawLine(x+multiByteCharLocation, y, keyword, keywordColorNum, backColorNum)
-			charLocation = charLocation + searchKeywordLen + 1
+			charLocation = charLocation + searchKeywordLen
 		}
 	}
 }
