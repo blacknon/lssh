@@ -100,6 +100,10 @@ func ConnectSshTerminal(connectServer string, confList conf.Config, execRemoteCm
 		passwordPrompt := "word:"
 		if idx, _ := child.ExpectTimeout(20*time.Second, regexp.MustCompile(passwordPrompt)); idx >= 0 {
 			child.SendLine(connectPass)
+
+		} else {
+			fmt.Println("ssh connect timeout.")
+			return 1
 		}
 	}
 
