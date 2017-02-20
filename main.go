@@ -13,10 +13,6 @@ import (
 	"github.com/blacknon/lssh/ssh"
 )
 
-var (
-	lsshVersion = "0.1"
-)
-
 // Command Option
 type CommandOption struct {
 	FilePath     string   `arg:"-f,help:config file path"`
