@@ -86,6 +86,9 @@ func ConnectSshTerminal(connectServer string, confList conf.Config, execRemoteCm
 		execCmd = sshCmd
 	}
 
+	// Print selected server and connect command
+	fmt.Fprintf(os.Stderr, "Select Server :%s\n", connectServer)
+
 	// exec ssh command
 	child, _ := gexpect.NewSubProcess("/bin/bash", "-c", execCmd)
 
@@ -186,6 +189,10 @@ func ConnectSshCommand(connectServer string, confList conf.Config, execRemoteCmd
 	session.Stdin = os.Stdin
 
 	execRemoteCmdString := strings.Join(execRemoteCmd, " ")
+
+	fmt.Fprintf(os.Stderr, "Select Server :%s\n", connectServer)
+	fmt.Fprintf(os.Stderr, "Exec command  :%s\n", execRemoteCmdString)
+
 	err = session.Run(execRemoteCmdString)
 	if err != nil {
 		fmt.Fprint(os.Stderr, err)
