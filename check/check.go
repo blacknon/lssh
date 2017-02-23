@@ -41,3 +41,12 @@ func DefCommandExistCheck() {
 		CommandExistCheck(v)
 	}
 }
+
+func CheckInputServerExit(inputServer string, nameList []string) bool {
+	for _, v := range nameList {
+		if v == inputServer {
+			return true
+		}
+	}
+	return false
+}

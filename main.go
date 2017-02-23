@@ -59,11 +59,15 @@ func main() {
 
 	selectServer := ""
 	if connectHost != "" {
-		selectServer = connectHost
+		if check.CheckInputServerExit(connectHost, nameList) == false {
+			fmt.Fprintln(os.Stderr, "Input Server not found from list.")
+			os.Exit(1)
+		} else {
+			selectServer = connectHost
+		}
 	} else {
 		// View List And Get Select Line
 		selectServer = list.DrawList(nameList, listConf)
-
 		if selectServer == "ServerName" {
 			fmt.Fprintln(os.Stderr, "Server not selected.")
 			os.Exit(1)
