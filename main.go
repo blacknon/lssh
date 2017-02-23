@@ -6,7 +6,6 @@ import (
 	"os/user"
 	"sort"
 	"strings"
-	"syscall"
 
 	arg "github.com/alexflint/go-arg"
 	"github.com/blacknon/lssh/check"
@@ -77,7 +76,6 @@ func main() {
 	}
 
 	// Get exec command line.
-	envName := "BE_LSSH"
 	cName := ""
 	for i := 0; i < len(os.Args); i++ {
 		if strings.Contains(os.Args[i], " ") {
@@ -85,8 +83,9 @@ func main() {
 		}
 		cName = strings.Join(os.Args[:], " ") + " "
 	}
-	os.Setenv(envName, cName)
+	fmt.Println(cName)
 
+	// Exec Connect ssh
 	if terminalExec == false && len(execRemoteCmd) != 0 {
 		// Connect SSH Terminal
 		ssh.ConnectSshCommand(selectServer, listConf, execRemoteCmd...)
@@ -94,7 +93,4 @@ func main() {
 		// Exec SSH Command Only
 		ssh.ConnectSshTerminal(selectServer, listConf, execRemoteCmd...)
 	}
-
-	// set env
-	syscall.Exec(os.Getenv("SHELL"), []string{os.Getenv("SHELL")}, syscall.Environ())
 }
