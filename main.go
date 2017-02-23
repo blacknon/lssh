@@ -5,6 +5,8 @@ import (
 	"os"
 	"os/user"
 	"sort"
+	"strings"
+	"syscall"
 
 	arg "github.com/alexflint/go-arg"
 	"github.com/blacknon/lssh/check"
@@ -74,11 +76,31 @@ func main() {
 		}
 	}
 
+	cName := ""
+	for i := 0; i < len(os.Args); i++ {
+		if strings.Contains(os.Args[i], " ") {
+			os.Args[i] = "\"" + os.Args[i] + "\""
+		}
+		cName = strings.Join(os.Args[:], " ") + " "
+	}
+	os.Setenv("BE_LSSH", cName)
+	fmt.Println(os.Getenv("BE_LSSH"))
+
+	//fmt.Println(testEnv)
+	//fmt.Println(cName)
+
 	if terminalExec == false && len(execRemoteCmd) != 0 {
 		// Connect SSH Terminal
-		os.Exit(ssh.ConnectSshCommand(selectServer, listConf, execRemoteCmd...))
+		//os.Exit(ssh.ConnectSshCommand(selectServer, listConf, execRemoteCmd...))
+		ssh.ConnectSshCommand(selectServer, listConf, execRemoteCmd...)
+		//syscall.Exec(os.Getenv("SHELL"), []string{os.Getenv("SHELL")}, syscall.Environ())
 	} else {
 		// Exec SSH Command Only
-		os.Exit(ssh.ConnectSshTerminal(selectServer, listConf, execRemoteCmd...))
+		//os.Exit(ssh.ConnectSshTerminal(selectServer, listConf, execRemoteCmd...))
+		ssh.ConnectSshTerminal(selectServer, listConf, execRemoteCmd...)
+		//syscall.Exec(os.Getenv("SHELL"), []string{os.Getenv("SHELL")}, syscall.Environ())
 	}
+	// Set env lssh process name to "$BE_LSSH"
+	//syscall.Exec()
+	syscall.Exec(os.Getenv("SHELL"), []string{os.Getenv("SHELL")}, syscall.Environ())
 }
