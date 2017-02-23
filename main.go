@@ -15,6 +15,7 @@ import (
 
 // Command Option
 type CommandOption struct {
+	Host     string   `arg:"-H,help:Connect servername"`
 	File     string   `arg:"-f,help:config file path"`
 	Terminal bool     `arg:"-T,help:Run specified command at terminal"`
 	Command  []string `arg:"positional,help:Remote Server exec command."`
@@ -47,6 +48,7 @@ func main() {
 	configFile := args.File
 	execRemoteCmd := args.Command
 	terminalExec := args.Terminal
+	connectHost := args.Host
 
 	// Get List
 	listConf := conf.ConfigCheckRead(configFile)
@@ -55,12 +57,17 @@ func main() {
 	nameList := conf.GetNameList(listConf)
 	sort.Strings(nameList)
 
-	// View List And Get Select Line
-	selectServer := list.DrawList(nameList, listConf)
+	selectServer := ""
+	if connectHost != "" {
+		selectServer = connectHost
+	} else {
+		// View List And Get Select Line
+		selectServer = list.DrawList(nameList, listConf)
 
-	if selectServer == "ServerName" {
-		fmt.Fprintln(os.Stderr, "Server not selected.")
-		os.Exit(1)
+		if selectServer == "ServerName" {
+			fmt.Fprintln(os.Stderr, "Server not selected.")
+			os.Exit(1)
+		}
 	}
 
 	if terminalExec == false && len(execRemoteCmd) != 0 {
