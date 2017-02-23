@@ -15,9 +15,9 @@ import (
 
 // Command Option
 type CommandOption struct {
-	FilePath     string   `arg:"-f,help:config file path"`
-	TerminalExec bool     `arg:"-T,help:Run specified command at terminal"`
-	Command      []string `arg:"positional,help:Remote Server exec command."`
+	File     string   `arg:"-f,help:config file path"`
+	Terminal bool     `arg:"-T,help:Run specified command at terminal"`
+	Command  []string `arg:"positional,help:Remote Server exec command."`
 }
 
 // Version Setting
@@ -40,13 +40,13 @@ func main() {
 	}
 
 	// Default Value
-	args.FilePath = defaultConfPath
+	args.File = defaultConfPath
 	arg.MustParse(&args)
 
 	// set option value
-	configFile := args.FilePath
+	configFile := args.File
 	execRemoteCmd := args.Command
-	terminalExec := args.TerminalExec
+	terminalExec := args.Terminal
 
 	// Get List
 	listConf := conf.ConfigCheckRead(configFile)
@@ -59,7 +59,7 @@ func main() {
 	selectServer := list.DrawList(nameList, listConf)
 
 	if selectServer == "ServerName" {
-		fmt.Println("Server not selected.")
+		fmt.Fprintln(os.Stderr, "Server not selected.")
 		os.Exit(1)
 	}
 
