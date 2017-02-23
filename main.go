@@ -76,6 +76,8 @@ func main() {
 		}
 	}
 
+	// Get exec command line.
+	envName := "BE_LSSH"
 	cName := ""
 	for i := 0; i < len(os.Args); i++ {
 		if strings.Contains(os.Args[i], " ") {
@@ -83,24 +85,16 @@ func main() {
 		}
 		cName = strings.Join(os.Args[:], " ") + " "
 	}
-	os.Setenv("BE_LSSH", cName)
-	fmt.Println(os.Getenv("BE_LSSH"))
-
-	//fmt.Println(testEnv)
-	//fmt.Println(cName)
+	os.Setenv(envName, cName)
 
 	if terminalExec == false && len(execRemoteCmd) != 0 {
 		// Connect SSH Terminal
-		//os.Exit(ssh.ConnectSshCommand(selectServer, listConf, execRemoteCmd...))
 		ssh.ConnectSshCommand(selectServer, listConf, execRemoteCmd...)
-		//syscall.Exec(os.Getenv("SHELL"), []string{os.Getenv("SHELL")}, syscall.Environ())
 	} else {
 		// Exec SSH Command Only
-		//os.Exit(ssh.ConnectSshTerminal(selectServer, listConf, execRemoteCmd...))
 		ssh.ConnectSshTerminal(selectServer, listConf, execRemoteCmd...)
-		//syscall.Exec(os.Getenv("SHELL"), []string{os.Getenv("SHELL")}, syscall.Environ())
 	}
-	// Set env lssh process name to "$BE_LSSH"
-	//syscall.Exec()
+
+	// set env
 	syscall.Exec(os.Getenv("SHELL"), []string{os.Getenv("SHELL")}, syscall.Environ())
 }
