@@ -8,8 +8,18 @@ import (
 )
 
 type Config struct {
+	Main   MainConfig
 	Log    LogConfig
 	Server map[string]ReadConfig
+}
+
+type MainConfig struct {
+	HistoryInsert bool `toml:"histinsert"`
+}
+
+type LogConfig struct {
+	Enable bool   `toml:"enable"`
+	Dir    string `toml:"dirpath"`
 }
 
 type ReadConfig struct {
@@ -19,11 +29,6 @@ type ReadConfig struct {
 	Pass string `toml:"pass"`
 	Key  string `toml:"key"`
 	Note string `toml:"note"`
-}
-
-type LogConfig struct {
-	Enable bool   `toml:"enable"`
-	Dir    string `toml:"dirpath"`
 }
 
 func ConfigCheckRead(confPath string) (checkConf Config) {
@@ -37,27 +42,28 @@ func ConfigCheckRead(confPath string) (checkConf Config) {
 
 	// Config Value Check
 	for k, v := range checkConf.Server {
+		// Address Input Check
 		if v.Addr == "" {
 			fmt.Printf("%s: 'addr' is not inserted.\n", k)
 			checkAlertFlag = 1
 		}
 
+		// User Input Check
 		if v.User == "" {
 			fmt.Printf("%s: 'user' is not inserted.\n", k)
 			checkAlertFlag = 1
 		}
 
+		// Password or Keyfile Input Check
 		if v.Pass == "" && v.Key == "" {
 			fmt.Printf("%s: Both Password and KeyPath are entered.Please enter either.\n", k)
 			checkAlertFlag = 1
 		}
-
 	}
 
 	if checkAlertFlag == 1 {
 		os.Exit(1)
 	}
-
 	return
 }
 
