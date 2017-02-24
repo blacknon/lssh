@@ -5,7 +5,6 @@ import (
 	"os"
 	"os/user"
 	"sort"
-	"strings"
 
 	arg "github.com/alexflint/go-arg"
 	"github.com/blacknon/lssh/check"
@@ -76,14 +75,13 @@ func main() {
 	}
 
 	// Get exec command line.
-	cName := ""
-	for i := 0; i < len(os.Args); i++ {
-		if strings.Contains(os.Args[i], " ") {
-			os.Args[i] = "\"" + os.Args[i] + "\""
-		}
-		cName = strings.Join(os.Args[:], " ") + " "
-	}
-	fmt.Println(cName)
+	//cName := ""
+	//for i := 0; i < len(os.Args); i++ {
+	//	if strings.Contains(os.Args[i], " ") {
+	//		os.Args[i] = "\"" + os.Args[i] + "\""
+	//	}
+	//	cName = strings.Join(os.Args[:], " ") + " "
+	//}
 
 	// Exec Connect ssh
 	if terminalExec == false && len(execRemoteCmd) != 0 {
