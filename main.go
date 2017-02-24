@@ -16,6 +16,7 @@ import (
 // Command Option
 type CommandOption struct {
 	Host     string   `arg:"-H,help:Connect servername"`
+	List     bool     `arg:"-l,help:print server list"`
 	File     string   `arg:"-f,help:config file path"`
 	Terminal bool     `arg:"-T,help:Run specified command at terminal"`
 	Command  []string `arg:"positional,help:Remote Server exec command."`
@@ -46,6 +47,7 @@ func main() {
 
 	// set option value
 	configFile := args.File
+	listFlag := args.List
 	execRemoteCmd := args.Command
 	terminalExec := args.Terminal
 	connectHost := args.Host
@@ -56,6 +58,15 @@ func main() {
 	// Get Server Name List (and sort List)
 	nameList := conf.GetNameList(listConf)
 	sort.Strings(nameList)
+
+	// if --list option
+	if listFlag == true {
+		fmt.Fprintf(os.Stderr, "lssh Server List:\n")
+		for v := range nameList {
+			fmt.Fprintf(os.Stderr, "  %s\n", nameList[v])
+		}
+		os.Exit(0)
+	}
 
 	selectServer := ""
 	if connectHost != "" {
