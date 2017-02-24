@@ -10,7 +10,6 @@ import (
 	"github.com/blacknon/lssh/check"
 	"github.com/blacknon/lssh/conf"
 	"github.com/blacknon/lssh/list"
-	"github.com/blacknon/lssh/option"
 	"github.com/blacknon/lssh/ssh"
 )
 
@@ -74,17 +73,6 @@ func main() {
 			os.Exit(1)
 		}
 	}
-
-	//fmt.Println(listConf.Main.HistoryInsert)
-	option.AddShellHistory()
-	// Get exec command line.
-	//cName := ""
-	//for i := 0; i < len(os.Args); i++ {
-	//	if strings.Contains(os.Args[i], " ") {
-	//		os.Args[i] = "\"" + os.Args[i] + "\""
-	//	}
-	//	cName = strings.Join(os.Args[:], " ") + " "
-	//}
 
 	// Exec Connect ssh
 	if terminalExec == false && len(execRemoteCmd) != 0 {
