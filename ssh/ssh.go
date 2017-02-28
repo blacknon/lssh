@@ -179,9 +179,9 @@ func ConnectSshCommand(connectServer string, confList conf.Config, terminalMode 
 	session.Stderr = os.Stderr
 	if terminalMode == true {
 		modes := ssh.TerminalModes{
-			ssh.ECHO:          0,     // disable echoing
-			ssh.TTY_OP_ISPEED: 14400, // input speed = 14.4kbaud
-			ssh.TTY_OP_OSPEED: 14400, // output speed = 14.4kbaud
+			ssh.ECHO:          0,
+			ssh.TTY_OP_ISPEED: 14400,
+			ssh.TTY_OP_OSPEED: 14400,
 		}
 
 		if err := session.RequestPty("xterm", 80, 40, modes); err != nil {
