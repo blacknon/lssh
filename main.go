@@ -86,9 +86,9 @@ func main() {
 	}
 
 	// Exec Connect ssh
-	if terminalExec == false && len(execRemoteCmd) != 0 {
+	if len(execRemoteCmd) != 0 {
 		// Connect SSH Terminal
-		os.Exit(ssh.ConnectSshCommand(selectServer, listConf, execRemoteCmd...))
+		os.Exit(ssh.ConnectSshCommand(selectServer, listConf, terminalExec, execRemoteCmd...))
 	} else {
 		// Exec SSH Command Only
 		os.Exit(ssh.ConnectSshTerminal(selectServer, listConf, execRemoteCmd...))

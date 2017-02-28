@@ -116,7 +116,7 @@ func ConnectSshTerminal(connectServer string, confList conf.Config, execRemoteCm
 }
 
 // remote ssh server exec command only
-func ConnectSshCommand(connectServer string, confList conf.Config, execRemoteCmd ...string) int {
+func ConnectSshCommand(connectServer string, confList conf.Config, terminalMode bool, execRemoteCmd ...string) int {
 	// Get log config value
 	//logEnable := confList.Log.Enable
 	//logDirPath := confList.Log.Dir
@@ -180,13 +180,28 @@ func ConnectSshCommand(connectServer string, confList conf.Config, execRemoteCmd
 	defer session.Close()
 
 	go func() {
-		time.Sleep(5 * time.Second)
+		time.Sleep(2419200 * time.Second)
 		conn.Close()
 	}()
 
 	session.Stdout = os.Stdout
 	session.Stderr = os.Stderr
-	session.Stdin = os.Stdin
+	if terminalMode == true {
+		modes := ssh.TerminalModes{
+			ssh.ECHO:          0,     // disable echoing
+			ssh.TTY_OP_ISPEED: 14400, // input speed = 14.4kbaud
+			ssh.TTY_OP_OSPEED: 14400, // output speed = 14.4kbaud
+		}
+
+		if err := session.RequestPty("xterm", 80, 40, modes); err != nil {
+			session.Close()
+			fmt.Errorf("request for pseudo terminal failed: %s", err)
+		}
+	} else {
+		session.Stdin = os.Stdin
+	}
+
+	//session.Shell()
 
 	execRemoteCmdString := strings.Join(execRemoteCmd, " ")
 
@@ -198,7 +213,11 @@ func ConnectSshCommand(connectServer string, confList conf.Config, execRemoteCmd
 		fmt.Fprint(os.Stderr, err)
 		if ee, ok := err.(*ssh.ExitError); ok {
 			return ee.ExitStatus()
+
 		}
+
 	}
+	//session.Wait()
 	return 0
+
 }
