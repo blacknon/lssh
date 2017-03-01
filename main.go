@@ -91,6 +91,6 @@ func main() {
 		os.Exit(ssh.ConnectSshCommand(selectServer, listConf, terminalExec, execRemoteCmd...))
 	} else {
 		// Exec SSH Command Only
-		os.Exit(ssh.ConnectSshTerminal(selectServer, listConf, execRemoteCmd...))
+		os.Exit(ssh.ConnectSshTerminal(selectServer, listConf))
 	}
 }

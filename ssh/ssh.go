@@ -17,7 +17,7 @@ import (
 )
 
 // OS ssh wrapper(terminal connect)
-func ConnectSshTerminal(connectServer string, confList conf.Config, execRemoteCmd ...string) int {
+func ConnectSshTerminal(connectServer string, confList conf.Config) int {
 	// Get log config value
 	logEnable := confList.Log.Enable
 	logDirPath := confList.Log.Dir
@@ -65,15 +65,6 @@ func ConnectSshTerminal(connectServer string, confList conf.Config, execRemoteCm
 		logFile := time.Now().Format("20060102_150405") + "_" + connectServer + ".log"
 		logFilePATH := logDirPath + "/" + logFile
 		awkCmd := ">(awk '{print strftime(\"%F %T \") $0}{fflush() }'>>" + logFilePATH + ")"
-
-		// exec_command option check
-		if len(execRemoteCmd) != 0 {
-			execRemoteCmdString := strings.Join(execRemoteCmd, " ")
-			sshCmd = sshCmd + " " + execRemoteCmdString
-			logHeadContent := []byte("Exec command: " + execRemoteCmdString + "\n\n" +
-				"=============================\n")
-			ioutil.WriteFile(logFilePATH, logHeadContent, os.ModePerm)
-		}
 
 		// OS check
 		if execOS == "linux" || execOS == "android" {
@@ -188,9 +179,9 @@ func ConnectSshCommand(connectServer string, confList conf.Config, terminalMode 
 	session.Stderr = os.Stderr
 	if terminalMode == true {
 		modes := ssh.TerminalModes{
-			ssh.ECHO:          0,     // disable echoing
-			ssh.TTY_OP_ISPEED: 14400, // input speed = 14.4kbaud
-			ssh.TTY_OP_OSPEED: 14400, // output speed = 14.4kbaud
+			ssh.ECHO:          0,
+			ssh.TTY_OP_ISPEED: 14400,
+			ssh.TTY_OP_OSPEED: 14400,
 		}
 
 		if err := session.RequestPty("xterm", 80, 40, modes); err != nil {
@@ -200,8 +191,6 @@ func ConnectSshCommand(connectServer string, confList conf.Config, terminalMode 
 	} else {
 		session.Stdin = os.Stdin
 	}
-
-	//session.Shell()
 
 	execRemoteCmdString := strings.Join(execRemoteCmd, " ")
 
@@ -213,10 +202,9 @@ func ConnectSshCommand(connectServer string, confList conf.Config, terminalMode 
 		fmt.Fprint(os.Stderr, err)
 		if ee, ok := err.(*ssh.ExitError); ok {
 			return ee.ExitStatus()
-
 		}
-
 	}
+	//session.Shell()
 	//session.Wait()
 	return 0
 
