@@ -61,9 +61,9 @@ func main() {
 
 	// if --list option
 	if listFlag == true {
-		fmt.Fprintf(os.Stderr, "lssh Server List:\n")
+		fmt.Fprintf(os.Stdout, "lssh Server List:\n")
 		for v := range nameList {
-			fmt.Fprintf(os.Stderr, "  %s\n", nameList[v])
+			fmt.Fprintf(os.Stdout, "  %s\n", nameList[v])
 		}
 		os.Exit(0)
 	}
