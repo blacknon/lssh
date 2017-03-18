@@ -1,9 +1,9 @@
+[![CircleCI](https://circleci.com/gh/blacknon/lssh.svg?style=svg)](https://circleci.com/gh/blacknon/lssh)
+
 lssh
 ====
 
 List selection formula ssh wrapper command
-
-[![CircleCI](https://circleci.com/gh/blacknon/lssh.svg?style=svg)](https://circleci.com/gh/blacknon/lssh)
 
 ## Description
 
