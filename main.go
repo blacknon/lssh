@@ -46,11 +46,11 @@ func main() {
 	arg.MustParse(&args)
 
 	// set option value
-	configFile := args.File
-	listFlag := args.List
-	execRemoteCmd := args.Command
-	terminalExec := args.Terminal
 	connectHost := args.Host
+	listFlag := args.List
+	configFile := args.File
+	terminalExec := args.Terminal
+	execRemoteCmd := args.Command
 
 	// Get List
 	listConf := conf.ConfigCheckRead(configFile)
