@@ -114,6 +114,8 @@ func draw(serverNameList []string, selectCursor int, searchText string) {
 
 		// Draw filter line
 		drawLine(leftMargin, listKey+headLine, listValue, cursorColor, cursorBackColor)
+
+		// Keyword Highlight
 		drawFilterLine(leftMargin, listKey+headLine, listValue, cursorColor, cursorBackColor, keywordColor, searchText)
 		listKey += 1
 	}
