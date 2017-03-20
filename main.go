@@ -19,7 +19,7 @@ type CommandOption struct {
 	List     bool     `arg:"-l,help:print server list"`
 	File     string   `arg:"-f,help:config file path"`
 	Terminal bool     `arg:"-T,help:Run specified command at terminal"`
-	Command  []string `arg:"positional,help:Remote Server exec command."`
+	Command  []string `arg:"-C,help:Remote Server exec command."`
 }
 
 // Version Setting
@@ -96,9 +96,16 @@ func main() {
 	// Exec Connect ssh
 	if cmdFlag == true {
 		// Connect SSH Terminal
-		os.Exit(ssh.ConnectSshCommand(selectServer[0], listConf, terminalExec, execRemoteCmd...))
+		for _, v := range selectServer {
+			ssh.ConnectSshCommand(v, listConf, terminalExec, execRemoteCmd...)
+		}
+		os.Exit(0)
+		//os.Exit(ssh.ConnectSshCommand(selectServer[0], listConf, terminalExec, execRemoteCmd...))
 	} else {
 		// Exec SSH Command Only
+		if len(selectServer) > 1 {
+			fmt.Fprintln(os.Stdout, "Connect ssh interactive shell.Connect only to the first device")
+		}
 		os.Exit(ssh.ConnectSshTerminal(selectServer[0], listConf))
 	}
 }
