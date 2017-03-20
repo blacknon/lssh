@@ -15,7 +15,7 @@ import (
 
 // Command Option
 type CommandOption struct {
-	Host     string   `arg:"-H,help:Connect servername"`
+	Host     []string `arg:"-H,help:Connect servername"`
 	List     bool     `arg:"-l,help:print server list"`
 	File     string   `arg:"-f,help:config file path"`
 	Terminal bool     `arg:"-T,help:Run specified command at terminal"`
@@ -68,8 +68,9 @@ func main() {
 		os.Exit(0)
 	}
 
-	selectServer := ""
-	if connectHost != "" {
+	selectServer := []string{}
+	if len(connectHost) != 0 {
+		//if connectHost != "" {
 		if check.CheckInputServerExit(connectHost, nameList) == false {
 			fmt.Fprintln(os.Stderr, "Input Server not found from list.")
 			os.Exit(1)
@@ -79,18 +80,19 @@ func main() {
 	} else {
 		// View List And Get Select Line
 		selectServer = list.DrawList(nameList, listConf)
-		if selectServer == "ServerName" {
+		if selectServer[0] == "ServerName" {
 			fmt.Fprintln(os.Stderr, "Server not selected.")
 			os.Exit(1)
 		}
 	}
+	fmt.Println(selectServer)
 
 	// Exec Connect ssh
 	if len(execRemoteCmd) != 0 {
 		// Connect SSH Terminal
-		os.Exit(ssh.ConnectSshCommand(selectServer, listConf, terminalExec, execRemoteCmd...))
+		os.Exit(ssh.ConnectSshCommand(selectServer[0], listConf, terminalExec, execRemoteCmd...))
 	} else {
 		// Exec SSH Command Only
-		os.Exit(ssh.ConnectSshTerminal(selectServer, listConf))
+		os.Exit(ssh.ConnectSshTerminal(selectServer[0], listConf))
 	}
 }

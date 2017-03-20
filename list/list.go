@@ -194,7 +194,7 @@ func getFilterListData(searchText string, listData []string) (returnListData []s
 	return returnListData
 }
 
-func pollEvent(serverNameList []string, serverList conf.Config) (lineData string) {
+func pollEvent(serverNameList []string, serverList conf.Config) (lineData []string) {
 	defer termbox.Close()
 	listData := getListData(serverNameList, serverList)
 	selectline := 0
@@ -249,7 +249,7 @@ func pollEvent(serverNameList []string, serverList conf.Config) (lineData string
 
 			// Enter Key
 			case termbox.KeyEnter:
-				lineData = strings.Fields(filterListData[selectline+1])[0]
+				lineData = append(lineData, strings.Fields(filterListData[selectline+1])[0])
 				return
 
 			// BackSpace Key
@@ -288,7 +288,7 @@ func pollEvent(serverNameList []string, serverList conf.Config) (lineData string
 	}
 }
 
-func DrawList(serverNameList []string, serverList conf.Config) (lineName string) {
+func DrawList(serverNameList []string, serverList conf.Config) (lineName []string) {
 	err := termbox.Init()
 	if err != nil {
 		panic(err)
