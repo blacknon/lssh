@@ -55,6 +55,12 @@ func main() {
 	// Get List
 	listConf := conf.ConfigCheckRead(configFile)
 
+	// Command flag
+	cmdFlag := false
+	if len(execRemoteCmd) != 0 {
+		cmdFlag = true
+	}
+
 	// Get Server Name List (and sort List)
 	nameList := conf.GetNameList(listConf)
 	sort.Strings(nameList)
@@ -70,7 +76,6 @@ func main() {
 
 	selectServer := []string{}
 	if len(connectHost) != 0 {
-		//if connectHost != "" {
 		if check.CheckInputServerExit(connectHost, nameList) == false {
 			fmt.Fprintln(os.Stderr, "Input Server not found from list.")
 			os.Exit(1)
@@ -79,15 +84,17 @@ func main() {
 		}
 	} else {
 		// View List And Get Select Line
-		selectServer = list.DrawList(nameList, listConf)
+		selectServer = list.DrawList(nameList, cmdFlag, listConf)
 		if selectServer[0] == "ServerName" {
 			fmt.Fprintln(os.Stderr, "Server not selected.")
 			os.Exit(1)
 		}
 	}
 
+	fmt.Println(selectServer)
+
 	// Exec Connect ssh
-	if len(execRemoteCmd) != 0 {
+	if cmdFlag == true {
 		// Connect SSH Terminal
 		os.Exit(ssh.ConnectSshCommand(selectServer[0], listConf, terminalExec, execRemoteCmd...))
 	} else {
