@@ -85,7 +85,6 @@ func main() {
 			os.Exit(1)
 		}
 	}
-	fmt.Println(selectServer)
 
 	// Exec Connect ssh
 	if len(execRemoteCmd) != 0 {
