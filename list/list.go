@@ -269,7 +269,9 @@ func pollEvent(serverNameList []string, cmdFlag bool, serverList conf.Config) (l
 
 			// Enter Key
 			case termbox.KeyEnter:
-				lineData = append(lineData, strings.Fields(filterListData[selectline+1])[0])
+				if len(lineData) == 0 {
+					lineData = append(lineData, strings.Fields(filterListData[selectline+1])[0])
+				}
 				return
 
 			// BackSpace Key
