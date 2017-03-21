@@ -30,9 +30,22 @@ func drawLine(x, y int, str string, colorNum int, backColorNum int) {
 }
 
 // toggle select line (multi select)
-//func toggleList(selectedList []string,selectLine string) {
-//
-//}
+func toggleList(selectedList []string, newLine string) (toggledSelectedList []string) {
+	//
+	//result := []int{}
+	addFlag := true
+	for _, selectedLine := range selectedList {
+		if selectedLine != newLine {
+			toggledSelectedList = append(toggledSelectedList, selectedLine)
+		} else {
+			addFlag = false
+		}
+	}
+	if addFlag == true {
+		toggledSelectedList = append(toggledSelectedList, newLine)
+	}
+	return
+}
 
 func drawFilterLine(x, y int, str string, colorNum int, backColorNum int, keywordColorNum int, searchText string) {
 	// SearchText Bounds Space
@@ -114,8 +127,6 @@ func draw(serverNameList []string, lineData []string, selectCursor int, searchTe
 
 		for _, selectedLine := range lineData {
 			if strings.Split(listValue, " ")[0] == selectedLine {
-				//cursorColor = 4
-				//cursorBackColor = 6
 				cursorColor = 0
 				cursorBackColor = 6
 			}
@@ -267,7 +278,7 @@ func pollEvent(serverNameList []string, cmdFlag bool, serverList conf.Config) (l
 			// Ctrl + \(BackSlash) Key(select)
 			case termbox.KeyCtrlX:
 				if cmdFlag == true {
-					lineData = append(lineData, strings.Fields(filterListData[selectline+1])[0])
+					lineData = toggleList(lineData, strings.Fields(filterListData[selectline+1])[0])
 				}
 
 				draw(filterListData, lineData, selectline, searchText)
