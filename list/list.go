@@ -29,6 +29,11 @@ func drawLine(x, y int, str string, colorNum int, backColorNum int) {
 	}
 }
 
+// toggle select line (multi select)
+//func toggleList(selectedList []string,selectLine string) {
+//
+//}
+
 func drawFilterLine(x, y int, str string, colorNum int, backColorNum int, keywordColorNum int, searchText string) {
 	// SearchText Bounds Space
 	searchWords := strings.Fields(searchText)
