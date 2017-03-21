@@ -72,7 +72,7 @@ func drawFilterLine(x, y int, str string, colorNum int, backColorNum int, keywor
 }
 
 // Draw List
-func draw(serverNameList []string, selectCursor int, searchText string) {
+func draw(serverNameList []string, lineData []string, selectCursor int, searchText string) {
 	headLine := 2
 	leftMargin := 2
 	defaultColor := 255
@@ -106,6 +106,16 @@ func draw(serverNameList []string, selectCursor int, searchText string) {
 		cursorColor := defaultColor
 		cursorBackColor := defaultBackColor
 		keywordColor := 5
+
+		for _, selectedLine := range lineData {
+			if strings.Split(listValue, " ")[0] == selectedLine {
+				//cursorColor = 4
+				//cursorBackColor = 6
+				cursorColor = 0
+				cursorBackColor = 6
+			}
+		}
+
 		if listKey == selectViewCursor {
 			// Select line color
 			cursorColor = 0
@@ -208,7 +218,7 @@ func pollEvent(serverNameList []string, cmdFlag bool, serverList conf.Config) (l
 	searchText := ""
 
 	filterListData := getFilterListData(searchText, listData)
-	draw(filterListData, selectline, searchText)
+	draw(filterListData, lineData, selectline, searchText)
 	for {
 		switch ev := termbox.PollEvent(); ev.Type {
 
@@ -225,21 +235,21 @@ func pollEvent(serverNameList []string, cmdFlag bool, serverList conf.Config) (l
 				if selectline > 0 {
 					selectline -= 1
 				}
-				draw(filterListData, selectline, searchText)
+				draw(filterListData, lineData, selectline, searchText)
 
 			// AllowDown Key
 			case termbox.KeyArrowDown:
 				if selectline < len(filterListData)-headLine {
 					selectline += 1
 				}
-				draw(filterListData, selectline, searchText)
+				draw(filterListData, lineData, selectline, searchText)
 
 			// AllowRight Key
 			case termbox.KeyArrowRight:
 				if ((selectline+lineHeight)/lineHeight)*lineHeight <= len(filterListData) {
 					selectline = ((selectline + lineHeight) / lineHeight) * lineHeight
 				}
-				draw(filterListData, selectline, searchText)
+				draw(filterListData, lineData, selectline, searchText)
 
 			// AllowLeft Key
 			case termbox.KeyArrowLeft:
@@ -247,13 +257,15 @@ func pollEvent(serverNameList []string, cmdFlag bool, serverList conf.Config) (l
 					selectline = ((selectline - lineHeight) / lineHeight) * lineHeight
 				}
 
-				draw(filterListData, selectline, searchText)
+				draw(filterListData, lineData, selectline, searchText)
 
 			// Ctrl + \(BackSlash) Key(select)
-			case termbox.KeyCtrlBackslash:
+			case termbox.KeyCtrlX:
 				if cmdFlag == true {
 					lineData = append(lineData, strings.Fields(filterListData[selectline+1])[0])
 				}
+
+				draw(filterListData, lineData, selectline, searchText)
 
 			// Enter Key
 			case termbox.KeyEnter:
@@ -271,13 +283,13 @@ func pollEvent(serverNameList []string, cmdFlag bool, serverList conf.Config) (l
 					if selectline < 0 {
 						selectline = 0
 					}
-					draw(filterListData, selectline, searchText)
+					draw(filterListData, lineData, selectline, searchText)
 				}
 
 			// Space Key
 			case termbox.KeySpace:
 				searchText = searchText + " "
-				draw(filterListData, selectline, searchText)
+				draw(filterListData, lineData, selectline, searchText)
 
 			// Other Key
 			default:
@@ -287,11 +299,11 @@ func pollEvent(serverNameList []string, cmdFlag bool, serverList conf.Config) (l
 					if selectline > len(filterListData)-headLine {
 						selectline = len(filterListData) - headLine
 					}
-					draw(filterListData, selectline, searchText)
+					draw(filterListData, lineData, selectline, searchText)
 				}
 			}
 		default:
-			draw(filterListData, selectline, searchText)
+			draw(filterListData, lineData, selectline, searchText)
 		}
 	}
 }
