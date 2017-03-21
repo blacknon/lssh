@@ -5,6 +5,7 @@ import (
 	"os"
 	"os/user"
 	"sort"
+	"strings"
 
 	arg "github.com/alexflint/go-arg"
 	"github.com/blacknon/lssh/check"
@@ -91,21 +92,26 @@ func main() {
 		}
 	}
 
-	fmt.Println(selectServer)
-
 	// Exec Connect ssh
 	if cmdFlag == true {
-		// Connect SSH Terminal
-		for _, v := range selectServer {
-			ssh.ConnectSshCommand(v, listConf, terminalExec, execRemoteCmd...)
+		fmt.Fprintf(os.Stderr, "Select Server :%s\n", strings.Join(selectServer, ","))
+		fmt.Fprintf(os.Stderr, "Exec command  :%s\n", strings.Join(execRemoteCmd, " "))
+		if len(selectServer) > 1 {
+			// Connect SSH Multi Node exec command
+			ssh.MultiConnectSshCommand(selectServer, listConf, terminalExec, execRemoteCmd...)
+		} else {
+			ssh.ConnectSshCommand(selectServer[0], listConf, terminalExec, execRemoteCmd...)
 		}
 		os.Exit(0)
 		//os.Exit(ssh.ConnectSshCommand(selectServer[0], listConf, terminalExec, execRemoteCmd...))
 	} else {
-		// Exec SSH Command Only
+		// Print selected server and connect command
+		fmt.Fprintf(os.Stderr, "Select Server :%s\n", selectServer[0])
+
 		if len(selectServer) > 1 {
 			fmt.Fprintln(os.Stdout, "Connect ssh interactive shell.Connect only to the first device")
 		}
+		// Connect SSH Terminal
 		os.Exit(ssh.ConnectSshTerminal(selectServer[0], listConf))
 	}
 }
