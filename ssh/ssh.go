@@ -1,7 +1,6 @@
 package ssh
 
 import (
-	"bytes"
 	"fmt"
 	"io/ioutil"
 	"os"
@@ -173,12 +172,9 @@ func ConnectSshCommand(connectServer string, confList conf.Config, terminalMode 
 		conn.Close()
 	}()
 
-	//var stdoutBuf bytes.Buffer
-
 	session.Stdout = os.Stdout
 	session.Stderr = os.Stderr
-	//session.Stdout = &stdoutBuf
-	//session.Stderr = &stdoutBuf
+
 	if terminalMode == true {
 		modes := ssh.TerminalModes{
 			ssh.ECHO:          0,
@@ -203,134 +199,126 @@ func ConnectSshCommand(connectServer string, confList conf.Config, terminalMode 
 			return ee.ExitStatus()
 		}
 	}
-	//session.Shell()
-	//session.Wait()
-
-	//stdline, err := stdoutBuf.ReadString('\n')
-	//for err == nil {
-	//	c <- connectServer + ": " + stdline
-	//}
-
-	//scanner := bufio.NewScanner(stdoutBuf)
-
-	//for scanner.Scan() {
-	//	c <- connectServer + ": " + scanner.Text()
-	//}
 	return 0
 
 }
 
-func MultiConnectSshCommand(connectServer []string, confList conf.Config, terminalMode bool, execRemoteCmd ...string) int {
+//
+func MultiConnectSshCommand(connectServerList []string, confList conf.Config, terminalMode bool, execRemoteCmd ...string) int {
 	// Get log config value
 	//logEnable := confList.Log.Enable
 	//logDirPath := confList.Log.Dir
 
-	// Get ssh config value
-	connectUser := confList.Server[connectServer].User
-	connectAddr := confList.Server[connectServer].Addr
-	var connectPort string
-	if confList.Server[connectServer].Port == "" {
-		connectPort = "22"
-	} else {
-		connectPort = confList.Server[connectServer].Port
-	}
-	connectPass := confList.Server[connectServer].Pass
-	connectKey := confList.Server[connectServer].Key
+	for _, connectServer := range connectServerList {
 
-	// Set ssh client config
-	config := &ssh.ClientConfig{}
-	if connectKey != "" {
-		// Read PublicKey
-		buffer, err := ioutil.ReadFile(connectKey)
+		// Get ssh config value
+		connectUser := confList.Server[connectServer].User
+		connectAddr := confList.Server[connectServer].Addr
+		var connectPort string
+		if confList.Server[connectServer].Port == "" {
+			connectPort = "22"
+		} else {
+			connectPort = confList.Server[connectServer].Port
+		}
+		connectPass := confList.Server[connectServer].Pass
+		connectKey := confList.Server[connectServer].Key
+
+		// Set ssh client config
+		config := &ssh.ClientConfig{}
+		if connectKey != "" {
+			// Read PublicKey
+			buffer, err := ioutil.ReadFile(connectKey)
+			if err != nil {
+				return 1
+			}
+			key, err := ssh.ParsePrivateKey(buffer)
+			if err != nil {
+				return 1
+			}
+
+			// Create ssh client config for KeyAuth
+			config = &ssh.ClientConfig{
+				User: connectUser,
+				Auth: []ssh.AuthMethod{
+					ssh.PublicKeys(key)},
+				Timeout: 60 * time.Second,
+			}
+		} else {
+			// Create ssh client config for PasswordAuth
+			config = &ssh.ClientConfig{
+				User: connectUser,
+				Auth: []ssh.AuthMethod{
+					ssh.Password(connectPass)},
+				Timeout: 60 * time.Second,
+			}
+		}
+
+		connectHostPort := connectAddr + ":" + connectPort
+
+		conn, err := ssh.Dial("tcp", connectHostPort, config)
 		if err != nil {
+			fmt.Fprintf(os.Stderr, "cannot connect %v: %v", connectHostPort, err)
 			return 1
 		}
-		key, err := ssh.ParsePrivateKey(buffer)
+		defer conn.Close()
+
+		session, err := conn.NewSession()
 		if err != nil {
+			fmt.Fprintf(os.Stderr, "cannot open new session: %v", err)
 			return 1
 		}
+		defer session.Close()
 
-		// Create ssh client config for KeyAuth
-		config = &ssh.ClientConfig{
-			User: connectUser,
-			Auth: []ssh.AuthMethod{
-				ssh.PublicKeys(key)},
-			Timeout: 60 * time.Second,
-		}
-	} else {
-		// Create ssh client config for PasswordAuth
-		config = &ssh.ClientConfig{
-			User: connectUser,
-			Auth: []ssh.AuthMethod{
-				ssh.Password(connectPass)},
-			Timeout: 60 * time.Second,
-		}
-	}
+		go func() {
+			time.Sleep(2419200 * time.Second)
+			conn.Close()
+		}()
 
-	connectHostPort := connectAddr + ":" + connectPort
+		//var stdoutBuf bytes.Buffer
 
-	conn, err := ssh.Dial("tcp", connectHostPort, config)
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "cannot connect %v: %v", connectHostPort, err)
-		return 1
-	}
-	defer conn.Close()
+		session.Stdout = os.Stdout
+		session.Stderr = os.Stderr
+		//session.Stdout = &stdoutBuf
+		//session.Stderr = &stdoutBuf
+		if terminalMode == true {
+			modes := ssh.TerminalModes{
+				ssh.ECHO:          0,
+				ssh.TTY_OP_ISPEED: 14400,
+				ssh.TTY_OP_OSPEED: 14400,
+			}
 
-	session, err := conn.NewSession()
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "cannot open new session: %v", err)
-		return 1
-	}
-	defer session.Close()
-
-	go func() {
-		time.Sleep(2419200 * time.Second)
-		conn.Close()
-	}()
-
-	var stdoutBuf bytes.Buffer
-
-	//session.Stdout = os.Stdout
-	//session.Stderr = os.Stderr
-	session.Stdout = &stdoutBuf
-	session.Stderr = &stdoutBuf
-	if terminalMode == true {
-		modes := ssh.TerminalModes{
-			ssh.ECHO:          0,
-			ssh.TTY_OP_ISPEED: 14400,
-			ssh.TTY_OP_OSPEED: 14400,
+			if err := session.RequestPty("xterm", 80, 40, modes); err != nil {
+				session.Close()
+				fmt.Errorf("request for pseudo terminal failed: %s", err)
+			}
+		} else {
+			session.Stdin = os.Stdin
 		}
 
-		if err := session.RequestPty("xterm", 80, 40, modes); err != nil {
-			session.Close()
-			fmt.Errorf("request for pseudo terminal failed: %s", err)
+		execRemoteCmdString := strings.Join(execRemoteCmd, " ")
+
+		err = session.Run(execRemoteCmdString)
+		if err != nil {
+			fmt.Fprint(os.Stderr, err)
+			if ee, ok := err.(*ssh.ExitError); ok {
+				return ee.ExitStatus()
+			}
 		}
-	} else {
-		session.Stdin = os.Stdin
+		//session.Shell()
+		//session.Wait()
+
+		//stdline, err := stdoutBuf.ReadString('\n')
+		//for err == nil {
+		//	c <- connectServer + ": " + stdline
+		//}
+
+		//scanner := bufio.NewScanner(stdoutBuf)
+
+		//for scanner.Scan() {
+		//	c <- connectServer + ": " + scanner.Text()
+		//}
+
 	}
-
-	execRemoteCmdString := strings.Join(execRemoteCmd, " ")
-
-	err = session.Run(execRemoteCmdString)
-	if err != nil {
-		fmt.Fprint(os.Stderr, err)
-		if ee, ok := err.(*ssh.ExitError); ok {
-			return ee.ExitStatus()
-		}
-	}
-	//session.Shell()
-	//session.Wait()
-
-	stdline, err := stdoutBuf.ReadString('\n')
-	for err == nil {
-		c <- connectServer + ": " + stdline
-	}
-
-	//scanner := bufio.NewScanner(stdoutBuf)
-
-	//for scanner.Scan() {
-	//	c <- connectServer + ": " + scanner.Text()
-	//}
 	return 0
 
 }
