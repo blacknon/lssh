@@ -96,14 +96,8 @@ func main() {
 	if cmdFlag == true {
 		fmt.Fprintf(os.Stderr, "Select Server :%s\n", strings.Join(selectServer, ","))
 		fmt.Fprintf(os.Stderr, "Exec command  :%s\n", strings.Join(execRemoteCmd, " "))
-		if len(selectServer) > 1 {
-			// Connect SSH Multi Node exec command
-			ssh.MultiConnectSshCommand(selectServer, listConf, terminalExec, execRemoteCmd...)
-		} else {
-			ssh.ConnectSshCommand(selectServer[0], listConf, terminalExec, execRemoteCmd...)
-		}
+		ssh.ConnectSshCommand(selectServer, listConf, terminalExec, execRemoteCmd...)
 		os.Exit(0)
-		//os.Exit(ssh.ConnectSshCommand(selectServer[0], listConf, terminalExec, execRemoteCmd...))
 	} else {
 		// Print selected server and connect command
 		fmt.Fprintf(os.Stderr, "Select Server :%s\n", selectServer[0])
