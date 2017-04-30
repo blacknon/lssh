@@ -1,6 +1,7 @@
 package ssh
 
 import (
+	"bytes"
 	"fmt"
 	"io/ioutil"
 	"os"
@@ -274,12 +275,12 @@ func MultiConnectSshCommand(connectServerList []string, confList conf.Config, te
 			conn.Close()
 		}()
 
-		//var stdoutBuf bytes.Buffer
+		var stdoutBuf bytes.Buffer
 
-		session.Stdout = os.Stdout
-		session.Stderr = os.Stderr
-		//session.Stdout = &stdoutBuf
-		//session.Stderr = &stdoutBuf
+		//session.Stdout = os.Stdout
+		//session.Stderr = os.Stderr
+		session.Stdout = &stdoutBuf
+		session.Stderr = &stdoutBuf
 		if terminalMode == true {
 			modes := ssh.TerminalModes{
 				ssh.ECHO:          0,
@@ -307,7 +308,30 @@ func MultiConnectSshCommand(connectServerList []string, confList conf.Config, te
 		//session.Shell()
 		//session.Wait()
 
-		//stdline, err := stdoutBuf.ReadString('\n')
+		//for {
+		//	stdline, ferr := stdoutBuf.ReadString('\n')
+		//	fmt.Println(stdline)
+		//	if ferr != nil {
+		//		fmt.Fprint(os.Stderr, ferr)
+		//		if fee, ok := ferr.(*ssh.ExitError); ok {
+		//			return fee.ExitStatus()
+		//		}
+		//	}
+		//}
+
+		//stdline, _ := stdoutBuf.ReadString('\n')
+		//fmt.Println(stdline)
+
+		stdoutBufArray := regexp.MustCompile("\r\n|\n\r|\n|\r").Split(stdoutBuf.String(), -1)
+		for i, v := range stdoutBufArray {
+			if i == len(stdoutBufArray)-1 {
+				break
+			}
+			fmt.Println(connectServer+":", v)
+		}
+
+		//fmt.Println(stdoutBuf.String())
+
 		//for err == nil {
 		//	c <- connectServer + ": " + stdline
 		//}
