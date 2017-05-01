@@ -2,20 +2,32 @@ package ssh
 
 import (
 	"bytes"
+	"crypto/rand"
+	"encoding/binary"
 	"fmt"
+	"io"
 	"io/ioutil"
 	"os"
 	"os/user"
 	"regexp"
 	"runtime"
+	"strconv"
 	"strings"
+	"syscall"
 	"time"
 
 	"golang.org/x/crypto/ssh"
+	"golang.org/x/crypto/ssh/terminal"
 
 	"github.com/blacknon/lssh/conf"
 	"github.com/shavac/gexpect"
 )
+
+func tmpFile() string {
+	var n uint64
+	binary.Read(rand.Reader, binary.LittleEndian, &n)
+	return strconv.FormatUint(n, 36)
+}
 
 // OS ssh wrapper(terminal connect)
 func ConnectSshTerminal(connectServer string, confList conf.Config) int {
@@ -110,8 +122,77 @@ func ConnectSshCommand(connectServerList []string, confList conf.Config, termina
 	//logEnable := confList.Log.Enable
 	//logDirPath := confList.Log.Dir
 
-	for _, connectServer := range connectServerList {
+	//stdinBuf, _ := os.Stdin.Stat()
+	//stdinBuf := os.Stdin
+	//stdinBuf, _ := ioutil.ReadAll(os.Stdin)
+	//stdinBuf, _ := ioutil.ReadAll(os.Stdin)
+	//fp := os.Stdin
+	//defer fp.Close()
+	//reader := bufio.NewReader(fp)
+	//var stdoutBuf bytes.Buffer
 
+	//stdinBuf, _ := bufio.NewReader(os.Stdin).ReadString('\n')
+	//stdinBufArray := regexp.MustCompile("\r\n|\n\r|\n|\r").Split(stdinBuf.String(), -1)
+
+	//stdinBuf := bufio.NewScanner(os.Stdin)
+	//stdinBuf := []bytes.NewReader(os.Stdin)
+	//fmt.Println(stdinBuf)
+	//line := stdinBuf.Scan()
+
+	//fmt.Println(line)
+	//fmt.Println(hasMoreInLine)
+
+	//for i := 1; stdinBuf.Scan(); i++ {
+	//	if err := sc.Err(); err != nil {
+	//		// エラー処理
+	//		break
+	//	}
+	//	fmt.Printf("%4d行目: %s\n", i, sc.Text())
+	//}
+
+	//stdinTemp, err := ioutil.TempFile(".", tmpFile)
+	//if err != nil {
+	//	panic(err)
+	//}
+
+	//io.Copy(os.Stdin, stdinTemp)
+	stdinTemp, err := ioutil.TempFile("", tmpFile()+".lssh.tmp")
+	if err != nil {
+		panic(err)
+	}
+
+	defer os.Remove(stdinTemp.Name())
+
+	if terminal.IsTerminal(syscall.Stdin) == false {
+		//fmt.Println(stdinTemp.Name())
+		io.Copy(stdinTemp, os.Stdin)
+	}
+	//stdinTemp.Close()
+
+	//strings.NewReader(s)
+	//fmt.Println(os.Stdin)
+	//stdinTemp := bufio.NewScanner(os.Stdin)
+
+	//testStdin := strings.NewReader("AAAAAA\r")
+	//var stdoutBuf string
+	//fmt.Scanln(&stdoutBuf)
+	//fmt.Println(stdoutBuf)
+
+	//defer os.Remove(stdinTemp.Name())
+
+	//tmpTest := os.Stdin
+	//fmt.Println(tmpTest.Read())
+
+	//a, err1 := io.Copy(os.Stdin, stdinTemp)
+	//if err1 != nil {
+	//	panic(err)
+	//}
+	//fmt.Println(a)
+	//stdinTemp.Write(([]byte)(syscall.stdin))
+
+	for _, connectServer := range connectServerList {
+		//fmt.Println(reader)
+		//fmt.Println(stdinBuf)
 		// Get ssh config value
 		connectUser := confList.Server[connectServer].User
 		connectAddr := confList.Server[connectServer].Addr
@@ -176,6 +257,7 @@ func ConnectSshCommand(connectServerList []string, confList conf.Config, termina
 		}()
 
 		var stdoutBuf bytes.Buffer
+		//var stdinBuf bytes.Buffer
 
 		session.Stdout = &stdoutBuf
 		session.Stderr = &stdoutBuf
@@ -190,9 +272,27 @@ func ConnectSshCommand(connectServerList []string, confList conf.Config, termina
 				session.Close()
 				fmt.Errorf("request for pseudo terminal failed: %s", err)
 			}
-		} else {
-			session.Stdin = os.Stdin
-		}
+		} //else {
+		//	session.Stdin = os.Stdin
+		//}
+
+		//session.Stdin = stdinTemp
+
+		//session.Stdin = stdinTemp
+		//fmt.Println(session.Stdin)
+		//session.Stdin = strings.NewReader("Hello, how are you")
+
+		//sessionW, _ := session.StdinPipe()
+		//defer sessionW.Close()
+		//fmt.Fprintln(sessionW, stdinTemp)
+		//sessionW.Close()
+
+		//session.Stdin = testStdin
+		//session.Stdin = strings.NewReader(stdinTemp.Text())
+		//session.Stdin = os.Stdin
+		fmt.Println(stdinTemp.Name())
+		stdinTempRead, _ := os.OpenFile(stdinTemp.Name(), os.O_RDONLY, 0644)
+		session.Stdin = stdinTempRead
 
 		execRemoteCmdString := strings.Join(execRemoteCmd, " ")
 
