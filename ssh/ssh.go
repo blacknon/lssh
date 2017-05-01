@@ -107,6 +107,115 @@ func ConnectSshTerminal(connectServer string, confList conf.Config) int {
 	return 0
 }
 
+// exec ssh command function
+func execCommandOverSsh(connectServer string, listSum int, confList conf.Config, terminalMode bool, stdinTempPath string, execRemoteCmd ...string) int {
+	connectPort := "22"
+	if confList.Server[connectServer].Port != "" {
+		connectPort = confList.Server[connectServer].Port
+	}
+	connectPass := confList.Server[connectServer].Pass
+	connectKey := confList.Server[connectServer].Key
+
+	// Set ssh client config
+	config := &ssh.ClientConfig{}
+	if connectKey != "" {
+		// Read PublicKey
+		buffer, err := ioutil.ReadFile(connectKey)
+		if err != nil {
+			fmt.Fprintln(os.Stderr, "Error:%s%n", err)
+			return 1
+		}
+		key, err := ssh.ParsePrivateKey(buffer)
+		if err != nil {
+			fmt.Fprintln(os.Stderr, "Error:%s%n", err)
+			return 1
+		}
+
+		// Create ssh client config for KeyAuth
+		config = &ssh.ClientConfig{
+			User: confList.Server[connectServer].User,
+			Auth: []ssh.AuthMethod{
+				ssh.PublicKeys(key)},
+			Timeout: 60 * time.Second,
+		}
+	} else {
+		// Create ssh client config for PasswordAuth
+		config = &ssh.ClientConfig{
+			User: confList.Server[connectServer].User,
+			Auth: []ssh.AuthMethod{
+				ssh.Password(connectPass)},
+			Timeout: 60 * time.Second,
+		}
+	}
+
+	connectHostPort := confList.Server[connectServer].Addr + ":" + connectPort
+
+	conn, err := ssh.Dial("tcp", connectHostPort, config)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "cannot connect %v: %v", connectHostPort, err)
+		return 1
+	}
+	defer conn.Close()
+
+	session, err := conn.NewSession()
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "cannot open new session: %v", err)
+		return 1
+	}
+	defer session.Close()
+
+	go func() {
+		time.Sleep(2419200 * time.Second)
+		conn.Close()
+	}()
+
+	var stdoutBuf bytes.Buffer
+
+	session.Stdout = &stdoutBuf
+	session.Stderr = &stdoutBuf
+	if terminalMode == true {
+		modes := ssh.TerminalModes{
+			ssh.ECHO:          0,
+			ssh.TTY_OP_ISPEED: 14400,
+			ssh.TTY_OP_OSPEED: 14400,
+		}
+
+		if err := session.RequestPty("xterm", 80, 40, modes); err != nil {
+			session.Close()
+			fmt.Errorf("request for pseudo terminal failed: %s", err)
+		}
+	}
+
+	// stdin tmp file Open.
+	stdinTempRead, _ := os.OpenFile(stdinTempPath, os.O_RDONLY, 0644)
+	session.Stdin = stdinTempRead
+
+	execRemoteCmdString := strings.Join(execRemoteCmd, " ")
+
+	err = session.Run(execRemoteCmdString)
+	if err != nil {
+		fmt.Fprint(os.Stderr, err)
+		if ee, ok := err.(*ssh.ExitError); ok {
+			return ee.ExitStatus()
+		}
+	}
+
+	// Get stdout
+	stdoutBufArray := regexp.MustCompile("\r\n|\n\r|\n|\r").Split(stdoutBuf.String(), -1)
+	for i, v := range stdoutBufArray {
+		if i == len(stdoutBufArray)-1 {
+			break
+		}
+		if listSum > 1 {
+			// Add server name line head.
+			fmt.Println(connectServer+":", v)
+		} else {
+			fmt.Println(v)
+		}
+	}
+	return 0
+}
+
 // remote ssh server exec command only
 func ConnectSshCommand(connectServerList []string, confList conf.Config, terminalMode bool, execRemoteCmd ...string) int {
 	// Create tmp file
@@ -123,109 +232,7 @@ func ConnectSshCommand(connectServerList []string, confList conf.Config, termina
 
 	// for command exec
 	for _, connectServer := range connectServerList {
-		connectPort := "22"
-		if confList.Server[connectServer].Port != "" {
-			connectPort = confList.Server[connectServer].Port
-		}
-		connectPass := confList.Server[connectServer].Pass
-		connectKey := confList.Server[connectServer].Key
-
-		// Set ssh client config
-		config := &ssh.ClientConfig{}
-		if connectKey != "" {
-			// Read PublicKey
-			buffer, err := ioutil.ReadFile(connectKey)
-			if err != nil {
-				return 1
-			}
-			key, err := ssh.ParsePrivateKey(buffer)
-			if err != nil {
-				return 1
-			}
-
-			// Create ssh client config for KeyAuth
-			config = &ssh.ClientConfig{
-				User: confList.Server[connectServer].User,
-				Auth: []ssh.AuthMethod{
-					ssh.PublicKeys(key)},
-				Timeout: 60 * time.Second,
-			}
-		} else {
-			// Create ssh client config for PasswordAuth
-			config = &ssh.ClientConfig{
-				User: confList.Server[connectServer].User,
-				Auth: []ssh.AuthMethod{
-					ssh.Password(connectPass)},
-				Timeout: 60 * time.Second,
-			}
-		}
-
-		connectHostPort := confList.Server[connectServer].Addr + ":" + connectPort
-
-		conn, err := ssh.Dial("tcp", connectHostPort, config)
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "cannot connect %v: %v", connectHostPort, err)
-			return 1
-		}
-		defer conn.Close()
-
-		session, err := conn.NewSession()
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "cannot open new session: %v", err)
-			return 1
-		}
-		defer session.Close()
-
-		go func() {
-			time.Sleep(2419200 * time.Second)
-			conn.Close()
-		}()
-
-		var stdoutBuf bytes.Buffer
-
-		session.Stdout = &stdoutBuf
-		session.Stderr = &stdoutBuf
-		if terminalMode == true {
-			modes := ssh.TerminalModes{
-				ssh.ECHO:          0,
-				ssh.TTY_OP_ISPEED: 14400,
-				ssh.TTY_OP_OSPEED: 14400,
-			}
-
-			if err := session.RequestPty("xterm", 80, 40, modes); err != nil {
-				session.Close()
-				fmt.Errorf("request for pseudo terminal failed: %s", err)
-			}
-		}
-
-		// stdin tmp file Open.
-		stdinTempRead, _ := os.OpenFile(stdinTemp.Name(), os.O_RDONLY, 0644)
-		session.Stdin = stdinTempRead
-
-		execRemoteCmdString := strings.Join(execRemoteCmd, " ")
-
-		err = session.Run(execRemoteCmdString)
-		if err != nil {
-			fmt.Fprint(os.Stderr, err)
-			if ee, ok := err.(*ssh.ExitError); ok {
-				return ee.ExitStatus()
-			}
-		}
-
-		// Get stdout
-		stdoutBufArray := regexp.MustCompile("\r\n|\n\r|\n|\r").Split(stdoutBuf.String(), -1)
-		for i, v := range stdoutBufArray {
-			if i == len(stdoutBufArray)-1 {
-				break
-			}
-			if len(connectServerList) > 1 {
-				// Add server name line head.
-				fmt.Println(connectServer+":", v)
-			} else {
-				fmt.Println(v)
-			}
-		}
-
+		execCommandOverSsh(connectServer, len(connectServerList), confList, terminalMode, stdinTemp.Name(), execRemoteCmd...)
 	}
 	return 0
 }
