@@ -23,50 +23,41 @@ import (
 	"github.com/shavac/gexpect"
 )
 
-func tmpFile() string {
+func tmpFileName() string {
 	var n uint64
 	binary.Read(rand.Reader, binary.LittleEndian, &n)
-	return strconv.FormatUint(n, 36)
+	return strconv.FormatUint(n, 36) + ".lssh.tmp"
 }
 
 // OS ssh wrapper(terminal connect)
 func ConnectSshTerminal(connectServer string, confList conf.Config) int {
-	// Get log config value
-	logEnable := confList.Log.Enable
-	logDirPath := confList.Log.Dir
-
 	// Get ssh config value
-	connectUser := confList.Server[connectServer].User
-	connectAddr := confList.Server[connectServer].Addr
-	var connectPort string
-	if confList.Server[connectServer].Port == "" {
-		connectPort = "22"
-	} else {
+	connectHost := confList.Server[connectServer].User + "@" + confList.Server[connectServer].Addr
+	connectPort := "22"
+	if confList.Server[connectServer].Port != "" {
 		connectPort = confList.Server[connectServer].Port
 	}
 	connectPass := confList.Server[connectServer].Pass
 	connectKey := confList.Server[connectServer].Key
-	connectHost := connectUser + "@" + connectAddr
 
 	// ssh command Args
-	sshCmd := ""
+	// "/usr/bin/ssh -o 'StrictHostKeyChecking no' -o 'NumberOfPasswordPrompts 1' connectUser@connectAddr -p connectPort"
+	sshCmd := "/usr/bin/ssh -o 'StrictHostKeyChecking no' -o 'NumberOfPasswordPrompts 1' " + connectHost + " -p " + connectPort
 	if connectKey != "" {
 		// "/usr/bin/ssh -o 'StrictHostKeyChecking no' -o 'NumberOfPasswordPrompts 1' -i connectKey connectUser@connectAddr -p connectPort"
 		sshCmd = "/usr/bin/ssh -o 'StrictHostKeyChecking no' -o 'NumberOfPasswordPrompts 1' -i " + connectKey + " " + connectHost + " -p " + connectPort
-	} else {
-		// "/usr/bin/ssh -o 'StrictHostKeyChecking no' -o 'NumberOfPasswordPrompts 1' connectUser@connectAddr -p connectPort"
-		sshCmd = "/usr/bin/ssh -o 'StrictHostKeyChecking no' -o 'NumberOfPasswordPrompts 1' " + connectHost + " -p " + connectPort
 	}
 
 	// log Enable
 	execCmd := ""
-	if logEnable == true {
+	if confList.Log.Enable == true {
+		logDirPath := confList.Log.Dir
 		execOS := runtime.GOOS
 		execCmd = "/usr/bin/script"
 
 		// ~ replace User current Directory
 		usr, _ := user.Current()
-		logDirPath := strings.Replace(logDirPath, "~", usr.HomeDir, 1)
+		logDirPath = strings.Replace(logDirPath, "~", usr.HomeDir, 1)
 
 		// mkdir logDIr
 		if err := os.MkdirAll(logDirPath, 0755); err != nil {
@@ -119,7 +110,7 @@ func ConnectSshTerminal(connectServer string, confList conf.Config) int {
 // remote ssh server exec command only
 func ConnectSshCommand(connectServerList []string, confList conf.Config, terminalMode bool, execRemoteCmd ...string) int {
 	// Create tmp file
-	stdinTemp, err := ioutil.TempFile("", tmpFile()+".lssh.tmp")
+	stdinTemp, err := ioutil.TempFile("", tmpFileName())
 	if err != nil {
 		panic(err)
 	}
@@ -130,13 +121,10 @@ func ConnectSshCommand(connectServerList []string, confList conf.Config, termina
 		io.Copy(stdinTemp, os.Stdin)
 	}
 
+	// for command exec
 	for _, connectServer := range connectServerList {
-		connectUser := confList.Server[connectServer].User
-		connectAddr := confList.Server[connectServer].Addr
-		var connectPort string
-		if confList.Server[connectServer].Port == "" {
-			connectPort = "22"
-		} else {
+		connectPort := "22"
+		if confList.Server[connectServer].Port != "" {
 			connectPort = confList.Server[connectServer].Port
 		}
 		connectPass := confList.Server[connectServer].Pass
@@ -157,7 +145,7 @@ func ConnectSshCommand(connectServerList []string, confList conf.Config, termina
 
 			// Create ssh client config for KeyAuth
 			config = &ssh.ClientConfig{
-				User: connectUser,
+				User: confList.Server[connectServer].User,
 				Auth: []ssh.AuthMethod{
 					ssh.PublicKeys(key)},
 				Timeout: 60 * time.Second,
@@ -165,14 +153,14 @@ func ConnectSshCommand(connectServerList []string, confList conf.Config, termina
 		} else {
 			// Create ssh client config for PasswordAuth
 			config = &ssh.ClientConfig{
-				User: connectUser,
+				User: confList.Server[connectServer].User,
 				Auth: []ssh.AuthMethod{
 					ssh.Password(connectPass)},
 				Timeout: 60 * time.Second,
 			}
 		}
 
-		connectHostPort := connectAddr + ":" + connectPort
+		connectHostPort := confList.Server[connectServer].Addr + ":" + connectPort
 
 		conn, err := ssh.Dial("tcp", connectHostPort, config)
 		if err != nil {
