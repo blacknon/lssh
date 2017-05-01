@@ -118,82 +118,19 @@ func ConnectSshTerminal(connectServer string, confList conf.Config) int {
 
 // remote ssh server exec command only
 func ConnectSshCommand(connectServerList []string, confList conf.Config, terminalMode bool, execRemoteCmd ...string) int {
-	// Get log config value
-	//logEnable := confList.Log.Enable
-	//logDirPath := confList.Log.Dir
-
-	//stdinBuf, _ := os.Stdin.Stat()
-	//stdinBuf := os.Stdin
-	//stdinBuf, _ := ioutil.ReadAll(os.Stdin)
-	//stdinBuf, _ := ioutil.ReadAll(os.Stdin)
-	//fp := os.Stdin
-	//defer fp.Close()
-	//reader := bufio.NewReader(fp)
-	//var stdoutBuf bytes.Buffer
-
-	//stdinBuf, _ := bufio.NewReader(os.Stdin).ReadString('\n')
-	//stdinBufArray := regexp.MustCompile("\r\n|\n\r|\n|\r").Split(stdinBuf.String(), -1)
-
-	//stdinBuf := bufio.NewScanner(os.Stdin)
-	//stdinBuf := []bytes.NewReader(os.Stdin)
-	//fmt.Println(stdinBuf)
-	//line := stdinBuf.Scan()
-
-	//fmt.Println(line)
-	//fmt.Println(hasMoreInLine)
-
-	//for i := 1; stdinBuf.Scan(); i++ {
-	//	if err := sc.Err(); err != nil {
-	//		// エラー処理
-	//		break
-	//	}
-	//	fmt.Printf("%4d行目: %s\n", i, sc.Text())
-	//}
-
-	//stdinTemp, err := ioutil.TempFile(".", tmpFile)
-	//if err != nil {
-	//	panic(err)
-	//}
-
-	//io.Copy(os.Stdin, stdinTemp)
+	// Create tmp file
 	stdinTemp, err := ioutil.TempFile("", tmpFile()+".lssh.tmp")
 	if err != nil {
 		panic(err)
 	}
-
 	defer os.Remove(stdinTemp.Name())
 
+	// Stdin only pipes
 	if terminal.IsTerminal(syscall.Stdin) == false {
-		//fmt.Println(stdinTemp.Name())
 		io.Copy(stdinTemp, os.Stdin)
 	}
-	//stdinTemp.Close()
-
-	//strings.NewReader(s)
-	//fmt.Println(os.Stdin)
-	//stdinTemp := bufio.NewScanner(os.Stdin)
-
-	//testStdin := strings.NewReader("AAAAAA\r")
-	//var stdoutBuf string
-	//fmt.Scanln(&stdoutBuf)
-	//fmt.Println(stdoutBuf)
-
-	//defer os.Remove(stdinTemp.Name())
-
-	//tmpTest := os.Stdin
-	//fmt.Println(tmpTest.Read())
-
-	//a, err1 := io.Copy(os.Stdin, stdinTemp)
-	//if err1 != nil {
-	//	panic(err)
-	//}
-	//fmt.Println(a)
-	//stdinTemp.Write(([]byte)(syscall.stdin))
 
 	for _, connectServer := range connectServerList {
-		//fmt.Println(reader)
-		//fmt.Println(stdinBuf)
-		// Get ssh config value
 		connectUser := confList.Server[connectServer].User
 		connectAddr := confList.Server[connectServer].Addr
 		var connectPort string
@@ -257,7 +194,6 @@ func ConnectSshCommand(connectServerList []string, confList conf.Config, termina
 		}()
 
 		var stdoutBuf bytes.Buffer
-		//var stdinBuf bytes.Buffer
 
 		session.Stdout = &stdoutBuf
 		session.Stderr = &stdoutBuf
@@ -272,25 +208,9 @@ func ConnectSshCommand(connectServerList []string, confList conf.Config, termina
 				session.Close()
 				fmt.Errorf("request for pseudo terminal failed: %s", err)
 			}
-		} //else {
-		//	session.Stdin = os.Stdin
-		//}
+		}
 
-		//session.Stdin = stdinTemp
-
-		//session.Stdin = stdinTemp
-		//fmt.Println(session.Stdin)
-		//session.Stdin = strings.NewReader("Hello, how are you")
-
-		//sessionW, _ := session.StdinPipe()
-		//defer sessionW.Close()
-		//fmt.Fprintln(sessionW, stdinTemp)
-		//sessionW.Close()
-
-		//session.Stdin = testStdin
-		//session.Stdin = strings.NewReader(stdinTemp.Text())
-		//session.Stdin = os.Stdin
-		fmt.Println(stdinTemp.Name())
+		// stdin tmp file Open.
 		stdinTempRead, _ := os.OpenFile(stdinTemp.Name(), os.O_RDONLY, 0644)
 		session.Stdin = stdinTempRead
 
@@ -304,12 +224,14 @@ func ConnectSshCommand(connectServerList []string, confList conf.Config, termina
 			}
 		}
 
+		// Get stdout
 		stdoutBufArray := regexp.MustCompile("\r\n|\n\r|\n|\r").Split(stdoutBuf.String(), -1)
 		for i, v := range stdoutBufArray {
 			if i == len(stdoutBufArray)-1 {
 				break
 			}
 			if len(connectServerList) > 1 {
+				// Add server name line head.
 				fmt.Println(connectServer+":", v)
 			} else {
 				fmt.Println(v)
@@ -318,5 +240,4 @@ func ConnectSshCommand(connectServerList []string, confList conf.Config, termina
 
 	}
 	return 0
-
 }
