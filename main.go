@@ -1,4 +1,4 @@
-package main
+package lssh
 
 import (
 	"fmt"
@@ -102,6 +102,7 @@ func main() {
 		// Print selected server and connect command
 		fmt.Fprintf(os.Stderr, "Select Server :%s\n", selectServer[0])
 
+		// No select Server
 		if len(selectServer) > 1 {
 			fmt.Fprintln(os.Stdout, "Connect ssh interactive shell.Connect only to the first device")
 		}
