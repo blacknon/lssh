@@ -104,7 +104,7 @@ func main() {
 
 		// No select Server
 		if len(selectServer) > 1 {
-			fmt.Fprintln(os.Stdout, "Connect ssh interactive shell.Connect only to the first device")
+			fmt.Fprintln(os.Stderr, "Connect ssh interactive shell.Connect only to the first device")
 		}
 		// Connect SSH Terminal
 		os.Exit(ssh.ConnectSshTerminal(selectServer[0], listConf))
