@@ -113,6 +113,7 @@ func execCommandOverSsh(connectServer string, listSum int, confList conf.Config,
 	if confList.Server[connectServer].Port != "" {
 		connectPort = confList.Server[connectServer].Port
 	}
+	connectHostPort := confList.Server[connectServer].Addr + ":" + connectPort
 	connectPass := confList.Server[connectServer].Pass
 	connectKey := confList.Server[connectServer].Key
 
@@ -148,8 +149,7 @@ func execCommandOverSsh(connectServer string, listSum int, confList conf.Config,
 		}
 	}
 
-	connectHostPort := confList.Server[connectServer].Addr + ":" + connectPort
-
+	// New Connext create
 	conn, err := ssh.Dial("tcp", connectHostPort, config)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "cannot connect %v: %v", connectHostPort, err)
@@ -157,6 +157,7 @@ func execCommandOverSsh(connectServer string, listSum int, confList conf.Config,
 	}
 	defer conn.Close()
 
+	// New Session
 	session, err := conn.NewSession()
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "cannot open new session: %v", err)
@@ -169,10 +170,6 @@ func execCommandOverSsh(connectServer string, listSum int, confList conf.Config,
 		conn.Close()
 	}()
 
-	var stdoutBuf bytes.Buffer
-
-	session.Stdout = &stdoutBuf
-	session.Stderr = &stdoutBuf
 	if terminalMode == true {
 		modes := ssh.TerminalModes{
 			ssh.ECHO:          0,
@@ -186,12 +183,16 @@ func execCommandOverSsh(connectServer string, listSum int, confList conf.Config,
 		}
 	}
 
+	// stdout and stderr to stdoutBuf
+	var stdoutBuf bytes.Buffer
+	session.Stdout = &stdoutBuf
+	session.Stderr = &stdoutBuf
+
 	// stdin tmp file Open.
 	stdinTempRead, _ := os.OpenFile(stdinTempPath, os.O_RDONLY, 0644)
 	session.Stdin = stdinTempRead
 
 	execRemoteCmdString := strings.Join(execRemoteCmd, " ")
-
 	err = session.Run(execRemoteCmdString)
 	if err != nil {
 		fmt.Fprint(os.Stderr, err)
