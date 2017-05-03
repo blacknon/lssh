@@ -60,7 +60,7 @@ func ConnectSshTerminal(connectServer string, confList conf.Config) int {
 		logDirPath = strings.Replace(logDirPath, "~", usr.HomeDir, 1)
 
 		// mkdir logDIr
-		if err := os.MkdirAll(logDirPath, 0755); err != nil {
+		if err := os.MkdirAll(logDirPath, 0600); err != nil {
 			fmt.Println(err)
 			return 1
 		}
@@ -189,7 +189,7 @@ func execCommandOverSsh(connectServer string, listSum int, confList conf.Config,
 	session.Stderr = &stdoutBuf
 
 	// stdin tmp file Open.
-	stdinTempRead, _ := os.OpenFile(stdinTempPath, os.O_RDONLY, 0644)
+	stdinTempRead, _ := os.OpenFile(stdinTempPath, os.O_RDONLY, 0600)
 	session.Stdin = stdinTempRead
 
 	execRemoteCmdString := strings.Join(execRemoteCmd, " ")
