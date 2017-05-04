@@ -20,6 +20,7 @@ import (
 	"golang.org/x/crypto/ssh/terminal"
 
 	"github.com/blacknon/lssh/conf"
+	termbox "github.com/nsf/termbox-go"
 	"github.com/shavac/gexpect"
 )
 
@@ -177,7 +178,14 @@ func execCommandOverSsh(connectServer string, listSum int, confList conf.Config,
 			ssh.TTY_OP_OSPEED: 14400,
 		}
 
-		if err := session.RequestPty("xterm", 80, 40, modes); err != nil {
+		// Get terminal window size
+		if err := termbox.Init(); err != nil {
+			panic(err)
+		}
+		width, hight := termbox.Size()
+		termbox.Close()
+
+		if err := session.RequestPty("xterm", hight, width, modes); err != nil {
 			session.Close()
 			fmt.Errorf("request for pseudo terminal failed: %s", err)
 		}
@@ -185,8 +193,14 @@ func execCommandOverSsh(connectServer string, listSum int, confList conf.Config,
 
 	// stdout and stderr to stdoutBuf
 	var stdoutBuf bytes.Buffer
-	session.Stdout = &stdoutBuf
-	session.Stderr = &stdoutBuf
+
+	if listSum == 1 {
+		session.Stdout = os.Stdout
+		session.Stderr = os.Stderr
+	} else {
+		session.Stdout = &stdoutBuf
+		session.Stderr = &stdoutBuf
+	}
 
 	// stdin tmp file Open.
 	stdinTempRead, _ := os.OpenFile(stdinTempPath, os.O_RDONLY, 0600)
@@ -202,17 +216,15 @@ func execCommandOverSsh(connectServer string, listSum int, confList conf.Config,
 	}
 
 	// Get stdout
-	stdoutBufArray := regexp.MustCompile("\r\n|\n\r|\n|\r").Split(stdoutBuf.String(), -1)
-	for i, v := range stdoutBufArray {
-		if i == len(stdoutBufArray)-1 {
-			break
-		}
-		if listSum > 1 {
-			// Add server name line head.
+	if listSum > 1 {
+		stdoutBufArray := regexp.MustCompile("\r\n|\n\r|\n|\r").Split(stdoutBuf.String(), -1)
+		for i, v := range stdoutBufArray {
+			if i == len(stdoutBufArray)-1 {
+				break
+			}
 			fmt.Println(connectServer+":", v)
-		} else {
-			fmt.Println(v)
 		}
+
 	}
 	return 0
 }

@@ -327,8 +327,7 @@ func pollEvent(serverNameList []string, cmdFlag bool, serverList conf.Config) (l
 }
 
 func DrawList(serverNameList []string, cmdFlag bool, serverList conf.Config) (lineName []string) {
-	err := termbox.Init()
-	if err != nil {
+	if err := termbox.Init(); err != nil {
 		panic(err)
 	}
 
