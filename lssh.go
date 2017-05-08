@@ -1,4 +1,4 @@
-package lssh
+package main
 
 import (
 	"fmt"
