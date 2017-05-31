@@ -275,13 +275,21 @@ func pollEvent(serverNameList []string, cmdFlag bool, serverList conf.Config) (l
 
 				draw(filterListData, lineData, selectline, searchText)
 
-			// Ctrl + \(BackSlash) Key(select)
+			// Ctrl + x Key(select)
 			case termbox.KeyCtrlX:
 				if cmdFlag == true {
 					lineData = toggleList(lineData, strings.Fields(filterListData[selectline+1])[0])
 				}
 
 				draw(filterListData, lineData, selectline, searchText)
+
+			// Ctrl + a Key(all select)
+			//case termbox.KeyCtrlA:
+			//	if cmdFlag == true {
+			//		lineData = toggleList(lineData, strings.Fields(filterListData[selectline+1])[0])
+			//	}
+			//
+			//	draw(filterListData, lineData, selectline, searchText)
 
 			// Enter Key
 			case termbox.KeyEnter:
