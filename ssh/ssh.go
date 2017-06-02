@@ -98,7 +98,7 @@ func ConnectSshTerminal(connectServer string, confList conf.Config) int {
 			child.SendLine(connectPass)
 
 		} else {
-			fmt.Println("ssh connect timeout.")
+			fmt.Println("Not Connected")
 			return 1
 		}
 	}
@@ -153,7 +153,7 @@ func execCommandOverSsh(connectServer string, listSum int, confList conf.Config,
 	// New Connext create
 	conn, err := ssh.Dial("tcp", connectHostPort, config)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "cannot connect %v: %v", connectHostPort, err)
+		fmt.Fprintf(os.Stderr, "cannot connect %v: %v \n", connectHostPort, err)
 		return 1
 	}
 	defer conn.Close()
@@ -161,7 +161,7 @@ func execCommandOverSsh(connectServer string, listSum int, confList conf.Config,
 	// New Session
 	session, err := conn.NewSession()
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "cannot open new session: %v", err)
+		fmt.Fprintf(os.Stderr, "cannot open new session: %v \n", err)
 		return 1
 	}
 	defer session.Close()
@@ -187,7 +187,7 @@ func execCommandOverSsh(connectServer string, listSum int, confList conf.Config,
 
 		if err := session.RequestPty("xterm", hight, width, modes); err != nil {
 			session.Close()
-			fmt.Errorf("request for pseudo terminal failed: %s", err)
+			fmt.Errorf("request for pseudo terminal failed: %s \n", err)
 		}
 	}
 
