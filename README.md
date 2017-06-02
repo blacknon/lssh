@@ -9,6 +9,8 @@ List selection formula ssh wrapper command
 
 lssh - ssh wrapper that connects ssh to the host selected from the list.
 
+list file is set in yaml format.When selecting a host, you can filter by keywords.
+
 ## Demo
 
 <p align="center">
@@ -33,7 +35,8 @@ need the following command.
 ## Usage
 
 Please edit "~/.lssh.conf".
-config ex)
+
+example)
 
 	[log]
 	enable = true
@@ -78,8 +81,7 @@ option
 
 If you specify a command as an argument, you can select multiple hosts.
 
-Select host 'Ctrl + X'.
-Select all displayed hosts 'Ctrl + A'
+Select host 'Ctrl + X',select all displayed hosts 'Ctrl + A'
 
 
 ### copy files using stdin/stdout to/from remote server
