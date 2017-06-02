@@ -47,6 +47,28 @@ func toggleList(selectedList []string, newLine string) (toggledSelectedList []st
 	return
 }
 
+func allToggle(allFlag bool, selectedList []string, addList []string) (allSelectedList []string) {
+	// selectedList in allSelectedList
+	for _, selectedLine := range selectedList {
+		allSelectedList = append(allSelectedList, selectedLine)
+	}
+
+	// allFlag is False
+	if allFlag == false {
+		for _, addLine := range addList {
+			addData := strings.Fields(addLine)[0]
+			allSelectedList = append(allSelectedList, addData)
+		}
+		return
+	} else {
+		for _, addLine := range addList {
+			addData := strings.Fields(addLine)[0]
+			allSelectedList = toggleList(allSelectedList, addData)
+		}
+		return
+	}
+}
+
 func drawFilterLine(x, y int, str string, colorNum int, backColorNum int, keywordColorNum int, searchText string) {
 	// SearchText Bounds Space
 	searchWords := strings.Fields(searchText)
@@ -232,6 +254,7 @@ func pollEvent(serverNameList []string, cmdFlag bool, serverList conf.Config) (l
 	lineHeight := height - headLine
 
 	searchText := ""
+	allFlag := false
 
 	filterListData := getFilterListData(searchText, listData)
 	draw(filterListData, lineData, selectline, searchText)
@@ -284,12 +307,19 @@ func pollEvent(serverNameList []string, cmdFlag bool, serverList conf.Config) (l
 				draw(filterListData, lineData, selectline, searchText)
 
 			// Ctrl + a Key(all select)
-			//case termbox.KeyCtrlA:
-			//	if cmdFlag == true {
-			//		lineData = toggleList(lineData, strings.Fields(filterListData[selectline+1])[0])
-			//	}
-			//
-			//	draw(filterListData, lineData, selectline, searchText)
+			case termbox.KeyCtrlA:
+				if cmdFlag == true {
+					lineData = allToggle(allFlag, lineData, filterListData[1:])
+				}
+
+				// allFlag Toggle
+				if allFlag == false {
+					allFlag = true
+				} else {
+					allFlag = false
+				}
+
+				draw(filterListData, lineData, selectline, searchText)
 
 			// Enter Key
 			case termbox.KeyEnter:
@@ -309,6 +339,7 @@ func pollEvent(serverNameList []string, cmdFlag bool, serverList conf.Config) (l
 					if selectline < 0 {
 						selectline = 0
 					}
+					allFlag = false
 					draw(filterListData, lineData, selectline, searchText)
 				}
 
@@ -325,6 +356,7 @@ func pollEvent(serverNameList []string, cmdFlag bool, serverList conf.Config) (l
 					if selectline > len(filterListData)-headLine {
 						selectline = len(filterListData) - headLine
 					}
+					allFlag = false
 					draw(filterListData, lineData, selectline, searchText)
 				}
 			}
