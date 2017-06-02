@@ -7,7 +7,7 @@ List selection formula ssh wrapper command
 
 ## Description
 
-lssh is List selection formula ssh wrapper command
+lssh - ssh wrapper that connects ssh to the host selected from the list.
 
 ## Demo
 
@@ -63,19 +63,23 @@ option
 
 
 	lssh v0.3
-	usage: lssh [--host HOST] [--list] [--file FILE] [--terminal] [--command COMMAND]
+	usage: lssh [--host HOST] [--list] [--file FILE] [--terminal] [COMMAND [COMMAND ...]]
+
+	positional arguments:
+	  command                Remote Server exec command.
 
 	options:
 	  --host HOST, -H HOST   Connect servername
 	  --list, -l             print server list
-	  --file FILE, -f FILE   config file path [default: /home/blacknon/.lssh.conf]
+	  --file FILE, -f FILE   config file path [default: /Users/uesugi/.lssh.conf]
 	  --terminal, -T         Run specified command at terminal
-	  --command COMMAND, -C COMMAND
-	                         Remote Server exec command.
 	  --help, -h             display this help and exit
 	  --version              display version and exit
 
-multi select node Ctrl+X.
+If you specify a command as an argument, you can select multiple hosts.
+
+Select host 'Ctrl + X'.
+Select all displayed hosts 'Ctrl + A'
 
 
 ### copy files using stdin/stdout to/from remote server
