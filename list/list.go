@@ -31,7 +31,6 @@ func drawLine(x, y int, str string, colorNum int, backColorNum int) {
 
 // toggle select line (multi select)
 func toggleList(selectedList []string, newLine string) (toggledSelectedList []string) {
-	//result := []int{}
 	addFlag := true
 	for _, selectedLine := range selectedList {
 		if selectedLine != newLine {
