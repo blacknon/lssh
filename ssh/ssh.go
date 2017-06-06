@@ -222,7 +222,7 @@ func execCommandOverSsh(connectServer string, listSum int, confList conf.Config,
 			if i == len(stdoutBufArray)-1 {
 				break
 			}
-			fmt.Println(connectServer+":", v)
+			fmt.Println(connectServer+":\t", v)
 		}
 
 	}
@@ -242,6 +242,9 @@ func ConnectSshCommand(connectServerList []string, confList conf.Config, termina
 	if terminal.IsTerminal(syscall.Stdin) == false {
 		io.Copy(stdinTemp, os.Stdin)
 	}
+
+	// get connect server name max length
+	//
 
 	// for command exec
 	for _, connectServer := range connectServerList {

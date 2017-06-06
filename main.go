@@ -20,7 +20,8 @@ type CommandOption struct {
 	List     bool     `arg:"-l,help:print server list"`
 	File     string   `arg:"-f,help:config file path"`
 	Terminal bool     `arg:"-T,help:Run specified command at terminal"`
-	Command  []string `arg:"positional,help:Remote Server exec command."`
+	//Command  []string `arg:"positional,help:Remote Server exec command."`
+	Command []string `arg:"-C,help:Remote Server exec command."`
 }
 
 // Version Setting
