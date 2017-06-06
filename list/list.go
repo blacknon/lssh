@@ -3,10 +3,8 @@ package list
 import (
 	"bytes"
 	"fmt"
-	"math"
 	"os"
 	"regexp"
-	"strconv"
 	"strings"
 	"text/tabwriter"
 
@@ -33,7 +31,6 @@ func drawLine(x, y int, str string, colorNum int, backColorNum int) {
 
 // toggle select line (multi select)
 func toggleList(selectedList []string, newLine string) (toggledSelectedList []string) {
-	//
 	//result := []int{}
 	addFlag := true
 	for _, selectedLine := range selectedList {
@@ -142,15 +139,9 @@ func draw(serverNameList []string, lineData []string, selectCursor int, searchTe
 	drawLine(len(pronpt), 0, searchText, defaultColor, defaultBackColor)
 	drawLine(leftMargin, 1, serverNameList[0], 3, defaultBackColor)
 
-	// Get View List Max Length
-	serverValueMaxLength := float64(0)
-	for _, viewListValue := range serverViewList {
-		serverValueMaxLength = math.Max(serverValueMaxLength, float64(len(viewListValue)))
-	}
-
 	// View List
 	for listKey, listValue := range serverViewList {
-		paddingListValue := fmt.Sprintf("%-"+strconv.FormatFloat(serverValueMaxLength, 'g', -1, 64)+"s", listValue)
+		paddingListValue := fmt.Sprintf("%-1000s", listValue)
 		// Set cursor color
 		cursorColor := defaultColor
 		cursorBackColor := defaultBackColor
@@ -193,26 +184,15 @@ func getListData(serverNameList []string, serverList conf.Config) (listData []st
 	tabWriterBuffer.Init(buffer, 0, 4, 8, ' ', 0)
 	fmt.Fprintln(tabWriterBuffer, "ServerName \tConnect Infomation \tNote \t")
 
-	// Check serverNote length
-	//serverNoteMaxLength := float64(0)
-	//for _, key := range serverNameList {
-	//	serverNoteMaxLength = math.Max(serverNoteMaxLength, float64(len(serverList.Server[key].Note)))
-	//}
-
 	// Create list table
 	for _, key := range serverNameList {
 		serverName := key
 		connectInfomation := serverList.Server[key].User + "@" + serverList.Server[key].Addr
 		serverNote := serverList.Server[key].Note
-		//serverNote := fmt.Sprintf("%-"+strconv.FormatFloat(serverNoteMaxLength, 'g', -1, 64)+"s", serverList.Server[key].Note)
-		//serverNote := fmt.Sprintf("%-"+string(serverNoteMaxLength)+"s", serverList.Server[key].Note)
-		//aaa := "%" + string(3) + "s"
-		//serverNote := fmt.Sprintf(aaa, serverList.Server[key].Note)
 
 		fmt.Fprintln(tabWriterBuffer, serverName+"\t"+connectInfomation+"\t"+serverNote)
-		// fmt.Fprintln(tabWriterBuffer, serverName+"\t"+connectInfomation+"\t"+serverNote+"\t)
-
 	}
+
 	tabWriterBuffer.Flush()
 	line, err := buffer.ReadString('\n')
 	for err == nil {
