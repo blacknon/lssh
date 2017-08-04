@@ -194,20 +194,51 @@ func execCommandOverSsh(connectServer string, connectServerHeadLength int, listS
 	// stdout and stderr to stdoutBuf
 	var stdoutBuf bytes.Buffer
 
-	if listSum == 1 {
-		session.Stdout = os.Stdout
-		session.Stderr = os.Stderr
-	} else {
-		session.Stdout = &stdoutBuf
-		session.Stderr = &stdoutBuf
-	}
-
 	// stdin tmp file Open.
 	stdinTempRead, _ := os.OpenFile(stdinTempPath, os.O_RDONLY, 0600)
 	session.Stdin = stdinTempRead
-
 	execRemoteCmdString := strings.Join(execRemoteCmd, " ")
-	err = session.Run(execRemoteCmdString)
+
+	if listSum == 1 {
+		session.Stdout = os.Stdout
+		session.Stderr = os.Stderr
+
+		err = session.Run(execRemoteCmdString)
+
+		if err != nil {
+			fmt.Fprint(os.Stderr, err)
+			if ee, ok := err.(*ssh.ExitError); ok {
+				return ee.ExitStatus()
+			}
+		}
+
+		return 0
+
+	} else {
+		session.Stdout = &stdoutBuf
+		session.Stderr = &stdoutBuf
+
+		finished := make(chan bool)
+		go func() {
+			finished <- true
+		}()
+
+		stdoutBufArray := regexp.MustCompile("\r\n|\n\r|\n|\r").Split(stdoutBuf.String(), -1)
+
+		//for i := 1; i <= connectServerCount; i++ {
+		//	<-finished
+		//}
+
+		for i, v := range stdoutBufArray {
+			if i == len(stdoutBufArray)-1 {
+				break
+			}
+
+			lineHeader := fmt.Sprintf("%-*s", connectServerHeadLength, connectServer)
+			fmt.Println(lineHeader+" :: ", v)
+		}
+	}
+
 	if err != nil {
 		fmt.Fprint(os.Stderr, err)
 		if ee, ok := err.(*ssh.ExitError); ok {
@@ -215,20 +246,46 @@ func execCommandOverSsh(connectServer string, connectServerHeadLength int, listS
 		}
 	}
 
-	// Get stdout
-	if listSum > 1 {
-		stdoutBufArray := regexp.MustCompile("\r\n|\n\r|\n|\r").Split(stdoutBuf.String(), -1)
-		for i, v := range stdoutBufArray {
-			if i == len(stdoutBufArray)-1 {
-				break
-			}
-			lineHeader := fmt.Sprintf("%-*s", connectServerHeadLength, connectServer)
-			fmt.Println(lineHeader+" :: ", v)
-		}
-
-	}
 	return 0
 }
+
+//err = session.Run(execRemoteCmdString)
+//	fmt.Println("12345")
+// Get stdout
+//	if listSum > 1 {
+//		stdoutBufArray := regexp.MustCompile("\r\n|\n\r|\n|\r").Split(stdoutBuf.String(), -1)
+//
+//		for i := 1; i <= connectServerCount; i++ {
+//			<-finished
+//		}
+//
+//			for i, v := range stdoutBufArray {
+//				if i == len(stdoutBufArray)-1 {
+//					break
+//				}
+//
+//				lineHeader := fmt.Sprintf("%-*s", connectServerHeadLength, connectServer)
+//				fmt.Println(lineHeader+" :: ", v)
+//			}
+//		}
+//		//for i, v := range stdoutBufArray {
+//		//	if i == len(stdoutBufArray)-1 {
+//		//		break
+//		//	}
+//		//	lineHeader := fmt.Sprintf("%-*s", connectServerHeadLength, connectServer)
+//		//	fmt.Println(lineHeader+" :: ", v)
+//		//}
+//	}
+//
+//	if err != nil {
+//		fmt.Fprint(os.Stderr, err)
+//		if ee, ok := err.(*ssh.ExitError); ok {
+//			return ee.ExitStatus()
+//		}
+//	}
+//
+//	return 0
+//}
 
 // remote ssh server exec command only
 func ConnectSshCommand(connectServerList []string, confList conf.Config, terminalMode bool, execRemoteCmd ...string) int {
@@ -252,9 +309,27 @@ func ConnectSshCommand(connectServerList []string, confList conf.Config, termina
 		}
 	}
 
-	// for command exec
-	for _, connectServer := range connectServerList {
-		execCommandOverSsh(connectServer, connectServerMaxLength, len(connectServerList), confList, terminalMode, stdinTemp.Name(), execRemoteCmd...)
+	connectServerCount := len(connectServerList)
+	if connectServerCount > 1 {
+		finished := make(chan bool)
+		// for command exec
+		for _, connectServer := range connectServerList {
+			targetServer := connectServer
+			go func() {
+				execCommandOverSsh(targetServer, connectServerMaxLength, connectServerCount, confList, terminalMode, stdinTemp.Name(), execRemoteCmd...)
+				finished <- true
+			}()
+
+		}
+
+		for i := 1; i <= connectServerCount; i++ {
+			<-finished
+		}
+	} else {
+		for _, connectServer := range connectServerList {
+			execCommandOverSsh(connectServer, connectServerMaxLength, connectServerCount, confList, terminalMode, stdinTemp.Name(), execRemoteCmd...)
+		}
 	}
+
 	return 0
 }
