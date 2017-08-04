@@ -109,7 +109,7 @@ func ConnectSshTerminal(connectServer string, confList conf.Config) int {
 }
 
 // exec ssh command function
-func execCommandOverSsh(connectServer string, listSum int, confList conf.Config, terminalMode bool, stdinTempPath string, execRemoteCmd ...string) int {
+func execCommandOverSsh(connectServer string, connectServerHeadLength int, listSum int, confList conf.Config, terminalMode bool, stdinTempPath string, execRemoteCmd ...string) int {
 	connectPort := "22"
 	if confList.Server[connectServer].Port != "" {
 		connectPort = confList.Server[connectServer].Port
@@ -222,7 +222,8 @@ func execCommandOverSsh(connectServer string, listSum int, confList conf.Config,
 			if i == len(stdoutBufArray)-1 {
 				break
 			}
-			fmt.Println(connectServer+":\t", v)
+			lineHeader := fmt.Sprintf("%-*s", connectServerHeadLength, connectServer)
+			fmt.Println(lineHeader+" :: ", v)
 		}
 
 	}
@@ -244,11 +245,16 @@ func ConnectSshCommand(connectServerList []string, confList conf.Config, termina
 	}
 
 	// get connect server name max length
-	//
+	connectServerMaxLength := 0
+	for _, connectServerName := range connectServerList {
+		if connectServerMaxLength < len(connectServerName) {
+			connectServerMaxLength = len(connectServerName)
+		}
+	}
 
 	// for command exec
 	for _, connectServer := range connectServerList {
-		execCommandOverSsh(connectServer, len(connectServerList), confList, terminalMode, stdinTemp.Name(), execRemoteCmd...)
+		execCommandOverSsh(connectServer, connectServerMaxLength, len(connectServerList), confList, terminalMode, stdinTemp.Name(), execRemoteCmd...)
 	}
 	return 0
 }
