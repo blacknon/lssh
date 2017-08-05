@@ -213,30 +213,68 @@ func execCommandOverSsh(connectServer string, connectServerHeadLength int, listS
 		// stdout and stderr to stdoutBuf
 		var stdoutBuf bytes.Buffer
 
+		//var stderrBuf bytes.Buffer
+
 		session.Stdout = &stdoutBuf
 		session.Stderr = &stdoutBuf
 
-		resc := make(chan bool)
+		//outReader, err := session.StdoutPipe()
+		//if err != nil {
+		//	return 1
+		//}
+
+		//errReader, err := session.StderrPipe()
+		//if err != nil {
+		//	return 1
+		//}
+
+		//outReader2 := io.TeeReader(outReader, &stdoutBuf)
+		//errReader2 := io.TeeReader(errReader, &stderrBuf)
+
+		commandStatus := true
 		go func() {
 			err = session.Run(execRemoteCmdString)
-			resc <- true
-			close(resc)
+			//commandStatus <- true
+			//close(commandStatus)
+			commandStatus = false
 		}()
 		//fmt.Println("aaa")
-		for {
-			_, ok := <-resc
-			if !ok {
-				stdoutBufArray := regexp.MustCompile("\r\n|\n\r|\n|\r").Split(stdoutBuf.String(), -1)
-				for i, v := range stdoutBufArray {
-					if i == len(stdoutBufArray)-1 {
-						break
-					}
 
-					lineHeader := fmt.Sprintf("%-*s", connectServerHeadLength, connectServer)
-					fmt.Println(lineHeader+" :: ", v)
-				}
-				break
+		x := 0
+		for {
+			time.Sleep(1 * time.Second)
+			//_, ok := <-commandStatus
+			//if !ok {
+			//fmt.Println(stdoutBuf.ReadBytes(delim))
+
+			stdoutBufToStr := stdoutBuf.String()
+
+			if len(stdoutBufToStr) == 0 {
+				continue
 			}
+			//stdoutBuf.Reset()
+
+			stdoutBufToByte := []byte(stdoutBufToStr)
+			stdoutBufArray := regexp.MustCompile("\r\n|\n\r|\n|\r").Split(string(stdoutBufToByte[x:]), -1)
+			x = len(stdoutBufToStr)
+			//fmt.Println(len(stdoutBufToStr))
+			//fmt.Println(len(stdoutBufArray))
+
+			for i, v := range stdoutBufArray {
+				if i == len(stdoutBufArray)-1 {
+					break
+				}
+
+				lineHeader := fmt.Sprintf("%-*s", connectServerHeadLength, connectServer)
+				fmt.Println(lineHeader+" :: ", v)
+
+				//fmt.Println(stdoutBuf)
+			}
+			if commandStatus == true {
+				continue
+			}
+
+			//}
 		}
 
 		if err != nil {
