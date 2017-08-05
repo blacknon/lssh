@@ -20,8 +20,8 @@ type CommandOption struct {
 	List     bool     `arg:"-l,help:print server list"`
 	File     string   `arg:"-f,help:config file path"`
 	Terminal bool     `arg:"-T,help:Run specified command at terminal"`
-	//Command  []string `arg:"positional,help:Remote Server exec command."`
-	Command []string `arg:"-C,help:Remote Server exec command."`
+	Parallel bool     `arg:"-P,help:Exec command parallel node(tail -F etc...)"`
+	Command  []string `arg:"-C,help:Remote Server exec command."`
 }
 
 // Version Setting
@@ -52,6 +52,7 @@ func main() {
 	listFlag := args.List
 	configFile := args.File
 	terminalExec := args.Terminal
+	parallelExec := args.Parallel
 	execRemoteCmd := args.Command
 
 	// Get List
@@ -97,7 +98,7 @@ func main() {
 	if cmdFlag == true {
 		fmt.Fprintf(os.Stderr, "Select Server :%s\n", strings.Join(selectServer, ","))
 		fmt.Fprintf(os.Stderr, "Exec command  :%s\n", strings.Join(execRemoteCmd, " "))
-		ssh.ConnectSshCommand(selectServer, listConf, terminalExec, execRemoteCmd...)
+		ssh.ConnectSshCommand(selectServer, listConf, terminalExec, parallelExec, execRemoteCmd...)
 		os.Exit(0)
 	} else {
 		// Print selected server and connect command
