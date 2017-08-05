@@ -93,6 +93,13 @@ You can scp like copy files using stdin/stdout.It also supports multiple nodes(p
 <img src="./example/lssh_stdcp.gif" />
 </p>
 
+
+### multi node select exec tail -f
+
+<p align="center">
+<img src="./example/lssh_parallel.gif" />
+</p>
+
 ### Use list select type ssh gateway server
 
 #### '/etc/passwd' use (or .ssh/authorized_keys)
