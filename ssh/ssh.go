@@ -191,9 +191,6 @@ func execCommandOverSsh(connectServer string, connectServerHeadLength int, listS
 		}
 	}
 
-	// stdout and stderr to stdoutBuf
-	var stdoutBuf bytes.Buffer
-
 	// stdin tmp file Open.
 	stdinTempRead, _ := os.OpenFile(stdinTempPath, os.O_RDONLY, 0600)
 	session.Stdin = stdinTempRead
@@ -211,39 +208,61 @@ func execCommandOverSsh(connectServer string, connectServerHeadLength int, listS
 				return ee.ExitStatus()
 			}
 		}
-
 		return 0
-
 	} else {
+		// stdout and stderr to stdoutBuf
+		var stdoutBuf bytes.Buffer
+
 		session.Stdout = &stdoutBuf
 		session.Stderr = &stdoutBuf
 
-		finished := make(chan bool)
+		resc := make(chan bool)
 		go func() {
-			finished <- true
+			err = session.Run(execRemoteCmdString)
+			resc <- true
+			close(resc)
 		}()
+		//fmt.Println("aaa")
+		for {
+			_, ok := <-resc
+			if !ok {
+				stdoutBufArray := regexp.MustCompile("\r\n|\n\r|\n|\r").Split(stdoutBuf.String(), -1)
+				for i, v := range stdoutBufArray {
+					if i == len(stdoutBufArray)-1 {
+						break
+					}
 
-		stdoutBufArray := regexp.MustCompile("\r\n|\n\r|\n|\r").Split(stdoutBuf.String(), -1)
+					lineHeader := fmt.Sprintf("%-*s", connectServerHeadLength, connectServer)
+					fmt.Println(lineHeader+" :: ", v)
+				}
+				break
+			}
+		}
+
+		if err != nil {
+			fmt.Fprint(os.Stderr, err)
+			if ee, ok := err.(*ssh.ExitError); ok {
+				return ee.ExitStatus()
+			}
+		}
+		//
+		//
+		//
+		//
+		//stdoutBufArray := regexp.MustCompile("\r\n|\n\r|\n|\r").Split(stdoutBuf.String(), -1)
 
 		//for i := 1; i <= connectServerCount; i++ {
 		//	<-finished
 		//}
 
-		for i, v := range stdoutBufArray {
-			if i == len(stdoutBufArray)-1 {
-				break
-			}
-
-			lineHeader := fmt.Sprintf("%-*s", connectServerHeadLength, connectServer)
-			fmt.Println(lineHeader+" :: ", v)
-		}
-	}
-
-	if err != nil {
-		fmt.Fprint(os.Stderr, err)
-		if ee, ok := err.(*ssh.ExitError); ok {
-			return ee.ExitStatus()
-		}
+		//for i, v := range stdoutBufArray {
+		//	if i == len(stdoutBufArray)-1 {
+		//		break
+		//	}
+		//
+		//	lineHeader := fmt.Sprintf("%-*s", connectServerHeadLength, connectServer)
+		//	fmt.Println(lineHeader+" :: ", v)
+		//}
 	}
 
 	return 0
