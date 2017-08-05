@@ -30,6 +30,30 @@ func tmpFileName() string {
 	return strconv.FormatUint(n, 36) + ".lssh.tmp"
 }
 
+func outColorStrings(num int, inStrings string) string {
+	returnStr := ""
+	color := num % 5
+	switch color {
+	// Red
+	case 1:
+		returnStr = fmt.Sprintf("\x1b[31m%s\x1b[0m", inStrings)
+	// Yellow
+	case 2:
+		returnStr = fmt.Sprintf("\x1b[33m%s\x1b[0m", inStrings)
+	// Blue
+	case 3:
+		returnStr = fmt.Sprintf("\x1b[34m%s\x1b[0m", inStrings)
+	// Magenta
+	case 4:
+		returnStr = fmt.Sprintf("\x1b[35m%s\x1b[0m", inStrings)
+	// Cyan
+	case 0:
+		returnStr = fmt.Sprintf("\x1b[36m%s\x1b[0m", inStrings)
+
+	}
+	return returnStr
+}
+
 // OS ssh wrapper(terminal connect)
 func ConnectSshTerminal(connectServer string, confList conf.Config) int {
 	// Get ssh config value
@@ -109,7 +133,7 @@ func ConnectSshTerminal(connectServer string, confList conf.Config) int {
 }
 
 // exec ssh command function
-func execCommandOverSsh(connectServer string, connectServerHeadLength int, listSum int, confList conf.Config, terminalMode bool, stdinTempPath string, execRemoteCmd ...string) int {
+func execCommandOverSsh(connectServerNum int, connectServer string, connectServerHeadLength int, listSum int, confList conf.Config, terminalMode bool, stdinTempPath string, execRemoteCmd ...string) int {
 	connectPort := "22"
 	if confList.Server[connectServer].Port != "" {
 		connectPort = confList.Server[connectServer].Port
@@ -216,6 +240,8 @@ func execCommandOverSsh(connectServer string, connectServerHeadLength int, listS
 		session.Stdout = &stdoutBuf
 		session.Stderr = &stdoutBuf
 
+		// commandStatus: Chan can not continuously read buffer in for.
+		//                For this reason, the processing end is detected using a variable.
 		commandStatus := true
 
 		// Exec Command(parallel)
@@ -224,9 +250,10 @@ func execCommandOverSsh(connectServer string, connectServerHeadLength int, listS
 			commandStatus = false
 		}()
 
+		// var "x" is Readed Byte position from Buffer
 		x := 0
 		for {
-			time.Sleep(1 * time.Second)
+			time.Sleep(100 * time.Millisecond)
 
 			stdoutBufToStr := stdoutBuf.String()
 
@@ -244,11 +271,13 @@ func execCommandOverSsh(connectServer string, connectServerHeadLength int, listS
 				}
 
 				lineHeader := fmt.Sprintf("%-*s", connectServerHeadLength, connectServer)
-				fmt.Println(lineHeader+" :: ", v)
+				fmt.Println(outColorStrings(connectServerNum, lineHeader)+":: ", v)
 
 			}
 			if commandStatus == true {
 				continue
+			} else {
+				break
 			}
 		}
 
@@ -288,22 +317,25 @@ func ConnectSshCommand(connectServerList []string, confList conf.Config, termina
 	connectServerCount := len(connectServerList)
 	if connectServerCount > 1 {
 		finished := make(chan bool)
+
 		// for command exec
+		x := 1
 		for _, connectServer := range connectServerList {
+			y := x
 			targetServer := connectServer
 			go func() {
-				execCommandOverSsh(targetServer, connectServerMaxLength, connectServerCount, confList, terminalMode, stdinTemp.Name(), execRemoteCmd...)
+				execCommandOverSsh(y, targetServer, connectServerMaxLength, connectServerCount, confList, terminalMode, stdinTemp.Name(), execRemoteCmd...)
 				finished <- true
 			}()
-
+			x++
 		}
 
 		for i := 1; i <= connectServerCount; i++ {
 			<-finished
 		}
 	} else {
-		for _, connectServer := range connectServerList {
-			execCommandOverSsh(connectServer, connectServerMaxLength, connectServerCount, confList, terminalMode, stdinTemp.Name(), execRemoteCmd...)
+		for i, connectServer := range connectServerList {
+			execCommandOverSsh(i, connectServer, connectServerMaxLength, connectServerCount, confList, terminalMode, stdinTemp.Name(), execRemoteCmd...)
 		}
 	}
 
