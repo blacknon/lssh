@@ -7,9 +7,7 @@ List selection formula ssh wrapper command
 
 ## Description
 
-lssh - ssh wrapper that connects ssh to the host selected from the list.
-
-list file is set in yaml format.When selecting a host, you can filter by keywords.
+lssh - A command to read a prepared list in advance and connect to ssh to the selected host..list file is set in yaml format.When selecting a host, you can filter by keywords.Execute commands concurrently to multiple hosts.
 
 ## Demo
 
@@ -64,29 +62,26 @@ After exec command.
 
 option
 
-
-	lssh v0.3
-	usage: lssh [--host HOST] [--list] [--file FILE] [--terminal] [COMMAND [COMMAND ...]]
-
-	positional arguments:
-	  command                Remote Server exec command.
+	lssh v0.4
+	usage: lssh [--host HOST] [--list] [--file FILE] [--terminal] [--command COMMAND]
 
 	options:
 	  --host HOST, -H HOST   Connect servername
 	  --list, -l             print server list
-	  --file FILE, -f FILE   config file path [default: /Users/uesugi/.lssh.conf]
+	  --file FILE, -f FILE   config file path [default: /home/blacknon/.lssh.conf]
 	  --terminal, -T         Run specified command at terminal
+	  --command COMMAND, -C COMMAND
+    	                     Remote Server exec command.
 	  --help, -h             display this help and exit
 	  --version              display version and exit
 
-If you specify a command as an argument, you can select multiple hosts.
 
-Select host 'Ctrl + X',select all displayed hosts 'Ctrl + A'
+If you specify a command as an argument, you can select multiple hosts.Select host 'Ctrl + X',select all displayed hosts 'Ctrl + A'.
 
 
 ### copy files using stdin/stdout to/from remote server
 
-You can scp like copy files using stdin/stdout.
+You can scp like copy files using stdin/stdout.It also supports multiple nodes.
 
 	# from local to remote server
 	cat LOCAL_PATH | lssh -e 'cat > REMOTE_PATH'
