@@ -85,7 +85,7 @@ func ConnectSshTerminal(connectServer string, confList conf.Config) int {
 		logDirPath = strings.Replace(logDirPath, "~", usr.HomeDir, 1)
 
 		// mkdir logDIr
-		if err := os.MkdirAll(logDirPath, 0600); err != nil {
+		if err := os.MkdirAll(logDirPath, 0700); err != nil {
 			fmt.Println(err)
 			return 1
 		}
