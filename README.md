@@ -7,9 +7,7 @@ List selection formula ssh wrapper command
 
 ## Description
 
-lssh - ssh wrapper that connects ssh to the host selected from the list.
-
-list file is set in yaml format.When selecting a host, you can filter by keywords.
+lssh - A command to read a prepared list in advance and connect to ssh to the selected host..list file is set in yaml format.When selecting a host, you can filter by keywords.Execute commands concurrently to multiple hosts.
 
 ## Demo
 
@@ -64,35 +62,32 @@ After exec command.
 
 option
 
-
-	lssh v0.3
-	usage: lssh [--host HOST] [--list] [--file FILE] [--terminal] [COMMAND [COMMAND ...]]
-
-	positional arguments:
-	  command                Remote Server exec command.
+	lssh v0.4
+	usage: lssh [--host HOST] [--list] [--file FILE] [--terminal] [--parallel] [--command COMMAND]
 
 	options:
 	  --host HOST, -H HOST   Connect servername
 	  --list, -l             print server list
-	  --file FILE, -f FILE   config file path [default: /Users/uesugi/.lssh.conf]
+	  --file FILE, -f FILE   config file path [default: /home/blacknon/.lssh.conf]
 	  --terminal, -T         Run specified command at terminal
+	  --parallel, -P         Exec command parallel node(tail -F etc...)
+	  --command COMMAND, -C COMMAND
+	                         Remote Server exec command.
 	  --help, -h             display this help and exit
 	  --version              display version and exit
 
-If you specify a command as an argument, you can select multiple hosts.
-
-Select host 'Ctrl + X',select all displayed hosts 'Ctrl + A'
+If you specify a command as an argument, you can select multiple hosts.Select host 'Ctrl + X',select all displayed hosts 'Ctrl + A'.
 
 
 ### copy files using stdin/stdout to/from remote server
 
-You can scp like copy files using stdin/stdout.
+You can scp like copy files using stdin/stdout.It also supports multiple nodes(parallel is not yet supported now).
 
 	# from local to remote server
-	cat LOCAL_PATH | lssh -e 'cat > REMOTE_PATH'
+	cat LOCAL_PATH | lssh -C 'cat > REMOTE_PATH'
 
 	# from remote server to local
-	lssh -e 'cat REMOTE_PATH' | cat > LOCAL_PATH
+	lssh -C 'cat REMOTE_PATH' | cat > LOCAL_PATH
 
 <p align="center">
 <img src="./example/lssh_stdcp.gif" />
@@ -100,7 +95,7 @@ You can scp like copy files using stdin/stdout.
 
 ### Use list select type ssh gateway server
 
-#### '/etc/passwd' use
+#### '/etc/passwd' use (or .ssh/authorized_keys)
 
 To use as a ssh gateway server as list select type, specify it at an execution command in "/etc/passwd"( or "authorized_keys").
 
@@ -112,22 +107,6 @@ Arrange "~/.lssh.conf" and connect with ssh.
 
 <p align="center">
 <img src="./example/lssh_withpasswd.gif" />
-</p>
-
-
-#### '/etc/passwd' with 'tmux' use
-
-ex) /etc/passwd
-
-    lssh:x:1000:1000::/home/lssh:/usr/bin/tmux
-
-add this line at lssh exec user's '.tmux.conf'.
-ex) ~/.tmux.conf
-
-    set-option -g default-command /usr/local/bin/lssh
-
-<p align="center">
-<img src="./example/lssh_withtmux.gif" />
 </p>
 
 ## Licence
