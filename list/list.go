@@ -287,7 +287,7 @@ func pollEvent(serverNameList []string, cmdFlag bool, serverList conf.Config) (l
 
 			// AllowRight Key
 			case termbox.KeyArrowRight:
-				if ((selectline+lineHeight)/lineHeight)*lineHeight +1 < len(filterListData) {
+				if ((selectline+lineHeight)/lineHeight)*lineHeight+1 < len(filterListData) {
 					selectline = ((selectline + lineHeight) / lineHeight) * lineHeight
 				}
 				draw(filterListData, lineData, selectline, searchText)
@@ -362,6 +362,9 @@ func pollEvent(serverNameList []string, cmdFlag bool, serverList conf.Config) (l
 					draw(filterListData, lineData, selectline, searchText)
 				}
 			}
+		case termbox.EventResize:
+			draw(filterListData, lineData, selectline, searchText)
+
 		default:
 			draw(filterListData, lineData, selectline, searchText)
 		}
