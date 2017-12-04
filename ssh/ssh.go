@@ -127,11 +127,11 @@ func ConnectSshTerminal(connectServer string, confList conf.Config) int {
 			switch s {
 			case syscall.SIGWINCH:
 				// Get terminal window size
-				if err := termbox.Init(); err != nil {
-					panic(err)
-				}
-				width, hight := termbox.Size()
-				termbox.Close()
+				//if err := termbox.Init(); err != nil {
+				//	panic(err)
+				//}
+				//width, hight := termbox.Size()
+				//termbox.Close()
 				//fmt.Println(width, hight)
 			}
 		}
