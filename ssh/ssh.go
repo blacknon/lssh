@@ -121,21 +121,21 @@ func ConnectSshTerminal(connectServer string, confList conf.Config) int {
 	signal.Notify(signal_chan,
 		syscall.SIGWINCH)
 
-	go func() {
-		for {
-			s := <-signal_chan
-			switch s {
-			case syscall.SIGWINCH:
-				// Get terminal window size
-				if err := termbox.Init(); err != nil {
-					panic(err)
-				}
-				width, hight := termbox.Size()
-				termbox.Close()
-				//fmt.Println(width, hight)
-			}
-		}
-	}()
+	//go func() {
+		//for {
+			//s := <-signal_chan
+			//switch s {
+			//case syscall.SIGWINCH:
+			//	// Get terminal window size
+			//	if err := termbox.Init(); err != nil {
+			//		panic(err)
+			//	}
+			//	width, hight := termbox.Size()
+			//	termbox.Close()
+			//	//fmt.Println(width, hight)
+			//}
+		//}
+	//}()
 
 	// Password Input
 	if connectPass != "" {
