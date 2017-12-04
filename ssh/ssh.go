@@ -132,8 +132,7 @@ func ConnectSshTerminal(connectServer string, confList conf.Config) int {
 				}
 				width, hight := termbox.Size()
 				termbox.Close()
-
-				child.setwinsize
+				//fmt.Println(width, hight)
 			}
 		}
 	}()
