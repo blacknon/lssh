@@ -121,6 +121,7 @@ func ConnectSshTerminal(connectServer string, confList conf.Config) int {
 	signal.Notify(signal_chan,
 		syscall.SIGWINCH)
 
+<<<<<<< HEAD
 	go func() {
 		for {
 			s := <-signal_chan
@@ -136,6 +137,23 @@ func ConnectSshTerminal(connectServer string, confList conf.Config) int {
 			}
 		}
 	}()
+=======
+	//go func() {
+		//for {
+			//s := <-signal_chan
+			//switch s {
+			//case syscall.SIGWINCH:
+			//	// Get terminal window size
+			//	if err := termbox.Init(); err != nil {
+			//		panic(err)
+			//	}
+			//	width, hight := termbox.Size()
+			//	termbox.Close()
+			//	//fmt.Println(width, hight)
+			//}
+		//}
+	//}()
+>>>>>>> 471562f67fcea7053bfb3e2709e5a71783b78e26
 
 	// Password Input
 	if connectPass != "" {
