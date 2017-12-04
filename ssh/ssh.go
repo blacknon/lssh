@@ -8,6 +8,7 @@ import (
 	"io"
 	"io/ioutil"
 	"os"
+	"os/signal"
 	"os/user"
 	"regexp"
 	"runtime"
@@ -93,7 +94,7 @@ func ConnectSshTerminal(connectServer string, confList conf.Config) int {
 		// Golang time.format YYYYmmdd_HHMMSS = "20060102_150405".(https://golang.org/src/time/format.go)
 		logFile := time.Now().Format("20060102_150405") + "_" + connectServer + ".log"
 		logFilePATH := logDirPath + "/" + logFile
-		awkCmd := ">(awk '{print strftime(\"%F %T \") $0}{fflush() }'>>" + logFilePATH + ")"
+		awkCmd := ">(awk '{print strftime(\"%F %T \") $0}{fflush()}'>>" + logFilePATH + ")"
 
 		// OS check
 		if execOS == "linux" || execOS == "android" {
@@ -114,6 +115,28 @@ func ConnectSshTerminal(connectServer string, confList conf.Config) int {
 		return 1
 	}
 	defer child.Close()
+
+	// Terminal Size Change Trap
+	signal_chan := make(chan os.Signal, 1)
+	signal.Notify(signal_chan,
+		syscall.SIGWINCH)
+
+	go func() {
+		for {
+			s := <-signal_chan
+			switch s {
+			case syscall.SIGWINCH:
+				// Get terminal window size
+				if err := termbox.Init(); err != nil {
+					panic(err)
+				}
+				width, hight := termbox.Size()
+				termbox.Close()
+
+				child.setwinsize
+			}
+		}
+	}()
 
 	// Password Input
 	if connectPass != "" {
