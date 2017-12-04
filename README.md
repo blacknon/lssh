@@ -25,10 +25,10 @@ need the following command.
 
 ## Install
 
-    go get github.com/blacknon/lssh
-    go install github.com/blacknon/lssh
-    cp $GOPATH/src/github.com/blacknon/lssh/example/config.tml ~/.lssh.conf
-    chmod 600 ~/.lssh.conf
+        go get github.com/blacknon/lssh
+        go install github.com/blacknon/lssh
+        cp $GOPATH/src/github.com/blacknon/lssh/example/config.tml ~/.lssh.conf
+        chmod 600 ~/.lssh.conf
 
 ## Usage
 
