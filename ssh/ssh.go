@@ -118,6 +118,7 @@ func ConnectSshTerminal(connectServer string, confList conf.Config) int {
 
 	// Terminal Size Change Trap
 	signal_chan := make(chan os.Signal, 1)
+<<<<<<< HEAD
 	signal.Notify(signal_chan,
 		syscall.SIGWINCH)
 
@@ -136,6 +137,29 @@ func ConnectSshTerminal(connectServer string, confList conf.Config) int {
 	//}
 	//}
 	//}()
+=======
+	signal.Notify(signal_chan, syscall.SIGWINCH)
+
+	//	go func() {
+	//		for {
+	//			s := <-signal_chan
+	//			switch s {
+	//			case syscall.SIGWINCH:
+	//				// Get terminal window size
+	//				if err := termbox.Init(); err != nil {
+	//					panic(err)
+	//				}
+	//				child.Term.ResetWinSize()
+	//
+	//				width, hight := termbox.Size()
+	//				termbox.Close()
+	//
+	//				fmt.Println(width, hight)
+	//				fmt.Println(str(child.Term.GetWinSize()))
+	//			}
+	//		}
+	//	}()
+>>>>>>> origin
 
 	// Password Input
 	if connectPass != "" {
