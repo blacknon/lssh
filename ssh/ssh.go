@@ -68,11 +68,11 @@ func ConnectSshTerminal(connectServer string, confList conf.Config) int {
 
 	// ssh command Args
 	// "/usr/bin/ssh -o 'StrictHostKeyChecking no' -o 'NumberOfPasswordPrompts 1' connectUser@connectAddr -p connectPort"
-	sshCmd := []string{"/usr/bin/ssh", "-o", "'StrictHostKeyChecking no'", "-o", "'NumberOfPasswordPrompts 1'", connectHost, "-p", connectPort}
+	sshCmd := []string{"/usr/bin/ssh", "-o", "StrictHostKeyChecking no", "-o", "NumberOfPasswordPrompts 1", connectHost, "-p", connectPort}
 
 	if connectKey != "" {
 		// "/usr/bin/ssh -o 'StrictHostKeyChecking no' -o 'NumberOfPasswordPrompts 1' -i connectKey connectUser@connectAddr -p connectPort"
-		sshCmd = []string{"/usr/bin/ssh", "-o", "'StrictHostKeyChecking no'", "-o", "'NumberOfPasswordPrompts 1'", "-i", connectKey, connectHost, "-p", connectPort}
+		sshCmd = []string{"/usr/bin/ssh", "-o", "StrictHostKeyChecking no", "-o", "NumberOfPasswordPrompts 1", "-i", connectKey, connectHost, "-p", connectPort}
 	}
 
 	// log Enable
@@ -80,7 +80,6 @@ func ConnectSshTerminal(connectServer string, confList conf.Config) int {
 	if confList.Log.Enable == true {
 		logDirPath := confList.Log.Dir
 		execOS := runtime.GOOS
-		//execCmd = "/usr/bin/script"
 
 		// ~ replace User current Directory
 		usr, _ := user.Current()
@@ -99,9 +98,11 @@ func ConnectSshTerminal(connectServer string, confList conf.Config) int {
 
 		// OS check
 		if execOS == "linux" || execOS == "android" {
-			execCmd = []string{"/usr/bin/script", "-qf", "-c", "\"" + strings.Join(sshCmd, " ") + "\"", awkCmd}
+			execCmd = []string{"/usr/bin/script", "-qf", "-c", strings.Join(sshCmd, " "), awkCmd}
+			//execCmd = []string{"/usr/bin/script", "-qf", "-c", sshCmd, awkCmd}
 		} else {
 			execCmd = []string{"/usr/bin/script", "-qF", awkCmd, strings.Join(sshCmd, " ")}
+			//execCmd = []string{"/usr/bin/script", "-qF", awkCmd, sshCmd}
 		}
 
 	} else {
@@ -109,24 +110,10 @@ func ConnectSshTerminal(connectServer string, confList conf.Config) int {
 	}
 
 	// exec ssh command
-	//child, _ := gexpect.NewSubProcess("/bin/bash", "-c", execCmd)
 	fmt.Println(execCmd)
-	fmt.Println("=======")
-	x := ""
-	for i, m := range execCmd {
-		if i == 0 {
-			x = fmt.Sprintf("%s", "\""+m+"\"")
-			fmt.Println("ymg")
-		} else {
-			x = x + "," + fmt.Sprintf("%s", "\""+m+"\"")
-		}
-		fmt.Println(x)
-	}
-	fmt.Println("=======")
-	fmt.Println(x)
-	//fmt.Println(strings.Join(execCmd, ","))
-
-	child, _ := gexpect.NewSubProcess(x)
+	child, _ := gexpect.NewSubProcess(execCmd[0], execCmd[1:]...)
+	//rec, _ := ioutil.TempFile("/tmp", "rec")
+	//child.Term.Recorder = append(child.Term.Recorder, rec)
 
 	if err := child.Start(); err != nil {
 		fmt.Println(err)
@@ -149,12 +136,6 @@ func ConnectSshTerminal(connectServer string, confList conf.Config) int {
 					panic(err)
 				}
 				child.Term.ResetWinSize()
-
-				width, hight := termbox.Size()
-				termbox.Close()
-
-				fmt.Println(width, hight)
-				fmt.Println(child.Term.GetWinSize())
 			}
 		}
 	}()
