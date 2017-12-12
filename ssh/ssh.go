@@ -11,7 +11,6 @@ import (
 	"os/signal"
 	"os/user"
 	"regexp"
-	"runtime"
 	"strconv"
 	"strings"
 	"syscall"
@@ -20,9 +19,9 @@ import (
 	"golang.org/x/crypto/ssh"
 	"golang.org/x/crypto/ssh/terminal"
 
+	"github.com/blacknon/gexpect"
 	"github.com/blacknon/lssh/conf"
 	termbox "github.com/nsf/termbox-go"
-	"github.com/shavac/gexpect"
 )
 
 func tmpFileName() string {
@@ -79,7 +78,7 @@ func ConnectSshTerminal(connectServer string, confList conf.Config) int {
 	execCmd := []string{}
 	if confList.Log.Enable == true {
 		logDirPath := confList.Log.Dir
-		execOS := runtime.GOOS
+		//execOS := runtime.GOOS
 
 		// ~ replace User current Directory
 		usr, _ := user.Current()
@@ -94,19 +93,52 @@ func ConnectSshTerminal(connectServer string, confList conf.Config) int {
 		// Golang time.format YYYYmmdd_HHMMSS = "20060102_150405".(https://golang.org/src/time/format.go)
 		logFile := time.Now().Format("20060102_150405") + "_" + connectServer + ".log"
 		logFilePATH := logDirPath + "/" + logFile
+		fmt.Println(logFilePATH)
+		//fifoPATH := logDirPath + "/." + logFile + ".fifo"
+
+		// Create FIFO
+		//syscall.Mknod(fifoPATH, syscall.S_IFIFO|0600, 0)
+		//defer os.Remove(fifoPATH)
+
+		//fmt.Println(fifoPATH)
+
+		// Read FiIFO write LogFile Add Timestamp
+		//go func() {
+		//	// Open FIFO
+		//	openFIFO, err := os.Open(fifoPATH)
+		//	if err != nil {
+		//		fmt.Println(err)
+		//	}
+		//	scanner := bufio.NewScanner(openFIFO)
+		//
+		//	// Open Logfile
+		//	wirteLog, err := os.OpenFile(logFilePATH, os.O_RDWR|os.O_CREATE|os.O_APPEND, 0600)
+		//	if err != nil {
+		//		fmt.Println(err)
+		//	}
+		//	defer wirteLog.Close()
+
+		//	// for loop log
+		//	for scanner.Scan() {
+		//		fmt.Fprintln(wirteLog, time.Now().Format("2006/01/02 15:04:05 ")+scanner.Text())
+		//	}
+		//}()
+
 		//awkCmd := ">(awk '{print strftime(\"%F %T \") $0}{fflush()}'>>" + logFilePATH + ")"
 
 		// OS check
-		if execOS == "linux" || execOS == "android" {
-			execCmd = append([]string{"/usr/bin/script", "-qf", "-c"}, sshCmd...)
-			execCmd = append(execCmd, []string{logFilePATH}...)
-			//execCmd = []string{"/usr/bin/script", "-qf", "-c", strings.Join(sshCmd, " "), awkCmd}
-			//execCmd = []string{"/usr/bin/script", "-qf", "-c", sshCmd, awkCmd}
-		} else {
-			execCmd = append([]string{"/usr/bin/script", "-qF", logFilePATH}, sshCmd...)
-			//execCmd = []string{"/usr/bin/script", "-qF", awkCmd, strings.Join(sshCmd, " ")}
-			//execCmd = []string{"/usr/bin/script", "-qF", awkCmd, sshCmd}
-		}
+		//if execOS == "linux" || execOS == "android" {
+		//	execCmd = append([]string{"/usr/bin/script", "-qf", "-c"}, sshCmd...)
+		//execCmd = append(execCmd, []string{fifoPATH}...)
+		//	execCmd = append(execCmd, []string{logFilePATH}...)
+		//execCmd = []string{"/usr/bin/script", "-qf", "-c", strings.Join(sshCmd, " "), awkCmd}
+		//execCmd = []string{"/usr/bin/script", "-qf", "-c", sshCmd, awkCmd}
+		//} else {
+		//	execCmd = append([]string{"/usr/bin/script", "-qF", logFilePATH}, sshCmd...)
+		//execCmd = append([]string{"/usr/bin/script", "-qF", fifoPATH}, sshCmd...)
+		//execCmd = []string{"/usr/bin/script", "-qF", awkCmd, strings.Join(sshCmd, " ")}
+		//execCmd = []string{"/usr/bin/script", "-qF", awkCmd, sshCmd}
+		//}
 
 	} else {
 		execCmd = sshCmd
@@ -115,8 +147,7 @@ func ConnectSshTerminal(connectServer string, confList conf.Config) int {
 	// exec ssh command
 	fmt.Println(execCmd)
 	child, _ := gexpect.NewSubProcess(execCmd[0], execCmd[1:]...)
-	//rec, _ := ioutil.TempFile("/tmp", "rec")
-	//child.Term.Recorder = append(child.Term.Recorder, rec)
+	//fmt.Println(child.Term.Pty.Name()
 
 	if err := child.Start(); err != nil {
 		fmt.Println(err)
@@ -127,18 +158,15 @@ func ConnectSshTerminal(connectServer string, confList conf.Config) int {
 	// Terminal Size Change Trap
 	signal_chan := make(chan os.Signal, 1)
 	signal.Notify(signal_chan, syscall.SIGWINCH)
-
 	fmt.Println(child.Term.GetWinSize())
 	go func() {
 		for {
 			s := <-signal_chan
 			switch s {
 			case syscall.SIGWINCH:
-				// Get terminal window size
-				if err := termbox.Init(); err != nil {
-					panic(err)
-				}
+				//fmt.Println("gexpect:" + child.Term.GetWinSize())
 				child.Term.ResetWinSize()
+				//fmt.Println("gexpect:" + child.Term.GetWinSize())
 			}
 		}
 	}()
