@@ -26,7 +26,7 @@ type CommandOption struct {
 
 // Version Setting
 func (CommandOption) Version() string {
-	return "lssh v0.4"
+	return "lssh v0.4.1"
 }
 
 func main() {
