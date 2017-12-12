@@ -1,6 +1,7 @@
 package ssh
 
 import (
+	"bufio"
 	"bytes"
 	"crypto/rand"
 	"encoding/binary"
@@ -74,13 +75,19 @@ func ConnectSshTerminal(connectServer string, confList conf.Config) int {
 		sshCmd = []string{"/usr/bin/ssh", "-o", "StrictHostKeyChecking no", "-o", "NumberOfPasswordPrompts 1", "-i", connectKey, connectHost, "-p", connectPort}
 	}
 
-	// log Enable
-	execCmd := []string{}
+	// exec ssh command
+	fmt.Println(sshCmd)
+	child, _ := gexpect.NewSubProcess(sshCmd[0], sshCmd[1:]...)
+
+	if err := child.Start(); err != nil {
+		fmt.Println(err)
+		return 1
+	}
+	defer child.Close()
+
+	// Log Enable
 	if confList.Log.Enable == true {
 		logDirPath := confList.Log.Dir
-		//execOS := runtime.GOOS
-
-		// ~ replace User current Directory
 		usr, _ := user.Current()
 		logDirPath = strings.Replace(logDirPath, "~", usr.HomeDir, 1)
 
@@ -93,67 +100,36 @@ func ConnectSshTerminal(connectServer string, confList conf.Config) int {
 		// Golang time.format YYYYmmdd_HHMMSS = "20060102_150405".(https://golang.org/src/time/format.go)
 		logFile := time.Now().Format("20060102_150405") + "_" + connectServer + ".log"
 		logFilePATH := logDirPath + "/" + logFile
-		fmt.Println(logFilePATH)
-		//fifoPATH := logDirPath + "/." + logFile + ".fifo"
+		fifoPATH := logDirPath + "/." + logFile + ".fifo"
 
 		// Create FIFO
-		//syscall.Mknod(fifoPATH, syscall.S_IFIFO|0600, 0)
-		//defer os.Remove(fifoPATH)
-
-		//fmt.Println(fifoPATH)
+		syscall.Mknod(fifoPATH, syscall.S_IFIFO|0600, 0)
+		defer os.Remove(fifoPATH)
 
 		// Read FiIFO write LogFile Add Timestamp
-		//go func() {
-		//	// Open FIFO
-		//	openFIFO, err := os.Open(fifoPATH)
-		//	if err != nil {
-		//		fmt.Println(err)
-		//	}
-		//	scanner := bufio.NewScanner(openFIFO)
-		//
-		//	// Open Logfile
-		//	wirteLog, err := os.OpenFile(logFilePATH, os.O_RDWR|os.O_CREATE|os.O_APPEND, 0600)
-		//	if err != nil {
-		//		fmt.Println(err)
-		//	}
-		//	defer wirteLog.Close()
+		go func() {
+			// Open FIFO
+			openFIFO, err := os.Open(fifoPATH)
+			if err != nil {
+				fmt.Println(err)
+			}
+			scanner := bufio.NewScanner(openFIFO)
 
-		//	// for loop log
-		//	for scanner.Scan() {
-		//		fmt.Fprintln(wirteLog, time.Now().Format("2006/01/02 15:04:05 ")+scanner.Text())
-		//	}
-		//}()
+			// Open Logfile
+			wirteLog, err := os.OpenFile(logFilePATH, os.O_RDWR|os.O_CREATE|os.O_APPEND, 0600)
+			if err != nil {
+				fmt.Println(err)
+			}
+			defer wirteLog.Close()
 
-		//awkCmd := ">(awk '{print strftime(\"%F %T \") $0}{fflush()}'>>" + logFilePATH + ")"
+			// for loop Add timestamp log
+			for scanner.Scan() {
+				fmt.Fprintln(wirteLog, time.Now().Format("2006/01/02 15:04:05 ")+scanner.Text())
+			}
+		}()
 
-		// OS check
-		//if execOS == "linux" || execOS == "android" {
-		//	execCmd = append([]string{"/usr/bin/script", "-qf", "-c"}, sshCmd...)
-		//execCmd = append(execCmd, []string{fifoPATH}...)
-		//	execCmd = append(execCmd, []string{logFilePATH}...)
-		//execCmd = []string{"/usr/bin/script", "-qf", "-c", strings.Join(sshCmd, " "), awkCmd}
-		//execCmd = []string{"/usr/bin/script", "-qf", "-c", sshCmd, awkCmd}
-		//} else {
-		//	execCmd = append([]string{"/usr/bin/script", "-qF", logFilePATH}, sshCmd...)
-		//execCmd = append([]string{"/usr/bin/script", "-qF", fifoPATH}, sshCmd...)
-		//execCmd = []string{"/usr/bin/script", "-qF", awkCmd, strings.Join(sshCmd, " ")}
-		//execCmd = []string{"/usr/bin/script", "-qF", awkCmd, sshCmd}
-		//}
-
-	} else {
-		execCmd = sshCmd
+		child.Term.Log, _ = os.OpenFile(fifoPATH, os.O_RDWR, 0600)
 	}
-
-	// exec ssh command
-	fmt.Println(execCmd)
-	child, _ := gexpect.NewSubProcess(execCmd[0], execCmd[1:]...)
-	//fmt.Println(child.Term.Pty.Name()
-
-	if err := child.Start(); err != nil {
-		fmt.Println(err)
-		return 1
-	}
-	defer child.Close()
 
 	// Terminal Size Change Trap
 	signal_chan := make(chan os.Signal, 1)
@@ -164,9 +140,7 @@ func ConnectSshTerminal(connectServer string, confList conf.Config) int {
 			s := <-signal_chan
 			switch s {
 			case syscall.SIGWINCH:
-				//fmt.Println("gexpect:" + child.Term.GetWinSize())
 				child.Term.ResetWinSize()
-				//fmt.Println("gexpect:" + child.Term.GetWinSize())
 			}
 		}
 	}()
