@@ -76,7 +76,6 @@ func ConnectSshTerminal(connectServer string, confList conf.Config) int {
 	}
 
 	// exec ssh command
-	fmt.Println(sshCmd)
 	child, _ := gexpect.NewSubProcess(sshCmd[0], sshCmd[1:]...)
 
 	if err := child.Start(); err != nil {
@@ -134,7 +133,6 @@ func ConnectSshTerminal(connectServer string, confList conf.Config) int {
 	// Terminal Size Change Trap
 	signal_chan := make(chan os.Signal, 1)
 	signal.Notify(signal_chan, syscall.SIGWINCH)
-	fmt.Println(child.Term.GetWinSize())
 	go func() {
 		for {
 			s := <-signal_chan
