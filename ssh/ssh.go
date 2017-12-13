@@ -105,6 +105,9 @@ func ConnectSshTerminal(connectServer string, confList conf.Config) int {
 		syscall.Mknod(fifoPATH, syscall.S_IFIFO|0600, 0)
 		defer os.Remove(fifoPATH)
 
+		fifoWrite, _ := os.OpenFile(fifoPATH, os.O_RDWR|os.O_APPEND, 0600)
+		child.Term.Log = fifoWrite
+
 		// Read FiIFO write LogFile Add Timestamp
 		go func() {
 			// Open FIFO
@@ -126,8 +129,6 @@ func ConnectSshTerminal(connectServer string, confList conf.Config) int {
 				fmt.Fprintln(wirteLog, time.Now().Format("2006/01/02 15:04:05 ")+scanner.Text())
 			}
 		}()
-
-		child.Term.Log, _ = os.OpenFile(fifoPATH, os.O_RDWR, 0600)
 	}
 
 	// Terminal Size Change Trap
