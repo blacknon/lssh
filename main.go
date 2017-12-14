@@ -96,19 +96,32 @@ func main() {
 
 	// Exec Connect ssh
 	if cmdFlag == true {
+		// Print selected server and connect command
 		fmt.Fprintf(os.Stderr, "Select Server :%s\n", strings.Join(selectServer, ","))
 		fmt.Fprintf(os.Stderr, "Exec command  :%s\n", strings.Join(execRemoteCmd, " "))
-		ssh.ConnectSshCommand(selectServer, listConf, terminalExec, parallelExec, execRemoteCmd...)
+
+		// Connect SSH
+		ssh.ConSshCmd(selectServer,
+			listConf,
+			terminalExec,
+			parallelExec,
+			execRemoteCmd...)
 		os.Exit(0)
 	} else {
-		// Print selected server and connect command
+		// Print selected server
 		fmt.Fprintf(os.Stderr, "Select Server :%s\n", selectServer[0])
 
 		// No select Server
 		if len(selectServer) > 1 {
 			fmt.Fprintln(os.Stderr, "Connect ssh interactive shell.Connect only to the first device")
 		}
+
 		// Connect SSH Terminal
-		os.Exit(ssh.ConnectSshTerminal(selectServer[0], listConf))
+		con, err := ssh.SshTerm(selectServer[0], listConf)
+		if err != nil {
+			fmt.Println(err)
+			os.Exit(1)
+		}
+		os.Exit(con.Connect())
 	}
 }

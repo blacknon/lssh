@@ -8,13 +8,8 @@ import (
 )
 
 type Config struct {
-	Main   MainConfig
 	Log    LogConfig
 	Server map[string]ReadConfig
-}
-
-type MainConfig struct {
-	HistoryInsert bool `toml:"histinsert"`
 }
 
 type LogConfig struct {
