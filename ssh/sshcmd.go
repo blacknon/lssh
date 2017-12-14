@@ -2,14 +2,10 @@ package ssh
 
 import (
 	"bytes"
-	"crypto/rand"
-	"encoding/binary"
 	"fmt"
-	"io"
 	"io/ioutil"
 	"os"
 	"regexp"
-	"strconv"
 	"strings"
 	"syscall"
 	"time"
@@ -21,9 +17,9 @@ import (
 	termbox "github.com/nsf/termbox-go"
 )
 
-//var (
-//	stdin []byte
-//)
+var (
+	stdin []byte
+)
 
 type ConInfoCmd struct {
 	Index           int
@@ -44,12 +40,6 @@ type ConInfoCmd struct {
 type ConInfoCmdFlag struct {
 	PesudoTerm bool
 	Parallel   bool
-}
-
-func getTmpName() string {
-	var n uint64
-	binary.Read(rand.Reader, binary.LittleEndian, &n)
-	return strconv.FormatUint(n, 36) + ".lssh.tmp"
 }
 
 func outColorStrings(num int, inStrings string) (str string) {
@@ -142,9 +132,8 @@ func (c *ConInfoCmd) Run() int {
 		}
 	}
 
-	// stdin tmp file Open.
-	stdinTempRead, _ := os.OpenFile(c.StdinTempPath, os.O_RDONLY, 0600)
-	session.Stdin = stdinTempRead
+	// get stdin
+	session.Stdin = bytes.NewReader(stdin)
 
 	// exec command join
 	execCmd := strings.Join(c.Cmd, " ")
@@ -243,16 +232,9 @@ func (c *ConInfoCmd) Run() int {
 
 // remote ssh server exec command only
 func ConSshCmd(serverList []string, confList conf.Config, tFlag bool, pFlag bool, execCmd ...string) int {
-	// Create tmp file
-	stdinTemp, err := ioutil.TempFile("", getTmpName())
-	if err != nil {
-		panic(err)
-	}
-	defer os.Remove(stdinTemp.Name())
-
 	// Stdin only pipes
 	if terminal.IsTerminal(syscall.Stdin) == false {
-		io.Copy(stdinTemp, os.Stdin)
+		stdin, _ = ioutil.ReadAll(os.Stdin)
 	}
 
 	// get connect server name max length
@@ -273,8 +255,6 @@ func ConSshCmd(serverList []string, confList conf.Config, tFlag bool, pFlag bool
 		c := new(ConInfoCmd)
 		conServer := v
 		go func() {
-			c.StdinTempPath = stdinTemp.Name()
-
 			c.Index = y
 			c.Count = len(serverList)
 			c.Server = conServer
@@ -296,7 +276,6 @@ func ConSshCmd(serverList []string, confList conf.Config, tFlag bool, pFlag bool
 			c.Cmd = execCmd
 
 			c.Run()
-
 			finished <- true
 		}()
 		x++
