@@ -52,33 +52,31 @@ func getTmpName() string {
 	return strconv.FormatUint(n, 36) + ".lssh.tmp"
 }
 
-func outColorStrings(num int, inStrings string) string {
-	returnStr := ""
+func outColorStrings(num int, inStrings string) (str string) {
 	color := num % 5
 	switch color {
 	// Red
 	case 1:
-		returnStr = fmt.Sprintf("\x1b[31m%s\x1b[0m", inStrings)
+		str = fmt.Sprintf("\x1b[31m%s\x1b[0m", inStrings)
 	// Yellow
 	case 2:
-		returnStr = fmt.Sprintf("\x1b[33m%s\x1b[0m", inStrings)
+		str = fmt.Sprintf("\x1b[33m%s\x1b[0m", inStrings)
 	// Blue
 	case 3:
-		returnStr = fmt.Sprintf("\x1b[34m%s\x1b[0m", inStrings)
+		str = fmt.Sprintf("\x1b[34m%s\x1b[0m", inStrings)
 	// Magenta
 	case 4:
-		returnStr = fmt.Sprintf("\x1b[35m%s\x1b[0m", inStrings)
+		str = fmt.Sprintf("\x1b[35m%s\x1b[0m", inStrings)
 	// Cyan
 	case 0:
-		returnStr = fmt.Sprintf("\x1b[36m%s\x1b[0m", inStrings)
+		str = fmt.Sprintf("\x1b[36m%s\x1b[0m", inStrings)
 	}
-	return returnStr
+	return
 }
 
 // exec ssh command function
 func (c *ConInfoCmd) Run() int {
-	// New ssh config
-	config := &ssh.ClientConfig{}
+	auth := []ssh.AuthMethod{}
 	if c.KeyPath != "" {
 		// Read PublicKey
 		buffer, err := ioutil.ReadFile(c.KeyPath)
@@ -91,24 +89,16 @@ func (c *ConInfoCmd) Run() int {
 			fmt.Fprintln(os.Stderr, "Error:%s%n", err)
 			return 1
 		}
-
-		// Create ssh client config for KeyAuth
-		config = &ssh.ClientConfig{
-			User: c.User,
-			Auth: []ssh.AuthMethod{
-				ssh.PublicKeys(key)},
-			HostKeyCallback: ssh.InsecureIgnoreHostKey(),
-			Timeout:         60 * time.Second,
-		}
+		auth = []ssh.AuthMethod{ssh.PublicKeys(key)}
 	} else {
-		// Create ssh client config for PasswordAuth
-		config = &ssh.ClientConfig{
-			User: c.User,
-			Auth: []ssh.AuthMethod{
-				ssh.Password(c.Pass)},
-			HostKeyCallback: ssh.InsecureIgnoreHostKey(),
-			Timeout:         60 * time.Second,
-		}
+		auth = []ssh.AuthMethod{ssh.Password(c.Pass)}
+	}
+
+	config := &ssh.ClientConfig{
+		User:            c.User,
+		Auth:            auth,
+		HostKeyCallback: ssh.InsecureIgnoreHostKey(),
+		Timeout:         60 * time.Second,
 	}
 
 	// New connect
@@ -119,7 +109,6 @@ func (c *ConInfoCmd) Run() int {
 	}
 	defer conn.Close()
 
-	fmt.Println("test")
 	// New Session
 	session, err := conn.NewSession()
 	if err != nil {
@@ -159,7 +148,6 @@ func (c *ConInfoCmd) Run() int {
 
 	// exec command join
 	execCmd := strings.Join(c.Cmd, " ")
-	fmt.Println(execCmd)
 
 	if c.Count == 1 {
 		session.Stdout = os.Stdout
@@ -177,18 +165,17 @@ func (c *ConInfoCmd) Run() int {
 	} else if c.Flag.Parallel == true {
 		// stdout and stderr to stdoutBuf
 		var stdoutBuf bytes.Buffer
-
 		session.Stdout = &stdoutBuf
 		session.Stderr = &stdoutBuf
 
-		// commandStatus: Chan can not continuously read buffer in for.
+		// cmdStatus: Chan can not continuously read buffer in for.
 		//                For this reason, the processing end is detected using a variable.
-		commandStatus := true
+		cmdStatus := true
 
 		// Exec Command(parallel)
 		go func() {
 			err = session.Run(execCmd)
-			commandStatus = false
+			cmdStatus = false
 		}()
 
 		// var "x" is Readed Byte position from Buffer
@@ -210,12 +197,11 @@ func (c *ConInfoCmd) Run() int {
 				if i == len(stdoutBufArray)-1 {
 					break
 				}
-
 				lineHeader := fmt.Sprintf("%-*s", c.ServerMaxLength, c.Server)
 				fmt.Println(outColorStrings(c.Index, lineHeader)+":: ", v)
-
 			}
-			if commandStatus == true {
+
+			if cmdStatus == true {
 				continue
 			} else {
 				break
@@ -231,7 +217,6 @@ func (c *ConInfoCmd) Run() int {
 	} else {
 		// stdout and stderr to stdoutBuf
 		var stdoutBuf bytes.Buffer
-
 		session.Stdout = &stdoutBuf
 		session.Stderr = &stdoutBuf
 
@@ -245,210 +230,14 @@ func (c *ConInfoCmd) Run() int {
 		}
 
 		stdoutBufArray := regexp.MustCompile("\r\n|\n\r|\n|\r").Split(stdoutBuf.String(), -1)
-
 		for i, v := range stdoutBufArray {
 			if i == len(stdoutBufArray)-1 {
 				break
 			}
-
 			lineHeader := fmt.Sprintf("%-*s", c.ServerMaxLength, c.Server)
 			fmt.Println(outColorStrings(c.Index, lineHeader)+":: ", v)
-
-		}
-
-	}
-
-	return 0
-}
-
-func execCommandOverSsh(connectServerNum int, connectServer string, connectServerHeadLength int, listSum int, confList conf.Config, terminalMode bool, parallelMode bool, stdinTempPath string, execRemoteCmd ...string) int {
-	connectPort := "22"
-	if confList.Server[connectServer].Port != "" {
-		connectPort = confList.Server[connectServer].Port
-	}
-	connectHostPort := confList.Server[connectServer].Addr + ":" + connectPort
-	connectPass := confList.Server[connectServer].Pass
-	connectKey := confList.Server[connectServer].Key
-
-	// Set ssh client config
-	config := &ssh.ClientConfig{}
-	if connectKey != "" {
-		// Read PublicKey
-		buffer, err := ioutil.ReadFile(connectKey)
-		if err != nil {
-			fmt.Fprintln(os.Stderr, "Error:%s%n", err)
-			return 1
-		}
-		key, err := ssh.ParsePrivateKey(buffer)
-		if err != nil {
-			fmt.Fprintln(os.Stderr, "Error:%s%n", err)
-			return 1
-		}
-
-		// Create ssh client config for KeyAuth
-		config = &ssh.ClientConfig{
-			User: confList.Server[connectServer].User,
-			Auth: []ssh.AuthMethod{
-				ssh.PublicKeys(key)},
-			HostKeyCallback: ssh.InsecureIgnoreHostKey(),
-			Timeout:         60 * time.Second,
-		}
-	} else {
-		// Create ssh client config for PasswordAuth
-		config = &ssh.ClientConfig{
-			User: confList.Server[connectServer].User,
-			Auth: []ssh.AuthMethod{
-				ssh.Password(connectPass)},
-			HostKeyCallback: ssh.InsecureIgnoreHostKey(),
-			Timeout:         60 * time.Second,
 		}
 	}
-
-	// New Connect create
-	conn, err := ssh.Dial("tcp", connectHostPort, config)
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "cannot connect %v: %v \n", connectHostPort, err)
-		return 1
-	}
-	defer conn.Close()
-
-	// New Session
-	session, err := conn.NewSession()
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "cannot open new session: %v \n", err)
-		return 1
-	}
-	defer session.Close()
-
-	go func() {
-		time.Sleep(2419200 * time.Second)
-		conn.Close()
-	}()
-
-	if terminalMode == true {
-		modes := ssh.TerminalModes{
-			ssh.ECHO:          0,
-			ssh.TTY_OP_ISPEED: 14400,
-			ssh.TTY_OP_OSPEED: 14400,
-		}
-
-		// Get terminal window size
-		if err := termbox.Init(); err != nil {
-			panic(err)
-		}
-		width, hight := termbox.Size()
-		termbox.Close()
-
-		if err := session.RequestPty("xterm", hight, width, modes); err != nil {
-			session.Close()
-			fmt.Errorf("request for pseudo terminal failed: %s \n", err)
-		}
-	}
-
-	// stdin tmp file Open.
-	stdinTempRead, _ := os.OpenFile(stdinTempPath, os.O_RDONLY, 0600)
-	session.Stdin = stdinTempRead
-
-	// exec command join
-	execRemoteCmdString := strings.Join(execRemoteCmd, " ")
-
-	if listSum == 1 {
-		session.Stdout = os.Stdout
-		session.Stderr = os.Stderr
-
-		err = session.Run(execRemoteCmdString)
-
-		if err != nil {
-			fmt.Fprint(os.Stderr, err)
-			if ee, ok := err.(*ssh.ExitError); ok {
-				return ee.ExitStatus()
-			}
-		}
-		return 0
-	} else if parallelMode == true {
-		// stdout and stderr to stdoutBuf
-		var stdoutBuf bytes.Buffer
-
-		session.Stdout = &stdoutBuf
-		session.Stderr = &stdoutBuf
-
-		// commandStatus: Chan can not continuously read buffer in for.
-		//                For this reason, the processing end is detected using a variable.
-		commandStatus := true
-
-		// Exec Command(parallel)
-		go func() {
-			err = session.Run(execRemoteCmdString)
-			commandStatus = false
-		}()
-
-		// var "x" is Readed Byte position from Buffer
-		x := 0
-		for {
-			time.Sleep(100 * time.Millisecond)
-
-			stdoutBufToStr := stdoutBuf.String()
-
-			if len(stdoutBufToStr) == 0 {
-				continue
-			}
-
-			stdoutBufToByte := []byte(stdoutBufToStr)
-			stdoutBufArray := regexp.MustCompile("\r\n|\n\r|\n|\r").Split(string(stdoutBufToByte[x:]), -1)
-			x = len(stdoutBufToStr)
-
-			for i, v := range stdoutBufArray {
-				if i == len(stdoutBufArray)-1 {
-					break
-				}
-
-				lineHeader := fmt.Sprintf("%-*s", connectServerHeadLength, connectServer)
-				fmt.Println(outColorStrings(connectServerNum, lineHeader)+":: ", v)
-
-			}
-			if commandStatus == true {
-				continue
-			} else {
-				break
-			}
-		}
-
-		if err != nil {
-			fmt.Fprint(os.Stderr, err)
-			if ee, ok := err.(*ssh.ExitError); ok {
-				return ee.ExitStatus()
-			}
-		}
-	} else {
-		// stdout and stderr to stdoutBuf
-		var stdoutBuf bytes.Buffer
-
-		session.Stdout = &stdoutBuf
-		session.Stderr = &stdoutBuf
-
-		// Exec Command(for loop)
-		err = session.Run(execRemoteCmdString)
-		if err != nil {
-			fmt.Fprint(os.Stderr, err)
-			if ee, ok := err.(*ssh.ExitError); ok {
-				return ee.ExitStatus()
-			}
-		}
-
-		stdoutBufArray := regexp.MustCompile("\r\n|\n\r|\n|\r").Split(stdoutBuf.String(), -1)
-
-		for i, v := range stdoutBufArray {
-			if i == len(stdoutBufArray)-1 {
-				break
-			}
-
-			lineHeader := fmt.Sprintf("%-*s", connectServerHeadLength, connectServer)
-			fmt.Println(outColorStrings(connectServerNum, lineHeader)+":: ", v)
-
-		}
-
-	}
-
 	return 0
 }
 
@@ -474,58 +263,20 @@ func ConSshCmd(serverList []string, confList conf.Config, tFlag bool, pFlag bool
 		}
 	}
 
-	conServerCnt := len(serverList)
+	//if conServerCnt > 1 {
+	finished := make(chan bool)
 
-	if conServerCnt > 1 {
-		finished := make(chan bool)
-
-		// for command exec
-		x := 1
-		for _, conServer := range serverList {
-			y := x
-			c := new(ConInfoCmd)
-			targetServer := conServer
-			go func() {
-				c.StdinTempPath = stdinTemp.Name()
-
-				c.Index = y
-				c.Count = conServerCnt
-				c.Server = targetServer
-				c.ServerMaxLength = conServerNameMax
-				c.Addr = confList.Server[c.Server].Addr
-				c.User = confList.Server[c.Server].User
-				c.Port = "22"
-				if confList.Server[c.Server].Port != "" {
-					c.Port = confList.Server[c.Server].Port
-				}
-				c.Pass = ""
-				if confList.Server[c.Server].Pass != "" {
-					c.Pass = confList.Server[c.Server].Pass
-				}
-				c.KeyPath = ""
-				if confList.Server[c.Server].Key != "" {
-					c.KeyPath = confList.Server[c.Server].Key
-				}
-				c.Cmd = execCmd
-
-				c.Run()
-
-				//execCommandOverSsh(y, targetServer, conServerNameMax, conServerCnt, confList, tFlag, pFlag, stdinTemp.Name(), execCmd...)
-				finished <- true
-			}()
-			x++
-		}
-
-		for i := 1; i <= conServerCnt; i++ {
-			<-finished
-		}
-	} else {
-		for i, conServer := range serverList {
-			c := new(ConInfoCmd)
+	// for command exec
+	x := 1
+	for _, v := range serverList {
+		y := x
+		c := new(ConInfoCmd)
+		conServer := v
+		go func() {
 			c.StdinTempPath = stdinTemp.Name()
 
-			c.Index = i
-			c.Count = conServerCnt
+			c.Index = y
+			c.Count = len(serverList)
 			c.Server = conServer
 			c.ServerMaxLength = conServerNameMax
 			c.Addr = confList.Server[c.Server].Addr
@@ -545,9 +296,14 @@ func ConSshCmd(serverList []string, confList conf.Config, tFlag bool, pFlag bool
 			c.Cmd = execCmd
 
 			c.Run()
-			//execCommandOverSsh(i, conServer, conServerNameMax, conServerCnt, confList, tFlag, pFlag, stdinTemp.Name(), execCmd...)
-		}
+
+			finished <- true
+		}()
+		x++
 	}
 
+	for i := 1; i <= len(serverList); i++ {
+		<-finished
+	}
 	return 0
 }
