@@ -3,11 +3,11 @@
 lssh
 ====
 
-List selection formula ssh wrapper command
+List select formula ssh wrapper for terminal UI
 
 ## Description
 
-lssh - A command to read a prepared list in advance and connect to ssh to the selected host..list file is set in yaml format.When selecting a host, you can filter by keywords.Execute commands concurrently to multiple hosts.
+lssh - A command to read a prepared list in advance and connect to ssh to the selected host. list file is set in yaml format.When selecting a host, you can filter by keywords.Execute commands concurrently to multiple hosts.
 
 ## Demo
 
@@ -20,8 +20,6 @@ lssh - A command to read a prepared list in advance and connect to ssh to the se
 need the following command.
 
 - ssh
-- script (log enable only)
-- awk (log enable only)
 
 ## Install
 
@@ -62,7 +60,7 @@ After exec command.
 
 option
 
-	lssh v0.4
+	lssh v0.4.1
 	usage: lssh [--host HOST] [--list] [--file FILE] [--terminal] [--parallel] [--command COMMAND]
 
 	options:
