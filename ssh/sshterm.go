@@ -37,11 +37,6 @@ func (c *ConInfoTerm) Connect() int {
 
 	// exec ssh command
 	child, _ := gexpect.NewSubProcess(sshCmd[0], sshCmd[1:]...)
-	if err := child.Start(); err != nil {
-		fmt.Println(err)
-		return 1
-	}
-	defer child.Close()
 
 	// Log Enable
 	if c.Log == true {
@@ -70,26 +65,35 @@ func (c *ConInfoTerm) Connect() int {
 
 		// Read FiIFO write LogFile Add Timestamp
 		go func() {
-			// Open FIFO
-			openFIFO, err := os.Open(fifoPATH)
-			if err != nil {
-				fmt.Println(err)
-			}
-			scanner := bufio.NewScanner(openFIFO)
+			for {
+				// Open FIFO
+				openFIFO, err := os.Open(fifoPATH)
+				if err != nil {
+					fmt.Println(err)
+				}
+				scanner := bufio.NewScanner(openFIFO)
 
-			// Open Logfile
-			wirteLog, err := os.OpenFile(logFilePATH, os.O_RDWR|os.O_CREATE|os.O_APPEND, 0600)
-			if err != nil {
-				fmt.Println(err)
-			}
-			defer wirteLog.Close()
+				// Open Logfile
+				wirteLog, err := os.OpenFile(logFilePATH, os.O_RDWR|os.O_CREATE|os.O_APPEND, 0600)
+				if err != nil {
+					fmt.Println(err)
+				}
+				defer wirteLog.Close()
 
-			// for loop Add timestamp log
-			for scanner.Scan() {
-				fmt.Fprintln(wirteLog, time.Now().Format("2006/01/02 15:04:05 ")+scanner.Text())
+				// for loop Add timestamp log
+				for scanner.Scan() {
+					fmt.Fprintln(wirteLog, time.Now().Format("2006/01/02 15:04:05 ")+scanner.Text())
+				}
 			}
 		}()
 	}
+
+	// gexpect start
+	if err := child.Start(); err != nil {
+		fmt.Println(err)
+		return 1
+	}
+	defer child.Close()
 
 	// Terminal Size Change Trap
 	signal_chan := make(chan os.Signal, 1)
@@ -119,6 +123,7 @@ func (c *ConInfoTerm) Connect() int {
 
 	// timeout
 	child.InteractTimeout(2419200 * time.Second)
+	child.Close()
 	return 0
 }
 
