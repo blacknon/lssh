@@ -36,7 +36,7 @@ func CommandExistCheck(cmd string) {
 }
 
 func DefCommandExistCheck() {
-	commandPaths := []string{"/usr/bin/script", "/usr/bin/awk", "/usr/bin/ssh"}
+	commandPaths := []string{"/usr/bin/ssh"}
 	for _, v := range commandPaths {
 		CommandExistCheck(v)
 	}
