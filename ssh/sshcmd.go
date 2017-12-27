@@ -274,6 +274,8 @@ func ConSshCmd(serverList []string, confList conf.Config, tFlag bool, pFlag bool
 				c.KeyPath = confList.Server[c.Server].Key
 			}
 			c.Cmd = execCmd
+			c.Flag.Parallel = pFlag
+			c.Flag.PesudoTerm = tFlag
 
 			c.Run()
 			finished <- true
