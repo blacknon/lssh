@@ -1,15 +1,17 @@
 package conf
 
 import (
-	"fmt"
 	"os"
+	"os/user"
+	"strings"
 
 	"github.com/BurntSushi/toml"
 )
 
 type Config struct {
-	Log    LogConfig
-	Server map[string]ReadConfig
+	Log     LogConfig
+	Include map[string]IncludeConfig
+	Server  map[string]ServerConfig
 }
 
 type LogConfig struct {
@@ -17,7 +19,11 @@ type LogConfig struct {
 	Dir    string `toml:"dirpath"`
 }
 
-type ReadConfig struct {
+type IncludeConfig struct {
+	Path string `toml:"path"`
+}
+
+type ServerConfig struct {
 	Addr string `toml:"addr"`
 	Port string `toml:"port"`
 	User string `toml:"user"`
@@ -26,39 +32,33 @@ type ReadConfig struct {
 	Note string `toml:"note"`
 }
 
-func ConfigCheckRead(confPath string) (checkConf Config) {
-	var checkAlertFlag int = 0
-
+func ReadConf(confPath string) (checkConf Config) {
 	// Read Config
 	_, err := toml.DecodeFile(confPath, &checkConf)
 	if err != nil {
 		panic(err)
 	}
 
-	// Config Value Check
-	for k, v := range checkConf.Server {
-		// Address Input Check
-		if v.Addr == "" {
-			fmt.Printf("%s: 'addr' is not inserted.\n", k)
-			checkAlertFlag = 1
-		}
+	if checkConf.Include != nil {
 
-		// User Input Check
-		if v.User == "" {
-			fmt.Printf("%s: 'user' is not inserted.\n", k)
-			checkAlertFlag = 1
-		}
-
-		// Password or Keyfile Input Check
-		if v.Pass == "" && v.Key == "" {
-			fmt.Printf("%s: Both Password and KeyPath are entered.Please enter either.\n", k)
-			checkAlertFlag = 1
+		for _, v := range checkConf.Include {
+			//var serverconf ServerConfig
+			usr, _ := user.Current()
+			path := strings.Replace(v.Path, "~", usr.HomeDir, 1)
+			_, err := toml.DecodeFile(path, &checkConf)
+			if err != nil {
+				panic(err)
+			}
+			//fmt.Println(&checkConf)
 		}
 	}
 
-	if checkAlertFlag == 1 {
+	// Check Config Parameter
+	checkAlertFlag := checkServerConf(checkConf)
+	if checkAlertFlag == false {
 		os.Exit(1)
 	}
+
 	return
 }
 
