@@ -8,7 +8,6 @@ import (
 	"strings"
 
 	arg "github.com/alexflint/go-arg"
-	"github.com/blacknon/lssh/check"
 	"github.com/blacknon/lssh/conf"
 	"github.com/blacknon/lssh/list"
 	"github.com/blacknon/lssh/ssh"
@@ -31,8 +30,7 @@ func (CommandOption) Version() string {
 
 func main() {
 	// Exec Before Check
-	check.OsCheck()
-	check.DefCommandExistCheck()
+	conf.CheckBeforeStart()
 
 	// Set default value
 	usr, _ := user.Current()
@@ -56,7 +54,7 @@ func main() {
 	execRemoteCmd := args.Command
 
 	// Get List
-	listConf := conf.ConfigCheckRead(configFile)
+	listConf := conf.ReadConf(configFile)
 
 	// Command flag
 	cmdFlag := false
@@ -79,7 +77,7 @@ func main() {
 
 	selectServer := []string{}
 	if len(connectHost) != 0 {
-		if check.CheckInputServerExit(connectHost, nameList) == false {
+		if conf.CheckInputServerExit(connectHost, nameList) == false {
 			fmt.Fprintln(os.Stderr, "Input Server not found from list.")
 			os.Exit(1)
 		} else {

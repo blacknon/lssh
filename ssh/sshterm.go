@@ -27,10 +27,13 @@ type ConInfoTerm struct {
 }
 
 func (c *ConInfoTerm) Connect() int {
+	usr, _ := user.Current()
+
 	// ssh command Args
 	// "/usr/bin/ssh -o 'StrictHostKeyChecking no' -o 'NumberOfPasswordPrompts 1' connectUser@connectAddr -p connectPort"
 	sshCmd := []string{"/usr/bin/ssh", "-o", "StrictHostKeyChecking no", "-o", "NumberOfPasswordPrompts 1", c.User + "@" + c.Addr, "-p", c.Port}
 	if c.KeyPath != "" {
+		c.KeyPath = strings.Replace(c.KeyPath, "~", usr.HomeDir, 1)
 		// "/usr/bin/ssh -o 'StrictHostKeyChecking no' -o 'NumberOfPasswordPrompts 1' -i connectKey connectUser@connectAddr -p connectPort"
 		sshCmd = []string{"/usr/bin/ssh", "-o", "StrictHostKeyChecking no", "-o", "NumberOfPasswordPrompts 1", "-i", c.KeyPath, c.User + "@" + c.Addr, "-p", c.Port}
 	}
@@ -41,7 +44,6 @@ func (c *ConInfoTerm) Connect() int {
 	// Log Enable
 	if c.Log == true {
 		logDirPath := c.LogDir
-		usr, _ := user.Current()
 		logDirPath = strings.Replace(logDirPath, "~", usr.HomeDir, 1)
 
 		// mkdir logDIr

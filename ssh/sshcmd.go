@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"os"
+	"os/user"
 	"regexp"
 	"strings"
 	"syscall"
@@ -66,8 +67,10 @@ func outColorStrings(num int, inStrings string) (str string) {
 
 // exec ssh command function
 func (c *ConInfoCmd) Run() int {
+	usr, _ := user.Current()
 	auth := []ssh.AuthMethod{}
 	if c.KeyPath != "" {
+		c.KeyPath = strings.Replace(c.KeyPath, "~", usr.HomeDir, 1)
 		// Read PublicKey
 		buffer, err := ioutil.ReadFile(c.KeyPath)
 		if err != nil {
@@ -187,7 +190,7 @@ func (c *ConInfoCmd) Run() int {
 					break
 				}
 				lineHeader := fmt.Sprintf("%-*s", c.ServerMaxLength, c.Server)
-				fmt.Println(outColorStrings(c.Index, lineHeader)+":: ", v)
+				fmt.Println(outColorStrings(c.Index, lineHeader)+" :: ", v)
 			}
 
 			if cmdStatus == true {
