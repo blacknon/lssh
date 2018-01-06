@@ -85,7 +85,7 @@ func main() {
 		}
 	} else {
 		// View List And Get Select Line
-		selectServer = list.DrawList(nameList, cmdFlag, listConf)
+		selectServer = list.ViewList(nameList, cmdFlag, listConf)
 		if selectServer[0] == "ServerName" {
 			fmt.Fprintln(os.Stderr, "Server not selected.")
 			os.Exit(1)
@@ -115,11 +115,19 @@ func main() {
 		}
 
 		// Connect SSH Terminal
-		con, err := ssh.SshTerm(selectServer[0], listConf)
+		c := new(ssh.ConInfoTerm)
+		c.Log, c.LogDir = listConf.Log.Enable, listConf.Log.Dir
+		c.Server = selectServer[0]
+		c.User = listConf.Server[c.Server].User
+		c.Addr = listConf.Server[c.Server].Addr
+		c.Port = listConf.Server[c.Server].Port
+		c.Pass = listConf.Server[c.Server].Pass
+		c.KeyPath = listConf.Server[c.Server].Key
+
+		err := c.Connect()
 		if err != nil {
 			fmt.Println(err)
 			os.Exit(1)
 		}
-		os.Exit(con.Connect())
 	}
 }

@@ -12,7 +12,6 @@ import (
 	"time"
 
 	"github.com/blacknon/gexpect"
-	"github.com/blacknon/lssh/conf"
 )
 
 type ConInfoTerm struct {
@@ -26,16 +25,28 @@ type ConInfoTerm struct {
 	KeyPath string
 }
 
-func (c *ConInfoTerm) Connect() int {
+func (c *ConInfoTerm) Connect() (err error) {
+	if c.Port == "" {
+		c.Port = "22"
+	}
 	usr, _ := user.Current()
 
 	// ssh command Args
 	// "/usr/bin/ssh -o 'StrictHostKeyChecking no' -o 'NumberOfPasswordPrompts 1' connectUser@connectAddr -p connectPort"
-	sshCmd := []string{"/usr/bin/ssh", "-o", "StrictHostKeyChecking no", "-o", "NumberOfPasswordPrompts 1", c.User + "@" + c.Addr, "-p", c.Port}
+	sshCmd := []string{"/usr/bin/ssh",
+		"-o", "StrictHostKeyChecking no",
+		"-o", "NumberOfPasswordPrompts 1",
+		c.User + "@" + c.Addr,
+		"-p", c.Port}
 	if c.KeyPath != "" {
 		c.KeyPath = strings.Replace(c.KeyPath, "~", usr.HomeDir, 1)
 		// "/usr/bin/ssh -o 'StrictHostKeyChecking no' -o 'NumberOfPasswordPrompts 1' -i connectKey connectUser@connectAddr -p connectPort"
-		sshCmd = []string{"/usr/bin/ssh", "-o", "StrictHostKeyChecking no", "-o", "NumberOfPasswordPrompts 1", "-i", c.KeyPath, c.User + "@" + c.Addr, "-p", c.Port}
+		sshCmd = []string{"/usr/bin/ssh",
+			"-o", "StrictHostKeyChecking no",
+			"-o", "NumberOfPasswordPrompts 1",
+			"-i", c.KeyPath,
+			c.User + "@" + c.Addr,
+			"-p", c.Port}
 	}
 
 	// exec ssh command
@@ -48,8 +59,7 @@ func (c *ConInfoTerm) Connect() int {
 
 		// mkdir logDIr
 		if err := os.MkdirAll(logDirPath, 0700); err != nil {
-			fmt.Println(err)
-			return 1
+			return err
 		}
 
 		// Golang time.format YYYYmmdd_HHMMSS = "20060102_150405".(https://golang.org/src/time/format.go)
@@ -71,14 +81,14 @@ func (c *ConInfoTerm) Connect() int {
 				// Open FIFO
 				openFIFO, err := os.Open(fifoPATH)
 				if err != nil {
-					fmt.Println(err)
+					return
 				}
 				scanner := bufio.NewScanner(openFIFO)
 
 				// Open Logfile
 				wirteLog, err := os.OpenFile(logFilePATH, os.O_RDWR|os.O_CREATE|os.O_APPEND, 0600)
 				if err != nil {
-					fmt.Println(err)
+					return
 				}
 				defer wirteLog.Close()
 
@@ -92,8 +102,7 @@ func (c *ConInfoTerm) Connect() int {
 
 	// gexpect start
 	if err := child.Start(); err != nil {
-		fmt.Println(err)
-		return 1
+		return err
 	}
 	defer child.Close()
 
@@ -119,38 +128,12 @@ func (c *ConInfoTerm) Connect() int {
 
 		} else {
 			fmt.Println("Not Connected")
-			return 1
+			return
 		}
 	}
 
 	// timeout
 	child.InteractTimeout(2419200 * time.Second)
 	child.Close()
-	return 0
-}
-
-func SshTerm(cServer string, cList conf.Config) (c *ConInfoTerm, err error) {
-	c = new(ConInfoTerm)
-
-	c.Log = cList.Log.Enable
-	c.LogDir = cList.Log.Dir
-
-	c.Server = cServer
-	c.Addr = cList.Server[cServer].Addr
-	c.Port = "22"
-	if cList.Server[cServer].Port != "" {
-		c.Port = cList.Server[cServer].Port
-	}
-	c.User = cList.Server[cServer].User
-
-	c.Pass = ""
-	if cList.Server[cServer].Pass != "" {
-		c.Pass = cList.Server[cServer].Pass
-	}
-
-	c.KeyPath = cList.Server[cServer].Key
-	if cList.Server[cServer].Key != "" {
-		c.KeyPath = cList.Server[cServer].Key
-	}
 	return
 }
