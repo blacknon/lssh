@@ -11,12 +11,6 @@ import (
 	termbox "github.com/nsf/termbox-go"
 )
 
-type ListArrayInfo struct {
-	Name    string
-	Connect string
-	Note    string
-}
-
 // toggle select line (multi select)
 func toggleList(selectedList []string, newLine string) (toggledSelectedList []string) {
 	addFlag := true
@@ -125,11 +119,11 @@ func getFilterListData(searchText string, listData []string) (returnListData []s
 	return returnListData
 }
 
-func ViewList(serverNameList []string, cmdFlag bool, serverList conf.Config) (lineName []string) {
+func (l *ListInfo) View() (lineName []string) {
 	if err := termbox.Init(); err != nil {
 		panic(err)
 	}
 
-	lineName = pollEvent(serverNameList, cmdFlag, serverList)
+	lineName = pollEvent(l.NameList, l.MultiFlag, l.DataList)
 	return lineName
 }
