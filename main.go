@@ -85,7 +85,13 @@ func main() {
 		}
 	} else {
 		// View List And Get Select Line
-		selectServer = list.ViewList(nameList, cmdFlag, listConf)
+		l := new(list.ListInfo)
+		l.Prompt = "lssh"
+		l.NameList = nameList
+		l.DataList = listConf
+		l.MultiFlag = cmdFlag
+
+		selectServer = l.View()
 		if selectServer[0] == "ServerName" {
 			fmt.Fprintln(os.Stderr, "Server not selected.")
 			os.Exit(1)
