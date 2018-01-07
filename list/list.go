@@ -7,123 +7,117 @@ import (
 	"strings"
 	"text/tabwriter"
 
-	"github.com/blacknon/lssh/conf"
 	termbox "github.com/nsf/termbox-go"
 )
 
 // toggle select line (multi select)
-func toggleList(selectedList []string, newLine string) (toggledSelectedList []string) {
+func (l *ListInfo) toggle(newLine string) {
+	tmpList := []string{}
+
 	addFlag := true
-	for _, selectedLine := range selectedList {
+	for _, selectedLine := range l.SelectName {
 		if selectedLine != newLine {
-			toggledSelectedList = append(toggledSelectedList, selectedLine)
+			tmpList = append(tmpList, selectedLine)
 		} else {
 			addFlag = false
 		}
 	}
 	if addFlag == true {
-		toggledSelectedList = append(toggledSelectedList, newLine)
+		tmpList = append(tmpList, newLine)
 	}
-	return
+	l.SelectName = []string{}
+	l.SelectName = tmpList
 }
 
-func allToggle(allFlag bool, selectedList []string, addList []string) (allSelectedList []string) {
+func (l *ListInfo) allToggle(allFlag bool) {
+	allSelectedList := []string{}
 	// selectedList in allSelectedList
-	for _, selectedLine := range selectedList {
+	for _, selectedLine := range l.SelectName {
 		allSelectedList = append(allSelectedList, selectedLine)
 	}
 
 	// allFlag is False
 	if allFlag == false {
-		for _, addLine := range addList {
-			addData := strings.Fields(addLine)[0]
-			allSelectedList = append(allSelectedList, addData)
+		for _, addLine := range l.ViewText[1:] {
+			addName := strings.Fields(addLine)[0]
+			allSelectedList = append(allSelectedList, addName)
 		}
 		return
 	} else {
-		for _, addLine := range addList {
-			addData := strings.Fields(addLine)[0]
-			allSelectedList = toggleList(allSelectedList, addData)
+		for _, addLine := range l.ViewText[1:] {
+			addName := strings.Fields(addLine)[0]
+			l.toggle(addName)
 		}
 		return
 	}
 }
 
-// Create View List Data (use text/tabwriter)
-func getListData(serverNameList []string, serverList conf.Config) (listData []string) {
+// Create view text (use text/tabwriter)
+func (l *ListInfo) getText() {
 	buffer := &bytes.Buffer{}
 	tabWriterBuffer := new(tabwriter.Writer)
 	tabWriterBuffer.Init(buffer, 0, 4, 8, ' ', 0)
 	fmt.Fprintln(tabWriterBuffer, "ServerName \tConnect Infomation \tNote \t")
 
 	// Create list table
-	for _, key := range serverNameList {
-		serverName := key
-		connectInfomation := serverList.Server[key].User + "@" + serverList.Server[key].Addr
-		serverNote := serverList.Server[key].Note
+	for _, key := range l.NameList {
+		name := key
+		conInfo := l.DataList.Server[key].User + "@" + l.DataList.Server[key].Addr
+		note := l.DataList.Server[key].Note
 
-		fmt.Fprintln(tabWriterBuffer, serverName+"\t"+connectInfomation+"\t"+serverNote)
+		fmt.Fprintln(tabWriterBuffer, name+"\t"+conInfo+"\t"+note)
 	}
 
 	tabWriterBuffer.Flush()
 	line, err := buffer.ReadString('\n')
 	for err == nil {
 		str := strings.Replace(line, "\t", " ", -1)
-		listData = append(listData, str)
+		l.DataText = append(l.DataText, str)
 		line, err = buffer.ReadString('\n')
 	}
-	return listData
 }
 
-func insertRune(text string, inputRune rune) (returnText string) {
-	returnText = text + string(inputRune)
-	return
-}
+//func (l *ListInfo) getFilterText(searchText string, listData []string) (returnListData []string) {
+func (l *ListInfo) getFilterText() {
+	// Initialization ViewText
+	l.ViewText = []string{}
 
-func deleteRune(text string) (returnText string) {
-	s := text
-	sc := []rune(s)
-	returnText = string(sc[:(len(sc) - 1)])
-	return
-}
-
-func getFilterListData(searchText string, listData []string) (returnListData []string) {
 	// SearchText Bounds Space
-	searchWords := strings.Fields(searchText)
-	r := listData[1:]
+	keywords := strings.Fields(l.Keyword)
+	r := l.DataText[1:]
 	line := ""
-	loopListData := []string{}
-	returnListData = append(returnListData, listData[0])
+	tmpText := []string{}
+	l.ViewText = append(l.ViewText, l.DataText[0])
 
-	// if No searchWords
-	if len(searchWords) == 0 {
-		returnListData = listData
-		return returnListData
+	// if No words
+	if len(keywords) == 0 {
+		l.ViewText = l.DataText
+		return
 	}
 
-	for i := 0; i < len(searchWords); i += 1 {
-		searchWordMeta := regexp.QuoteMeta(strings.ToLower(searchWords[i]))
-		re := regexp.MustCompile(searchWordMeta)
-		loopListData = []string{}
+	for i := 0; i < len(keywords); i += 1 {
+		lowKeyword := regexp.QuoteMeta(strings.ToLower(keywords[i]))
+		re := regexp.MustCompile(lowKeyword)
+		tmpText = []string{}
 
 		for j := 0; j < len(r); j += 1 {
 			line += string(r[j])
 			if re.MatchString(strings.ToLower(line)) {
-				loopListData = append(loopListData, line)
+				tmpText = append(tmpText, line)
 			}
 			line = ""
 		}
-		r = loopListData
+		r = tmpText
 	}
-	returnListData = append(returnListData, loopListData...)
-	return returnListData
+	l.ViewText = append(l.ViewText, tmpText...)
+	return
 }
 
-func (l *ListInfo) View() (lineName []string) {
+func (l *ListInfo) View() {
 	if err := termbox.Init(); err != nil {
 		panic(err)
 	}
-
-	lineName = pollEvent(l.NameList, l.MultiFlag, l.DataList)
-	return lineName
+	defer termbox.Close()
+	l.getText()
+	l.keyEvent()
 }

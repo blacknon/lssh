@@ -86,12 +86,13 @@ func main() {
 	} else {
 		// View List And Get Select Line
 		l := new(list.ListInfo)
-		l.Prompt = "lssh"
+		l.Prompt = "lssh>>"
 		l.NameList = nameList
 		l.DataList = listConf
 		l.MultiFlag = cmdFlag
 
-		selectServer = l.View()
+		l.View()
+		selectServer = l.SelectName
 		if selectServer[0] == "ServerName" {
 			fmt.Fprintln(os.Stderr, "Server not selected.")
 			os.Exit(1)
