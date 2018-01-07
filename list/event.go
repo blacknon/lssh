@@ -4,24 +4,33 @@ import (
 	"os"
 	"strings"
 
-	"github.com/blacknon/lssh/conf"
 	termbox "github.com/nsf/termbox-go"
 )
 
-func pollEvent(serverNameList []string, cmdFlag bool, serverList conf.Config) (lineData []string) {
-	defer termbox.Close()
-	listData := getListData(serverNameList, serverList)
-	selectline := 0
+func (l *ListInfo) insertRune(inputRune rune) {
+	l.Keyword = l.Keyword + string(inputRune)
+
+}
+
+func (l *ListInfo) deleteRune() {
+	sc := []rune(l.Keyword)
+	l.Keyword = string(sc[:(len(sc) - 1)])
+}
+
+//func (l *ListInfo) keyEvent() (lineData []string) {
+func (l *ListInfo) keyEvent() (lineData []string) {
+	l.CursorLine = 0
 	headLine := 2
 
 	_, height := termbox.Size()
-	lineHeight := height - headLine
+	height = height - headLine
 
-	searchText := ""
-	allFlag := false
+	l.Keyword = ""
+	allFlag := false // input Ctrl + A flag
 
-	filterListData := getFilterListData(searchText, listData)
-	draw(filterListData, lineData, selectline, searchText)
+	l.getFilterText()
+	l.draw()
+
 	for {
 		switch ev := termbox.PollEvent(); ev.Type {
 
@@ -35,45 +44,45 @@ func pollEvent(serverNameList []string, cmdFlag bool, serverList conf.Config) (l
 
 			// AllowUp Key
 			case termbox.KeyArrowUp:
-				if selectline > 0 {
-					selectline -= 1
+				if l.CursorLine > 0 {
+					l.CursorLine -= 1
 				}
-				draw(filterListData, lineData, selectline, searchText)
+				l.draw()
 
 			// AllowDown Key
 			case termbox.KeyArrowDown:
-				if selectline < len(filterListData)-headLine {
-					selectline += 1
+				if l.CursorLine < len(l.ViewText)-headLine {
+					l.CursorLine += 1
 				}
-				draw(filterListData, lineData, selectline, searchText)
+				l.draw()
 
 			// AllowRight Key
 			case termbox.KeyArrowRight:
-				if ((selectline+lineHeight)/lineHeight)*lineHeight <= len(filterListData) {
-					selectline = ((selectline + lineHeight) / lineHeight) * lineHeight
+				nextPosition := ((l.CursorLine + height) / height) * height
+				if nextPosition <= len(l.ViewText) {
+					l.CursorLine = nextPosition
 				}
-				draw(filterListData, lineData, selectline, searchText)
+				l.draw()
 
 			// AllowLeft Key
 			case termbox.KeyArrowLeft:
-				if ((selectline-lineHeight)/lineHeight)*lineHeight >= 0 {
-					selectline = ((selectline - lineHeight) / lineHeight) * lineHeight
+				beforePosition := ((l.CursorLine - height) / height) * height
+				if beforePosition >= 0 {
+					l.CursorLine = beforePosition
 				}
-
-				draw(filterListData, lineData, selectline, searchText)
+				l.draw()
 
 			// Ctrl + x Key(select)
 			case termbox.KeyCtrlX:
-				if cmdFlag == true {
-					lineData = toggleList(lineData, strings.Fields(filterListData[selectline+1])[0])
+				if l.MultiFlag == true {
+					l.toggle(strings.Fields(l.ViewText[l.CursorLine+1])[0])
 				}
-
-				draw(filterListData, lineData, selectline, searchText)
+				l.draw()
 
 			// Ctrl + a Key(all select)
 			case termbox.KeyCtrlA:
-				if cmdFlag == true {
-					lineData = allToggle(allFlag, lineData, filterListData[1:])
+				if l.MultiFlag == true {
+					l.allToggle(allFlag)
 				}
 
 				// allFlag Toggle
@@ -83,49 +92,50 @@ func pollEvent(serverNameList []string, cmdFlag bool, serverList conf.Config) (l
 					allFlag = false
 				}
 
-				draw(filterListData, lineData, selectline, searchText)
+				l.draw()
 
 			// Enter Key
 			case termbox.KeyEnter:
-				if len(lineData) == 0 {
-					lineData = append(lineData, strings.Fields(filterListData[selectline+1])[0])
+				if len(l.SelectName) == 0 {
+					l.SelectName = append(l.SelectName, strings.Fields(l.ViewText[l.CursorLine+1])[0])
 				}
 				return
 
 			// BackSpace Key
 			case termbox.KeyBackspace, termbox.KeyBackspace2:
-				if len(searchText) > 0 {
-					searchText = deleteRune(searchText)
-					filterListData = getFilterListData(searchText, listData)
-					if selectline > len(filterListData) {
-						selectline = len(filterListData)
+				if len(l.Keyword) > 0 {
+					l.deleteRune()
+
+					l.getFilterText()
+					if l.CursorLine > len(l.ViewText) {
+						l.CursorLine = len(l.ViewText)
 					}
-					if selectline < 0 {
-						selectline = 0
+					if l.CursorLine < 0 {
+						l.CursorLine = 0
 					}
 					allFlag = false
-					draw(filterListData, lineData, selectline, searchText)
+					l.draw()
 				}
 
 			// Space Key
 			case termbox.KeySpace:
-				searchText = searchText + " "
-				draw(filterListData, lineData, selectline, searchText)
+				l.Keyword = l.Keyword + " "
+				l.draw()
 
 			// Other Key
 			default:
 				if ev.Ch != 0 {
-					searchText = insertRune(searchText, ev.Ch)
-					filterListData = getFilterListData(searchText, listData)
-					if selectline > len(filterListData)-headLine {
-						selectline = len(filterListData) - headLine
+					l.insertRune(ev.Ch)
+					l.getFilterText()
+					if l.CursorLine > len(l.ViewText)-headLine {
+						l.CursorLine = len(l.ViewText) - headLine
 					}
 					allFlag = false
-					draw(filterListData, lineData, selectline, searchText)
+					l.draw()
 				}
 			}
 		default:
-			draw(filterListData, lineData, selectline, searchText)
+			l.draw()
 		}
 	}
 }

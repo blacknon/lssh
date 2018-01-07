@@ -61,68 +61,69 @@ func drawFilterLine(x, y int, str string, colorNum int, backColorNum int, keywor
 }
 
 // Draw List
-func draw(serverNameList []string, lineData []string, selectCursor int, searchText string) {
-	headLine := 2
-	leftMargin := 2
-	defaultColor := 255
-	defaultBackColor := 255
-	pronpt := "lssh>>"
-	termbox.Clear(termbox.Attribute(defaultColor+1), termbox.Attribute(defaultBackColor+1))
+func (l *ListInfo) draw() {
+	l.Term.Headline = 2
+	l.Term.LeftMergin = 2
+	l.Term.Color = 255
+	l.Term.BackgroundColor = 255
+
+	termbox.Clear(termbox.Attribute(l.Term.Color+1), termbox.Attribute(l.Term.BackgroundColor+1))
 
 	// Get Terminal Size
 	_, height := termbox.Size()
-	lineHeight := height - headLine
+	height = height - l.Term.Headline
 
 	// Set View List Range
-	viewFirstLine := (selectCursor/lineHeight)*lineHeight + 1
-	viewLastLine := viewFirstLine + lineHeight
-	var serverViewList []string
-	if viewLastLine > len(serverNameList) {
-		serverViewList = serverNameList[viewFirstLine:]
+	firstLine := (l.CursorLine/height)*height + 1
+	lastLine := firstLine + height
+
+	var viewList []string
+	if lastLine > len(l.ViewText) {
+		viewList = l.ViewText[firstLine:]
 	} else {
-		serverViewList = serverNameList[viewFirstLine:viewLastLine]
+		viewList = l.ViewText[firstLine:lastLine]
 	}
-	selectViewCursor := selectCursor - viewFirstLine + 1
+	cursor := l.CursorLine - firstLine + 1
 
 	// View Head
-	drawLine(0, 0, pronpt, 3, defaultBackColor)
-	drawLine(len(pronpt), 0, searchText, defaultColor, defaultBackColor)
-	drawLine(leftMargin, 1, serverNameList[0], 3, defaultBackColor)
+	drawLine(0, 0, l.Prompt, 3, l.Term.BackgroundColor)
+	drawLine(len(l.Prompt), 0, l.Keyword, l.Term.Color, l.Term.BackgroundColor)
+	drawLine(l.Term.LeftMergin, 1, l.ViewText[0], 3, l.Term.BackgroundColor)
 
 	// View List
-	for listKey, listValue := range serverViewList {
-		paddingListValue := fmt.Sprintf("%-1000s", listValue)
+	for listKey, listValue := range viewList {
+		paddingData := fmt.Sprintf("%-1000s", listValue)
 		// Set cursor color
-		cursorColor := defaultColor
-		cursorBackColor := defaultBackColor
+		cursorColor := l.Term.Color
+		cursorBackColor := l.Term.BackgroundColor
 		keywordColor := 5
 
-		for _, selectedLine := range lineData {
+		for _, selectedLine := range l.SelectName {
 			if strings.Split(listValue, " ")[0] == selectedLine {
 				cursorColor = 0
 				cursorBackColor = 6
 			}
 		}
 
-		if listKey == selectViewCursor {
+		if listKey == cursor {
 			// Select line color
 			cursorColor = 0
 			cursorBackColor = 2
 		}
 
 		// Draw filter line
-		drawLine(leftMargin, listKey+headLine, paddingListValue, cursorColor, cursorBackColor)
+		drawLine(l.Term.LeftMergin, listKey+l.Term.Headline, paddingData, cursorColor, cursorBackColor)
 
 		// Keyword Highlight
-		drawFilterLine(leftMargin, listKey+headLine, paddingListValue, cursorColor, cursorBackColor, keywordColor, searchText)
+		drawFilterLine(l.Term.LeftMergin, listKey+l.Term.Headline, paddingData, cursorColor, cursorBackColor, keywordColor, l.Keyword)
 		listKey += 1
 	}
 
 	// Multi-Byte SetCursor
 	x := 0
-	for _, c := range searchText {
+	for _, c := range l.Keyword {
 		x += runewidth.RuneWidth(c)
 	}
-	termbox.SetCursor(len(pronpt)+x, 0)
+	termbox.SetCursor(len(l.Prompt)+x, 0)
 	termbox.Flush()
 }
