@@ -41,6 +41,7 @@ func (l *ListInfo) allToggle(allFlag bool) {
 		for _, addLine := range l.ViewText[1:] {
 			addName := strings.Fields(addLine)[0]
 			allSelectedList = append(allSelectedList, addName)
+			l.toggle(addName)
 		}
 		return
 	} else {
