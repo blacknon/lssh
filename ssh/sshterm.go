@@ -90,12 +90,13 @@ func (c *ConInfoTerm) Connect() (err error) {
 				if err != nil {
 					return
 				}
-				defer wirteLog.Close()
+				//defer wirteLog.Close()
 
 				// for loop Add timestamp log
 				for scanner.Scan() {
 					fmt.Fprintln(wirteLog, time.Now().Format("2006/01/02 15:04:05 ")+scanner.Text())
 				}
+				wirteLog.Close()
 			}
 		}()
 	}
