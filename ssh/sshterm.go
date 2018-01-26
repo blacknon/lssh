@@ -90,7 +90,6 @@ func (c *ConInfoTerm) Connect() (err error) {
 				if err != nil {
 					return
 				}
-				//defer wirteLog.Close()
 
 				// for loop Add timestamp log
 				for scanner.Scan() {
