@@ -35,7 +35,8 @@ type ServerConfig struct {
 
 func ReadConf(confPath string) (checkConf Config) {
 	if isExist(confPath) == false {
-		fmt.Printf("Config file(%s) Not Found.\nPlease create file.", confPath)
+		fmt.Printf("Config file(%s) Not Found.\nPlease create file.\n\n", confPath)
+		fmt.Printf("sample: %s\n", "https://raw.githubusercontent.com/blacknon/lssh/master/example/config.tml")
 		os.Exit(1)
 	}
 	// Read Config
