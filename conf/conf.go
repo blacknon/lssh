@@ -1,6 +1,7 @@
 package conf
 
 import (
+	"fmt"
 	"os"
 	"os/user"
 	"strings"
@@ -33,6 +34,10 @@ type ServerConfig struct {
 }
 
 func ReadConf(confPath string) (checkConf Config) {
+	if isExist(confPath) == false {
+		fmt.Printf("Config file(%s) Not Found.\nPlease create file.", confPath)
+		os.Exit(1)
+	}
 	// Read Config
 	_, err := toml.DecodeFile(confPath, &checkConf)
 	if err != nil {
