@@ -18,14 +18,14 @@ type CommandOption struct {
 	Host     []string `arg:"-H,help:Connect servername"`
 	List     bool     `arg:"-l,help:print server list"`
 	File     string   `arg:"-f,help:config file path"`
-	Terminal bool     `arg:"-T,help:Run specified command at terminal"`
-	Parallel bool     `arg:"-P,help:Exec command parallel node(tail -F etc...)"`
-	Command  []string `arg:"-C,help:Remote Server exec command."`
+	Terminal bool     `arg:"-t,help:Run specified command at terminal"`
+	Parallel bool     `arg:"-p,help:Exec command parallel node(tail -F etc...)"`
+	Command  []string `arg:"-e,help:Remote Server exec command."`
 }
 
 // Version Setting
 func (CommandOption) Version() string {
-	return "lssh v0.4.2"
+	return "lssh v0.4.3"
 }
 
 func main() {
