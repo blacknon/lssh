@@ -49,7 +49,7 @@ func main() {
 	fmt.Println(connectHost)
 	fmt.Println(listFlag)
 	fmt.Println(configFile)
-	fmt.Println(from)
-	fmt.Println(to)
+	fmt.Println(cpFrom)
+	fmt.Println(cpTo)
 
 }
