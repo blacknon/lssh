@@ -97,7 +97,7 @@ func (c *ConInfoCmd) Run() int {
 	// New connect
 	conn, err := ssh.Dial("tcp", c.Addr+":"+c.Port, config)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "cannot connect %v: %v \n", c.Port, err)
+		fmt.Fprintf(os.Stderr, "cannot connect %v, %v: %v \n", c.Server, c.Port, err)
 		return 1
 	}
 	defer conn.Close()
@@ -105,7 +105,7 @@ func (c *ConInfoCmd) Run() int {
 	// New Session
 	session, err := conn.NewSession()
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "cannot open new session: %v \n", err)
+		fmt.Fprintf(os.Stderr, "connect erro %v,cannot open new session: %v \n", c.Server, err)
 		return 1
 	}
 	defer session.Close()
