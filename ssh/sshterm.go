@@ -56,6 +56,8 @@ func (c *ConInfoTerm) Connect() (err error) {
 	if c.Log == true {
 		logDirPath := c.LogDir
 		logDirPath = strings.Replace(logDirPath, "~", usr.HomeDir, 1)
+		logDirPath = strings.Replace(logDirPath, "<Date>", time.Now().Format("20060102"), 1)
+		logDirPath = strings.Replace(logDirPath, "<Hostname>", c.Server, 1)
 
 		// mkdir logDIr
 		if err := os.MkdirAll(logDirPath, 0700); err != nil {

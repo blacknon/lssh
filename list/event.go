@@ -81,15 +81,15 @@ func (l *ListInfo) keyEvent() (lineData []string) {
 
 			// Ctrl + a Key(all select)
 			case termbox.KeyCtrlA:
-				// allFlag Toggle
-				if allFlag == false {
-					allFlag = true
-				} else {
-					allFlag = false
-				}
-
 				if l.MultiFlag == true {
 					l.allToggle(allFlag)
+					// allFlag Toggle
+					if allFlag == false {
+						allFlag = true
+					} else {
+						allFlag = false
+					}
+
 				}
 
 				l.draw()
