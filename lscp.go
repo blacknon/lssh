@@ -10,16 +10,17 @@ import (
 
 // Command Option
 type CommandOption struct {
-	Host []string `arg:"-H,help:Connect servername"`
-	List bool     `arg:"-l,help:print server list"`
-	File string   `arg:"-f,help:config file path"`
-	From string   `arg:"positional,help:Copy from path"`
-	To   string   `arg:"positional,help:Copy to path"`
+	Host        []string `arg:"-H,help:Connect servername"`
+	List        bool     `arg:"-l,help:print server list"`
+	File        string   `arg:"-f,help:config file path"`
+	Recursively bool     `arg:"-r,help:Recursively copy entire directories."`
+	From        string   `arg:"positional,required,help:Copy from path"`
+	To          string   `arg:"positional,required,help:Copy to path"`
 }
 
 // Version Setting
 func (CommandOption) Version() string {
-	return "lscp v0.4.3"
+	return "lscp v0.5.0"
 }
 
 func main() {
@@ -43,13 +44,12 @@ func main() {
 	connectHost := args.Host
 	listFlag := args.List
 	configFile := args.File
-	cpFrom := args.From
-	cpTo := args.To
+	copyFrom := args.From
+	copyTo := args.To
 
 	fmt.Println(connectHost)
 	fmt.Println(listFlag)
 	fmt.Println(configFile)
-	fmt.Println(cpFrom)
-	fmt.Println(cpTo)
-
+	fmt.Println(copyFrom)
+	fmt.Println(copyTo)
 }

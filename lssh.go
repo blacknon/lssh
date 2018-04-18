@@ -20,12 +20,12 @@ type CommandOption struct {
 	File     string   `arg:"-f,help:config file path"`
 	Terminal bool     `arg:"-t,help:Run specified command at terminal"`
 	Parallel bool     `arg:"-p,help:Exec command parallel node(tail -F etc...)"`
-	Command  []string `arg:"-e,help:Remote Server exec command."`
+	Command  []string `arg:"-c,help:Remote Server exec command."`
 }
 
 // Version Setting
 func (CommandOption) Version() string {
-	return "lssh v0.4.3"
+	return "lssh v0.5.0"
 }
 
 func main() {

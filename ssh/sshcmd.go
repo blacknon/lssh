@@ -74,12 +74,12 @@ func (c *ConInfoCmd) Run() int {
 		// Read PublicKey
 		buffer, err := ioutil.ReadFile(c.KeyPath)
 		if err != nil {
-			fmt.Fprintln(os.Stderr, "Error:%s%n", err)
+			fmt.Fprintln(os.Stderr, "Error:%s\n", err)
 			return 1
 		}
 		key, err := ssh.ParsePrivateKey(buffer)
 		if err != nil {
-			fmt.Fprintln(os.Stderr, "Error:%s%n", err)
+			fmt.Fprintln(os.Stderr, "Error:%s\n", err)
 			return 1
 		}
 		auth = []ssh.AuthMethod{ssh.PublicKeys(key)}
@@ -148,7 +148,7 @@ func (c *ConInfoCmd) Run() int {
 		err = session.Run(execCmd)
 
 		if err != nil {
-			fmt.Fprint(os.Stderr, err)
+			fmt.Fprintf(os.Stderr, "%v Error: %v\n", c.Server, err)
 			if ee, ok := err.(*ssh.ExitError); ok {
 				return ee.ExitStatus()
 			}
@@ -201,7 +201,7 @@ func (c *ConInfoCmd) Run() int {
 		}
 
 		if err != nil {
-			fmt.Fprint(os.Stderr, err)
+			fmt.Fprintf(os.Stderr, "%v Error: %v\n", c.Server, err)
 			if ee, ok := err.(*ssh.ExitError); ok {
 				return ee.ExitStatus()
 			}
@@ -215,7 +215,7 @@ func (c *ConInfoCmd) Run() int {
 		// Exec Command(for loop)
 		err = session.Run(execCmd)
 		if err != nil {
-			fmt.Fprint(os.Stderr, err)
+			fmt.Fprintf(os.Stderr, "%v Error: %v\n", c.Server, err)
 			if ee, ok := err.(*ssh.ExitError); ok {
 				return ee.ExitStatus()
 			}
