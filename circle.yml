@@ -1,2 +1,3 @@
- steps:
-     - run: make
+dependencies:
+  override:
+      - make
