@@ -1,4 +1,7 @@
 dependencies:
-  override:
-      - go get -t -d -v ./...
-      - make
+    override:
+        - go get -t -d -v ./...
+        - make
+test:
+    override:
+        - lssh --help
