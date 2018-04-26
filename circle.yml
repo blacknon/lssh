@@ -1,3 +1,4 @@
 dependencies:
   override:
+      - go get -t -d -v ./...
       - make
