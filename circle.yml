@@ -4,4 +4,4 @@ dependencies:
         - make
 test:
     override:
-        - lssh --help
+        - ./lssh --help
