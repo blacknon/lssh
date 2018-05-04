@@ -22,6 +22,14 @@ var (
 	stdin []byte
 )
 
+type RunInfoCmd struct {
+	ServerList []string
+	ConfList   conf.Config
+	Tflag      bool
+	Pflag      bool
+	ExecCmd    []string
+}
+
 type ConInfoCmd struct {
 	Index           int
 	Count           int
@@ -234,7 +242,7 @@ func (c *ConInfoCmd) Run() int {
 }
 
 // remote ssh server exec command only
-func ConSshCmd(serverList []string, confList conf.Config, tFlag bool, pFlag bool, execCmd ...string) int {
+func (r *RunInfoCmd) ConSshCmd() int {
 	// Stdin only pipes
 	if terminal.IsTerminal(syscall.Stdin) == false {
 		stdin, _ = ioutil.ReadAll(os.Stdin)
@@ -242,7 +250,7 @@ func ConSshCmd(serverList []string, confList conf.Config, tFlag bool, pFlag bool
 
 	// get connect server name max length
 	conServerNameMax := 0
-	for _, conServerName := range serverList {
+	for _, conServerName := range r.ServerList {
 		if conServerNameMax < len(conServerName) {
 			conServerNameMax = len(conServerName)
 		}
@@ -253,32 +261,32 @@ func ConSshCmd(serverList []string, confList conf.Config, tFlag bool, pFlag bool
 
 	// for command exec
 	x := 1
-	for _, v := range serverList {
+	for _, v := range r.ServerList {
 		y := x
 		c := new(ConInfoCmd)
 		conServer := v
 		go func() {
 			c.Index = y
-			c.Count = len(serverList)
+			c.Count = len(r.ServerList)
 			c.Server = conServer
 			c.ServerMaxLength = conServerNameMax
-			c.Addr = confList.Server[c.Server].Addr
-			c.User = confList.Server[c.Server].User
+			c.Addr = r.ConfList.Server[c.Server].Addr
+			c.User = r.ConfList.Server[c.Server].User
 			c.Port = "22"
-			if confList.Server[c.Server].Port != "" {
-				c.Port = confList.Server[c.Server].Port
+			if r.ConfList.Server[c.Server].Port != "" {
+				c.Port = r.ConfList.Server[c.Server].Port
 			}
 			c.Pass = ""
-			if confList.Server[c.Server].Pass != "" {
-				c.Pass = confList.Server[c.Server].Pass
+			if r.ConfList.Server[c.Server].Pass != "" {
+				c.Pass = r.ConfList.Server[c.Server].Pass
 			}
 			c.KeyPath = ""
-			if confList.Server[c.Server].Key != "" {
-				c.KeyPath = confList.Server[c.Server].Key
+			if r.ConfList.Server[c.Server].Key != "" {
+				c.KeyPath = r.ConfList.Server[c.Server].Key
 			}
-			c.Cmd = execCmd
-			c.Flag.Parallel = pFlag
-			c.Flag.PesudoTerm = tFlag
+			c.Cmd = r.ExecCmd
+			c.Flag.Parallel = r.Pflag
+			c.Flag.PesudoTerm = r.Tflag
 
 			c.Run()
 			finished <- true
@@ -286,7 +294,7 @@ func ConSshCmd(serverList []string, confList conf.Config, tFlag bool, pFlag bool
 		x++
 	}
 
-	for i := 1; i <= len(serverList); i++ {
+	for i := 1; i <= len(r.ServerList); i++ {
 		<-finished
 	}
 	return 0

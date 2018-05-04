@@ -5,3 +5,4 @@ dependencies:
 test:
     override:
         - ./lssh --help
+        - ./lscp --help

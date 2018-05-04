@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"runtime"
+	"strings"
 )
 
 func isExist(filename string) bool {
@@ -75,4 +76,33 @@ func CheckInputServerExit(inputServer []string, nameList []string) bool {
 		}
 	}
 	return false
+}
+
+func ParsePathArg(arg string) (hostType string, path string, result bool) {
+	argArray := strings.SplitN(arg, ":", 2)
+
+	// check split count
+	if len(argArray) != 2 {
+		hostType = ""
+		path = ""
+		result = false
+		return
+	}
+
+	array1 := strings.ToLower(argArray[0])
+	switch array1 {
+	case "local", "l":
+		hostType = "local"
+		path = argArray[1]
+	case "remote", "r":
+		hostType = "remote"
+		path = argArray[1]
+	default:
+		hostType = ""
+		path = ""
+		result = false
+		return
+	}
+	result = true
+	return
 }
