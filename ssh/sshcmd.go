@@ -42,6 +42,7 @@ type ConInfoCmd struct {
 	Pass            string
 	KeyPath         string
 	Flag            ConInfoCmdFlag
+	Connect         *ssh.Client
 
 	StdinTempPath string
 }
@@ -73,8 +74,7 @@ func outColorStrings(num int, inStrings string) (str string) {
 	return
 }
 
-// exec ssh command function
-func (c *ConInfoCmd) Run() int {
+func (c *ConInfoCmd) CreateConnect() int {
 	usr, _ := user.Current()
 	auth := []ssh.AuthMethod{}
 	if c.KeyPath != "" {
@@ -108,6 +108,13 @@ func (c *ConInfoCmd) Run() int {
 		fmt.Fprintf(os.Stderr, "cannot connect %v, %v: %v \n", c.Server, c.Port, err)
 		return 1
 	}
+	c.Connect = conn
+	return 0
+}
+
+// exec ssh command function
+func (c *ConInfoCmd) Run() int {
+	conn := c.Connect
 	defer conn.Close()
 
 	// New Session
@@ -117,6 +124,7 @@ func (c *ConInfoCmd) Run() int {
 		return 1
 	}
 	defer session.Close()
+
 	go func() {
 		time.Sleep(2419200 * time.Second)
 		conn.Close()
@@ -168,8 +176,9 @@ func (c *ConInfoCmd) Run() int {
 		session.Stdout = &stdoutBuf
 		session.Stderr = &stdoutBuf
 
-		// cmdStatus: Chan can not continuously read buffer in for.
-		//                For this reason, the processing end is detected using a variable.
+		// cmdStatus:
+		// Chan can not continuously read buffer in for.
+		// reason, the processing end is detected using a variable.
 		cmdStatus := true
 
 		// Exec Command(parallel)
@@ -256,7 +265,6 @@ func (r *RunInfoCmd) ConSshCmd() int {
 		}
 	}
 
-	//if conServerCnt > 1 {
 	finished := make(chan bool)
 
 	// for command exec
@@ -288,7 +296,11 @@ func (r *RunInfoCmd) ConSshCmd() int {
 			c.Flag.Parallel = r.Pflag
 			c.Flag.PesudoTerm = r.Tflag
 
-			c.Run()
+			con_r := c.CreateConnect()
+			if con_r == 0 {
+				c.Run()
+			}
+
 			finished <- true
 		}()
 		x++
