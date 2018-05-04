@@ -106,11 +106,19 @@ func main() {
 		fmt.Fprintf(os.Stderr, "Exec command  :%s\n", strings.Join(execRemoteCmd, " "))
 
 		// Connect SSH
-		ssh.ConSshCmd(selectServer,
-			listConf,
-			terminalExec,
-			parallelExec,
-			execRemoteCmd...)
+		c := new(ssh.RunInfoCmd)
+		c.ServerList = selectServer
+		c.ConfList = listConf
+		c.Tflag = terminalExec
+		c.Pflag = parallelExec
+		c.ExecCmd = execRemoteCmd
+		c.ConSshCmd()
+
+		//ssh.ConSshCmd(selectServer,
+		//	listConf,
+		//	terminalExec,
+		//	parallelExec,
+		//	execRemoteCmd...)
 		os.Exit(0)
 	} else {
 		// Print selected server

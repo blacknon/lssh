@@ -72,7 +72,7 @@ func (l *ListInfo) keyEvent() (lineData []string) {
 				}
 				l.draw()
 
-			// Ctrl + x Key(select)
+			// Tab Key(select)
 			case termbox.KeyTab:
 				if l.MultiFlag == true {
 					l.toggle(strings.Fields(l.ViewText[l.CursorLine+1])[0])
@@ -94,6 +94,9 @@ func (l *ListInfo) keyEvent() (lineData []string) {
 					}
 				}
 				l.draw()
+
+			// Ctrl + h Key(Help Window)
+			//case termbox.KeyCtrlH:
 
 			// Enter Key
 			case termbox.KeyEnter:
