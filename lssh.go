@@ -114,11 +114,6 @@ func main() {
 		c.ExecCmd = execRemoteCmd
 		c.ConSshCmd()
 
-		//ssh.ConSshCmd(selectServer,
-		//	listConf,
-		//	terminalExec,
-		//	parallelExec,
-		//	execRemoteCmd...)
 		os.Exit(0)
 	} else {
 		// Print selected server
