@@ -3,9 +3,21 @@ package conf
 import (
 	"fmt"
 	"os"
+	"path/filepath"
 	"runtime"
 	"strings"
 )
+
+func PathWalkDir(dir string) (files []string, err error) {
+	err = filepath.Walk(dir, func(path string, info os.FileInfo, err error) error {
+		if info.IsDir() {
+			path = path + "/"
+		}
+		files = append(files, path)
+		return nil
+	})
+	return
+}
 
 func isExist(filename string) bool {
 	_, err := os.Stat(filename)
@@ -27,7 +39,7 @@ func checkOS() {
 
 func checkCommandExist(cmd string) {
 	if (isExist(cmd)) == false {
-		fmt.Printf("%s:Not Found.\n", cmd)
+		fmt.Fprintf(os.Stderr, "%s:Not Found.\n", cmd)
 	}
 }
 
