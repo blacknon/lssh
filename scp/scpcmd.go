@@ -73,15 +73,22 @@ func (r *RunInfoScp) scpPush(conn *ssh.Client, toDir string, toName string) {
 	}
 	defer session.Close()
 
+	pInfo, _ := os.Stat(r.CopyFromPath)
+	if pInfo.IsDir() {
+		toDir = r.CopyToPath
+	}
+
 	go func() {
 		w, _ := session.StdinPipe()
 		defer w.Close()
 
-		pInfo, _ := os.Stat(r.CopyFromPath)
 		if pInfo.IsDir() {
 			pList, _ := conf.PathWalkDir(r.CopyFromPath)
 			for _, i := range pList {
-				fmt.Fprintf(w, printScpWord(r.CopyFromPath, i, filepath.Base(i)))
+				scpData := printScpWord(r.CopyFromPath, i, filepath.Base(i))
+				if len(scpData) > 0 {
+					fmt.Fprintf(w, scpData)
+				}
 			}
 		} else {
 			fPerm := "0644"
@@ -100,9 +107,9 @@ func (r *RunInfoScp) scpPush(conn *ssh.Client, toDir string, toName string) {
 	}
 }
 
-//func (r *RunInfoScp) forScpPull() {
-//
-//}
+func (r *RunInfoScp) forScpPull() {
+
+}
 
 func (r *RunInfoScp) forScpPush() {
 	finished := make(chan bool)
@@ -136,8 +143,8 @@ func (r *RunInfoScp) forScpPush() {
 			toName := filepath.Base(r.CopyToPath)
 			toDir := filepath.Dir(r.CopyToPath)
 
-			checkToPathLast, _ := regexp.MatchString("/$", r.CopyToPath)
-			if toName == toDir || checkToPathLast {
+			match, _ := regexp.MatchString("/$", r.CopyToPath)
+			if toName == toDir || match {
 				toName = filepath.Base(r.CopyFromPath)
 			}
 
@@ -169,6 +176,5 @@ func (r *RunInfoScp) ScpRun() {
 		fmt.Println("remote to local")
 	case r.CopyFromType == "local" && r.CopyToType == "remote":
 		r.forScpPush()
-		fmt.Println("local to remote")
 	}
 }
