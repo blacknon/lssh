@@ -74,21 +74,21 @@ func outColorStrings(num int, inStrings string) (str string) {
 	return
 }
 
-func (c *ConInfoCmd) CreateConnect() int {
+func (c *ConInfoCmd) CreateConnect() (conn *ssh.Client, err error) {
 	usr, _ := user.Current()
 	auth := []ssh.AuthMethod{}
 	if c.KeyPath != "" {
 		c.KeyPath = strings.Replace(c.KeyPath, "~", usr.HomeDir, 1)
 		// Read PublicKey
-		buffer, err := ioutil.ReadFile(c.KeyPath)
-		if err != nil {
-			fmt.Fprintln(os.Stderr, "Error:%s\n", err)
-			return 1
+		buffer, b_err := ioutil.ReadFile(c.KeyPath)
+		if b_err != nil {
+			err = b_err
+			return
 		}
-		key, err := ssh.ParsePrivateKey(buffer)
-		if err != nil {
-			fmt.Fprintln(os.Stderr, "Error:%s\n", err)
-			return 1
+		key, b_err := ssh.ParsePrivateKey(buffer)
+		if b_err != nil {
+			err = b_err
+			return
 		}
 		auth = []ssh.AuthMethod{ssh.PublicKeys(key)}
 	} else {
@@ -103,18 +103,12 @@ func (c *ConInfoCmd) CreateConnect() int {
 	}
 
 	// New connect
-	conn, err := ssh.Dial("tcp", c.Addr+":"+c.Port, config)
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "cannot connect %v, %v: %v \n", c.Server, c.Port, err)
-		return 1
-	}
-	c.Connect = conn
-	return 0
+	conn, err = ssh.Dial("tcp", c.Addr+":"+c.Port, config)
+	return
 }
 
 // exec ssh command function
-func (c *ConInfoCmd) Run() int {
-	conn := c.Connect
+func (c *ConInfoCmd) Run(conn *ssh.Client) int {
 	defer conn.Close()
 
 	// New Session
@@ -296,10 +290,11 @@ func (r *RunInfoCmd) ConSshCmd() int {
 			c.Flag.Parallel = r.Pflag
 			c.Flag.PesudoTerm = r.Tflag
 
-			con_r := c.CreateConnect()
-			if con_r == 0 {
-				c.Run()
+			connect, err := c.CreateConnect()
+			if err != nil {
+				fmt.Fprintf(os.Stderr, "cannot connect %v, %v: %v \n", c.Server, c.Port, err)
 			}
+			c.Run(connect)
 
 			finished <- true
 		}()
