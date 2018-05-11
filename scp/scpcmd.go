@@ -25,11 +25,24 @@ type RunInfoScp struct {
 	ConConfig    conf.Config
 }
 
-func printScpWord(baseDir string, path string, toName string) (scpWord string) {
+func unset(s []string, i int) []string {
+	if i >= len(s) {
+		return s
+	}
+	return append(s[:i], s[i+1:]...)
+}
+
+func printScpDirData(baseDir string, path string, toName string) (scpData string) {
 	dPerm := "0755"
 	fPerm := "0644"
 
 	buf := []string{}
+
+	// baseDirだと親ディレクトリ配下のみを転送するため、一度配列化して親ディレクトリも転送対象にする
+	baseDirSlice := strings.Split(baseDir, "/")
+	baseDirSlice = unset(baseDirSlice, len(baseDirSlice)-1)
+	baseDir = strings.Join(baseDirSlice, "/")
+
 	relPath, _ := filepath.Rel(baseDir, path)
 	dir := filepath.Dir(relPath)
 
@@ -55,21 +68,57 @@ func printScpWord(baseDir string, path string, toName string) (scpWord string) {
 	if len(dir) > 0 && dir != "." {
 		buf = append(buf, fmt.Sprintln("E"))
 	}
-	scpWord = strings.Join(buf, "")
+	scpData = strings.Join(buf, "")
 	return
 }
 
-//func (r *RunInfoScp) scpPull(conn *ssh.Client) {
-//
-//}
+func writeScpData(data string) {
+	fmt.Printf(data)
+}
 
-func (r *RunInfoScp) scpPush(conn *ssh.Client, toDir string, toName string) {
+func (r *RunInfoScp) scpPull(conn *ssh.Client, serverName string, toDir string, toName string) {
 	defer conn.Close()
 
 	// New Session
 	session, err := conn.NewSession()
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "connect erro %v,cannot open new session: %v \n", err)
+		fmt.Fprintf(os.Stderr, "connect error %v,cannot open new session: %v \n", err)
+	}
+	defer session.Close()
+
+	fin := make(chan bool)
+	go func() {
+		w, _ := session.StdinPipe()
+
+		defer w.Close()
+
+		// Null Characters(10,000)
+		nc := strings.Repeat("\x00", 10000)
+		fmt.Fprintf(w, nc)
+	}()
+
+	go func() {
+		r, _ := session.StdoutPipe()
+		b, _ := ioutil.ReadAll(r)
+		writeScpData(string(b))
+		fin <- true
+	}()
+
+	if err := session.Run("/usr/bin/scp -rqf " + r.CopyFromPath); err != nil {
+		fmt.Fprintln(os.Stderr, "Failed to run: "+err.Error())
+	}
+
+	<-fin
+	fmt.Println(serverName + " is exit.")
+}
+
+func (r *RunInfoScp) scpPush(conn *ssh.Client, serverName string, toDir string, toName string) {
+	defer conn.Close()
+
+	// New Session
+	session, err := conn.NewSession()
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "connect error %v,cannot open new session: %v \n", err)
 	}
 	defer session.Close()
 
@@ -85,7 +134,7 @@ func (r *RunInfoScp) scpPush(conn *ssh.Client, toDir string, toName string) {
 		if pInfo.IsDir() {
 			pList, _ := conf.PathWalkDir(r.CopyFromPath)
 			for _, i := range pList {
-				scpData := printScpWord(r.CopyFromPath, i, filepath.Base(i))
+				scpData := printScpDirData(r.CopyFromPath, i, filepath.Base(i))
 				if len(scpData) > 0 {
 					fmt.Fprintf(w, scpData)
 				}
@@ -102,19 +151,24 @@ func (r *RunInfoScp) scpPush(conn *ssh.Client, toDir string, toName string) {
 		}
 	}()
 
-	if err := session.Run("/usr/bin/scp -pqtr " + toDir); err != nil {
+	if err := session.Run("/usr/bin/scp -ptr " + toDir); err != nil {
 		fmt.Fprintln(os.Stderr, "Failed to run: "+err.Error())
 	}
+
+	fmt.Println(serverName + " is exit.")
 }
 
-func (r *RunInfoScp) forScpPull() {
-
-}
-
-func (r *RunInfoScp) forScpPush() {
+func (r *RunInfoScp) forScp(mode string) {
 	finished := make(chan bool)
 	x := 1
-	for _, v := range r.CopyToServer {
+
+	targetServer := []string{}
+	if mode == "push" {
+		targetServer = r.CopyToServer
+	} else {
+		targetServer = r.CopyFromServer
+	}
+	for _, v := range targetServer {
 		y := x
 		c := new(lssh_ssh.ConInfoCmd)
 		conServer := v
@@ -138,24 +192,45 @@ func (r *RunInfoScp) forScpPush() {
 
 			connect, err := c.CreateConnect()
 			if err != nil {
-				fmt.Fprintf(os.Stderr, "cannot connect %v, %v: %v \n", c.Server, c.Port, err)
-			}
-			toName := filepath.Base(r.CopyToPath)
-			toDir := filepath.Dir(r.CopyToPath)
-
-			match, _ := regexp.MatchString("/$", r.CopyToPath)
-			if toName == toDir || match {
-				toName = filepath.Base(r.CopyFromPath)
+				fmt.Fprintf(os.Stderr, "cannot connect %v:%v, %v \n", c.Server, c.Port, err)
+				finished <- true
+				return
 			}
 
-			r.scpPush(connect, toDir, toName)
+			switch mode {
+			case "push":
+				// scp push
+				toName := filepath.Base(r.CopyToPath)
+				toDir := filepath.Dir(r.CopyToPath)
+
+				match, _ := regexp.MatchString("/$", r.CopyToPath)
+				if toName == toDir || match {
+					toName = filepath.Base(r.CopyFromPath)
+				}
+				r.scpPush(connect, conServer, toDir, toName)
+			case "pull":
+				// scp pull
+				toName := filepath.Base(r.CopyToPath)
+				toDir := filepath.Dir(r.CopyToPath)
+				pInfo, _ := os.Stat(r.CopyToPath)
+
+				if pInfo.IsDir() {
+					toDir = toDir + "/"
+					toName = toDir
+				}
+
+				if len(targetServer) > 1 {
+					toDir = toDir
+				}
+				r.scpPull(connect, conServer, toDir, toName)
+			}
 
 			finished <- true
 		}()
 		x++
 	}
 
-	for i := 1; i <= len(r.CopyToServer); i++ {
+	for i := 1; i <= len(targetServer); i++ {
 		<-finished
 	}
 }
@@ -172,9 +247,8 @@ func (r *RunInfoScp) ScpRun() {
 	case r.CopyFromType == "remote" && r.CopyToType == "remote":
 		fmt.Println("remote to remote")
 	case r.CopyFromType == "remote" && r.CopyToType == "local":
-		//r.forScpPull()
-		fmt.Println("remote to local")
+		r.forScp("pull")
 	case r.CopyFromType == "local" && r.CopyToType == "remote":
-		r.forScpPush()
+		r.forScp("push")
 	}
 }

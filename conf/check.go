@@ -3,10 +3,19 @@ package conf
 import (
 	"fmt"
 	"os"
+	"os/user"
 	"path/filepath"
 	"runtime"
 	"strings"
 )
+
+func GetFullPath(path string) (fullPath string) {
+	usr, _ := user.Current()
+	fullPath = strings.Replace(path, "~", usr.HomeDir, 1)
+	fullPath, _ = filepath.Abs(fullPath)
+	return fullPath
+
+}
 
 func PathWalkDir(dir string) (files []string, err error) {
 	err = filepath.Walk(dir, func(path string, info os.FileInfo, err error) error {

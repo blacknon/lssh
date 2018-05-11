@@ -5,6 +5,7 @@ import (
 	"os"
 	"os/user"
 	"sort"
+	"strings"
 
 	arg "github.com/alexflint/go-arg"
 	"github.com/blacknon/lssh/conf"
@@ -79,6 +80,7 @@ func main() {
 	nameList := conf.GetNameList(listConf)
 	sort.Strings(nameList)
 
+	selectServer := []string{}
 	toSelectServer := []string{}
 	fromSelectServer := []string{}
 	if len(connectHost) != 0 {
@@ -123,21 +125,60 @@ func main() {
 		l.MultiFlag = true
 		l.View()
 
-		toSelectServer = l.SelectName
-		if toSelectServer[0] == "ServerName" {
+		selectServer = l.SelectName
+		if selectServer[0] == "ServerName" {
 			fmt.Fprintln(os.Stderr, "Server not selected.")
 			os.Exit(1)
 		}
+
+		if fromHostType == "local" {
+			toSelectServer = selectServer
+		} else {
+			fromSelectServer = selectServer
+		}
+	}
+
+	// Check file exisits
+	if fromHostType == "local" {
+		_, err := os.Stat(conf.GetFullPath(fromPath))
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "not found path %s \n", fromPath)
+			os.Exit(1)
+		}
+		fromPath = conf.GetFullPath(fromPath)
+	}
+	if toHostType == "local" {
+		_, err := os.Stat(conf.GetFullPath(toPath))
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "not found path %s \n", toPath)
+			os.Exit(1)
+		}
+		toPath = conf.GetFullPath(toPath)
 	}
 
 	r_scp := new(scp.RunInfoScp)
 	r_scp.CopyFromType = fromHostType
 	r_scp.CopyFromPath = fromPath
+	r_scp.CopyFromServer = fromSelectServer
 	r_scp.CopyToType = toHostType
 	r_scp.CopyToPath = toPath
-	r_scp.CopyFromServer = fromSelectServer
 	r_scp.CopyToServer = toSelectServer
 	r_scp.ConConfig = listConf
+
+	// print from
+	if r_scp.CopyFromType == "local" {
+		fmt.Fprintf(os.Stderr, "From %s:%s\n", r_scp.CopyFromType, r_scp.CopyFromPath)
+	} else {
+		fmt.Println(fromSelectServer)
+		fmt.Fprintf(os.Stderr, "From %s(%s):%s\n", r_scp.CopyFromType, strings.Join(r_scp.CopyFromServer, ","), r_scp.CopyFromPath)
+	}
+
+	// print to
+	if r_scp.CopyToType == "local" {
+		fmt.Fprintf(os.Stderr, "To   %s:%s\n", r_scp.CopyToType, r_scp.CopyToPath)
+	} else {
+		fmt.Fprintf(os.Stderr, "To   %s(%s):%s\n", r_scp.CopyToType, strings.Join(r_scp.CopyToServer, ","), r_scp.CopyToPath)
+	}
 
 	r_scp.ScpRun()
 }
