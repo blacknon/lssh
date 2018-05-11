@@ -90,7 +90,6 @@ func (l *ListInfo) getText() {
 	}
 }
 
-//func (l *ListInfo) getFilterText(searchText string, listData []string) (returnListData []string) {
 func (l *ListInfo) getFilterText() {
 	// Initialization ViewText
 	l.ViewText = []string{}

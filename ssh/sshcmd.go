@@ -292,7 +292,9 @@ func (r *RunInfoCmd) ConSshCmd() int {
 
 			connect, err := c.CreateConnect()
 			if err != nil {
-				fmt.Fprintf(os.Stderr, "cannot connect %v, %v: %v \n", c.Server, c.Port, err)
+				fmt.Fprintf(os.Stderr, "cannot connect %v:%v, %v \n", c.Server, c.Port, err)
+				finished <- true
+				return
 			}
 			c.Run(connect)
 
