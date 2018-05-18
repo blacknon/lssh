@@ -170,9 +170,9 @@ func (r *RunInfoScp) forScp(mode string) {
 	}
 	for _, v := range targetServer {
 		y := x
-		c := new(lssh_ssh.ConInfoCmd)
 		conServer := v
 		go func() {
+			c := new(lssh_ssh.ConInfoCmd)
 			c.Index = y
 			c.Server = conServer
 			c.Addr = r.ConConfig.Server[c.Server].Addr
