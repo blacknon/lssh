@@ -14,7 +14,6 @@ func GetFullPath(path string) (fullPath string) {
 	fullPath = strings.Replace(path, "~", usr.HomeDir, 1)
 	fullPath, _ = filepath.Abs(fullPath)
 	return fullPath
-
 }
 
 func PathWalkDir(dir string) (files []string, err error) {
