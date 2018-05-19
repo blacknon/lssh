@@ -40,6 +40,7 @@ func (c *ConInfoTerm) Connect() (err error) {
 		"-p", c.Port}
 	if c.KeyPath != "" {
 		c.KeyPath = strings.Replace(c.KeyPath, "~", usr.HomeDir, 1)
+		// ssh command Args
 		// "/usr/bin/ssh -o 'StrictHostKeyChecking no' -o 'NumberOfPasswordPrompts 1' -i connectKey connectUser@connectAddr -p connectPort"
 		sshCmd = []string{"/usr/bin/ssh",
 			"-o", "StrictHostKeyChecking no",

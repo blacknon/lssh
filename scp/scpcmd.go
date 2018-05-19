@@ -5,11 +5,10 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
-	"regexp"
 	"strings"
 
+	"github.com/blacknon/go-scplib"
 	"github.com/blacknon/lssh/conf"
-	lssh_ssh "github.com/blacknon/lssh/ssh"
 	"golang.org/x/crypto/ssh"
 )
 
@@ -155,7 +154,6 @@ func (r *RunInfoScp) scpPush(conn *ssh.Client, serverName string, toDir string, 
 		fmt.Fprintln(os.Stderr, "Failed to run: "+err.Error())
 	}
 
-	fmt.Println(serverName + " is exit.")
 }
 
 func (r *RunInfoScp) forScp(mode string) {
@@ -169,30 +167,29 @@ func (r *RunInfoScp) forScp(mode string) {
 		targetServer = r.CopyFromServer
 	}
 	for _, v := range targetServer {
-		y := x
+		//y := x
 		conServer := v
 		go func() {
-			c := new(lssh_ssh.ConInfoCmd)
-			c.Index = y
-			c.Server = conServer
-			c.Addr = r.ConConfig.Server[c.Server].Addr
-			c.User = r.ConConfig.Server[c.Server].User
+			c := new(scplib.SCPClient)
+			//c.Server = conServer
+			c.Addr = r.ConConfig.Server[conServer].Addr
+			c.User = r.ConConfig.Server[conServer].User
 			c.Port = "22"
-			if r.ConConfig.Server[c.Server].Port != "" {
-				c.Port = r.ConConfig.Server[c.Server].Port
+			if r.ConConfig.Server[conServer].Port != "" {
+				c.Port = r.ConConfig.Server[conServer].Port
 			}
 			c.Pass = ""
-			if r.ConConfig.Server[c.Server].Pass != "" {
-				c.Pass = r.ConConfig.Server[c.Server].Pass
+			if r.ConConfig.Server[conServer].Pass != "" {
+				c.Pass = r.ConConfig.Server[conServer].Pass
 			}
 			c.KeyPath = ""
-			if r.ConConfig.Server[c.Server].Key != "" {
-				c.KeyPath = r.ConConfig.Server[c.Server].Key
+			if r.ConConfig.Server[conServer].Key != "" {
+				c.KeyPath = r.ConConfig.Server[conServer].Key
 			}
 
-			connect, err := c.CreateConnect()
+			err := c.CreateConnect()
 			if err != nil {
-				fmt.Fprintf(os.Stderr, "cannot connect %v:%v, %v \n", c.Server, c.Port, err)
+				fmt.Fprintf(os.Stderr, "cannot connect %v:%v, %v \n", conServer, c.Port, err)
 				finished <- true
 				return
 			}
@@ -200,14 +197,9 @@ func (r *RunInfoScp) forScp(mode string) {
 			switch mode {
 			case "push":
 				// scp push
-				toName := filepath.Base(r.CopyToPath)
-				toDir := filepath.Dir(r.CopyToPath)
+				c.PutFile(r.CopyFromPath, r.CopyToPath)
+				fmt.Println(conServer + " is exit.")
 
-				match, _ := regexp.MatchString("/$", r.CopyToPath)
-				if toName == toDir || match {
-					toName = filepath.Base(r.CopyFromPath)
-				}
-				r.scpPush(connect, conServer, toDir, toName)
 			case "pull":
 				// scp pull
 				toName := filepath.Base(r.CopyToPath)
@@ -222,7 +214,8 @@ func (r *RunInfoScp) forScp(mode string) {
 				if len(targetServer) > 1 {
 					toDir = toDir
 				}
-				r.scpPull(connect, conServer, toDir, toName)
+				fmt.Println(toName)
+				//r.scpPull(connect, conServer, toDir, toName)
 			}
 
 			finished <- true
