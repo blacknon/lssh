@@ -147,14 +147,6 @@ func main() {
 		}
 		fromPath = conf.GetFullPath(fromPath)
 	}
-	if toHostType == "local" {
-		_, err := os.Stat(conf.GetFullPath(toPath))
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "not found path %s \n", toPath)
-			os.Exit(1)
-		}
-		toPath = conf.GetFullPath(toPath)
-	}
 
 	r_scp := new(scp.RunInfoScp)
 	r_scp.CopyFromType = fromHostType
