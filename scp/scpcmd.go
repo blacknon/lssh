@@ -61,13 +61,18 @@ func (r *RunInfoScp) forScp(mode string) {
 			switch mode {
 			case "push":
 				// scp push
-				c.PutFile(r.CopyFromPath, r.CopyToPath)
-				//fmt.Println(c.GetLocalDataString(r.CopyFromPath, r.CopyToPath))
+				err := c.PutFile(r.CopyFromPath, r.CopyToPath)
+				if err != nil {
+					fmt.Fprintln(os.Stderr, "Failed to run: "+err.Error())
+				}
 				fmt.Println(conServer + " is exit.")
 
 			case "pull":
 				// scp pull
-				c.GetFile(r.CopyFromPath, r.CopyToPath)
+				err := c.GetFile(r.CopyFromPath, r.CopyToPath)
+				if err != nil {
+					fmt.Fprintln(os.Stderr, "Failed to run: "+err.Error())
+				}
 				fmt.Println(conServer + " is exit.")
 			}
 

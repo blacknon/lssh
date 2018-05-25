@@ -23,16 +23,16 @@ need the following command.
 
 ## Install
 
-        go get github.com/blacknon/lssh
-        go install github.com/blacknon/lssh
-        cp $GOPATH/src/github.com/blacknon/lssh/example/config.tml ~/.lssh.conf
-        chmod 600 ~/.lssh.conf
+    go get github.com/blacknon/lssh
+    go install github.com/blacknon/lssh
+    cp $GOPATH/src/github.com/blacknon/lssh/example/config.tml ~/.lssh.conf
+    chmod 600 ~/.lssh.conf
 
 ## Usage
 
 Please edit "~/.lssh.conf".
 
-example)
+example
 
 	[log]
 	enable = true
@@ -92,7 +92,7 @@ You can scp like copy files using stdin/stdout.It also supports multiple nodes(p
 </p>
 
 
-### multi node select exec tail -f
+### multiple node select exec tail -f
 
 <p align="center">
 <img src="./example/lssh_parallel.gif" />
@@ -104,7 +104,7 @@ You can scp like copy files using stdin/stdout.It also supports multiple nodes(p
 
 To use as a ssh gateway server as list select type, specify it at an execution command in "/etc/passwd"( or "authorized_keys").
 
-ex) /etc/passwd
+example /etc/passwd
 
     lssh:x:1000:1000::/home/lssh:/bin/lssh
 
