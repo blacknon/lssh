@@ -22,6 +22,14 @@ var (
 	stdin []byte
 )
 
+type RunInfoCmd struct {
+	ServerList []string
+	ConfList   conf.Config
+	Tflag      bool
+	Pflag      bool
+	ExecCmd    []string
+}
+
 type ConInfoCmd struct {
 	Index           int
 	Count           int
@@ -34,6 +42,7 @@ type ConInfoCmd struct {
 	Pass            string
 	KeyPath         string
 	Flag            ConInfoCmdFlag
+	Connect         *ssh.Client
 
 	StdinTempPath string
 }
@@ -65,22 +74,21 @@ func outColorStrings(num int, inStrings string) (str string) {
 	return
 }
 
-// exec ssh command function
-func (c *ConInfoCmd) Run() int {
+func (c *ConInfoCmd) CreateConnect() (conn *ssh.Client, err error) {
 	usr, _ := user.Current()
 	auth := []ssh.AuthMethod{}
 	if c.KeyPath != "" {
 		c.KeyPath = strings.Replace(c.KeyPath, "~", usr.HomeDir, 1)
 		// Read PublicKey
-		buffer, err := ioutil.ReadFile(c.KeyPath)
-		if err != nil {
-			fmt.Fprintln(os.Stderr, "Error:%s%n", err)
-			return 1
+		buffer, b_err := ioutil.ReadFile(c.KeyPath)
+		if b_err != nil {
+			err = b_err
+			return
 		}
-		key, err := ssh.ParsePrivateKey(buffer)
-		if err != nil {
-			fmt.Fprintln(os.Stderr, "Error:%s%n", err)
-			return 1
+		key, b_err := ssh.ParsePrivateKey(buffer)
+		if b_err != nil {
+			err = b_err
+			return
 		}
 		auth = []ssh.AuthMethod{ssh.PublicKeys(key)}
 	} else {
@@ -95,20 +103,22 @@ func (c *ConInfoCmd) Run() int {
 	}
 
 	// New connect
-	conn, err := ssh.Dial("tcp", c.Addr+":"+c.Port, config)
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "cannot connect %v: %v \n", c.Port, err)
-		return 1
-	}
+	conn, err = ssh.Dial("tcp", c.Addr+":"+c.Port, config)
+	return
+}
+
+// exec ssh command function
+func (c *ConInfoCmd) Run(conn *ssh.Client) int {
 	defer conn.Close()
 
 	// New Session
 	session, err := conn.NewSession()
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "cannot open new session: %v \n", err)
+		fmt.Fprintf(os.Stderr, "connect erro %v,cannot open new session: %v \n", c.Server, err)
 		return 1
 	}
 	defer session.Close()
+
 	go func() {
 		time.Sleep(2419200 * time.Second)
 		conn.Close()
@@ -148,7 +158,7 @@ func (c *ConInfoCmd) Run() int {
 		err = session.Run(execCmd)
 
 		if err != nil {
-			fmt.Fprint(os.Stderr, err)
+			fmt.Fprintf(os.Stderr, "%v Error: %v\n", c.Server, err)
 			if ee, ok := err.(*ssh.ExitError); ok {
 				return ee.ExitStatus()
 			}
@@ -160,8 +170,9 @@ func (c *ConInfoCmd) Run() int {
 		session.Stdout = &stdoutBuf
 		session.Stderr = &stdoutBuf
 
-		// cmdStatus: Chan can not continuously read buffer in for.
-		//                For this reason, the processing end is detected using a variable.
+		// cmdStatus:
+		// Chan can not continuously read buffer in for.
+		// reason, the processing end is detected using a variable.
 		cmdStatus := true
 
 		// Exec Command(parallel)
@@ -201,7 +212,7 @@ func (c *ConInfoCmd) Run() int {
 		}
 
 		if err != nil {
-			fmt.Fprint(os.Stderr, err)
+			fmt.Fprintf(os.Stderr, "%v Error: %v\n", c.Server, err)
 			if ee, ok := err.(*ssh.ExitError); ok {
 				return ee.ExitStatus()
 			}
@@ -215,7 +226,7 @@ func (c *ConInfoCmd) Run() int {
 		// Exec Command(for loop)
 		err = session.Run(execCmd)
 		if err != nil {
-			fmt.Fprint(os.Stderr, err)
+			fmt.Fprintf(os.Stderr, "%v Error: %v\n", c.Server, err)
 			if ee, ok := err.(*ssh.ExitError); ok {
 				return ee.ExitStatus()
 			}
@@ -234,7 +245,7 @@ func (c *ConInfoCmd) Run() int {
 }
 
 // remote ssh server exec command only
-func ConSshCmd(serverList []string, confList conf.Config, tFlag bool, pFlag bool, execCmd ...string) int {
+func (r *RunInfoCmd) ConSshCmd() int {
 	// Stdin only pipes
 	if terminal.IsTerminal(syscall.Stdin) == false {
 		stdin, _ = ioutil.ReadAll(os.Stdin)
@@ -242,51 +253,57 @@ func ConSshCmd(serverList []string, confList conf.Config, tFlag bool, pFlag bool
 
 	// get connect server name max length
 	conServerNameMax := 0
-	for _, conServerName := range serverList {
+	for _, conServerName := range r.ServerList {
 		if conServerNameMax < len(conServerName) {
 			conServerNameMax = len(conServerName)
 		}
 	}
 
-	//if conServerCnt > 1 {
 	finished := make(chan bool)
 
 	// for command exec
 	x := 1
-	for _, v := range serverList {
+	for _, v := range r.ServerList {
 		y := x
 		c := new(ConInfoCmd)
 		conServer := v
 		go func() {
 			c.Index = y
-			c.Count = len(serverList)
+			c.Count = len(r.ServerList)
 			c.Server = conServer
 			c.ServerMaxLength = conServerNameMax
-			c.Addr = confList.Server[c.Server].Addr
-			c.User = confList.Server[c.Server].User
+			c.Addr = r.ConfList.Server[c.Server].Addr
+			c.User = r.ConfList.Server[c.Server].User
 			c.Port = "22"
-			if confList.Server[c.Server].Port != "" {
-				c.Port = confList.Server[c.Server].Port
+			if r.ConfList.Server[c.Server].Port != "" {
+				c.Port = r.ConfList.Server[c.Server].Port
 			}
 			c.Pass = ""
-			if confList.Server[c.Server].Pass != "" {
-				c.Pass = confList.Server[c.Server].Pass
+			if r.ConfList.Server[c.Server].Pass != "" {
+				c.Pass = r.ConfList.Server[c.Server].Pass
 			}
 			c.KeyPath = ""
-			if confList.Server[c.Server].Key != "" {
-				c.KeyPath = confList.Server[c.Server].Key
+			if r.ConfList.Server[c.Server].Key != "" {
+				c.KeyPath = r.ConfList.Server[c.Server].Key
 			}
-			c.Cmd = execCmd
-			c.Flag.Parallel = pFlag
-			c.Flag.PesudoTerm = tFlag
+			c.Cmd = r.ExecCmd
+			c.Flag.Parallel = r.Pflag
+			c.Flag.PesudoTerm = r.Tflag
 
-			c.Run()
+			connect, err := c.CreateConnect()
+			if err != nil {
+				fmt.Fprintf(os.Stderr, "cannot connect %v:%v, %v \n", c.Server, c.Port, err)
+				finished <- true
+				return
+			}
+			c.Run(connect)
+
 			finished <- true
 		}()
 		x++
 	}
 
-	for i := 1; i <= len(serverList); i++ {
+	for i := 1; i <= len(r.ServerList); i++ {
 		<-finished
 	}
 	return 0
