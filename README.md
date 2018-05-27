@@ -62,24 +62,38 @@ After exec command.
     lssh
 
 
-option
+option(lssh)
 
-	lssh v0.4.1
-	usage: lssh [--host HOST] [--list] [--file FILE] [--terminal] [--parallel] [--command COMMAND]
+	lssh v0.4.3
+	Usage: lssh [--host HOST] [--list] [--file FILE] [--terminal] [--parallel] [--command COMMAND]
 
-	options:
+	Options:
 	  --host HOST, -H HOST   Connect servername
 	  --list, -l             print server list
-	  --file FILE, -f FILE   config file path [default: /home/blacknon/.lssh.conf]
-	  --terminal, -T         Run specified command at terminal
-	  --parallel, -P         Exec command parallel node(tail -F etc...)
-	  --command COMMAND, -C COMMAND
-	                         Remote Server exec command.
+	  --file FILE, -f FILE   config file path [default: /Users/uesugi/.lssh.conf]
+	  --terminal, -t         Run specified command at terminal
+	  --parallel, -p         Exec command parallel node(tail -F etc...)
+	  --command COMMAND, -c COMMAND
+                         Remote Server exec command.
 	  --help, -h             display this help and exit
 	  --version              display version and exit
 
-If you specify a command as an argument, you can select multiple hosts.Select host 'Ctrl + X',select all displayed hosts 'Ctrl + A'.
+option(lscp)
 
+	lscp v0.4.3
+	Usage: lscp [--host HOST] [--file FILE] FROM TO
+
+	Positional arguments:
+	  FROM                   Copy from path
+	  TO                     Copy to path
+
+	Options:
+	  --host HOST, -H HOST   Connect servername
+	  --file FILE, -f FILE   config file path [default: /Users/uesugi/.lssh.conf]
+	  --help, -h             display this help and exit
+	  --version              display version and exit
+
+If you specify a command as an argument, you can select multiple hosts. Select host 'Tab', select all displayed hosts 'Ctrl + A'.
 
 ### copy files using stdin/stdout to/from remote server
 
