@@ -26,7 +26,7 @@ need the following command.
 
     go get github.com/blacknon/lssh
     cd $GOPATH/src/github.com/blacknon/lssh
-    make && make install && make clean
+    make && sudo make install && make clean
 
 ## Usage
 
