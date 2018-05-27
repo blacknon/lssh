@@ -10,6 +10,15 @@ import (
 	termbox "github.com/nsf/termbox-go"
 )
 
+func arrayContains(arr []string, str string) bool {
+	for _, v := range arr {
+		if v == str {
+			return true
+		}
+	}
+	return false
+}
+
 // toggle select line (multi select)
 func (l *ListInfo) toggle(newLine string) {
 	tmpList := []string{}
@@ -30,18 +39,21 @@ func (l *ListInfo) toggle(newLine string) {
 }
 
 func (l *ListInfo) allToggle(allFlag bool) {
+	SelectedList := []string{}
 	allSelectedList := []string{}
 	// selectedList in allSelectedList
 	for _, selectedLine := range l.SelectName {
-		allSelectedList = append(allSelectedList, selectedLine)
+		SelectedList = append(SelectedList, selectedLine)
 	}
 
 	// allFlag is False
 	if allFlag == false {
 		for _, addLine := range l.ViewText[1:] {
 			addName := strings.Fields(addLine)[0]
-			allSelectedList = append(allSelectedList, addName)
-			l.toggle(addName)
+			if !arrayContains(SelectedList, addName) {
+				allSelectedList = append(allSelectedList, addName)
+				l.toggle(addName)
+			}
 		}
 		return
 	} else {
@@ -78,7 +90,6 @@ func (l *ListInfo) getText() {
 	}
 }
 
-//func (l *ListInfo) getFilterText(searchText string, listData []string) (returnListData []string) {
 func (l *ListInfo) getFilterText() {
 	// Initialization ViewText
 	l.ViewText = []string{}

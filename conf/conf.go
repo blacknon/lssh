@@ -46,7 +46,6 @@ func ReadConf(confPath string) (checkConf Config) {
 	}
 
 	if checkConf.Include != nil {
-
 		for _, v := range checkConf.Include {
 			//var serverconf ServerConfig
 			usr, _ := user.Current()
@@ -55,7 +54,6 @@ func ReadConf(confPath string) (checkConf Config) {
 			if err != nil {
 				panic(err)
 			}
-			//fmt.Println(&checkConf)
 		}
 	}
 

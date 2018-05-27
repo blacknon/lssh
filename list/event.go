@@ -72,27 +72,31 @@ func (l *ListInfo) keyEvent() (lineData []string) {
 				}
 				l.draw()
 
-			// Ctrl + x Key(select)
-			case termbox.KeyCtrlX:
+			// Tab Key(select)
+			case termbox.KeyTab:
 				if l.MultiFlag == true {
 					l.toggle(strings.Fields(l.ViewText[l.CursorLine+1])[0])
+				}
+				if l.CursorLine < len(l.ViewText)-headLine {
+					l.CursorLine += 1
 				}
 				l.draw()
 
 			// Ctrl + a Key(all select)
 			case termbox.KeyCtrlA:
-				// allFlag Toggle
-				if allFlag == false {
-					allFlag = true
-				} else {
-					allFlag = false
-				}
-
 				if l.MultiFlag == true {
 					l.allToggle(allFlag)
+					// allFlag Toggle
+					if allFlag == false {
+						allFlag = true
+					} else {
+						allFlag = false
+					}
 				}
-
 				l.draw()
+
+			// Ctrl + h Key(Help Window)
+			//case termbox.KeyCtrlH:
 
 			// Enter Key
 			case termbox.KeyEnter:

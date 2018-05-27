@@ -18,14 +18,14 @@ type CommandOption struct {
 	Host     []string `arg:"-H,help:Connect servername"`
 	List     bool     `arg:"-l,help:print server list"`
 	File     string   `arg:"-f,help:config file path"`
-	Terminal bool     `arg:"-T,help:Run specified command at terminal"`
-	Parallel bool     `arg:"-P,help:Exec command parallel node(tail -F etc...)"`
-	Command  []string `arg:"-C,help:Remote Server exec command."`
+	Terminal bool     `arg:"-t,help:Run specified command at terminal"`
+	Parallel bool     `arg:"-p,help:Exec command parallel node(tail -F etc...)"`
+	Command  []string `arg:"-c,help:Remote Server exec command."`
 }
 
 // Version Setting
 func (CommandOption) Version() string {
-	return "lssh v0.4.2"
+	return "lssh v0.4.3"
 }
 
 func main() {
@@ -106,11 +106,14 @@ func main() {
 		fmt.Fprintf(os.Stderr, "Exec command  :%s\n", strings.Join(execRemoteCmd, " "))
 
 		// Connect SSH
-		ssh.ConSshCmd(selectServer,
-			listConf,
-			terminalExec,
-			parallelExec,
-			execRemoteCmd...)
+		c := new(ssh.RunInfoCmd)
+		c.ServerList = selectServer
+		c.ConfList = listConf
+		c.Tflag = terminalExec
+		c.Pflag = parallelExec
+		c.ExecCmd = execRemoteCmd
+		c.ConSshCmd()
+
 		os.Exit(0)
 	} else {
 		// Print selected server

@@ -3,8 +3,29 @@ package conf
 import (
 	"fmt"
 	"os"
+	"os/user"
+	"path/filepath"
 	"runtime"
+	"strings"
 )
+
+func GetFullPath(path string) (fullPath string) {
+	usr, _ := user.Current()
+	fullPath = strings.Replace(path, "~", usr.HomeDir, 1)
+	fullPath, _ = filepath.Abs(fullPath)
+	return fullPath
+}
+
+func PathWalkDir(dir string) (files []string, err error) {
+	err = filepath.Walk(dir, func(path string, info os.FileInfo, err error) error {
+		if info.IsDir() {
+			path = path + "/"
+		}
+		files = append(files, path)
+		return nil
+	})
+	return
+}
 
 func isExist(filename string) bool {
 	_, err := os.Stat(filename)
@@ -26,7 +47,7 @@ func checkOS() {
 
 func checkCommandExist(cmd string) {
 	if (isExist(cmd)) == false {
-		fmt.Printf("%s:Not Found.\n", cmd)
+		fmt.Fprintf(os.Stderr, "%s:Not Found.\n", cmd)
 	}
 }
 
@@ -75,4 +96,33 @@ func CheckInputServerExit(inputServer []string, nameList []string) bool {
 		}
 	}
 	return false
+}
+
+func ParsePathArg(arg string) (hostType string, path string, result bool) {
+	argArray := strings.SplitN(arg, ":", 2)
+
+	// check split count
+	if len(argArray) != 2 {
+		hostType = ""
+		path = ""
+		result = false
+		return
+	}
+
+	array1 := strings.ToLower(argArray[0])
+	switch array1 {
+	case "local", "l":
+		hostType = "local"
+		path = argArray[1]
+	case "remote", "r":
+		hostType = "remote"
+		path = argArray[1]
+	default:
+		hostType = ""
+		path = ""
+		result = false
+		return
+	}
+	result = true
+	return
 }
