@@ -110,6 +110,11 @@ You can scp like copy files using stdin/stdout.It also supports multiple nodes(p
 
 ### [lssh] multiple node select exec tail -f
 
+
+	# -p option parallel exec command
+	lssh -p -c 'cmd'
+
+
 <p align="center">
 <img src="./example/lssh_parallel.gif" />
 </p>
@@ -119,6 +124,8 @@ You can scp like copy files using stdin/stdout.It also supports multiple nodes(p
 exec lscp get file/dir (remote to local scp).
 
 	lscp remote:/path/to/remote local:/path/to/local
+	
+	# short version
 	lscp r:/path/to/remote l:/path/to/local
 
 
@@ -127,6 +134,8 @@ exec lscp get file/dir (remote to local scp).
 exec lscp put file/dir (local to remote scp).
 
 	lscp local:/path/to/remote remote:/path/to/local
+	
+	# short version
 	lscp l:/path/to/local r:/path/to/remote
 
 
@@ -135,7 +144,9 @@ exec lscp put file/dir (local to remote scp).
 exec lscp get/put file/dir (remote to remote scp).
 
 	lscp remote:/path/to/remote(get) remote:/path/to/remote(put)
-	lscp l:/path/to/remote(get) r:/path/to/local(put)
+	
+	# short version
+	lscp r:/path/to/remote(get) r:/path/to/local(put)
 
 
 ## Licence
