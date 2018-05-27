@@ -129,14 +129,27 @@ exec lscp get file/dir (remote to local scp).
 	lscp r:/path/to/remote l:/path/to/local
 
 
+<p align="center">
+<img src="./example/scp_l2r1.gif" />
+</p>
+
+<p align="center">
+<img src="./example/scp_l2r2.gif" />
+</p>
+
+
 ### [lscp] scp local to remote (put)
 
-exec lscp put file/dir (local to remote scp).
+exec lscp put file/dir (local to remote scp). If multiple server selected, mkdir servername dir.
 
 	lscp local:/path/to/remote remote:/path/to/local
 	
 	# short version
 	lscp l:/path/to/local r:/path/to/remote
+
+<p align="center">
+<img src="./example/scp_r2l.gif" />
+</p>
 
 
 ### [lscp] scp remote to remote
@@ -147,6 +160,11 @@ exec lscp get/put file/dir (remote to remote scp).
 	
 	# short version
 	lscp r:/path/to/remote(get) r:/path/to/local(put)
+
+
+<p align="center">
+<img src="./example/scp_r2r.gif" />
+</p>
 
 
 ## Licence
