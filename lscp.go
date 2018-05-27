@@ -15,16 +15,15 @@ import (
 
 // Command Option
 type CommandOption struct {
-	Host        []string `arg:"-H,help:Connect servername"`
-	File        string   `arg:"-f,help:config file path"`
-	Recursively bool     `arg:"-r,help:Recursively copy entire directories."`
-	From        string   `arg:"positional,required,help:Copy from path"`
-	To          string   `arg:"positional,required,help:Copy to path"`
+	Host []string `arg:"-H,help:Connect servername"`
+	File string   `arg:"-f,help:config file path"`
+	From string   `arg:"positional,required,help:Copy from path"`
+	To   string   `arg:"positional,required,help:Copy to path"`
 }
 
 // Version Setting
 func (CommandOption) Version() string {
-	return "lscp v0.5.0"
+	return "lscp v0.4.3"
 }
 
 func main() {
