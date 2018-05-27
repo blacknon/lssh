@@ -3,11 +3,11 @@
 lssh
 ====
 
-List select formula ssh wrapper for terminal UI
+TUI list select ssh/scp client.
 
 ## Description
 
-lssh - A command to read a prepared list in advance and connect to ssh to the selected host. list file is set in yaml format.When selecting a host, you can filter by keywords.Execute commands concurrently to multiple hosts.
+command to read a prepared list in advance and connect ssh/scp the selected host. List file is set in yaml format.When selecting a host, you can filter by keywords. Can execute commands concurrently to multiple hosts.
 
 ## Demo
 
@@ -20,6 +20,7 @@ lssh - A command to read a prepared list in advance and connect to ssh to the se
 need the following command.
 
 - ssh
+- scp (remote host)
 
 ## Install
 
@@ -30,13 +31,16 @@ need the following command.
 
 ## Usage
 
-Please edit "~/.lssh.conf".
+Please edit "~/.lssh.conf".The connection information at servers,can be divided into external files.
 
-example
+example:
 
 	[log]
 	enable = true
 	dirpath = "/path/to/logdir"
+
+	[include.Name]
+	path = "/path/to/include/file"
 
 	[server.PasswordAuth_ServerName]
 	addr = "192.168.100.101"
