@@ -1,8 +1,10 @@
 package scp
 
 import (
+	"bytes"
 	"fmt"
 	"os"
+	"path/filepath"
 
 	"github.com/blacknon/go-scplib"
 	"github.com/blacknon/lssh/conf"
@@ -15,9 +17,9 @@ type RunInfoScp struct {
 	CopyToType     string
 	CopyToPath     string
 	CopyToServer   []string
-
-	ServrNameMax int
-	ConConfig    conf.Config
+	CopyData       *bytes.Buffer
+	ServrNameMax   int
+	ConConfig      conf.Config
 }
 
 func (r *RunInfoScp) forScp(mode string) {
@@ -61,19 +63,54 @@ func (r *RunInfoScp) forScp(mode string) {
 			switch mode {
 			case "push":
 				// scp push
-				err := c.PutFile(r.CopyFromPath, r.CopyToPath)
-				if err != nil {
-					fmt.Fprintln(os.Stderr, "Failed to run: "+err.Error())
+				if r.CopyToType == r.CopyFromType {
+					err := c.PutData(r.CopyData, r.CopyToPath)
+					if err != nil {
+						fmt.Fprintln(os.Stderr, "Failed to run: "+err.Error())
+					}
+				} else {
+					err := c.PutFile(r.CopyFromPath, r.CopyToPath)
+					if err != nil {
+						fmt.Fprintln(os.Stderr, "Failed to run: "+err.Error())
+					}
+					fmt.Println(conServer + " is exit.")
 				}
-				fmt.Println(conServer + " is exit.")
 
 			case "pull":
-				// scp pull
-				err := c.GetFile(r.CopyFromPath, r.CopyToPath)
-				if err != nil {
-					fmt.Fprintln(os.Stderr, "Failed to run: "+err.Error())
+				toPath := r.CopyToPath
+
+				// if multi server connect => path = /path/to/Dir/<ServerName>/Base
+				if len(targetServer) > 1 {
+					toDir := filepath.Dir(r.CopyToPath)
+					toBase := filepath.Base(r.CopyToPath)
+					serverDir := toDir + "/" + conServer
+
+					err = os.Mkdir(serverDir, os.FileMode(uint32(0755)))
+					if err != nil {
+						fmt.Fprintln(os.Stderr, "Failed to run: "+err.Error())
+					}
+
+					if toDir != toBase {
+						toPath = serverDir + "/" + toBase
+					} else {
+						toPath = serverDir + "/"
+					}
 				}
-				fmt.Println(conServer + " is exit.")
+
+				// scp pull
+				if r.CopyToType == r.CopyFromType {
+					//buf := new(bytes.Buffer)
+					r.CopyData, err = c.GetData(r.CopyFromPath)
+					if err != nil {
+						fmt.Fprintln(os.Stderr, "Failed to run: "+err.Error())
+					}
+				} else {
+					err := c.GetFile(r.CopyFromPath, toPath)
+					if err != nil {
+						fmt.Fprintln(os.Stderr, "Failed to run: "+err.Error())
+					}
+					fmt.Println(conServer + " is exit.")
+				}
 			}
 
 			finished <- true
@@ -96,7 +133,8 @@ func (r *RunInfoScp) ScpRun() {
 
 	switch {
 	case r.CopyFromType == "remote" && r.CopyToType == "remote":
-		fmt.Println("remote to remote")
+		r.forScp("pull")
+		r.forScp("push")
 	case r.CopyFromType == "remote" && r.CopyToType == "local":
 		r.forScp("pull")
 	case r.CopyFromType == "local" && r.CopyToType == "remote":
