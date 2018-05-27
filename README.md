@@ -3,11 +3,11 @@
 lssh
 ====
 
-List select formula ssh wrapper for terminal UI
+TUI list select ssh/scp client.
 
 ## Description
 
-lssh - A command to read a prepared list in advance and connect to ssh to the selected host. list file is set in yaml format.When selecting a host, you can filter by keywords.Execute commands concurrently to multiple hosts.
+command to read a prepared list in advance and connect ssh/scp the selected host. List file is set in yaml format.When selecting a host, you can filter by keywords. Can execute commands concurrently to multiple hosts.
 
 ## Demo
 
@@ -20,23 +20,26 @@ lssh - A command to read a prepared list in advance and connect to ssh to the se
 need the following command.
 
 - ssh
+- scp (remote host)
 
 ## Install
 
-        go get github.com/blacknon/lssh
-        go install github.com/blacknon/lssh
-        cp $GOPATH/src/github.com/blacknon/lssh/example/config.tml ~/.lssh.conf
-        chmod 600 ~/.lssh.conf
+    go get github.com/blacknon/lssh
+    cd $GOPATH/src/github.com/blacknon/lssh
+    make && sudo make install && make clean
 
 ## Usage
 
-Please edit "~/.lssh.conf".
+Please edit "~/.lssh.conf". The connection information at servers,can be divided into external files.
 
-example)
+example:
 
 	[log]
 	enable = true
 	dirpath = "/path/to/logdir"
+
+	[include.Name]
+	path = "/path/to/include/file"
 
 	[server.PasswordAuth_ServerName]
 	addr = "192.168.100.101"
@@ -58,26 +61,40 @@ After exec command.
     lssh
 
 
-option
+option(lssh)
 
-	lssh v0.4.1
-	usage: lssh [--host HOST] [--list] [--file FILE] [--terminal] [--parallel] [--command COMMAND]
+	lssh v0.4.3
+	Usage: lssh [--host HOST] [--list] [--file FILE] [--terminal] [--parallel] [--command COMMAND]
 
-	options:
+	Options:
 	  --host HOST, -H HOST   Connect servername
 	  --list, -l             print server list
-	  --file FILE, -f FILE   config file path [default: /home/blacknon/.lssh.conf]
-	  --terminal, -T         Run specified command at terminal
-	  --parallel, -P         Exec command parallel node(tail -F etc...)
-	  --command COMMAND, -C COMMAND
-	                         Remote Server exec command.
+	  --file FILE, -f FILE   config file path [default: /Users/uesugi/.lssh.conf]
+	  --terminal, -t         Run specified command at terminal
+	  --parallel, -p         Exec command parallel node(tail -F etc...)
+	  --command COMMAND, -c COMMAND
+                         Remote Server exec command.
 	  --help, -h             display this help and exit
 	  --version              display version and exit
 
-If you specify a command as an argument, you can select multiple hosts.Select host 'Ctrl + X',select all displayed hosts 'Ctrl + A'.
+option(lscp)
 
+	lscp v0.4.3
+	Usage: lscp [--host HOST] [--file FILE] FROM TO
 
-### copy files using stdin/stdout to/from remote server
+	Positional arguments:
+	  FROM                   Copy from path
+	  TO                     Copy to path
+
+	Options:
+	  --host HOST, -H HOST   Connect servername
+	  --file FILE, -f FILE   config file path [default: /Users/uesugi/.lssh.conf]
+	  --help, -h             display this help and exit
+	  --version              display version and exit
+
+If you specify a command as an argument, you can select multiple hosts. Select host 'Tab', select all displayed hosts 'Ctrl + A'.
+
+### [lssh] copy files using stdin/stdout to/from remote server
 
 You can scp like copy files using stdin/stdout.It also supports multiple nodes(parallel is not yet supported now).
 
@@ -91,28 +108,64 @@ You can scp like copy files using stdin/stdout.It also supports multiple nodes(p
 <img src="./example/lssh_stdcp.gif" />
 </p>
 
+### [lssh] multiple node select exec tail -f
 
-### multi node select exec tail -f
+
+	# -p option parallel exec command
+	lssh -p -c 'cmd'
+
 
 <p align="center">
 <img src="./example/lssh_parallel.gif" />
 </p>
 
-### Use list select type ssh gateway server
+### [lscp] scp remote to local (get)
 
-#### '/etc/passwd' use (or .ssh/authorized_keys)
+exec lscp get file/dir (remote to local scp).
 
-To use as a ssh gateway server as list select type, specify it at an execution command in "/etc/passwd"( or "authorized_keys").
+	lscp remote:/path/to/remote local:/path/to/local
+	
+	# short version
+	lscp r:/path/to/remote l:/path/to/local
 
-ex) /etc/passwd
-
-    lssh:x:1000:1000::/home/lssh:/bin/lssh
-
-Arrange "~/.lssh.conf" and connect with ssh.
 
 <p align="center">
-<img src="./example/lssh_withpasswd.gif" />
+<img src="./example/scp_l2r1.gif" />
 </p>
+
+<p align="center">
+<img src="./example/scp_l2r2.gif" />
+</p>
+
+
+### [lscp] scp local to remote (put)
+
+exec lscp put file/dir (local to remote scp). If multiple server selected, mkdir servername dir.
+
+	lscp local:/path/to/remote remote:/path/to/local
+	
+	# short version
+	lscp l:/path/to/local r:/path/to/remote
+
+<p align="center">
+<img src="./example/scp_r2l.gif" />
+</p>
+
+
+### [lscp] scp remote to remote
+
+exec lscp get/put file/dir (remote to remote scp).
+
+	lscp remote:/path/to/remote(get) remote:/path/to/remote(put)
+	
+	# short version
+	lscp r:/path/to/remote(get) r:/path/to/local(put)
+
+
+<p align="center">
+<img src="./example/scp_r2r.gif" />
+</p>
+
 
 ## Licence
 
