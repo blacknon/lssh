@@ -25,13 +25,12 @@ need the following command.
 ## Install
 
     go get github.com/blacknon/lssh
-    go install github.com/blacknon/lssh
-    cp $GOPATH/src/github.com/blacknon/lssh/example/config.tml ~/.lssh.conf
-    chmod 600 ~/.lssh.conf
+    cd $GOPATH/src/github.com/blacknon/lssh
+    make && make install && make clean
 
 ## Usage
 
-Please edit "~/.lssh.conf".The connection information at servers,can be divided into external files.
+Please edit "~/.lssh.conf". The connection information at servers,can be divided into external files.
 
 example:
 
@@ -95,7 +94,7 @@ option(lscp)
 
 If you specify a command as an argument, you can select multiple hosts. Select host 'Tab', select all displayed hosts 'Ctrl + A'.
 
-### copy files using stdin/stdout to/from remote server
+### [lssh] copy files using stdin/stdout to/from remote server
 
 You can scp like copy files using stdin/stdout.It also supports multiple nodes(parallel is not yet supported now).
 
@@ -109,28 +108,35 @@ You can scp like copy files using stdin/stdout.It also supports multiple nodes(p
 <img src="./example/lssh_stdcp.gif" />
 </p>
 
-
-### multiple node select exec tail -f
+### [lssh] multiple node select exec tail -f
 
 <p align="center">
 <img src="./example/lssh_parallel.gif" />
 </p>
 
-### Use list select type ssh gateway server
+### [lscp] scp remote to local (get)
 
-#### '/etc/passwd' use (or .ssh/authorized_keys)
+exec lscp get file/dir (remote to local scp).
 
-To use as a ssh gateway server as list select type, specify it at an execution command in "/etc/passwd"( or "authorized_keys").
+	lscp remote:/path/to/remote local:/path/to/local
+	lscp r:/path/to/remote l:/path/to/local
 
-example /etc/passwd
 
-    lssh:x:1000:1000::/home/lssh:/bin/lssh
+### [lscp] scp local to remote (put)
 
-Arrange "~/.lssh.conf" and connect with ssh.
+exec lscp put file/dir (local to remote scp).
 
-<p align="center">
-<img src="./example/lssh_withpasswd.gif" />
-</p>
+	lscp local:/path/to/remote remote:/path/to/local
+	lscp l:/path/to/local r:/path/to/remote
+
+
+### [lscp] scp remote to remote
+
+exec lscp get/put file/dir (remote to remote scp).
+
+	lscp remote:/path/to/remote(get) remote:/path/to/remote(put)
+	lscp l:/path/to/remote(get) r:/path/to/local(put)
+
 
 ## Licence
 
