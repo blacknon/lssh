@@ -37,7 +37,7 @@ brew install(Mac OS X)
 
 ## Usage
 
-Please edit "~/.lssh.conf". The connection information at servers,can be divided into external files. log dir '<Date>' => date ,'<Hostname>' => Servername directory create.
+Please edit "~/.lssh.conf". The connection information at servers,can be divided into external files. log dir "<Date>" => date ,"<Hostname>" => Servername directory create.
 
 example:
 
