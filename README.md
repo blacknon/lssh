@@ -24,7 +24,7 @@ need the following command.
 
 ## Install
 
-compile gofile(go1.8.3).
+compile gofile(tested go1.8.3).
 
     go get github.com/blacknon/lssh
     cd $GOPATH/src/github.com/blacknon/lssh
@@ -34,10 +34,11 @@ brew install(Mac OS X)
 
 	brew tap blacknon/lssh
 	brew install lssh
+	curl -s https://raw.githubusercontent.com/blacknon/lssh/master/example/config.tml | cp -n <(cat) .lssh.conf # copy sample config file
 
 ## Usage
 
-Please edit "~/.lssh.conf". The connection information at servers,can be divided into external files. log dir "\<Date\>" => date ,"\<Hostname\>" => Servername directory create.
+Please edit "~/.lssh.conf". The connection information at servers,can be divided into external files. log dir "\<Date\>" => date(YYYYMMDD) ,"\<Hostname\>" => Servername directory create.
 
 example:
 
