@@ -24,13 +24,20 @@ need the following command.
 
 ## Install
 
+compile gofile(go1.8.3).
+
     go get github.com/blacknon/lssh
     cd $GOPATH/src/github.com/blacknon/lssh
     make && sudo make install && make clean
 
+brew install(Mac OS X)
+
+	brew tap blacknon/lssh
+	brew install lssh
+
 ## Usage
 
-Please edit "~/.lssh.conf". The connection information at servers,can be divided into external files.
+Please edit "~/.lssh.conf". The connection information at servers,can be divided into external files. log dir <Date> => date ,<Hostname> => Servername directory create.
 
 example:
 
@@ -128,15 +135,9 @@ exec lscp get file/dir (remote to local scp).
 	# short version
 	lscp r:/path/to/remote l:/path/to/local
 
-
 <p align="center">
-<img src="./example/scp_l2r1.gif" />
+<img src="./example/scp_l2r.gif" />
 </p>
-
-<p align="center">
-<img src="./example/scp_l2r2.gif" />
-</p>
-
 
 ### [lscp] scp local to remote (put)
 
@@ -148,9 +149,12 @@ exec lscp put file/dir (local to remote scp). If multiple server selected, mkdir
 	lscp l:/path/to/local r:/path/to/remote
 
 <p align="center">
-<img src="./example/scp_r2l.gif" />
+<img src="./example/scp_r2l1.gif" />
 </p>
 
+<p align="center">
+<img src="./example/scp_r2l2.gif" />
+</p>
 
 ### [lscp] scp remote to remote
 
