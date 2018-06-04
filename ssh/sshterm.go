@@ -15,14 +15,16 @@ import (
 )
 
 type ConInfoTerm struct {
-	Log     bool
-	LogDir  string
-	Server  string
-	Addr    string
-	Port    string
-	User    string
-	Pass    string
-	KeyPath string
+	Log       bool
+	LogDir    string
+	Server    string
+	Addr      string
+	Port      string
+	User      string
+	Pass      string
+	KeyPath   string
+	BeforeCmd string
+	AfterCmd  string
 }
 
 func (c *ConInfoTerm) Connect() (err error) {

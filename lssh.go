@@ -133,6 +133,8 @@ func main() {
 		c.Port = listConf.Server[c.Server].Port
 		c.Pass = listConf.Server[c.Server].Pass
 		c.KeyPath = listConf.Server[c.Server].Key
+		c.BeforeCmd = listConf.Server[c.Server].BeforeCmd
+		c.AfterCmd = listConf.Server[c.Server].AfterCmd
 
 		err := c.Connect()
 		if err != nil {
