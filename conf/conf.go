@@ -25,12 +25,14 @@ type IncludeConfig struct {
 }
 
 type ServerConfig struct {
-	Addr string `toml:"addr"`
-	Port string `toml:"port"`
-	User string `toml:"user"`
-	Pass string `toml:"pass"`
-	Key  string `toml:"key"`
-	Note string `toml:"note"`
+	Addr      string `toml:"addr"`
+	Port      string `toml:"port"`
+	User      string `toml:"user"`
+	Pass      string `toml:"pass"`
+	Key       string `toml:"key"`
+	BeforeCmd string `toml:"before_cmd"`
+	AfterCmd  string `toml:"after_cmd"`
+	Note      string `toml:"note"`
 }
 
 func ReadConf(confPath string) (checkConf Config) {
