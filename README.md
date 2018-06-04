@@ -34,7 +34,7 @@ brew install(Mac OS X)
 
 	brew tap blacknon/lssh
 	brew install lssh
-	curl -s https://raw.githubusercontent.com/blacknon/lssh/master/example/config.tml | cp -n <(cat) .lssh.conf # copy sample config file
+	curl -s https://raw.githubusercontent.com/blacknon/lssh/master/example/config.tml | cp -n <(cat) ~/.lssh.conf # copy sample config file
 
 ## Usage
 
