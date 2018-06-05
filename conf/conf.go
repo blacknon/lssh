@@ -30,6 +30,7 @@ type ServerConfig struct {
 	User      string `toml:"user"`
 	Pass      string `toml:"pass"`
 	Key       string `toml:"key"`
+	ProxyCmd  string `toml:"proxy_cmd"`
 	BeforeCmd string `toml:"before_cmd"`
 	AfterCmd  string `toml:"after_cmd"`
 	Note      string `toml:"note"`

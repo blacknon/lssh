@@ -114,7 +114,7 @@ func (c *ConInfoCmd) Run(conn *ssh.Client) int {
 	// New Session
 	session, err := conn.NewSession()
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "connect erro %v,cannot open new session: %v \n", c.Server, err)
+		fmt.Fprintf(os.Stderr, "connect error %v,cannot open new session: %v \n", c.Server, err)
 		return 1
 	}
 	defer session.Close()
