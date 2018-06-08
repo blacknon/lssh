@@ -14,6 +14,7 @@ import (
 	"golang.org/x/crypto/ssh"
 	"golang.org/x/crypto/ssh/terminal"
 
+	"github.com/appleboy/easyssh-proxy"
 	"github.com/blacknon/lssh/conf"
 	termbox "github.com/nsf/termbox-go"
 )
@@ -41,6 +42,8 @@ type ConInfoCmd struct {
 	User            string
 	Pass            string
 	KeyPath         string
+	ProxyServer     string
+	Proxy           conf.ProxyConfig
 	Flag            ConInfoCmdFlag
 	Connect         *ssh.Client
 
@@ -74,54 +77,48 @@ func outColorStrings(num int, inStrings string) (str string) {
 	return
 }
 
-func (c *ConInfoCmd) CreateConnect() (conn *ssh.Client, err error) {
+func (c *ConInfoCmd) CreateSession() (session *ssh.Session, err error) {
 	usr, _ := user.Current()
-	auth := []ssh.AuthMethod{}
+
+	ssh := &easyssh.MakeConfig{
+		User:   c.User,
+		Server: c.Addr,
+		Port:   c.Port,
+	}
+
+	// auth
 	if c.KeyPath != "" {
 		c.KeyPath = strings.Replace(c.KeyPath, "~", usr.HomeDir, 1)
-		// Read PublicKey
-		buffer, b_err := ioutil.ReadFile(c.KeyPath)
-		if b_err != nil {
-			err = b_err
-			return
-		}
-		key, b_err := ssh.ParsePrivateKey(buffer)
-		if b_err != nil {
-			err = b_err
-			return
-		}
-		auth = []ssh.AuthMethod{ssh.PublicKeys(key)}
+		ssh.KeyPath = c.KeyPath
 	} else {
-		auth = []ssh.AuthMethod{ssh.Password(c.Pass)}
+		ssh.Password = c.Pass
 	}
 
-	config := &ssh.ClientConfig{
-		User:            c.User,
-		Auth:            auth,
-		HostKeyCallback: ssh.InsecureIgnoreHostKey(),
-		Timeout:         60 * time.Second,
+	// Proxy
+	if c.ProxyServer != "" {
+		ssh.Proxy.User = c.Proxy.User
+		ssh.Proxy.Server = c.Proxy.Addr
+		ssh.Proxy.Port = c.Proxy.Port
+		if c.Proxy.Key != "" {
+			c.Proxy.Key = strings.Replace(c.Proxy.Key, "~", usr.HomeDir, 1)
+			ssh.Proxy.KeyPath = c.Proxy.Key
+		} else {
+			ssh.Proxy.Password = c.Proxy.Pass
+		}
 	}
 
-	// New connect
-	conn, err = ssh.Dial("tcp", c.Addr+":"+c.Port, config)
+	session, err = ssh.Connect()
 	return
 }
 
 // exec ssh command function
-func (c *ConInfoCmd) Run(conn *ssh.Client) int {
-	defer conn.Close()
-
-	// New Session
-	session, err := conn.NewSession()
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "connect error %v,cannot open new session: %v \n", c.Server, err)
-		return 1
-	}
+func (c *ConInfoCmd) Run(session *ssh.Session) int {
+	var err error
 	defer session.Close()
 
 	go func() {
 		time.Sleep(2419200 * time.Second)
-		conn.Close()
+		session.Close()
 	}()
 
 	// if PesudoTerm Enable
@@ -289,14 +286,16 @@ func (r *RunInfoCmd) ConSshCmd() int {
 			c.Cmd = r.ExecCmd
 			c.Flag.Parallel = r.Pflag
 			c.Flag.PesudoTerm = r.Tflag
+			c.ProxyServer = r.ConfList.Server[c.Server].ProxyServer
+			c.Proxy = r.ConfList.Server[c.Server].Proxy
 
-			connect, err := c.CreateConnect()
+			session, err := c.CreateSession()
 			if err != nil {
 				fmt.Fprintf(os.Stderr, "cannot connect %v:%v, %v \n", c.Server, c.Port, err)
 				finished <- true
 				return
 			}
-			c.Run(connect)
+			c.Run(session)
 
 			finished <- true
 		}()

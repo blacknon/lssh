@@ -135,6 +135,8 @@ func main() {
 		c.KeyPath = listConf.Server[c.Server].Key
 		c.BeforeCmd = listConf.Server[c.Server].BeforeCmd
 		c.AfterCmd = listConf.Server[c.Server].AfterCmd
+		c.ProxyServer = listConf.Server[c.Server].ProxyServer
+		c.Proxy = listConf.Server[c.Server].Proxy
 
 		err := c.Connect()
 		if err != nil {
