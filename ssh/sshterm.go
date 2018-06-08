@@ -13,20 +13,23 @@ import (
 	"time"
 
 	"github.com/blacknon/gexpect"
+	"github.com/blacknon/lssh/conf"
 )
 
 type ConInfoTerm struct {
-	Log       bool
-	LogDir    string
-	Server    string
-	Addr      string
-	Port      string
-	User      string
-	Pass      string
-	KeyPath   string
-	BeforeCmd string
-	AfterCmd  string
-	LocalUser *user.User
+	Log         bool
+	LogDir      string
+	Server      string
+	Addr        string
+	Port        string
+	User        string
+	Pass        string
+	KeyPath     string
+	BeforeCmd   string
+	AfterCmd    string
+	ProxyServer string
+	Proxy       conf.ProxyConfig
+	LocalUser   *user.User
 }
 
 func (c *ConInfoTerm) runBeforeCmd() {
@@ -65,10 +68,26 @@ func (c *ConInfoTerm) createSshCmd() (sshCmd []string) {
 			c.User + "@" + c.Addr,
 			"-p", c.Port}
 	}
+
+	// setup ssh Proxy
+	if c.ProxyServer != "" {
+		proxyHost := c.Proxy.User + "@" + c.Proxy.Addr
+
+		// Create ProxyCommand(password auth)
+		proxyCommand := "ProxyCommand=ssh -W %h:%p " + proxyHost
+		if c.Proxy.Key != "" {
+			// Create ProxyCommand(key auth)
+			proxyCommand = "ProxyCommand=ssh -W %h:%p -i " + c.Proxy.Key + " " + proxyHost
+		}
+
+		proxyOption := []string{"-o", proxyCommand}
+		sshCmd = append(sshCmd, proxyOption...)
+	}
 	return
 }
 
 func (c *ConInfoTerm) Connect() (err error) {
+	fmt.Println(c.ProxyServer)
 	// Set default port
 	if c.Port == "" {
 		c.Port = "22"
@@ -153,6 +172,19 @@ func (c *ConInfoTerm) Connect() (err error) {
 			}
 		}
 	}()
+
+	// Proxy Password Input
+	if c.Proxy.Pass != "" {
+		pwPrompt := "word:"
+		idx, _ := child.ExpectTimeout(20*time.Second, regexp.MustCompile(pwPrompt))
+		if idx >= 0 {
+			child.SendLine(c.Proxy.Pass)
+
+		} else {
+			fmt.Println("Not Connected")
+			return
+		}
+	}
 
 	// Password Input
 	if c.Pass != "" {

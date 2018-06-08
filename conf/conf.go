@@ -40,14 +40,20 @@ type ServerConfig struct {
 
 	// Proxy
 	ProxyServer string `toml:"proxy_server"`
-	ProxyConfig map[string]ServerConfig
+	Proxy       ProxyConfig
 
 	Note string `toml:"note"`
 }
 
-type ServerConfigMaps map[string]ServerConfig
+type ProxyConfig struct {
+	Addr string
+	Port string
+	User string
+	Pass string
+	Key  string
+}
 
-type structMap map[string]interface{}
+type ServerConfigMaps map[string]ServerConfig
 
 func ReadConf(confPath string) (checkConf Config) {
 	if isExist(confPath) == false {
@@ -68,6 +74,7 @@ func ReadConf(confPath string) (checkConf Config) {
 		checkConf.Server[key] = setValue
 	}
 
+	// Read include files
 	if checkConf.Include != nil {
 		for _, v := range checkConf.Include {
 			var includeConf Config
@@ -92,7 +99,20 @@ func ReadConf(confPath string) (checkConf Config) {
 				checkConf.Server[key] = setValue
 			}
 		}
+	}
 
+	// Set proxy settings
+	for key, _ := range checkConf.Server {
+		proxy := checkConf.Server[key].ProxyServer
+		if proxy != "" {
+			newConf := checkConf.Server[key]
+			newConf.Proxy.Addr = checkConf.Server[proxy].Addr
+			newConf.Proxy.Port = checkConf.Server[proxy].Port
+			newConf.Proxy.User = checkConf.Server[proxy].User
+			newConf.Proxy.Pass = checkConf.Server[proxy].Pass
+			newConf.Proxy.Key = checkConf.Server[proxy].Key
+			checkConf.Server[key] = newConf
+		}
 	}
 
 	// Check Config Parameter
