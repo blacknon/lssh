@@ -39,11 +39,8 @@ type ServerConfig struct {
 	AfterCmd  string `toml:"after_cmd"`
 
 	// Proxy
-	ProxyAddr string `toml:"proxy_user"`
-	ProxyPort string `toml:"proxy_user"`
-	ProxyUser string `toml:"proxy_user"`
-	ProxyPass string `toml:"proxy_pass"`
-	ProxyCmd  string `toml:"proxy_cmd"`
+	ProxyServer string `toml:"proxy_server"`
+	ProxyConfig map[string]ServerConfig
 
 	Note string `toml:"note"`
 }
@@ -65,8 +62,11 @@ func ReadConf(confPath string) (checkConf Config) {
 		panic(err)
 	}
 
-	// main conf file common
-	mainCommon, _ := structToMap(&checkConf.Common)
+	// reduce common setting (in .lssh.conf servers)
+	for key, value := range checkConf.Server {
+		setValue := serverConfigReduct(checkConf.Common, value)
+		checkConf.Server[key] = setValue
+	}
 
 	if checkConf.Include != nil {
 		for _, v := range checkConf.Include {
@@ -82,24 +82,17 @@ func ReadConf(confPath string) (checkConf Config) {
 				panic(err)
 			}
 
-			// common setting
-			setCommon := &ServerConfig{}
-			includeCommon, _ := structToMap(&includeConf.Common)
-			setCommonMap := commonConfigReduce(mainCommon, includeCommon)
-			_ = mapToStruct(setCommonMap, setCommon)
+			// reduce common setting
+			setCommon := serverConfigReduct(checkConf.Common, includeConf.Common)
 
 			// add include file serverconf
 			for key, value := range includeConf.Server {
-				setValue := ServerConfig{}
-				mapValue, _ := structToMap(&value)
-				setValueMap := commonConfigReduce(setCommonMap, mapValue)
-				_ = mapToStruct(setValueMap, &setValue)
-				value = setValue
-
-				checkConf.Server[key] = value
+				// reduce common setting
+				setValue := serverConfigReduct(setCommon, value)
+				checkConf.Server[key] = setValue
 			}
-
 		}
+
 	}
 
 	// Check Config Parameter
@@ -111,7 +104,20 @@ func ReadConf(confPath string) (checkConf Config) {
 	return
 }
 
-func commonConfigReduce(map1, map2 structMap) structMap {
+func serverConfigReduct(perConfig, childConfig ServerConfig) ServerConfig {
+	result := ServerConfig{}
+
+	// struct to map
+	perConfigMap, _ := structToMap(&perConfig)
+	childConfigMap, _ := structToMap(&childConfig)
+
+	resultMap := mapReduce(perConfigMap, childConfigMap)
+	_ = mapToStruct(resultMap, &result)
+
+	return result
+}
+
+func mapReduce(map1, map2 map[string]interface{}) map[string]interface{} {
 	for ia, va := range map1 {
 		if va != "" && map2[ia] == "" {
 			map2[ia] = va
