@@ -40,38 +40,52 @@ brew install(Mac OS X)
 
 Please edit "~/.lssh.conf". The connection information at servers,can be divided into external files. log dir "\<Date\>" => date(YYYYMMDD) ,"\<Hostname\>" => Servername directory create.
 
+※ Not support Multi-proxy
+
 example:
 
+	# terminal log settings
 	[log]
 	enable = true
 	dirpath = "/path/to/logdir"
 
+	# server common settings
+	[common] 
+	port = "22"
+	user = "test"
+
+	# include config file settings and path
 	[include.Name]
 	path = "/path/to/include/file"
 
 	[server.PasswordAuth_ServerName]
 	addr = "192.168.100.101"
-	port = "22"
-	user = "test"
 	pass = "Password"
 	note = "Password Auth Server"
 
 	[server.KeyAuth_ServerName]
 	addr = "192.168.100.102"
-	port = "22"
-	user = "test"
+	user = "test-user"
 	key  = "/path/to/private_key"
 	note = "Key Auth Server"
 
 	[server.LocalCommand_ServerName]
 	addr = "192.168.100.103"
-	port = "22"
-	user = "test"
 	key  = "/path/to/private_key"
 	note = "Before/After run local command"
 	before_cmd = "(option) exec command before ssh connect."
 	before_cmd = "(option) exec command after ssh disconnected."
 
+	[server.sshProxyServer]
+	addr = "192.168.100.200"
+	key  = "/path/to/private_key"
+	note = "proxy server"
+
+	[server.overProxyServer]
+	addr = "192.168.10.10"
+	key  = "/path/to/private_key"
+	note = "connect use ssh proxy"
+	proxy_server = "sshProxyServer"
 
 After exec command.
 
