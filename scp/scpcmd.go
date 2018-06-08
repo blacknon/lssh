@@ -19,6 +19,7 @@ type RunInfoScp struct {
 	CopyToServer   []string
 	CopyData       *bytes.Buffer
 	ServrNameMax   int
+	PermissionFlag bool
 	ConConfig      conf.Config
 }
 
@@ -52,6 +53,7 @@ func (r *RunInfoScp) forScp(mode string) {
 			if r.ConConfig.Server[conServer].Key != "" {
 				c.KeyPath = r.ConConfig.Server[conServer].Key
 			}
+			c.Permission = r.PermissionFlag
 
 			err := c.CreateConnect()
 			if err != nil {

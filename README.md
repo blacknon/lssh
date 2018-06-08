@@ -63,6 +63,15 @@ example:
 	key  = "/path/to/private_key"
 	note = "Key Auth Server"
 
+	[server.LocalCommand_ServerName]
+	addr = "192.168.100.103"
+	port = "22"
+	user = "test"
+	key  = "/path/to/private_key"
+	note = "Before/After run local command"
+	before_cmd = "(option) exec command before ssh connect."
+	before_cmd = "(option) exec command after ssh disconnected."
+
 
 After exec command.
 
@@ -71,7 +80,7 @@ After exec command.
 
 option(lssh)
 
-	lssh v0.4.3
+	lssh v0.4.4
 	Usage: lssh [--host HOST] [--list] [--file FILE] [--terminal] [--parallel] [--command COMMAND]
 
 	Options:
@@ -87,7 +96,7 @@ option(lssh)
 
 option(lscp)
 
-	lscp v0.4.3
+	lscp v0.4.4
 	Usage: lscp [--host HOST] [--file FILE] FROM TO
 
 	Positional arguments:
@@ -97,6 +106,7 @@ option(lscp)
 	Options:
 	  --host HOST, -H HOST   Connect servername
 	  --file FILE, -f FILE   config file path [default: /Users/uesugi/.lssh.conf]
+	  --permisson, -p        copy file permission
 	  --help, -h             display this help and exit
 	  --version              display version and exit
 
