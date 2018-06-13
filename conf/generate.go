@@ -55,6 +55,7 @@ func GenerateConfig() {
 		addr := ssh_config.Get(server, "Hostname")
 		user := ssh_config.Get(server, "User")
 		key := ssh_config.Get(server, "IdentityFile")
+		port := ssh_config.Get(server, "Port")
 		note := "from ~/.ssh/config"
 
 		fmt.Printf("[server.%s]\n", server)
@@ -68,6 +69,9 @@ func GenerateConfig() {
 			fmt.Printf("key = \"%s\"\n", "~/.ssh/id_rsa")
 		} else {
 			fmt.Printf("key = \"%s\"\n", key)
+		}
+		if port != "" {
+			fmt.Printf("port = \"%s\"\n", port)
 		}
 		fmt.Printf("note = \"%s\"\n", note)
 		fmt.Println("")
