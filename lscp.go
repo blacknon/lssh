@@ -15,15 +15,16 @@ import (
 
 // Command Option
 type CommandOption struct {
-	Host []string `arg:"-H,help:Connect servername"`
-	File string   `arg:"-f,help:config file path"`
-	From string   `arg:"positional,required,help:Copy from path"`
-	To   string   `arg:"positional,required,help:Copy to path"`
+	Host       []string `arg:"-H,help:Connect servername"`
+	File       string   `arg:"-f,help:config file path"`
+	Permission bool     `arg:"-p,help:copy file permission"`
+	From       string   `arg:"positional,required,help:Copy from path"`
+	To         string   `arg:"positional,required,help:Copy to path"`
 }
 
 // Version Setting
 func (CommandOption) Version() string {
-	return "lscp v0.4.3"
+	return "lscp v0.4.4"
 }
 
 func main() {
@@ -46,7 +47,7 @@ func main() {
 	// set option value
 	connectHost := args.Host
 	configFile := args.File
-	//RecursivelyFlag := args.Recursively
+	permFlag := args.Permission
 	copyFrom := args.From
 	copyTo := args.To
 
@@ -154,6 +155,7 @@ func main() {
 	r_scp.CopyToType = toHostType
 	r_scp.CopyToPath = toPath
 	r_scp.CopyToServer = toSelectServer
+	r_scp.PermissionFlag = permFlag
 	r_scp.ConConfig = listConf
 
 	// print from

@@ -1,0 +1,8 @@
+#compdef lscp
+_lssh() {
+    _arguments -s \
+        {-h,--help}'[Show help]' \
+        {-p,--permission}'[Connect servernaem]' \
+        {-H,--host}'[Connect servernaem]' \
+        {-f,--file}'+[Config file path]:include file:_files' \
+}
