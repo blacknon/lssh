@@ -1,0 +1,11 @@
+#compdef lssh
+_lssh() {
+    _arguments -s \
+        {-h,--help}'[Show help]' \
+        {-H,--host}'[Connect servernaem]:_message' \
+        {-l,--list}'[Print server list]' \
+        {-t,--terminal}'[Run specified command at terminal]' \
+        {-p,--parallel}'[Exec command parallel node(tail -F etc...)]' \
+        {-c,--command}'[Remote Server exec command.]:_message' \
+        {-f,--file}'+[Config file path]:include file:_files' \
+}

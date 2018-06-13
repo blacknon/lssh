@@ -15,11 +15,11 @@ import (
 
 // Command Option
 type CommandOption struct {
-	Host      []string `arg:"-H,help:Connect servername"`
-	File      string   `arg:"-f,help:config file path"`
-	Permisson bool     `arg:"-p,help:copy file permission"`
-	From      string   `arg:"positional,required,help:Copy from path"`
-	To        string   `arg:"positional,required,help:Copy to path"`
+	Host       []string `arg:"-H,help:Connect servername"`
+	File       string   `arg:"-f,help:config file path"`
+	Permission bool     `arg:"-p,help:copy file permission"`
+	From       string   `arg:"positional,required,help:Copy from path"`
+	To         string   `arg:"positional,required,help:Copy to path"`
 }
 
 // Version Setting
@@ -47,7 +47,7 @@ func main() {
 	// set option value
 	connectHost := args.Host
 	configFile := args.File
-	permFlag := args.Permisson
+	permFlag := args.Permission
 	copyFrom := args.From
 	copyTo := args.To
 
