@@ -18,8 +18,8 @@ type CommandOption struct {
 	Host       []string `arg:"-H,help:Connect servername"`
 	File       string   `arg:"-f,help:config file path"`
 	Permission bool     `arg:"-p,help:copy file permission"`
-	From       string   `arg:"positional,required,help:Copy from path"`
-	To         string   `arg:"positional,required,help:Copy to path"`
+	From       string   `arg:"positional,required,help:Copy from path (local:<path>|remote:<path>)"`
+	To         string   `arg:"positional,required,help:Copy to path (local:<path>|remote:<path>)"`
 }
 
 // Version Setting
