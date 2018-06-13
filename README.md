@@ -34,7 +34,12 @@ brew install(Mac OS X)
 
 	brew tap blacknon/lssh
 	brew install lssh
+
+	# if not use ~.ssh/config
 	curl -s https://raw.githubusercontent.com/blacknon/lssh/master/example/config.tml | cp -n <(cat) ~/.lssh.conf # copy sample config file
+
+	# if use ~.ssh/config (not support Proxy)
+	lssh --generate > ~/.lssh.conf
 
 ## Usage
 
@@ -95,7 +100,7 @@ After exec command.
 option(lssh)
 
 	lssh v0.4.4
-	Usage: lssh [--host HOST] [--list] [--file FILE] [--terminal] [--parallel] [--command COMMAND]
+	Usage: lssh [--host HOST] [--list] [--file FILE] [--terminal] [--parallel] [--generate] [--command COMMAND]
 
 	Options:
 	  --host HOST, -H HOST   Connect servername
@@ -103,8 +108,9 @@ option(lssh)
 	  --file FILE, -f FILE   config file path [default: /Users/uesugi/.lssh.conf]
 	  --terminal, -t         Run specified command at terminal
 	  --parallel, -p         Exec command parallel node(tail -F etc...)
+	  --generate             (beta) generate .lssh.conf from .ssh/config.(not support ProxyCommand)
 	  --command COMMAND, -c COMMAND
-                         Remote Server exec command.
+	                         Remote Server exec command.
 	  --help, -h             display this help and exit
 	  --version              display version and exit
 
