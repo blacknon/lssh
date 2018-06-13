@@ -34,35 +34,63 @@ brew install(Mac OS X)
 
 	brew tap blacknon/lssh
 	brew install lssh
-	curl -s https://raw.githubusercontent.com/blacknon/lssh/master/example/config.tml | cp -n <(cat) .lssh.conf # copy sample config file
+
+	# if not use ~.ssh/config
+	curl -s https://raw.githubusercontent.com/blacknon/lssh/master/example/config.tml | cp -n <(cat) ~/.lssh.conf # copy sample config file
+
+	# if use ~.ssh/config (not support Proxy)
+	lssh --generate > ~/.lssh.conf
 
 ## Usage
 
 Please edit "~/.lssh.conf". The connection information at servers,can be divided into external files. log dir "\<Date\>" => date(YYYYMMDD) ,"\<Hostname\>" => Servername directory create.
 
+※ Not support Multi-proxy
+
 example:
 
+	# terminal log settings
 	[log]
 	enable = true
 	dirpath = "/path/to/logdir"
 
+	# server common settings
+	[common] 
+	port = "22"
+	user = "test"
+
+	# include config file settings and path
 	[include.Name]
 	path = "/path/to/include/file"
 
 	[server.PasswordAuth_ServerName]
 	addr = "192.168.100.101"
-	port = "22"
-	user = "test"
 	pass = "Password"
 	note = "Password Auth Server"
 
 	[server.KeyAuth_ServerName]
 	addr = "192.168.100.102"
-	port = "22"
-	user = "test"
+	user = "test-user"
 	key  = "/path/to/private_key"
 	note = "Key Auth Server"
 
+	[server.LocalCommand_ServerName]
+	addr = "192.168.100.103"
+	key  = "/path/to/private_key"
+	note = "Before/After run local command"
+	before_cmd = "(option) exec command before ssh connect."
+	before_cmd = "(option) exec command after ssh disconnected."
+
+	[server.sshProxyServer]
+	addr = "192.168.100.200"
+	key  = "/path/to/private_key"
+	note = "proxy server"
+
+	[server.overProxyServer]
+	addr = "192.168.10.10"
+	key  = "/path/to/private_key"
+	note = "connect use ssh proxy"
+	proxy_server = "sshProxyServer"
 
 After exec command.
 
@@ -71,8 +99,8 @@ After exec command.
 
 option(lssh)
 
-	lssh v0.4.3
-	Usage: lssh [--host HOST] [--list] [--file FILE] [--terminal] [--parallel] [--command COMMAND]
+	lssh v0.4.4
+	Usage: lssh [--host HOST] [--list] [--file FILE] [--terminal] [--parallel] [--generate] [--command COMMAND]
 
 	Options:
 	  --host HOST, -H HOST   Connect servername
@@ -80,14 +108,15 @@ option(lssh)
 	  --file FILE, -f FILE   config file path [default: /Users/uesugi/.lssh.conf]
 	  --terminal, -t         Run specified command at terminal
 	  --parallel, -p         Exec command parallel node(tail -F etc...)
+	  --generate             (beta) generate .lssh.conf from .ssh/config.(not support ProxyCommand)
 	  --command COMMAND, -c COMMAND
-                         Remote Server exec command.
+	                         Remote Server exec command.
 	  --help, -h             display this help and exit
 	  --version              display version and exit
 
 option(lscp)
 
-	lscp v0.4.3
+	lscp v0.4.4
 	Usage: lscp [--host HOST] [--file FILE] FROM TO
 
 	Positional arguments:
@@ -97,6 +126,7 @@ option(lscp)
 	Options:
 	  --host HOST, -H HOST   Connect servername
 	  --file FILE, -f FILE   config file path [default: /Users/uesugi/.lssh.conf]
+	  --permisson, -p        copy file permission
 	  --help, -h             display this help and exit
 	  --version              display version and exit
 
