@@ -20,12 +20,13 @@ type CommandOption struct {
 	File     string   `arg:"-f,help:config file path"`
 	Terminal bool     `arg:"-t,help:Run specified command at terminal"`
 	Parallel bool     `arg:"-p,help:Exec command parallel node(tail -F etc...)"`
+	Generate bool     `arg:"help:(beta) generate .lssh.conf from .ssh/config.(not support ProxyCommand)"`
 	Command  []string `arg:"-c,help:Remote Server exec command."`
 }
 
 // Version Setting
 func (CommandOption) Version() string {
-	return "lssh v0.4.3"
+	return "lssh v0.4.4"
 }
 
 func main() {
@@ -51,7 +52,14 @@ func main() {
 	configFile := args.File
 	terminalExec := args.Terminal
 	parallelExec := args.Parallel
+	generateFlag := args.Generate
 	execRemoteCmd := args.Command
+
+	// Generate flag()
+	if generateFlag == true {
+		conf.GenerateConfig()
+		os.Exit(0)
+	}
 
 	// Get List
 	listConf := conf.ReadConf(configFile)
@@ -133,6 +141,10 @@ func main() {
 		c.Port = listConf.Server[c.Server].Port
 		c.Pass = listConf.Server[c.Server].Pass
 		c.KeyPath = listConf.Server[c.Server].Key
+		c.BeforeCmd = listConf.Server[c.Server].BeforeCmd
+		c.AfterCmd = listConf.Server[c.Server].AfterCmd
+		c.ProxyServer = listConf.Server[c.Server].ProxyServer
+		c.Proxy = listConf.Server[c.Server].Proxy
 
 		err := c.Connect()
 		if err != nil {

@@ -8,6 +8,7 @@ import (
 
 	"github.com/blacknon/go-scplib"
 	"github.com/blacknon/lssh/conf"
+	sshcmd "github.com/blacknon/lssh/ssh"
 )
 
 type RunInfoScp struct {
@@ -19,6 +20,7 @@ type RunInfoScp struct {
 	CopyToServer   []string
 	CopyData       *bytes.Buffer
 	ServrNameMax   int
+	PermissionFlag bool
 	ConConfig      conf.Config
 }
 
@@ -36,40 +38,42 @@ func (r *RunInfoScp) forScp(mode string) {
 		//y := x
 		conServer := v
 		go func() {
-			c := new(scplib.SCPClient)
-			//c.Server = conServer
-			c.Addr = r.ConConfig.Server[conServer].Addr
-			c.User = r.ConConfig.Server[conServer].User
-			c.Port = "22"
+			sh := new(sshcmd.ConInfoCmd)
+			cp := new(scplib.SCPClient)
+			sh.Addr = r.ConConfig.Server[conServer].Addr
+			sh.User = r.ConConfig.Server[conServer].User
+			sh.Port = "22"
 			if r.ConConfig.Server[conServer].Port != "" {
-				c.Port = r.ConConfig.Server[conServer].Port
+				sh.Port = r.ConConfig.Server[conServer].Port
 			}
-			c.Pass = ""
+			sh.Pass = ""
 			if r.ConConfig.Server[conServer].Pass != "" {
-				c.Pass = r.ConConfig.Server[conServer].Pass
+				sh.Pass = r.ConConfig.Server[conServer].Pass
 			}
-			c.KeyPath = ""
+			sh.KeyPath = ""
 			if r.ConConfig.Server[conServer].Key != "" {
-				c.KeyPath = r.ConConfig.Server[conServer].Key
+				sh.KeyPath = r.ConConfig.Server[conServer].Key
 			}
 
-			err := c.CreateConnect()
+			session, err := sh.CreateSession()
 			if err != nil {
-				fmt.Fprintf(os.Stderr, "cannot connect %v:%v, %v \n", conServer, c.Port, err)
+				fmt.Fprintf(os.Stderr, "cannot connect %v:%v, %v \n", conServer, sh.Port, err)
 				finished <- true
 				return
 			}
+			cp.Permission = r.PermissionFlag
+			cp.Session = session
 
 			switch mode {
 			case "push":
 				// scp push
 				if r.CopyToType == r.CopyFromType {
-					err := c.PutData(r.CopyData, r.CopyToPath)
+					err := cp.PutData(r.CopyData, r.CopyToPath)
 					if err != nil {
 						fmt.Fprintln(os.Stderr, "Failed to run: "+err.Error())
 					}
 				} else {
-					err := c.PutFile(r.CopyFromPath, r.CopyToPath)
+					err := cp.PutFile(r.CopyFromPath, r.CopyToPath)
 					if err != nil {
 						fmt.Fprintln(os.Stderr, "Failed to run: "+err.Error())
 					}
@@ -100,12 +104,12 @@ func (r *RunInfoScp) forScp(mode string) {
 				// scp pull
 				if r.CopyToType == r.CopyFromType {
 					//buf := new(bytes.Buffer)
-					r.CopyData, err = c.GetData(r.CopyFromPath)
+					r.CopyData, err = cp.GetData(r.CopyFromPath)
 					if err != nil {
 						fmt.Fprintln(os.Stderr, "Failed to run: "+err.Error())
 					}
 				} else {
-					err := c.GetFile(r.CopyFromPath, toPath)
+					err := cp.GetFile(r.CopyFromPath, toPath)
 					if err != nil {
 						fmt.Fprintln(os.Stderr, "Failed to run: "+err.Error())
 					}

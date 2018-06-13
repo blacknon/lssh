@@ -59,7 +59,7 @@ func (l *ListInfo) keyEvent() (lineData []string) {
 			// AllowRight Key
 			case termbox.KeyArrowRight:
 				nextPosition := ((l.CursorLine + height) / height) * height
-				if nextPosition <= len(l.ViewText) {
+				if nextPosition+2 <= len(l.ViewText) {
 					l.CursorLine = nextPosition
 				}
 				l.draw()
