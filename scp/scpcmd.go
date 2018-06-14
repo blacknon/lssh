@@ -61,6 +61,8 @@ func (r *RunInfoScp) forScp(mode string) {
 				finished <- true
 				return
 			}
+			defer session.Close()
+
 			cp.Permission = r.PermissionFlag
 			cp.Session = session
 
