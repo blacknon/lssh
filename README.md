@@ -35,10 +35,10 @@ brew install(Mac OS X)
 	brew tap blacknon/lssh
 	brew install lssh
 
-	# if not use ~.ssh/config
+	# if not use ~/.ssh/config
 	curl -s https://raw.githubusercontent.com/blacknon/lssh/master/example/config.tml | cp -n <(cat) ~/.lssh.conf # copy sample config file
 
-	# if use ~.ssh/config (not support Proxy)
+	# if use ~/.ssh/config (not support Proxy)
 	lssh --generate > ~/.lssh.conf
 
 ## Usage
