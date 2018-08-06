@@ -26,55 +26,53 @@ type CommandOption struct {
 
 // Version Setting
 func (CommandOption) Version() string {
-	return "lssh v0.4.4"
+	return "lssh v0.4.5"
 }
 
 func main() {
 	// Exec Before Check
 	conf.CheckBeforeStart()
 
-	// Set default value
-	usr, _ := user.Current()
-	defaultConfPath := usr.HomeDir + "/.lssh.conf"
-
 	// get Command Option
 	var args struct {
 		CommandOption
 	}
-
-	// Default Value
-	args.File = defaultConfPath
 	arg.MustParse(&args)
 
 	// set option value
+	configFile := args.File
+	if configFile == "" {
+		usr, _ := user.Current()
+		defaultConfPath := usr.HomeDir + "/.lssh.conf"
+		configFile = defaultConfPath
+	}
 	connectHost := args.Host
 	listFlag := args.List
-	configFile := args.File
 	terminalExec := args.Terminal
 	parallelExec := args.Parallel
 	generateFlag := args.Generate
 	execRemoteCmd := args.Command
 
-	// Generate flag()
+	// Generate .lssh.conf
 	if generateFlag == true {
 		conf.GenerateConfig()
 		os.Exit(0)
 	}
 
-	// Get List
+	// Get config data
 	listConf := conf.ReadConf(configFile)
 
-	// Command flag
+	// Set exec command flag
 	cmdFlag := false
 	if len(execRemoteCmd) != 0 {
 		cmdFlag = true
 	}
 
-	// Get Server Name List (and sort List)
+	// Extraction server name list from 'listConf'
 	nameList := conf.GetNameList(listConf)
 	sort.Strings(nameList)
 
-	// if --list option
+	// check list flag
 	if listFlag == true {
 		fmt.Fprintf(os.Stdout, "lssh Server List:\n")
 		for v := range nameList {
@@ -129,7 +127,7 @@ func main() {
 
 		// No select Server
 		if len(selectServer) > 1 {
-			fmt.Fprintln(os.Stderr, "Connect ssh interactive shell.Connect only to the first device")
+			fmt.Fprintln(os.Stderr, "Connect ssh interactive shell. Connect only to the first device")
 		}
 
 		// Connect SSH Terminal

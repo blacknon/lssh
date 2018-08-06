@@ -24,29 +24,27 @@ type CommandOption struct {
 
 // Version Setting
 func (CommandOption) Version() string {
-	return "lscp v0.4.4"
+	return "lscp v0.4.5"
 }
 
 func main() {
 	// Exec Before Check
 	conf.CheckBeforeStart()
 
-	// Set default value
-	usr, _ := user.Current()
-	defaultConfPath := usr.HomeDir + "/.lssh.conf"
-
 	// get Command Option
 	var args struct {
 		CommandOption
 	}
-
-	// Default Value
-	args.File = defaultConfPath
 	arg.MustParse(&args)
 
 	// set option value
-	connectHost := args.Host
 	configFile := args.File
+	if configFile == "" {
+		usr, _ := user.Current()
+		defaultConfPath := usr.HomeDir + "/.lssh.conf"
+		configFile = defaultConfPath
+	}
+	connectHost := args.Host
 	permFlag := args.Permission
 	copyFrom := args.From
 	copyTo := args.To
@@ -73,7 +71,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	// Get List
+	// Get config data
 	listConf := conf.ReadConf(configFile)
 
 	// Get Server Name List (and sort List)
