@@ -5,12 +5,11 @@ import (
 	"os"
 	"os/user"
 	"sort"
-	"strings"
 
 	arg "github.com/alexflint/go-arg"
 	"github.com/blacknon/lssh/conf"
 	"github.com/blacknon/lssh/list"
-	"github.com/blacknon/lssh/ssh"
+	sshcmd "github.com/blacknon/lssh/ssh"
 )
 
 // Command Option
@@ -26,7 +25,7 @@ type CommandOption struct {
 
 // Version Setting
 func (CommandOption) Version() string {
-	return "lssh v0.4.5"
+	return "lssh v0.5.0"
 }
 
 func main() {
@@ -105,49 +104,11 @@ func main() {
 		}
 	}
 
-	// Exec Connect ssh
-	if cmdFlag == true {
-		// Print selected server and connect command
-		fmt.Fprintf(os.Stderr, "Select Server :%s\n", strings.Join(selectServer, ","))
-		fmt.Fprintf(os.Stderr, "Exec command  :%s\n", strings.Join(execRemoteCmd, " "))
-
-		// Connect SSH
-		c := new(ssh.RunInfoCmd)
-		c.ServerList = selectServer
-		c.ConfList = listConf
-		c.Tflag = terminalExec
-		c.Pflag = parallelExec
-		c.ExecCmd = execRemoteCmd
-		c.ConSshCmd()
-
-		os.Exit(0)
-	} else {
-		// Print selected server
-		fmt.Fprintf(os.Stderr, "Select Server :%s\n", selectServer[0])
-
-		// No select Server
-		if len(selectServer) > 1 {
-			fmt.Fprintln(os.Stderr, "Connect ssh interactive shell. Connect only to the first device")
-		}
-
-		// Connect SSH Terminal
-		c := new(ssh.ConInfoTerm)
-		c.Log, c.LogDir = listConf.Log.Enable, listConf.Log.Dir
-		c.Server = selectServer[0]
-		c.User = listConf.Server[c.Server].User
-		c.Addr = listConf.Server[c.Server].Addr
-		c.Port = listConf.Server[c.Server].Port
-		c.Pass = listConf.Server[c.Server].Pass
-		c.KeyPath = listConf.Server[c.Server].Key
-		c.BeforeCmd = listConf.Server[c.Server].BeforeCmd
-		c.AfterCmd = listConf.Server[c.Server].AfterCmd
-		c.ProxyServer = listConf.Server[c.Server].ProxyServer
-		c.Proxy = listConf.Server[c.Server].Proxy
-
-		err := c.Connect()
-		if err != nil {
-			fmt.Println(err)
-			os.Exit(1)
-		}
-	}
+	r := new(sshcmd.Run)
+	r.ServerList = selectServer
+	r.ConfList = listConf
+	r.IsTerm = terminalExec
+	r.IsParallel = parallelExec
+	r.ExecCmd = execRemoteCmd
+	r.Start()
 }

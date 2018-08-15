@@ -7,7 +7,7 @@ GOGET=$(GOCMD) get
 
 build:
 	$(GOBUILD) lssh.go
-	$(GOBUILD) lscp.go
+#	$(GOBUILD) lscp.go
 clean:
 	$(GOCLEAN)
 	rm -f lssh
