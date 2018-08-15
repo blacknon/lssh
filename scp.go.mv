@@ -1,4 +1,4 @@
-package scp
+package ssh
 
 import (
 	"bytes"
@@ -8,7 +8,6 @@ import (
 
 	"github.com/blacknon/go-scplib"
 	"github.com/blacknon/lssh/conf"
-	sshcmd "github.com/blacknon/lssh/ssh"
 )
 
 type RunInfoScp struct {
@@ -38,7 +37,7 @@ func (r *RunInfoScp) forScp(mode string) {
 		//y := x
 		conServer := v
 		go func() {
-			sh := new(sshcmd.ConInfoCmd)
+			sh := new(Connect)
 			cp := new(scplib.SCPClient)
 			sh.Addr = r.ConConfig.Server[conServer].Addr
 			sh.User = r.ConConfig.Server[conServer].User

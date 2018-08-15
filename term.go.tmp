@@ -13,7 +13,6 @@ import (
 	"time"
 
 	"github.com/blacknon/gexpect"
-	"github.com/blacknon/lssh/conf"
 )
 
 type ConInfoTerm struct {
@@ -28,8 +27,7 @@ type ConInfoTerm struct {
 	BeforeCmd   string
 	AfterCmd    string
 	ProxyServer string
-	Proxy       conf.ProxyConfig
-	LocalUser   *user.User
+	LocalUser *user.User
 }
 
 func (c *ConInfoTerm) runBeforeCmd() {
