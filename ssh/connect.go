@@ -2,16 +2,18 @@ package ssh
 
 import (
 	"bytes"
+	"io/ioutil"
 	"os"
+	"os/signal"
 	"os/user"
 	"regexp"
 	"strings"
+	"syscall"
 	"time"
 
 	"golang.org/x/crypto/ssh"
 	"golang.org/x/crypto/ssh/terminal"
 
-	"github.com/appleboy/easyssh-proxy"
 	"github.com/blacknon/lssh/conf"
 )
 
@@ -24,41 +26,87 @@ type Connect struct {
 
 func (c *Connect) CreateSession() (session *ssh.Session, err error) {
 	usr, _ := user.Current()
-	serverConf := c.Conf.Server[c.Server]
+	conf := c.Conf.Server[c.Server]
+	auth := []ssh.AuthMethod{}
 
-	ssh := &easyssh.MakeConfig{
-		User:   serverConf.User,
-		Server: serverConf.Addr,
-		Port:   serverConf.Port,
-	}
-
-	// auth
-	if serverConf.Key != "" {
-		serverConf.Key = strings.Replace(serverConf.Key, "~", usr.HomeDir, 1)
-		ssh.KeyPath = serverConf.Key
-	} else {
-		ssh.Password = serverConf.Pass
-	}
-
-	// Proxy
-	proxyServer := serverConf.ProxyServer
-	if proxyServer != "" {
-		proxyConf := c.Conf.Server[proxyServer]
-
-		ssh.Proxy.User = proxyConf.User
-		ssh.Proxy.Server = proxyConf.Addr
-		ssh.Proxy.Port = proxyConf.Port
-		if proxyConf.Key != "" {
-			proxyConf.Key = strings.Replace(proxyConf.Key, "~", usr.HomeDir, 1)
-			ssh.Proxy.Key = proxyConf.Key
-		} else {
-			ssh.Proxy.Password = proxyConf.Pass
+	if conf.Key != "" {
+		conf.Key = strings.Replace(conf.Key, "~", usr.HomeDir, 1)
+		// Read PublicKey
+		keyData, err := ioutil.ReadFile(conf.Key)
+		if err != nil {
+			return session, err
 		}
+
+		key, err := ssh.ParsePrivateKey(keyData)
+		if err != nil {
+			return session, err
+		}
+
+		auth = []ssh.AuthMethod{ssh.PublicKeys(key)}
+	} else {
+		auth = []ssh.AuthMethod{ssh.Password(conf.Pass)}
 	}
 
-	session, err = ssh.Connect()
+	config := &ssh.ClientConfig{
+		User:            conf.User,
+		Auth:            auth,
+		HostKeyCallback: ssh.InsecureIgnoreHostKey(),
+		Timeout:         3600 * time.Second,
+	}
+
+	// New connect
+	conn, err := ssh.Dial("tcp", conf.Addr+":"+conf.Port, config)
+	if err != nil {
+		return session, err
+	}
+
+	// New session
+	session, err = conn.NewSession()
+	if err != nil {
+		return session, err
+	}
+
 	return
 }
+
+// func (c *Connect) CreateSession() (session *ssh.Session, err error) {
+// 	usr, _ := user.Current()
+// 	serverConf := c.Conf.Server[c.Server]
+
+// 	ssh := &easyssh.MakeConfig{
+// 		User:    serverConf.User,
+// 		Server:  serverConf.Addr,
+// 		Port:    serverConf.Port,
+// 		Timeout: 3600 * time.Hour,
+// 	}
+
+// 	// auth
+// 	if serverConf.Key != "" {
+// 		serverConf.Key = strings.Replace(serverConf.Key, "~", usr.HomeDir, 1)
+// 		ssh.KeyPath = serverConf.Key
+// 	} else {
+// 		ssh.Password = serverConf.Pass
+// 	}
+
+// 	// Proxy
+// 	proxyServer := serverConf.ProxyServer
+// 	if proxyServer != "" {
+// 		proxyConf := c.Conf.Server[proxyServer]
+
+// 		ssh.Proxy.User = proxyConf.User
+// 		ssh.Proxy.Server = proxyConf.Addr
+// 		ssh.Proxy.Port = proxyConf.Port
+// 		if proxyConf.Key != "" {
+// 			proxyConf.Key = strings.Replace(proxyConf.Key, "~", usr.HomeDir, 1)
+// 			ssh.Proxy.Key = proxyConf.Key
+// 		} else {
+// 			ssh.Proxy.Password = proxyConf.Pass
+// 		}
+// 	}
+
+// 	session, err = ssh.Connect()
+// 	return
+// }
 
 func (c *Connect) RunCmd(session *ssh.Session, command []string) (err error) {
 	defer session.Close()
@@ -185,6 +233,28 @@ func (c *Connect) ConTerm(session *ssh.Session) (err error) {
 		return
 	}
 
+	// Terminal resize
+	signal_chan := make(chan os.Signal, 1)
+	signal.Notify(signal_chan, syscall.SIGWINCH)
+	go func() {
+		for {
+			s := <-signal_chan
+			switch s {
+			case syscall.SIGWINCH:
+				fd := int(os.Stdout.Fd())
+				width, height, _ = terminal.GetSize(fd)
+				session.WindowChange(height, width)
+			}
+		}
+	}()
+
+	go func() {
+		for {
+			_, _ = session.SendRequest("keepalive@golang.org", true, nil)
+			time.Sleep(15 * time.Second)
+		}
+	}()
+
 	err = session.Wait()
 	if err != nil {
 		return
@@ -193,7 +263,7 @@ func (c *Connect) ConTerm(session *ssh.Session) (err error) {
 	return
 }
 
-func (c *Connect) setIsTerm(befSession *ssh.Session) (aftSession *ssh.Session, err error) {
+func (c *Connect) setIsTerm(preSession *ssh.Session) (session *ssh.Session, err error) {
 	if c.IsTerm {
 		modes := ssh.TerminalModes{
 			ssh.ECHO:          0,
@@ -205,15 +275,15 @@ func (c *Connect) setIsTerm(befSession *ssh.Session) (aftSession *ssh.Session, e
 		fd := int(os.Stdin.Fd())
 		width, hight, err := terminal.GetSize(fd)
 		if err != nil {
-			befSession.Close()
-			return aftSession, err
+			preSession.Close()
+			return session, err
 		}
 
-		if err = befSession.RequestPty("xterm", hight, width, modes); err != nil {
-			befSession.Close()
-			return aftSession, err
+		if err = preSession.RequestPty("xterm", hight, width, modes); err != nil {
+			preSession.Close()
+			return session, err
 		}
 	}
-	aftSession = befSession
+	session = preSession
 	return
 }

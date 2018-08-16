@@ -17,9 +17,8 @@ command to read a prepared list in advance and connect ssh/scp the selected host
 
 ## Requirement
 
-need the following command.
+need the following command(only lscp).
 
-- ssh
 - scp (remote host)
 
 ## Install
@@ -78,8 +77,8 @@ example:
 	addr = "192.168.100.103"
 	key  = "/path/to/private_key"
 	note = "Before/After run local command"
-	before_cmd = "(option) exec command before ssh connect."
-	before_cmd = "(option) exec command after ssh disconnected."
+	pre_cmd = "(option) exec command before ssh connect."
+	post_cmd = "(option) exec command after ssh disconnected."
 
 	[server.sshProxyServer]
 	addr = "192.168.100.200"
@@ -99,7 +98,7 @@ After exec command.
 
 option(lssh)
 
-	lssh v0.4.4
+	lssh v0.5.0
 	Usage: lssh [--host HOST] [--list] [--file FILE] [--terminal] [--parallel] [--generate] [--command COMMAND]
 
 	Options:
@@ -116,7 +115,7 @@ option(lssh)
 
 option(lscp)
 
-	lscp v0.4.4
+	lscp v0.5.0
 	Usage: lscp [--host HOST] [--file FILE] FROM TO
 
 	Positional arguments:
