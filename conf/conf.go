@@ -27,27 +27,21 @@ type IncludeConfig struct {
 }
 
 type ServerConfig struct {
-	// Basic
-	Addr string `toml:"addr"`
-	Port string `toml:"port"`
-	User string `toml:"user"`
-	Pass string `toml:"pass"`
-	Key  string `toml:"key"`
-
-	// Local command
-	BeforeCmd string `toml:"before_cmd"`
-	AfterCmd  string `toml:"after_cmd"`
-
-	// Proxy
+	Addr        string `toml:"addr"`
+	Port        string `toml:"port"`
+	User        string `toml:"user"`
+	Pass        string `toml:"pass"`
+	Key         string `toml:"key"`
+	PreCmd      string `toml:"pre_cmd"`
+	PostCmd     string `toml:"post_cmd"`
 	ProxyServer string `toml:"proxy_server"`
-
-	Note string `toml:"note"`
+	Note        string `toml:"note"`
 }
 
 type ServerConfigMaps map[string]ServerConfig
 
 func ReadConf(confPath string) (checkConf Config) {
-	if isExist(confPath) == false {
+	if !isExist(confPath) {
 		fmt.Printf("Config file(%s) Not Found.\nPlease create file.\n\n", confPath)
 		fmt.Printf("sample: %s\n", "https://raw.githubusercontent.com/blacknon/lssh/master/example/config.tml")
 		os.Exit(1)
@@ -94,7 +88,7 @@ func ReadConf(confPath string) (checkConf Config) {
 
 	// Check Config Parameter
 	checkAlertFlag := checkServerConf(checkConf)
-	if checkAlertFlag == false {
+	if !checkAlertFlag {
 		os.Exit(1)
 	}
 

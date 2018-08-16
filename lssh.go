@@ -29,7 +29,7 @@ func (CommandOption) Version() string {
 }
 
 func main() {
-	// Exec Before Check
+	// Pre Check
 	conf.CheckBeforeStart()
 
 	// get Command Option
@@ -46,14 +46,14 @@ func main() {
 		configFile = defaultConfPath
 	}
 	connectHost := args.Host
-	listFlag := args.List
-	terminalExec := args.Terminal
-	parallelExec := args.Parallel
-	generateFlag := args.Generate
-	execRemoteCmd := args.Command
+	isListView := args.List
+	isTerminal := args.Terminal
+	isParallel := args.Parallel
+	isGenerate := args.Generate
+	runCommand := args.Command
 
 	// Generate .lssh.conf
-	if generateFlag == true {
+	if isGenerate {
 		conf.GenerateConfig()
 		os.Exit(0)
 	}
@@ -62,9 +62,9 @@ func main() {
 	listConf := conf.ReadConf(configFile)
 
 	// Set exec command flag
-	cmdFlag := false
-	if len(execRemoteCmd) != 0 {
-		cmdFlag = true
+	isMultiSelect := false
+	if len(runCommand) > 0 {
+		isMultiSelect = true
 	}
 
 	// Extraction server name list from 'listConf'
@@ -72,7 +72,7 @@ func main() {
 	sort.Strings(nameList)
 
 	// check list flag
-	if listFlag == true {
+	if isListView {
 		fmt.Fprintf(os.Stdout, "lssh Server List:\n")
 		for v := range nameList {
 			fmt.Fprintf(os.Stdout, "  %s\n", nameList[v])
@@ -81,8 +81,8 @@ func main() {
 	}
 
 	selectServer := []string{}
-	if len(connectHost) != 0 {
-		if conf.CheckInputServerExit(connectHost, nameList) == false {
+	if len(connectHost) > 0 {
+		if !conf.CheckInputServerExit(connectHost, nameList) {
 			fmt.Fprintln(os.Stderr, "Input Server not found from list.")
 			os.Exit(1)
 		} else {
@@ -94,7 +94,7 @@ func main() {
 		l.Prompt = "lssh>>"
 		l.NameList = nameList
 		l.DataList = listConf
-		l.MultiFlag = cmdFlag
+		l.MultiFlag = isMultiSelect
 
 		l.View()
 		selectServer = l.SelectName
@@ -106,9 +106,9 @@ func main() {
 
 	r := new(sshcmd.Run)
 	r.ServerList = selectServer
-	r.ConfList = listConf
-	r.IsTerm = terminalExec
-	r.IsParallel = parallelExec
-	r.ExecCmd = execRemoteCmd
+	r.Conf = listConf
+	r.IsTerm = isTerminal
+	r.IsParallel = isParallel
+	r.ExecCmd = runCommand
 	r.Start()
 }

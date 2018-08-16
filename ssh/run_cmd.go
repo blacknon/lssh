@@ -20,7 +20,7 @@ func (r *Run) cmd() {
 	for i, server := range r.ServerList {
 		c := new(Connect)
 		c.Server = server
-		c.Conf = r.ConfList
+		c.Conf = r.Conf
 		c.IsTerm = r.IsTerm
 		c.IsParallel = r.IsParallel
 		serverListIndex := i
@@ -62,7 +62,7 @@ func (r *Run) cmd() {
 }
 
 func outColorStrings(num int, inStrings string) (str string) {
-	// Red,Yellow,Blue,Magenta,Cyan
+	// 1=Red,2=Yellow,3=Blue,4=Magenta,0=Cyan
 	color := 31 + num%5
 	str = fmt.Sprintf("\x1b[%dm%s\x1b[0m", color, inStrings)
 	return
