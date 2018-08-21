@@ -2,6 +2,7 @@ package ssh
 
 import (
 	"bytes"
+	"fmt"
 	"io/ioutil"
 	"os"
 	"os/signal"
@@ -24,38 +25,10 @@ type Connect struct {
 	IsParallel bool
 }
 
+// @brief: create ssh session
 func (c *Connect) CreateSession() (session *ssh.Session, err error) {
-	usr, _ := user.Current()
-	conf := c.Conf.Server[c.Server]
-	auth := []ssh.AuthMethod{}
-
-	if conf.Key != "" {
-		conf.Key = strings.Replace(conf.Key, "~", usr.HomeDir, 1)
-		// Read PublicKey
-		keyData, err := ioutil.ReadFile(conf.Key)
-		if err != nil {
-			return session, err
-		}
-
-		key, err := ssh.ParsePrivateKey(keyData)
-		if err != nil {
-			return session, err
-		}
-
-		auth = []ssh.AuthMethod{ssh.PublicKeys(key)}
-	} else {
-		auth = []ssh.AuthMethod{ssh.Password(conf.Pass)}
-	}
-
-	config := &ssh.ClientConfig{
-		User:            conf.User,
-		Auth:            auth,
-		HostKeyCallback: ssh.InsecureIgnoreHostKey(),
-		Timeout:         3600 * time.Second,
-	}
-
 	// New connect
-	conn, err := ssh.Dial("tcp", conf.Addr+":"+conf.Port, config)
+	conn, err := c.createSshClient()
 	if err != nil {
 		return session, err
 	}
@@ -69,45 +42,89 @@ func (c *Connect) CreateSession() (session *ssh.Session, err error) {
 	return
 }
 
-// func (c *Connect) CreateSession() (session *ssh.Session, err error) {
-// 	usr, _ := user.Current()
-// 	serverConf := c.Conf.Server[c.Server]
+func (c *Connect) createSshClient() (client *ssh.Client, err error) {
+	conf := c.Conf.Server[c.Server]
 
-// 	ssh := &easyssh.MakeConfig{
-// 		User:    serverConf.User,
-// 		Server:  serverConf.Addr,
-// 		Port:    serverConf.Port,
-// 		Timeout: 3600 * time.Hour,
-// 	}
+	// New ClientConfig
+	clientConfig, err := c.createSshClientConfig()
+	if err != nil {
+		return client, err
+	}
 
-// 	// auth
-// 	if serverConf.Key != "" {
-// 		serverConf.Key = strings.Replace(serverConf.Key, "~", usr.HomeDir, 1)
-// 		ssh.KeyPath = serverConf.Key
-// 	} else {
-// 		ssh.Password = serverConf.Pass
-// 	}
+	if conf.ProxyServer == "" {
+		client, err = ssh.Dial("tcp", conf.Addr+":"+conf.Port, clientConfig)
+	} else {
+		proxySlice := c.getProxySlice()
+		fmt.Println(proxySlice)
 
-// 	// Proxy
-// 	proxyServer := serverConf.ProxyServer
-// 	if proxyServer != "" {
-// 		proxyConf := c.Conf.Server[proxyServer]
+		client, err = ssh.Dial("tcp", conf.Addr+":"+conf.Port, clientConfig) // debug
+	}
 
-// 		ssh.Proxy.User = proxyConf.User
-// 		ssh.Proxy.Server = proxyConf.Addr
-// 		ssh.Proxy.Port = proxyConf.Port
-// 		if proxyConf.Key != "" {
-// 			proxyConf.Key = strings.Replace(proxyConf.Key, "~", usr.HomeDir, 1)
-// 			ssh.Proxy.Key = proxyConf.Key
-// 		} else {
-// 			ssh.Proxy.Password = proxyConf.Pass
-// 		}
-// 	}
+	client, err = ssh.Dial("tcp", conf.Addr+":"+conf.Port, clientConfig)
+	return client, err
+}
 
-// 	session, err = ssh.Connect()
-// 	return
-// }
+// @brief: Create ssh Client
+func (c *Connect) createSshClientConfig() (clientConfig *ssh.ClientConfig, err error) {
+	conf := c.Conf.Server[c.Server]
 
+	auth, err := c.createSshAuth()
+	if err != nil {
+		return clientConfig, err
+	}
+
+	// create ssh ClientConfig
+	clientConfig = &ssh.ClientConfig{
+		User:            conf.User,
+		Auth:            auth,
+		HostKeyCallback: ssh.InsecureIgnoreHostKey(),
+		Timeout:         3600 * time.Hour,
+	}
+	return clientConfig, err
+}
+
+// @brief: create ssh session auth
+func (c *Connect) createSshAuth() (auth []ssh.AuthMethod, err error) {
+	usr, _ := user.Current()
+	conf := c.Conf.Server[c.Server]
+
+	if conf.Key != "" {
+		conf.Key = strings.Replace(conf.Key, "~", usr.HomeDir, 1)
+
+		// Read PrivateKey file
+		keyData, err := ioutil.ReadFile(conf.Key)
+		if err != nil {
+			return auth, err
+		}
+
+		// Read PrivateKey data
+		key, err := ssh.ParsePrivateKey(keyData)
+		if err != nil {
+			return auth, err
+		}
+		auth = []ssh.AuthMethod{ssh.PublicKeys(key)}
+	} else {
+		auth = []ssh.AuthMethod{ssh.Password(conf.Pass)}
+	}
+
+	return auth, err
+}
+
+// @brief: get ssh proxy server slice
+func (c *Connect) getProxySlice() (proxyServers []string) {
+	targetServer := c.Server
+	for {
+		serverConf := c.Conf.Server[targetServer]
+		if serverConf.ProxyServer == "" {
+			break
+		}
+		proxyServers = append(proxyServers, serverConf.ProxyServer)
+	}
+
+	return proxyServers
+}
+
+// @brief: run command over ssh
 func (c *Connect) RunCmd(session *ssh.Session, command []string) (err error) {
 	defer session.Close()
 
@@ -139,13 +156,15 @@ CheckCommandExit:
 		select {
 		case <-isExit:
 			break CheckCommandExit
-		case <-time.After(1 * time.Millisecond):
+		case <-time.After(100 * time.Millisecond):
 			continue CheckCommandExit
 		}
 	}
+
 	return
 }
 
+// @brief: run command over ssh, output to gochannel
 func (c *Connect) RunCmdGetOutput(session *ssh.Session, command []string, outputChan chan string) {
 	var outputBuf bytes.Buffer
 	session.Stdout = &outputBuf
@@ -184,8 +203,8 @@ GetOutputLoop:
 		select {
 		case <-isExit:
 			break GetOutputLoop
-		case <-time.After(1 * time.Millisecond):
-			continue
+		case <-time.After(100 * time.Millisecond):
+			continue GetOutputLoop
 		}
 	}
 
@@ -202,6 +221,7 @@ GetOutputLoop:
 	}
 }
 
+// @brief: connect ssh terminal
 func (c *Connect) ConTerm(session *ssh.Session) (err error) {
 	// defer session.Close()
 	fd := int(os.Stdin.Fd())
@@ -263,6 +283,7 @@ func (c *Connect) ConTerm(session *ssh.Session) (err error) {
 	return
 }
 
+// @brief: set pesudo (run command only)
 func (c *Connect) setIsTerm(preSession *ssh.Session) (session *ssh.Session, err error) {
 	if c.IsTerm {
 		modes := ssh.TerminalModes{
