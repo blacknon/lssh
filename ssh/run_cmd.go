@@ -25,10 +25,13 @@ func (r *Run) cmd() {
 		c.IsParallel = r.IsParallel
 		serverListIndex := i
 
+		// create session
 		session, err := c.CreateSession()
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "cannot connect %v, %v \n", c.Server, err)
-			finished <- true
+			go func() {
+				fmt.Fprintf(os.Stderr, "cannot connect session %v, %v\n", outColorStrings(serverListIndex, c.Server), err)
+				finished <- true
+			}()
 			continue
 		}
 
@@ -41,6 +44,7 @@ func (r *Run) cmd() {
 			close(outputChan)
 		}(outputChan)
 
+		// get command output
 		go func(outputChan chan string) {
 			for outputLine := range outputChan {
 				if len(r.ServerList) > 1 {
@@ -54,6 +58,7 @@ func (r *Run) cmd() {
 		}(outputChan)
 	}
 
+	// wait all finish
 	for i := 1; i <= len(r.ServerList); i++ {
 		<-finished
 	}
