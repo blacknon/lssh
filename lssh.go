@@ -54,7 +54,7 @@ func main() {
 
 	// Generate .lssh.conf
 	if isGenerate {
-		conf.GenerateConfig()
+		conf.GenConf()
 		os.Exit(0)
 	}
 
@@ -82,7 +82,7 @@ func main() {
 
 	selectServer := []string{}
 	if len(connectHost) > 0 {
-		if !conf.CheckInputServerExit(connectHost, nameList) {
+		if !conf.CheckInputServerExist(connectHost, nameList) {
 			fmt.Fprintln(os.Stderr, "Input Server not found from list.")
 			os.Exit(1)
 		} else {

@@ -22,7 +22,7 @@ func ReadSshConfig() (cfg *ssh_config.Config, err error) {
 	return
 }
 
-func GenerateConfig() {
+func GenConf() {
 	// get user infomation
 	usr, _ := user.Current()
 

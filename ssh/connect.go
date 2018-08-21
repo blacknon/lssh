@@ -2,8 +2,8 @@ package ssh
 
 import (
 	"bytes"
-	"fmt"
 	"io/ioutil"
+	"net"
 	"os"
 	"os/signal"
 	"os/user"
@@ -46,29 +46,76 @@ func (c *Connect) createSshClient() (client *ssh.Client, err error) {
 	conf := c.Conf.Server[c.Server]
 
 	// New ClientConfig
-	clientConfig, err := c.createSshClientConfig()
+	clientConfig, err := c.createSshClientConfig(c.Server)
 	if err != nil {
 		return client, err
 	}
 
-	if conf.ProxyServer == "" {
-		client, err = ssh.Dial("tcp", conf.Addr+":"+conf.Port, clientConfig)
+	if conf.Proxy == "" {
+		client, err = ssh.Dial("tcp", net.JoinHostPort(conf.Addr, conf.Port), clientConfig)
 	} else {
 		proxySlice := c.getProxySlice()
-		fmt.Println(proxySlice)
 
-		client, err = ssh.Dial("tcp", conf.Addr+":"+conf.Port, clientConfig) // debug
+		// first proxy
+		proxyConf := c.Conf.Server[proxySlice[0]]
+		proxyClientConfig, err := c.createSshClientConfig(proxySlice[0])
+		if err != nil {
+			return client, err
+		}
+
+		proxyClient, err := ssh.Dial("tcp", net.JoinHostPort(proxyConf.Addr, proxyConf.Port), proxyClientConfig)
+		if err != nil {
+			return client, err
+		}
+
+		proxyConn, err := proxyClient.Dial("tcp", net.JoinHostPort(conf.Addr, conf.Port))
+		if err != nil {
+			return client, err
+		}
+
+		// connect ssh client
+		clientConnect, clientChans, clientReqs, err := ssh.NewClientConn(proxyConn, net.JoinHostPort(conf.Addr, conf.Port), clientConfig)
+		if err != nil {
+			return client, err
+		}
+
+		client = ssh.NewClient(clientConnect, clientChans, clientReqs)
 	}
 
-	client, err = ssh.Dial("tcp", conf.Addr+":"+conf.Port, clientConfig)
 	return client, err
 }
 
-// @brief: Create ssh Client
-func (c *Connect) createSshClientConfig() (clientConfig *ssh.ClientConfig, err error) {
-	conf := c.Conf.Server[c.Server]
+func (c *Connect) createSshConnectProxy(server string) (conn *net.Conn, err error) {
+	proxyConf := c.Conf.Server[server]
+	proxyClientConfig, err := c.createSshClientConfig(server)
+	if err != nil {
+		return conn, err
+	}
 
-	auth, err := c.createSshAuth()
+	proxyClient, err := ssh.Dial("tcp", net.JoinHostPort(proxyConf.Addr, proxyConf.Port), proxyClientConfig)
+	if err != nil {
+		return conn, err
+	}
+
+	proxyConn, err := proxyClient.Dial("tcp", net.JoinHostPort(conf.Addr, conf.Port))
+	if err != nil {
+		return conn, err
+	}
+
+	clientConnect, clientChans, clientReqs, err := ssh.NewClientConn(proxyConn, net.JoinHostPort(conf.Addr, conf.Port), clientConfig)
+	if err != nil {
+		return conn, err
+	}
+
+	client = ssh.NewClient(clientConnect, clientChans, clientReqs)
+
+}
+
+// @brief: Create ssh Client
+func (c *Connect) createSshClientConfig(server string) (clientConfig *ssh.ClientConfig, err error) {
+	conf := c.Conf.Server[server]
+
+	auth, err := c.createSshAuth(server)
 	if err != nil {
 		return clientConfig, err
 	}
@@ -84,9 +131,9 @@ func (c *Connect) createSshClientConfig() (clientConfig *ssh.ClientConfig, err e
 }
 
 // @brief: create ssh session auth
-func (c *Connect) createSshAuth() (auth []ssh.AuthMethod, err error) {
+func (c *Connect) createSshAuth(server string) (auth []ssh.AuthMethod, err error) {
 	usr, _ := user.Current()
-	conf := c.Conf.Server[c.Server]
+	conf := c.Conf.Server[server]
 
 	if conf.Key != "" {
 		conf.Key = strings.Replace(conf.Key, "~", usr.HomeDir, 1)
@@ -115,10 +162,16 @@ func (c *Connect) getProxySlice() (proxyServers []string) {
 	targetServer := c.Server
 	for {
 		serverConf := c.Conf.Server[targetServer]
-		if serverConf.ProxyServer == "" {
+		if serverConf.Proxy == "" {
 			break
 		}
-		proxyServers = append(proxyServers, serverConf.ProxyServer)
+		proxyServers = append(proxyServers, serverConf.Proxy)
+		targetServer = serverConf.Proxy
+	}
+
+	// reverse proxyServers slice
+	for i, j := 0, len(proxyServers)-1; i < j; i, j = i+1, j-1 {
+		proxyServers[i], proxyServers[j] = proxyServers[j], proxyServers[i]
 	}
 
 	return proxyServers

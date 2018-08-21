@@ -82,7 +82,7 @@ func main() {
 	toSelectServer := []string{}
 	fromSelectServer := []string{}
 	if len(connectHost) != 0 {
-		if conf.CheckInputServerExit(connectHost, nameList) == false {
+		if conf.CheckInputServerExist(connectHost, nameList) == false {
 			fmt.Fprintln(os.Stderr, "Input Server not found from list.")
 			os.Exit(1)
 		} else {

@@ -87,7 +87,7 @@ func checkServerConf(c Config) (rFlg bool) {
 	return
 }
 
-func CheckInputServerExit(inputServer []string, nameList []string) bool {
+func CheckInputServerExist(inputServer []string, nameList []string) bool {
 	for _, nv := range nameList {
 		for _, iv := range inputServer {
 			if nv == iv {
