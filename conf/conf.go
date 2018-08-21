@@ -27,15 +27,15 @@ type IncludeConfig struct {
 }
 
 type ServerConfig struct {
-	Addr        string `toml:"addr"`
-	Port        string `toml:"port"`
-	User        string `toml:"user"`
-	Pass        string `toml:"pass"`
-	Key         string `toml:"key"`
-	PreCmd      string `toml:"pre_cmd"`
-	PostCmd     string `toml:"post_cmd"`
-	ProxyServer string `toml:"proxy_server"`
-	Note        string `toml:"note"`
+	Addr    string `toml:"addr"`
+	Port    string `toml:"port"`
+	User    string `toml:"user"`
+	Pass    string `toml:"pass"`
+	Key     string `toml:"key"`
+	PreCmd  string `toml:"pre_cmd"`
+	PostCmd string `toml:"post_cmd"`
+	Proxy   string `toml:"proxy"`
+	Note    string `toml:"note"`
 }
 
 type ServerConfigMaps map[string]ServerConfig
