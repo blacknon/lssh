@@ -14,13 +14,13 @@ import (
 
 // Command Option
 type CommandOption struct {
-	Host     []string `arg:"-H,help:Connect servername"`
+	Host     []string `arg:"-H,help:connect servername"`
 	List     bool     `arg:"-l,help:print server list"`
 	File     string   `arg:"-f,help:config file path"`
-	Terminal bool     `arg:"-t,help:Run specified command at terminal"`
-	Parallel bool     `arg:"-p,help:Exec command parallel node(tail -F etc...)"`
+	Terminal bool     `arg:"-t,help:run specified command at terminal"`
+	Parallel bool     `arg:"-p,help:run command parallel node(tail -F etc...)"`
 	Generate bool     `arg:"help:(beta) generate .lssh.conf from .ssh/config.(not support ProxyCommand)"`
-	Command  []string `arg:"-c,help:Remote Server exec command."`
+	Command  []string `arg:"-c,help:remote Server exec command."`
 }
 
 // Version Setting
