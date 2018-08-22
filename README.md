@@ -89,7 +89,13 @@ example:
 	addr = "192.168.10.10"
 	key  = "/path/to/private_key"
 	note = "connect use ssh proxy"
-	proxy_server = "sshProxyServer"
+	proxy = "sshProxyServer"
+
+	[server.overProxyServer2]
+	addr = "192.168.10.100"
+	key  = "/path/to/private_key"
+	note = "connect use ssh proxy(multiple)"
+	proxy = "overProxyServer"
 
 After exec command.
 

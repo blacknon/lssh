@@ -15,11 +15,11 @@ import (
 
 // Command Option
 type CommandOption struct {
-	Host       []string `arg:"-H,help:Connect servername"`
+	Host       []string `arg:"-H,help:connect servername"`
 	File       string   `arg:"-f,help:config file path"`
 	Permission bool     `arg:"-p,help:copy file permission"`
-	From       string   `arg:"positional,required,help:Copy from path (local:<path>|remote:<path>)"`
-	To         string   `arg:"positional,required,help:Copy to path (local:<path>|remote:<path>)"`
+	From       string   `arg:"positional,required,help:copy from path (local:<path>|remote:<path>)"`
+	To         string   `arg:"positional,required,help:copy to path (local:<path>|remote:<path>)"`
 }
 
 // Version Setting
