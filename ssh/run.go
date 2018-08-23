@@ -2,8 +2,10 @@ package ssh
 
 import (
 	"bytes"
+	"fmt"
 	"io/ioutil"
 	"os"
+	"strings"
 	"syscall"
 
 	"github.com/blacknon/lssh/conf"
@@ -30,5 +32,28 @@ func (r *Run) Start() {
 		r.cmd()
 	} else {
 		r.term()
+	}
+}
+
+func (r *Run) printSelectServer() {
+	serverListStr := strings.Join(r.ServerList, ",")
+	fmt.Fprintf(os.Stderr, "Select Server :%s\n", serverListStr)
+}
+
+func (r *Run) printRunCommand() {
+	runCmdStr := strings.Join(r.ExecCmd, " ")
+	fmt.Fprintf(os.Stderr, "Run Command   :%s\n", runCmdStr)
+}
+
+func (r *Run) printProxy() {
+	if len(r.ServerList) == 1 {
+		proxyList := GetProxyList(r.ServerList[0], r.Conf)
+
+		if len(proxyList) > 0 {
+			proxyList = append([]string{"localhost"}, proxyList...)
+			proxyList = append(proxyList, r.ServerList[0])
+			proxyListStr := strings.Join(proxyList, " => ")
+			fmt.Fprintf(os.Stderr, "Proxy         :%s\n", proxyListStr)
+		}
 	}
 }

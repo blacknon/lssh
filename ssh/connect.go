@@ -64,7 +64,7 @@ func (c *Connect) createSshClient() (client *ssh.Client, err error) {
 	}
 
 	// get proxy slice
-	proxyList := c.GetProxyList()
+	proxyList := GetProxyList(c.Server, c.Conf)
 
 	// var
 	var proxyClient *ssh.Client
@@ -136,7 +136,7 @@ func (c *Connect) createSshClientConfig(server string) (clientConfig *ssh.Client
 	return clientConfig, err
 }
 
-// @brief: create ssh session auth
+// @brief: Create ssh session auth
 func (c *Connect) createSshAuth(server string) (auth []ssh.AuthMethod, err error) {
 	usr, _ := user.Current()
 	conf := c.Conf.Server[server]
@@ -162,26 +162,6 @@ func (c *Connect) createSshAuth(server string) (auth []ssh.AuthMethod, err error
 	}
 
 	return auth, err
-}
-
-// @brief: get ssh proxy server slice
-func (c *Connect) GetProxyList() (proxyServers []string) {
-	targetServer := c.Server
-	for {
-		serverConf := c.Conf.Server[targetServer]
-		if serverConf.Proxy == "" {
-			break
-		}
-		proxyServers = append(proxyServers, serverConf.Proxy)
-		targetServer = serverConf.Proxy
-	}
-
-	// reverse proxyServers slice
-	for i, j := 0, len(proxyServers)-1; i < j; i, j = i+1, j-1 {
-		proxyServers[i], proxyServers[j] = proxyServers[j], proxyServers[i]
-	}
-
-	return proxyServers
 }
 
 // @brief: run command over ssh
@@ -367,4 +347,26 @@ func (c *Connect) setIsTerm(preSession *ssh.Session) (session *ssh.Session, err 
 	}
 	session = preSession
 	return
+}
+
+// @brief:
+//     get ssh proxy server slice
+func GetProxyList(server string, conf conf.Config) (proxyServers []string) {
+	targetServer := server
+
+	for {
+		serverConf := conf.Server[targetServer]
+		if serverConf.Proxy == "" {
+			break
+		}
+		proxyServers = append(proxyServers, serverConf.Proxy)
+		targetServer = serverConf.Proxy
+	}
+
+	// reverse proxyServers slice
+	for i, j := 0, len(proxyServers)-1; i < j; i, j = i+1, j-1 {
+		proxyServers[i], proxyServers[j] = proxyServers[j], proxyServers[i]
+	}
+
+	return proxyServers
 }

@@ -16,6 +16,11 @@ import (
 func (r *Run) term() (err error) {
 	server := r.ServerList[0]
 
+	// print header
+	r.printSelectServer()
+	r.printProxy()
+	fmt.Println() // print newline
+
 	c := new(Connect)
 	c.Server = server
 	c.Conf = r.Conf

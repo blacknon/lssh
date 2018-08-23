@@ -44,12 +44,13 @@ func GenConf() {
 		}
 	}
 
-	// log
+	// print conf [log]
 	fmt.Println("[log]")
 	fmt.Println("enable = false")
 	fmt.Println("dirpath = \"/path/to/dir/<Date>/<Hostname>\"")
 	fmt.Println("")
 
+	// print conf [server]
 	for _, server := range hostList {
 		// Get ssh/config value
 		addr := ssh_config.Get(server, "Hostname")

@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"fmt"
 	"os"
-	"strings"
 )
 
 func (r *Run) cmd() {
@@ -12,10 +11,10 @@ func (r *Run) cmd() {
 	finished := make(chan bool)
 
 	// print header
-	serverListStr := strings.Join(r.ServerList, ",")
-	execCmdStr := strings.Join(r.ExecCmd, " ")
-	fmt.Fprintf(os.Stderr, "Select Server :%s\n", serverListStr)
-	fmt.Fprintf(os.Stderr, "Run Command   :%s\n", execCmdStr)
+	r.printSelectServer()
+	r.printRunCommand()
+	r.printProxy()
+	fmt.Println() // print newline
 
 	for i, server := range r.ServerList {
 		c := new(Connect)
