@@ -4,10 +4,12 @@ import (
 	"bytes"
 	"fmt"
 	"os"
+
+	"github.com/blacknon/lssh/common"
 )
 
 func (r *Run) cmd() {
-	serverNameMaxLength := getServerNameMaxLength(r.ServerList)
+	serverNameMaxLength := common.GetMaxLength(r.ServerList)
 	finished := make(chan bool)
 
 	// print header
@@ -24,21 +26,21 @@ func (r *Run) cmd() {
 		c.IsParallel = r.IsParallel
 		serverListIndex := i
 
-		// create session
-		session, err := c.CreateSession()
-		if err != nil {
-			go func() {
-				fmt.Fprintf(os.Stderr, "cannot connect session %v, %v\n", outColorStrings(serverListIndex, c.Server), err)
-				finished <- true
-			}()
-			continue
-		}
-
-		session.Stdin = bytes.NewReader(r.StdinData)
-
 		// run command
 		outputChan := make(chan string)
 		go func(outputChan chan string) {
+			// create session
+			session, err := c.CreateSession()
+			if err != nil {
+				go func() {
+					fmt.Fprintf(os.Stderr, "cannot connect session %v, %v\n", outColorStrings(serverListIndex, c.Server), err)
+				}()
+				close(outputChan)
+				return
+			}
+
+			session.Stdin = bytes.NewReader(r.StdinData)
+
 			c.RunCmdGetOutput(session, r.ExecCmd, outputChan)
 			close(outputChan)
 		}(outputChan)
@@ -69,15 +71,5 @@ func outColorStrings(num int, inStrings string) (str string) {
 	// 1=Red,2=Yellow,3=Blue,4=Magenta,0=Cyan
 	color := 31 + num%5
 	str = fmt.Sprintf("\x1b[%dm%s\x1b[0m", color, inStrings)
-	return
-}
-
-func getServerNameMaxLength(serverList []string) (serverNameMaxLength int) {
-	serverNameMaxLength = 0
-	for _, serverName := range serverList {
-		if serverNameMaxLength < len(serverName) {
-			serverNameMaxLength = len(serverName)
-		}
-	}
 	return
 }

@@ -7,6 +7,7 @@ import (
 	"sort"
 
 	arg "github.com/alexflint/go-arg"
+	"github.com/blacknon/lssh/check"
 	"github.com/blacknon/lssh/conf"
 	"github.com/blacknon/lssh/list"
 	sshcmd "github.com/blacknon/lssh/ssh"
@@ -29,9 +30,6 @@ func (CommandOption) Version() string {
 }
 
 func main() {
-	// Pre Check
-	conf.CheckBeforeStart()
-
 	// get Command Option
 	var args struct {
 		CommandOption
@@ -82,7 +80,7 @@ func main() {
 
 	selectServer := []string{}
 	if len(connectHost) > 0 {
-		if !conf.CheckInputServerExist(connectHost, nameList) {
+		if !check.ExistServer(connectHost, nameList) {
 			fmt.Fprintln(os.Stderr, "Input Server not found from list.")
 			os.Exit(1)
 		} else {
