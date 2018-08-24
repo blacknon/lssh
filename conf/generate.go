@@ -7,12 +7,13 @@ import (
 
 	"regexp"
 
+	"github.com/blacknon/lssh/common"
 	"github.com/kevinburke/ssh_config"
 )
 
 func ReadSshConfig() (cfg *ssh_config.Config, err error) {
 	// Open ~/.ssh/config
-	sshConfigFile := GetFullPath("~/.ssh/config")
+	sshConfigFile := common.GetFullPath("~/.ssh/config")
 	f, err := os.Open(sshConfigFile)
 	if err != nil {
 		return

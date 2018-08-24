@@ -8,9 +8,11 @@ import (
 	"strings"
 
 	arg "github.com/alexflint/go-arg"
+	"github.com/blacknon/lssh/check"
+	"github.com/blacknon/lssh/common"
 	"github.com/blacknon/lssh/conf"
 	"github.com/blacknon/lssh/list"
-	"github.com/blacknon/lssh/scp"
+	"github.com/blacknon/lssh/ssh"
 )
 
 // Command Option
@@ -28,9 +30,6 @@ func (CommandOption) Version() string {
 }
 
 func main() {
-	// Exec Before Check
-	conf.CheckBeforeStart()
-
 	// get Command Option
 	var args struct {
 		CommandOption
@@ -45,31 +44,17 @@ func main() {
 		configFile = defaultConfPath
 	}
 	connectHost := args.Host
-	permFlag := args.Permission
-	copyFrom := args.From
-	copyTo := args.To
+	isPermission := args.Permission
 
-	// Check and Parse path args
-	fromHostType, fromPath, fromResult := conf.ParsePathArg(copyFrom)
-	toHostType, toPath, toResult := conf.ParsePathArg(copyTo)
+	// Check and Parse args path
+	fromType, fromPath, fromResult := ssh.ParseScpPath(args.From)
+	toType, toPath, toResult := ssh.ParseScpPath(args.To)
 
-	// Check fromResult,toResult
-	if fromResult == false || toResult == false {
-		fmt.Fprintln(os.Stderr, "The format of the specified argument is incorrect.")
-		os.Exit(1)
-	}
+	// Check {from,to}Result
+	check.CheckScpPathResult(fromResult, toResult)
 
-	// Check HostType local only
-	if fromHostType == "local" && toHostType == "local" {
-		fmt.Fprintln(os.Stderr, "It does not correspond local to local copy.")
-		os.Exit(1)
-	}
-
-	// Check HostType remote only and Host flag
-	if fromHostType == "remote" && toHostType == "remote" && len(connectHost) != 0 {
-		fmt.Fprintln(os.Stderr, "In the case of remote to remote copy, it does not correspond to Host option.")
-		os.Exit(1)
-	}
+	// Check {from,to}Type
+	check.CheckScpPathType(fromType, toType, len(connectHost))
 
 	// Get config data
 	listConf := conf.ReadConf(configFile)
@@ -79,16 +64,17 @@ func main() {
 	sort.Strings(nameList)
 
 	selectServer := []string{}
-	toSelectServer := []string{}
-	fromSelectServer := []string{}
+	toServer := []string{}
+	fromServer := []string{}
+
 	if len(connectHost) != 0 {
-		if conf.CheckInputServerExist(connectHost, nameList) == false {
+		if check.ExistServer(connectHost, nameList) == false {
 			fmt.Fprintln(os.Stderr, "Input Server not found from list.")
 			os.Exit(1)
 		} else {
-			toSelectServer = connectHost
+			toServer = connectHost
 		}
-	} else if fromHostType == "remote" && toHostType == "remote" {
+	} else if fromType == "remote" && toType == "remote" {
 		// View From list
 		from_l := new(list.ListInfo)
 		from_l.Prompt = "lscp(from)>>"
@@ -96,21 +82,21 @@ func main() {
 		from_l.DataList = listConf
 		from_l.MultiFlag = false
 		from_l.View()
-		fromSelectServer = from_l.SelectName
-		if fromSelectServer[0] == "ServerName" {
+		fromServer = from_l.SelectName
+		if fromServer[0] == "ServerName" {
 			fmt.Fprintln(os.Stderr, "Server not selected.")
 			os.Exit(1)
 		}
 
-		// View From list
+		// View to list
 		to_l := new(list.ListInfo)
 		to_l.Prompt = "lscp(to)>>"
 		to_l.NameList = nameList
 		to_l.DataList = listConf
 		to_l.MultiFlag = true
 		to_l.View()
-		toSelectServer = to_l.SelectName
-		if toSelectServer[0] == "ServerName" {
+		toServer = to_l.SelectName
+		if toServer[0] == "ServerName" {
 			fmt.Fprintln(os.Stderr, "Server not selected.")
 			os.Exit(1)
 		}
@@ -129,47 +115,52 @@ func main() {
 			os.Exit(1)
 		}
 
-		if fromHostType == "local" {
-			toSelectServer = selectServer
+		if fromType == "local" {
+			toServer = selectServer
 		} else {
-			fromSelectServer = selectServer
+			fromServer = selectServer
 		}
 	}
 
-	// Check file exisits
-	if fromHostType == "local" {
-		_, err := os.Stat(conf.GetFullPath(fromPath))
+	// Check local file exisits
+	if fromType == "local" {
+		_, err := os.Stat(common.GetFullPath(fromPath))
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "not found path %s \n", fromPath)
 			os.Exit(1)
 		}
-		fromPath = conf.GetFullPath(fromPath)
+
+		fromPath = common.GetFullPath(fromPath)
 	}
 
-	r_scp := new(scp.RunInfoScp)
-	r_scp.CopyFromType = fromHostType
-	r_scp.CopyFromPath = fromPath
-	r_scp.CopyFromServer = fromSelectServer
-	r_scp.CopyToType = toHostType
-	r_scp.CopyToPath = toPath
-	r_scp.CopyToServer = toSelectServer
-	r_scp.PermissionFlag = permFlag
-	r_scp.ConConfig = listConf
+	runScp := new(ssh.RunScp)
+
+	// from info
+	runScp.From.Type = fromType
+	runScp.From.Path = fromPath
+	runScp.From.Server = fromServer
+
+	// to info
+	runScp.To.Type = toType
+	runScp.To.Path = toPath
+	runScp.To.Server = toServer
+
+	runScp.Permission = isPermission
+	runScp.Config = listConf
 
 	// print from
-	if r_scp.CopyFromType == "local" {
-		fmt.Fprintf(os.Stderr, "From %s:%s\n", r_scp.CopyFromType, r_scp.CopyFromPath)
+	if runScp.From.Type == "local" {
+		fmt.Fprintf(os.Stderr, "From %s:%s\n", runScp.From.Type, runScp.From.Path)
 	} else {
-		fmt.Println(fromSelectServer)
-		fmt.Fprintf(os.Stderr, "From %s(%s):%s\n", r_scp.CopyFromType, strings.Join(r_scp.CopyFromServer, ","), r_scp.CopyFromPath)
+		fmt.Fprintf(os.Stderr, "From %s(%s):%s\n", runScp.From.Type, strings.Join(runScp.From.Server, ","), runScp.From.Path)
 	}
 
 	// print to
-	if r_scp.CopyToType == "local" {
-		fmt.Fprintf(os.Stderr, "To   %s:%s\n", r_scp.CopyToType, r_scp.CopyToPath)
+	if runScp.From.Type == "local" {
+		fmt.Fprintf(os.Stderr, "To   %s:%s\n", runScp.To.Type, runScp.To.Path)
 	} else {
-		fmt.Fprintf(os.Stderr, "To   %s(%s):%s\n", r_scp.CopyToType, strings.Join(r_scp.CopyToServer, ","), r_scp.CopyToPath)
+		fmt.Fprintf(os.Stderr, "To   %s(%s):%s\n", runScp.To.Type, strings.Join(runScp.To.Server, ","), runScp.To.Path)
 	}
 
-	r_scp.ScpRun()
+	runScp.Start()
 }
