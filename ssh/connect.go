@@ -25,6 +25,11 @@ type Connect struct {
 	IsParallel bool
 }
 
+type Proxy struct {
+	Name string
+	Type string
+}
+
 // @brief: create ssh session
 func (c *Connect) CreateSession() (session *ssh.Session, err error) {
 	// New connect
@@ -371,6 +376,7 @@ func GetProxyList(server string, conf conf.Config) (proxyServers []string) {
 		if serverConf.Proxy == "" {
 			break
 		}
+
 		proxyServers = append(proxyServers, serverConf.Proxy)
 		targetServer = serverConf.Proxy
 	}
