@@ -33,7 +33,7 @@ func (r *Run) term() (err error) {
 	}
 
 	// setup terminal log
-	session, logPath, err := r.setTerminalLog(session, c.Server)
+	session, err = r.setTerminalLog(session, c.Server)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "setup terminal log error %v, %v \n", c.Server, err)
 		return err
@@ -46,31 +46,6 @@ func (r *Run) term() (err error) {
 	// run pre local command
 	if preCmd != "" {
 		runCmdLocal(preCmd)
-	}
-
-	// Create and logging terminal log
-	if r.Conf.Log.Enable {
-		go func() {
-			logWriter, _ := os.OpenFile(logPath, os.O_WRONLY|os.O_APPEND|os.O_CREATE, 0600)
-			preLine := []byte{}
-			for {
-				if r.OutputData.Len() > 0 {
-					line, err := r.OutputData.ReadBytes('\n')
-
-					if err == io.EOF {
-						preLine = append(preLine, line...)
-						continue
-					} else {
-						timestamp := time.Now().Format("2006/01/02 15:04:05 ")
-						fmt.Fprintf(logWriter, timestamp+string(append(preLine, line...)))
-						preLine = []byte{}
-					}
-				} else {
-					time.Sleep(10 * time.Millisecond)
-				}
-			}
-			logWriter.Close()
-		}()
 	}
 
 	// Connect ssh terminal
@@ -89,29 +64,64 @@ func (r *Run) term() (err error) {
 	return
 }
 
-func (r *Run) setTerminalLog(preSession *ssh.Session, server string) (session *ssh.Session, logPath string, err error) {
+func (r *Run) setTerminalLog(preSession *ssh.Session, server string) (session *ssh.Session, err error) {
 	session = preSession
 
 	session.Stdin = os.Stdin
 	session.Stdout = os.Stdout
 	session.Stderr = os.Stderr
 
-	if r.Conf.Log.Enable {
+	logConf := r.Conf.Log
+	if logConf.Enable {
 		// Generate logPath
 		logDir := createLogDirPath(r.Conf.Log.Dir, server)
 		logFile := time.Now().Format("20060102_150405") + "_" + server + ".log"
-		logPath = logDir + "/" + logFile
+		logPath := logDir + "/" + logFile
 
 		// mkdir logDir
 		if err = os.MkdirAll(logDir, 0700); err != nil {
-			return session, logPath, err
+			return session, err
 		}
 
-		r.OutputData = new(bytes.Buffer)
-		session.Stdout = io.MultiWriter(os.Stdout, r.OutputData)
-		session.Stderr = io.MultiWriter(os.Stderr, r.OutputData)
+		// log enable/disable timestamp
+		if logConf.Timestamp {
+			r.OutputData = new(bytes.Buffer)
+			session.Stdout = io.MultiWriter(os.Stdout, r.OutputData)
+			session.Stderr = io.MultiWriter(os.Stderr, r.OutputData)
+
+			// log writer
+			go r.writeTimestampTerminalLog(logPath)
+		} else {
+			logWriter, _ := os.OpenFile(logPath, os.O_WRONLY|os.O_APPEND|os.O_CREATE, 0600)
+			session.Stdout = io.MultiWriter(os.Stdout, logWriter)
+			session.Stderr = io.MultiWriter(os.Stderr, logWriter)
+		}
 	}
+
 	return
+}
+
+func (r *Run) writeTimestampTerminalLog(logPath string) {
+	logWriter, _ := os.OpenFile(logPath, os.O_WRONLY|os.O_APPEND|os.O_CREATE, 0600)
+	defer logWriter.Close()
+
+	preLine := []byte{}
+	for {
+		if r.OutputData.Len() > 0 {
+			line, err := r.OutputData.ReadBytes('\n')
+
+			if err == io.EOF {
+				preLine = append(preLine, line...)
+				continue
+			} else {
+				timestamp := time.Now().Format("2006/01/02 15:04:05 ")
+				fmt.Fprintf(logWriter, timestamp+string(append(preLine, line...)))
+				preLine = []byte{}
+			}
+		} else {
+			time.Sleep(10 * time.Millisecond)
+		}
+	}
 }
 
 func runCmdLocal(cmd string) {
