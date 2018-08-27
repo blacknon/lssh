@@ -59,49 +59,12 @@ func (c *Connect) createSshClient() (client *ssh.Client, err error) {
 		if err != nil {
 			return client, err
 		}
-
-		return client, err
-	}
-
-	// get proxy slice
-	proxyList := GetProxyList(c.Server, c.Conf)
-
-	// var
-	var proxyClient *ssh.Client
-	var proxyConn net.Conn
-
-	for i, proxy := range proxyList {
-		// New Proxy ClientConfig
-		proxyConf := c.Conf.Server[proxy]
-		proxySshConf, err := c.createSshClientConfig(proxy)
-		if err != nil {
-			return client, err
-		}
-
-		if i == 0 {
-			// first proxy
-			proxyClient, err = ssh.Dial("tcp", net.JoinHostPort(proxyConf.Addr, proxyConf.Port), proxySshConf)
-			if err != nil {
-				return client, err
-			}
-
-		} else {
-			// after second proxy
-			proxyConn, err = proxyClient.Dial("tcp", net.JoinHostPort(proxyConf.Addr, proxyConf.Port))
-			if err != nil {
-				return client, err
-			}
-
-			pConnect, pChans, pReqs, err := ssh.NewClientConn(proxyConn, net.JoinHostPort(proxyConf.Addr, proxyConf.Port), proxySshConf)
-			if err != nil {
-				return client, err
-			}
-
-			proxyClient = ssh.NewClient(pConnect, pChans, pReqs)
-		}
+	} else {
+		// get proxy ssh client
+		proxyClient, err := c.createProxySshClientViaProxy()
 
 		// target server connect over last proxy
-		proxyConn, err = proxyClient.Dial("tcp", net.JoinHostPort(conf.Addr, conf.Port))
+		proxyConn, err := proxyClient.Dial("tcp", net.JoinHostPort(conf.Addr, conf.Port))
 		if err != nil {
 			return client, err
 		}
@@ -145,23 +108,72 @@ func (c *Connect) createSshAuth(server string) (auth []ssh.AuthMethod, err error
 		conf.Key = strings.Replace(conf.Key, "~", usr.HomeDir, 1)
 
 		// Read PrivateKey file
-		keyData, err := ioutil.ReadFile(conf.Key)
+		key, err := ioutil.ReadFile(conf.Key)
 		if err != nil {
 			return auth, err
 		}
 
-		// Read PrivateKey data
-		key, err := ssh.ParsePrivateKey(keyData)
+		// Read signer from PrivateKey
+		var signer ssh.Signer
+		if conf.KeyPass != "" {
+			signer, err = ssh.ParsePrivateKeyWithPassphrase(key, []byte(conf.KeyPass))
+		} else {
+			signer, err = ssh.ParsePrivateKey(key)
+		}
+
+		// check err
 		if err != nil {
 			return auth, err
 		}
 
-		auth = []ssh.AuthMethod{ssh.PublicKeys(key)}
+		auth = []ssh.AuthMethod{ssh.PublicKeys(signer)}
 	} else {
 		auth = []ssh.AuthMethod{ssh.Password(conf.Pass)}
 	}
 
 	return auth, err
+}
+
+// @brief: Create ssh client via proxy
+func (c *Connect) createProxySshClientViaProxy() (proxyClient *ssh.Client, err error) {
+	// get proxy slice
+	proxyList := GetProxyList(c.Server, c.Conf)
+
+	// var
+	var proxyConn net.Conn
+
+	for i, proxy := range proxyList {
+		// New Proxy ClientConfig
+		proxyConf := c.Conf.Server[proxy]
+		proxySshConf, err := c.createSshClientConfig(proxy)
+		if err != nil {
+			return proxyClient, err
+		}
+
+		if i == 0 {
+			// first proxy
+			proxyClient, err = ssh.Dial("tcp", net.JoinHostPort(proxyConf.Addr, proxyConf.Port), proxySshConf)
+			if err != nil {
+				return proxyClient, err
+			}
+
+		} else {
+			// after second proxy
+			proxyConn, err = proxyClient.Dial("tcp", net.JoinHostPort(proxyConf.Addr, proxyConf.Port))
+			if err != nil {
+				return proxyClient, err
+			}
+
+			pConnect, pChans, pReqs, err := ssh.NewClientConn(proxyConn, net.JoinHostPort(proxyConf.Addr, proxyConf.Port), proxySshConf)
+			if err != nil {
+				return proxyClient, err
+			}
+
+			proxyClient = ssh.NewClient(pConnect, pChans, pReqs)
+		}
+	}
+
+	return
 }
 
 // @brief: run command over ssh

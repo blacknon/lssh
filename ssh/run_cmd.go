@@ -9,7 +9,6 @@ import (
 )
 
 func (r *Run) cmd() {
-	serverNameMaxLength := common.GetMaxLength(r.ServerList)
 	finished := make(chan bool)
 
 	// print header
@@ -24,39 +23,12 @@ func (r *Run) cmd() {
 		c.Conf = r.Conf
 		c.IsTerm = r.IsTerm
 		c.IsParallel = r.IsParallel
-		serverListIndex := i
+		// serverListIndex := i
 
 		// run command
 		outputChan := make(chan string)
-		go func(outputChan chan string) {
-			// create session
-			session, err := c.CreateSession()
-			if err != nil {
-				go func() {
-					fmt.Fprintf(os.Stderr, "cannot connect session %v, %v\n", outColorStrings(serverListIndex, c.Server), err)
-				}()
-				close(outputChan)
-				return
-			}
-
-			session.Stdin = bytes.NewReader(r.StdinData)
-
-			c.RunCmdGetOutput(session, r.ExecCmd, outputChan)
-			close(outputChan)
-		}(outputChan)
-
-		// get command output
-		go func(outputChan chan string) {
-			for outputLine := range outputChan {
-				if len(r.ServerList) > 1 {
-					lineHeader := fmt.Sprintf("%-*s", serverNameMaxLength, c.Server)
-					fmt.Println(outColorStrings(serverListIndex, lineHeader)+" :: ", outputLine)
-				} else {
-					fmt.Println(outputLine)
-				}
-			}
-			finished <- true
-		}(outputChan)
+		go r.cmdRun(c, i, outputChan)
+		go r.cmdPrintOutput(c, i, outputChan, finished)
 	}
 
 	// wait all finish
@@ -65,6 +37,39 @@ func (r *Run) cmd() {
 	}
 
 	return
+}
+
+func (r *Run) cmdRun(conn *Connect, serverListIndex int, outputChan chan string) {
+	// create session
+	session, err := conn.CreateSession()
+	if err != nil {
+		go func() {
+			fmt.Fprintf(os.Stderr, "cannot connect session %v, %v\n", outColorStrings(serverListIndex, conn.Server), err)
+		}()
+		close(outputChan)
+		return
+	}
+
+	// set stdin
+	session.Stdin = bytes.NewReader(r.StdinData)
+
+	// run command and get output data to outputChan
+	conn.RunCmdGetOutput(session, r.ExecCmd, outputChan)
+	close(outputChan)
+}
+
+func (r *Run) cmdPrintOutput(conn *Connect, serverListIndex int, outputChan chan string, finished chan bool) {
+	serverNameMaxLength := common.GetMaxLength(r.ServerList)
+
+	for outputLine := range outputChan {
+		if len(r.ServerList) > 1 {
+			lineHeader := fmt.Sprintf("%-*s", serverNameMaxLength, conn.Server)
+			fmt.Println(outColorStrings(serverListIndex, lineHeader)+" :: ", outputLine)
+		} else {
+			fmt.Println(outputLine)
+		}
+	}
+	finished <- true
 }
 
 func outColorStrings(num int, inStrings string) (str string) {

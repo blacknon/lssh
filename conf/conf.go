@@ -15,11 +15,13 @@ type Config struct {
 	Include map[string]IncludeConfig
 	Common  ServerConfig
 	Server  map[string]ServerConfig
+	Proxy   map[string]HttpProxyConfig
 }
 
 type LogConfig struct {
-	Enable bool   `toml:"enable"`
-	Dir    string `toml:"dirpath"`
+	Enable    bool   `toml:"enable"`
+	Timestamp bool   `toml:"timestamp"`
+	Dir       string `toml:"dirpath"`
 }
 
 type IncludeConfig struct {
@@ -27,18 +29,29 @@ type IncludeConfig struct {
 }
 
 type ServerConfig struct {
-	Addr    string `toml:"addr"`
-	Port    string `toml:"port"`
-	User    string `toml:"user"`
-	Pass    string `toml:"pass"`
-	Key     string `toml:"key"`
-	PreCmd  string `toml:"pre_cmd"`
-	PostCmd string `toml:"post_cmd"`
-	Proxy   string `toml:"proxy"`
-	Note    string `toml:"note"`
+	Addr      string `toml:"addr"`
+	Port      string `toml:"port"`
+	User      string `toml:"user"`
+	Pass      string `toml:"pass"`
+	Key       string `toml:"key"`
+	KeyPass   string `toml:"keypass"`
+	PreCmd    string `toml:"pre_cmd"`
+	PostCmd   string `toml:"post_cmd"`
+	ProxyType string `toml:"proxy_type"`
+	Proxy     string `toml:"proxy"`
+	Note      string `toml:"note"`
+}
+
+type HttpProxyConfig struct {
+	Addr string `toml:"addr"`
+	Port string `toml:"port"`
+	User string `toml:"user"`
+	Pass string `toml:"pass"`
 }
 
 type ServerConfigMaps map[string]ServerConfig
+
+type HttpProxyConfigMaps map[string]HttpProxyConfig
 
 func ReadConf(confPath string) (checkConf Config) {
 	if !common.IsExist(confPath) {
