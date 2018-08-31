@@ -5,77 +5,72 @@ import (
 	"os"
 	"os/user"
 	"sort"
-	"strings"
 
 	arg "github.com/alexflint/go-arg"
+	"github.com/blacknon/lssh/check"
 	"github.com/blacknon/lssh/conf"
 	"github.com/blacknon/lssh/list"
-	"github.com/blacknon/lssh/ssh"
+	sshcmd "github.com/blacknon/lssh/ssh"
 )
 
 // Command Option
 type CommandOption struct {
-	Host     []string `arg:"-H,help:Connect servername"`
+	Host     []string `arg:"-H,help:connect servername"`
 	List     bool     `arg:"-l,help:print server list"`
 	File     string   `arg:"-f,help:config file path"`
-	Terminal bool     `arg:"-t,help:Run specified command at terminal"`
-	Parallel bool     `arg:"-p,help:Exec command parallel node(tail -F etc...)"`
+	Terminal bool     `arg:"-t,help:run specified command at terminal"`
+	Parallel bool     `arg:"-p,help:run command parallel node(tail -F etc...)"`
 	Generate bool     `arg:"help:(beta) generate .lssh.conf from .ssh/config.(not support ProxyCommand)"`
-	Command  []string `arg:"-c,help:Remote Server exec command."`
+	Command  []string `arg:"-c,help:remote Server exec command."`
 }
 
 // Version Setting
 func (CommandOption) Version() string {
-	return "lssh v0.4.4"
+	return "lssh v0.5.0"
 }
 
 func main() {
-	// Exec Before Check
-	conf.CheckBeforeStart()
-
-	// Set default value
-	usr, _ := user.Current()
-	defaultConfPath := usr.HomeDir + "/.lssh.conf"
-
 	// get Command Option
 	var args struct {
 		CommandOption
 	}
-
-	// Default Value
-	args.File = defaultConfPath
 	arg.MustParse(&args)
 
 	// set option value
-	connectHost := args.Host
-	listFlag := args.List
 	configFile := args.File
-	terminalExec := args.Terminal
-	parallelExec := args.Parallel
-	generateFlag := args.Generate
-	execRemoteCmd := args.Command
+	if configFile == "" {
+		usr, _ := user.Current()
+		defaultConfPath := usr.HomeDir + "/.lssh.conf"
+		configFile = defaultConfPath
+	}
+	connectHost := args.Host
+	isListView := args.List
+	isTerminal := args.Terminal
+	isParallel := args.Parallel
+	isGenerate := args.Generate
+	runCommand := args.Command
 
-	// Generate flag()
-	if generateFlag == true {
-		conf.GenerateConfig()
+	// Generate .lssh.conf
+	if isGenerate {
+		conf.GenConf()
 		os.Exit(0)
 	}
 
-	// Get List
+	// Get config data
 	listConf := conf.ReadConf(configFile)
 
-	// Command flag
-	cmdFlag := false
-	if len(execRemoteCmd) != 0 {
-		cmdFlag = true
+	// Set exec command flag
+	isMultiSelect := false
+	if len(runCommand) > 0 {
+		isMultiSelect = true
 	}
 
-	// Get Server Name List (and sort List)
+	// Extraction server name list from 'listConf'
 	nameList := conf.GetNameList(listConf)
 	sort.Strings(nameList)
 
-	// if --list option
-	if listFlag == true {
+	// check list flag
+	if isListView {
 		fmt.Fprintf(os.Stdout, "lssh Server List:\n")
 		for v := range nameList {
 			fmt.Fprintf(os.Stdout, "  %s\n", nameList[v])
@@ -84,8 +79,8 @@ func main() {
 	}
 
 	selectServer := []string{}
-	if len(connectHost) != 0 {
-		if conf.CheckInputServerExit(connectHost, nameList) == false {
+	if len(connectHost) > 0 {
+		if !check.ExistServer(connectHost, nameList) {
 			fmt.Fprintln(os.Stderr, "Input Server not found from list.")
 			os.Exit(1)
 		} else {
@@ -97,7 +92,7 @@ func main() {
 		l.Prompt = "lssh>>"
 		l.NameList = nameList
 		l.DataList = listConf
-		l.MultiFlag = cmdFlag
+		l.MultiFlag = isMultiSelect
 
 		l.View()
 		selectServer = l.SelectName
@@ -107,49 +102,11 @@ func main() {
 		}
 	}
 
-	// Exec Connect ssh
-	if cmdFlag == true {
-		// Print selected server and connect command
-		fmt.Fprintf(os.Stderr, "Select Server :%s\n", strings.Join(selectServer, ","))
-		fmt.Fprintf(os.Stderr, "Exec command  :%s\n", strings.Join(execRemoteCmd, " "))
-
-		// Connect SSH
-		c := new(ssh.RunInfoCmd)
-		c.ServerList = selectServer
-		c.ConfList = listConf
-		c.Tflag = terminalExec
-		c.Pflag = parallelExec
-		c.ExecCmd = execRemoteCmd
-		c.ConSshCmd()
-
-		os.Exit(0)
-	} else {
-		// Print selected server
-		fmt.Fprintf(os.Stderr, "Select Server :%s\n", selectServer[0])
-
-		// No select Server
-		if len(selectServer) > 1 {
-			fmt.Fprintln(os.Stderr, "Connect ssh interactive shell.Connect only to the first device")
-		}
-
-		// Connect SSH Terminal
-		c := new(ssh.ConInfoTerm)
-		c.Log, c.LogDir = listConf.Log.Enable, listConf.Log.Dir
-		c.Server = selectServer[0]
-		c.User = listConf.Server[c.Server].User
-		c.Addr = listConf.Server[c.Server].Addr
-		c.Port = listConf.Server[c.Server].Port
-		c.Pass = listConf.Server[c.Server].Pass
-		c.KeyPath = listConf.Server[c.Server].Key
-		c.BeforeCmd = listConf.Server[c.Server].BeforeCmd
-		c.AfterCmd = listConf.Server[c.Server].AfterCmd
-		c.ProxyServer = listConf.Server[c.Server].ProxyServer
-		c.Proxy = listConf.Server[c.Server].Proxy
-
-		err := c.Connect()
-		if err != nil {
-			fmt.Println(err)
-			os.Exit(1)
-		}
-	}
+	r := new(sshcmd.Run)
+	r.ServerList = selectServer
+	r.Conf = listConf
+	r.IsTerm = isTerminal
+	r.IsParallel = isParallel
+	r.ExecCmd = runCommand
+	r.Start()
 }
