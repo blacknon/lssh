@@ -7,7 +7,7 @@ TUI list select ssh/scp client.
 
 ## Description
 
-command to read a prepared list in advance and connect ssh/scp the selected host. List file is set in yaml format.When selecting a host, you can filter by keywords. Can execute commands concurrently to multiple hosts.
+command to read a prepared list in advance and connect ssh/scp the selected host. List file is set in yaml format.When selecting a host, you can filter by keywords. Can execute commands concurrently to multiple hosts. Supported multiple ssh proxy.
 
 ## Demo
 
@@ -94,6 +94,20 @@ example:
 	key  = "/path/to/private_key"
 	note = "connect use ssh proxy(multiple)"
 	proxy = "overProxyServer"
+
+	[server.overHttpProxy]
+	addr = "over-http-proxy.com"
+	key  = "/path/to/private_key"
+	note = "connect use http proxy"
+	proxy = "HttpProxy"
+	proxy_type = "http"
+
+	[server.overSocks5Proxy]
+	addr = "192.168.10.100"
+	key  = "/path/to/private_key"
+	note = "connect use socks5 proxy"
+	proxy = "Socks5Proxy"
+	proxy_type = "socks5"
 
 	[proxy.HttpProxy]
 	addr = "example.com"
