@@ -4,10 +4,10 @@ import (
 	"fmt"
 	"os"
 	"os/user"
-	r "reflect"
 	"strings"
 
 	"github.com/BurntSushi/toml"
+	"github.com/blacknon/lssh/common"
 )
 
 type Config struct {
@@ -15,11 +15,13 @@ type Config struct {
 	Include map[string]IncludeConfig
 	Common  ServerConfig
 	Server  map[string]ServerConfig
+	Proxy   map[string]ProxyConfig
 }
 
 type LogConfig struct {
-	Enable bool   `toml:"enable"`
-	Dir    string `toml:"dirpath"`
+	Enable    bool   `toml:"enable"`
+	Timestamp bool   `toml:"timestamp"`
+	Dir       string `toml:"dirpath"`
 }
 
 type IncludeConfig struct {
@@ -27,36 +29,33 @@ type IncludeConfig struct {
 }
 
 type ServerConfig struct {
-	// Basic
+	Addr      string `toml:"addr"`
+	Port      string `toml:"port"`
+	User      string `toml:"user"`
+	Pass      string `toml:"pass"`
+	Key       string `toml:"key"`
+	KeyPass   string `toml:"keypass"`
+	PreCmd    string `toml:"pre_cmd"`
+	PostCmd   string `toml:"post_cmd"`
+	ProxyType string `toml:"proxy_type"`
+	Proxy     string `toml:"proxy"`
+	Note      string `toml:"note"`
+}
+
+type ProxyConfig struct {
 	Addr string `toml:"addr"`
 	Port string `toml:"port"`
 	User string `toml:"user"`
 	Pass string `toml:"pass"`
-	Key  string `toml:"key"`
-
-	// Local command
-	BeforeCmd string `toml:"before_cmd"`
-	AfterCmd  string `toml:"after_cmd"`
-
-	// Proxy
-	ProxyServer string `toml:"proxy_server"`
-	Proxy       ProxyConfig
-
 	Note string `toml:"note"`
-}
-
-type ProxyConfig struct {
-	Addr string
-	Port string
-	User string
-	Pass string
-	Key  string
 }
 
 type ServerConfigMaps map[string]ServerConfig
 
+type ProxyConfigMaps map[string]ProxyConfig
+
 func ReadConf(confPath string) (checkConf Config) {
-	if isExist(confPath) == false {
+	if !common.IsExist(confPath) {
 		fmt.Printf("Config file(%s) Not Found.\nPlease create file.\n\n", confPath)
 		fmt.Printf("sample: %s\n", "https://raw.githubusercontent.com/blacknon/lssh/master/example/config.tml")
 		os.Exit(1)
@@ -101,26 +100,36 @@ func ReadConf(confPath string) (checkConf Config) {
 		}
 	}
 
-	// Set proxy settings
-	for key, _ := range checkConf.Server {
-		proxy := checkConf.Server[key].ProxyServer
-		if proxy != "" {
-			newConf := checkConf.Server[key]
-			newConf.Proxy.Addr = checkConf.Server[proxy].Addr
-			newConf.Proxy.Port = checkConf.Server[proxy].Port
-			newConf.Proxy.User = checkConf.Server[proxy].User
-			newConf.Proxy.Pass = checkConf.Server[proxy].Pass
-			newConf.Proxy.Key = checkConf.Server[proxy].Key
-			checkConf.Server[key] = newConf
-		}
-	}
-
 	// Check Config Parameter
-	checkAlertFlag := checkServerConf(checkConf)
-	if checkAlertFlag == false {
+	checkAlertFlag := checkFormatServerConf(checkConf)
+	if !checkAlertFlag {
 		os.Exit(1)
 	}
 
+	return
+}
+
+func checkFormatServerConf(c Config) (isFormat bool) {
+	isFormat = true
+	for k, v := range c.Server {
+		// Address Input Check
+		if v.Addr == "" {
+			fmt.Printf("%s: 'addr' is not inserted.\n", k)
+			isFormat = false
+		}
+
+		// User Input Check
+		if v.User == "" {
+			fmt.Printf("%s: 'user' is not inserted.\n", k)
+			isFormat = false
+		}
+
+		// Password or Keyfile Input Check
+		if v.Pass == "" && v.Key == "" {
+			fmt.Printf("%s: Both Password and KeyPath are entered.Please enter either.\n", k)
+			isFormat = false
+		}
+	}
 	return
 }
 
@@ -128,48 +137,13 @@ func serverConfigReduct(perConfig, childConfig ServerConfig) ServerConfig {
 	result := ServerConfig{}
 
 	// struct to map
-	perConfigMap, _ := structToMap(&perConfig)
-	childConfigMap, _ := structToMap(&childConfig)
+	perConfigMap, _ := common.StructToMap(&perConfig)
+	childConfigMap, _ := common.StructToMap(&childConfig)
 
-	resultMap := mapReduce(perConfigMap, childConfigMap)
-	_ = mapToStruct(resultMap, &result)
+	resultMap := common.MapReduce(perConfigMap, childConfigMap)
+	_ = common.MapToStruct(resultMap, &result)
 
 	return result
-}
-
-func mapReduce(map1, map2 map[string]interface{}) map[string]interface{} {
-	for ia, va := range map1 {
-		if va != "" && map2[ia] == "" {
-			map2[ia] = va
-		}
-	}
-	return map2
-}
-
-func structToMap(val interface{}) (mapVal map[string]interface{}, ok bool) {
-	structVal := r.Indirect(r.ValueOf(val))
-	typ := structVal.Type()
-
-	mapVal = make(map[string]interface{})
-
-	for i := 0; i < typ.NumField(); i++ {
-		field := structVal.Field(i)
-
-		if field.CanSet() {
-			mapVal[typ.Field(i).Name] = field.Interface()
-		}
-	}
-
-	return
-}
-
-func mapToStruct(mapVal map[string]interface{}, val interface{}) (ok bool) {
-	structVal := r.Indirect(r.ValueOf(val))
-	for name, elem := range mapVal {
-		structVal.FieldByName(name).Set(r.ValueOf(elem))
-	}
-
-	return
 }
 
 func GetNameList(listConf Config) (nameList []string) {

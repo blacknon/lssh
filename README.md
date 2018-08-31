@@ -7,7 +7,7 @@ TUI list select ssh/scp client.
 
 ## Description
 
-command to read a prepared list in advance and connect ssh/scp the selected host. List file is set in yaml format.When selecting a host, you can filter by keywords. Can execute commands concurrently to multiple hosts.
+command to read a prepared list in advance and connect ssh/scp the selected host. List file is set in yaml format.When selecting a host, you can filter by keywords. Can execute commands concurrently to multiple hosts. Supported multiple ssh proxy, and supported http/socks5 proxy.
 
 ## Demo
 
@@ -17,10 +17,9 @@ command to read a prepared list in advance and connect ssh/scp the selected host
 
 ## Requirement
 
-need the following command.
+lscp is need the following command in remote server.
 
-- ssh
-- scp (remote host)
+- scp
 
 ## Install
 
@@ -35,17 +34,15 @@ brew install(Mac OS X)
 	brew tap blacknon/lssh
 	brew install lssh
 
-	# if not use ~.ssh/config
+	# generate .lssh.conf(not use ~/.ssh/config)
 	curl -s https://raw.githubusercontent.com/blacknon/lssh/master/example/config.tml | cp -n <(cat) ~/.lssh.conf # copy sample config file
 
-	# if use ~.ssh/config (not support Proxy)
+	# generate .lssh.conf(use ~/.ssh/config.not support proxy)
 	lssh --generate > ~/.lssh.conf
 
 ## Usage
 
-Please edit "~/.lssh.conf". The connection information at servers,can be divided into external files. log dir "\<Date\>" => date(YYYYMMDD) ,"\<Hostname\>" => Servername directory create.
-
-※ Not support Multi-proxy
+Please edit "~/.lssh.conf". The connection information at servers,can be divided into external files. log dir "\<Date\>" => date(YYYYMMDD) ,"\<Hostname\>" => Servername.
 
 example:
 
@@ -59,7 +56,7 @@ example:
 	port = "22"
 	user = "test"
 
-	# include config file settings and path
+	# include config file settings and path (only common,server conf)
 	[include.Name]
 	path = "/path/to/include/file"
 
@@ -78,8 +75,8 @@ example:
 	addr = "192.168.100.103"
 	key  = "/path/to/private_key"
 	note = "Before/After run local command"
-	before_cmd = "(option) exec command before ssh connect."
-	before_cmd = "(option) exec command after ssh disconnected."
+	pre_cmd = "(option) exec command before ssh connect."
+	post_cmd = "(option) exec command after ssh disconnected."
 
 	[server.sshProxyServer]
 	addr = "192.168.100.200"
@@ -90,43 +87,71 @@ example:
 	addr = "192.168.10.10"
 	key  = "/path/to/private_key"
 	note = "connect use ssh proxy"
-	proxy_server = "sshProxyServer"
+	proxy = "sshProxyServer"
 
-After exec command.
+	[server.overProxyServer2]
+	addr = "192.168.10.100"
+	key  = "/path/to/private_key"
+	note = "connect use ssh proxy(multiple)"
+	proxy = "overProxyServer"
+
+	[server.overHttpProxy]
+	addr = "over-http-proxy.com"
+	key  = "/path/to/private_key"
+	note = "connect use http proxy"
+	proxy = "HttpProxy"
+	proxy_type = "http"
+
+	[server.overSocks5Proxy]
+	addr = "192.168.10.100"
+	key  = "/path/to/private_key"
+	note = "connect use socks5 proxy"
+	proxy = "Socks5Proxy"
+	proxy_type = "socks5"
+
+	[proxy.HttpProxy]
+	addr = "example.com"
+	port = "8080"
+
+	[proxy.Socks5Proxy]
+	addr = "example.com"
+	port = "54321"
+
+After run command.
 
     lssh
 
 
 option(lssh)
 
-	lssh v0.4.4
+	lssh v0.5.0
 	Usage: lssh [--host HOST] [--list] [--file FILE] [--terminal] [--parallel] [--generate] [--command COMMAND]
 
 	Options:
-	  --host HOST, -H HOST   Connect servername
+	  --host HOST, -H HOST   connect servername
 	  --list, -l             print server list
-	  --file FILE, -f FILE   config file path [default: /Users/uesugi/.lssh.conf]
-	  --terminal, -t         Run specified command at terminal
-	  --parallel, -p         Exec command parallel node(tail -F etc...)
+	  --file FILE, -f FILE   config file path
+	  --terminal, -t         run specified command at terminal
+	  --parallel, -p         run command parallel node(tail -F etc...)
 	  --generate             (beta) generate .lssh.conf from .ssh/config.(not support ProxyCommand)
 	  --command COMMAND, -c COMMAND
-	                         Remote Server exec command.
+	                         remote Server exec command.
 	  --help, -h             display this help and exit
 	  --version              display version and exit
 
 option(lscp)
 
-	lscp v0.4.4
-	Usage: lscp [--host HOST] [--file FILE] FROM TO
+	lscp v0.5.0
+	Usage: lscp [--host HOST] [--file FILE] [--permission] FROM TO
 
 	Positional arguments:
-	  FROM                   Copy from path
-	  TO                     Copy to path
+	  FROM                   copy from path (local:<path>|remote:<path>)
+	  TO                     copy to path (local:<path>|remote:<path>)
 
 	Options:
-	  --host HOST, -H HOST   Connect servername
-	  --file FILE, -f FILE   config file path [default: /Users/uesugi/.lssh.conf]
-	  --permisson, -p        copy file permission
+	  --host HOST, -H HOST   connect servername
+	  --file FILE, -f FILE   config file path
+	  --permission, -p       copy file permission
 	  --help, -h             display this help and exit
 	  --version              display version and exit
 
