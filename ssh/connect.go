@@ -377,16 +377,17 @@ func GetProxyList(server string, config conf.Config) (proxyList []string, proxyT
 	proxyType = map[string]string{}
 
 	for {
-		var ok bool
+		isOk := false
 
 		switch targetType {
 		case "http", "https", "socks5":
-			_, ok = config.Proxy[targetServer]
+			_, isOk = config.Proxy[targetServer]
 			preProxy = ""
 			preProxyType = ""
+
 		default:
 			var preProxyConf conf.ServerConfig
-			preProxyConf, ok = config.Server[targetServer]
+			preProxyConf, isOk = config.Server[targetServer]
 			preProxy = preProxyConf.Proxy
 			preProxyType = preProxyConf.ProxyType
 		}
@@ -396,7 +397,7 @@ func GetProxyList(server string, config conf.Config) (proxyList []string, proxyT
 			break
 		}
 
-		if !ok {
+		if !isOk {
 			err = fmt.Errorf("Not Found proxy : %s", targetServer)
 			return nil, nil, err
 		}
