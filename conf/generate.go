@@ -7,12 +7,13 @@ import (
 
 	"regexp"
 
+	"github.com/blacknon/lssh/common"
 	"github.com/kevinburke/ssh_config"
 )
 
 func ReadSshConfig() (cfg *ssh_config.Config, err error) {
 	// Open ~/.ssh/config
-	sshConfigFile := GetFullPath("~/.ssh/config")
+	sshConfigFile := common.GetFullPath("~/.ssh/config")
 	f, err := os.Open(sshConfigFile)
 	if err != nil {
 		return
@@ -22,7 +23,7 @@ func ReadSshConfig() (cfg *ssh_config.Config, err error) {
 	return
 }
 
-func GenerateConfig() {
+func GenConf() {
 	// get user infomation
 	usr, _ := user.Current()
 
@@ -44,12 +45,13 @@ func GenerateConfig() {
 		}
 	}
 
-	// log
+	// print conf [log]
 	fmt.Println("[log]")
 	fmt.Println("enable = false")
 	fmt.Println("dirpath = \"/path/to/dir/<Date>/<Hostname>\"")
 	fmt.Println("")
 
+	// print conf [server]
 	for _, server := range hostList {
 		// Get ssh/config value
 		addr := ssh_config.Get(server, "Hostname")
