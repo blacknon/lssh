@@ -7,7 +7,7 @@ TUI list select ssh/scp client.
 
 ## Description
 
-command to read a prepared list in advance and connect ssh/scp the selected host. List file is set in yaml format.When selecting a host, you can filter by keywords. Can execute commands concurrently to multiple hosts. Supported multiple ssh proxy.
+command to read a prepared list in advance and connect ssh/scp the selected host. List file is set in yaml format.When selecting a host, you can filter by keywords. Can execute commands concurrently to multiple hosts. Supported multiple ssh proxy, and supported http/socks5 proxy.
 
 ## Demo
 
@@ -56,7 +56,7 @@ example:
 	port = "22"
 	user = "test"
 
-	# include config file settings and path
+	# include config file settings and path (only common,server conf)
 	[include.Name]
 	path = "/path/to/include/file"
 
