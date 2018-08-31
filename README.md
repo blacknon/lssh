@@ -49,6 +49,7 @@ example:
 	# terminal log settings
 	[log]
 	enable = true
+	timestamp = true
 	dirpath = "/path/to/logdir"
 
 	# server common settings
