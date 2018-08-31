@@ -15,7 +15,7 @@ type Config struct {
 	Include map[string]IncludeConfig
 	Common  ServerConfig
 	Server  map[string]ServerConfig
-	Proxy   map[string]HttpProxyConfig
+	Proxy   map[string]ProxyConfig
 }
 
 type LogConfig struct {
@@ -42,16 +42,17 @@ type ServerConfig struct {
 	Note      string `toml:"note"`
 }
 
-type HttpProxyConfig struct {
+type ProxyConfig struct {
 	Addr string `toml:"addr"`
 	Port string `toml:"port"`
 	User string `toml:"user"`
 	Pass string `toml:"pass"`
+	Note string `toml:"note"`
 }
 
 type ServerConfigMaps map[string]ServerConfig
 
-type HttpProxyConfigMaps map[string]HttpProxyConfig
+type ProxyConfigMaps map[string]ProxyConfig
 
 func ReadConf(confPath string) (checkConf Config) {
 	if !common.IsExist(confPath) {

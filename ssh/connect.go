@@ -2,6 +2,7 @@ package ssh
 
 import (
 	"bytes"
+	"fmt"
 	"io/ioutil"
 	"net"
 	"os"
@@ -52,37 +53,99 @@ func (c *Connect) CreateSession() (session *ssh.Session, err error) {
 //     support multiple proxy connect
 func (c *Connect) createSshClient() (client *ssh.Client, err error) {
 	// New ClientConfig
-	conf := c.Conf.Server[c.Server]
+	serverConf := c.Conf.Server[c.Server]
 	sshConf, err := c.createSshClientConfig(c.Server)
 	if err != nil {
 		return client, err
 	}
 
 	// not use proxy
-	if conf.Proxy == "" {
-		client, err = ssh.Dial("tcp", net.JoinHostPort(conf.Addr, conf.Port), sshConf)
+	if serverConf.Proxy == "" {
+		client, err = ssh.Dial("tcp", net.JoinHostPort(serverConf.Addr, serverConf.Port), sshConf)
 		if err != nil {
 			return client, err
 		}
 	} else {
-		// get proxy ssh client
-		proxyClient, err := c.createProxySshClientViaProxy()
-
-		// target server connect over last proxy
-		proxyConn, err := proxyClient.Dial("tcp", net.JoinHostPort(conf.Addr, conf.Port))
+		client, err = c.createSshClientOverProxy(serverConf, sshConf)
 		if err != nil {
 			return client, err
 		}
-
-		// create ssh client
-		clientConnect, clientChans, clientReqs, err := ssh.NewClientConn(proxyConn, net.JoinHostPort(conf.Addr, conf.Port), sshConf)
-		if err != nil {
-			return client, err
-		}
-		client = ssh.NewClient(clientConnect, clientChans, clientReqs)
 	}
 
 	return client, err
+}
+
+// @brief: Create ssh client via proxy
+func (c *Connect) createSshClientOverProxy(serverConf conf.ServerConfig, sshConf *ssh.ClientConfig) (client *ssh.Client, err error) {
+	// get proxy slice
+	proxyList, proxyType, err := GetProxyList(c.Server, c.Conf)
+	if err != nil {
+		return client, err
+	}
+
+	// var
+	var proxyClient *ssh.Client
+	var proxyConn net.Conn
+
+	for _, proxy := range proxyList {
+		// New Proxy ClientConfig
+		proxyConf := c.Conf.Server[proxy]
+		proxySshConf, err := c.createSshClientConfig(proxy)
+		if err != nil {
+			return client, err
+		}
+
+		switch proxyType[proxy] {
+		case "http", "https":
+
+		case "socks5":
+
+		default:
+			proxyClient, err = createProxySshClientViaSsh(proxyConf, proxySshConf, proxyClient)
+		}
+
+		if err != nil {
+			return client, err
+		}
+
+		// if i == 0 {
+		// 	// first proxy
+		// 	proxyClient, err = ssh.Dial("tcp", net.JoinHostPort(proxyConf.Addr, proxyConf.Port), proxySshConf)
+		// 	if err != nil {
+		// 		return client, err
+		// 	}
+
+		// } else {
+		// 	// after second proxy
+		// 	proxyConn, err = proxyClient.Dial("tcp", net.JoinHostPort(proxyConf.Addr, proxyConf.Port))
+		// 	if err != nil {
+		// 		return client, err
+		// 	}
+
+		// 	pConnect, pChans, pReqs, err := ssh.NewClientConn(proxyConn, net.JoinHostPort(proxyConf.Addr, proxyConf.Port), proxySshConf)
+		// 	if err != nil {
+		// 		return client, err
+		// 	}
+
+		// 	proxyClient = ssh.NewClient(pConnect, pChans, pReqs)
+		// }
+	}
+
+	// target server connect over last proxy
+	proxyConn, err = proxyClient.Dial("tcp", net.JoinHostPort(serverConf.Addr, serverConf.Port))
+
+	if err != nil {
+		return client, err
+	}
+
+	// create ssh client
+	clientConnect, clientChans, clientReqs, err := ssh.NewClientConn(proxyConn, net.JoinHostPort(serverConf.Addr, serverConf.Port), sshConf)
+	if err != nil {
+		return client, err
+	}
+	client = ssh.NewClient(clientConnect, clientChans, clientReqs)
+
+	return
 }
 
 // @brief: Create ssh Client
@@ -137,48 +200,6 @@ func (c *Connect) createSshAuth(server string) (auth []ssh.AuthMethod, err error
 	}
 
 	return auth, err
-}
-
-// @brief: Create ssh client via proxy
-func (c *Connect) createProxySshClientViaProxy() (proxyClient *ssh.Client, err error) {
-	// get proxy slice
-	proxyList := GetProxyList(c.Server, c.Conf)
-
-	// var
-	var proxyConn net.Conn
-
-	for i, proxy := range proxyList {
-		// New Proxy ClientConfig
-		proxyConf := c.Conf.Server[proxy]
-		proxySshConf, err := c.createSshClientConfig(proxy)
-		if err != nil {
-			return proxyClient, err
-		}
-
-		if i == 0 {
-			// first proxy
-			proxyClient, err = ssh.Dial("tcp", net.JoinHostPort(proxyConf.Addr, proxyConf.Port), proxySshConf)
-			if err != nil {
-				return proxyClient, err
-			}
-
-		} else {
-			// after second proxy
-			proxyConn, err = proxyClient.Dial("tcp", net.JoinHostPort(proxyConf.Addr, proxyConf.Port))
-			if err != nil {
-				return proxyClient, err
-			}
-
-			pConnect, pChans, pReqs, err := ssh.NewClientConn(proxyConn, net.JoinHostPort(proxyConf.Addr, proxyConf.Port), proxySshConf)
-			if err != nil {
-				return proxyClient, err
-			}
-
-			proxyClient = ssh.NewClient(pConnect, pChans, pReqs)
-		}
-	}
-
-	return
 }
 
 // @brief: run command over ssh
@@ -325,6 +346,7 @@ func (c *Connect) ConTerm(session *ssh.Session) (err error) {
 		}
 	}()
 
+	// keep alive packet
 	go func() {
 		for {
 			_, _ = session.SendRequest("keepalive@golang.org", true, nil)
@@ -368,23 +390,60 @@ func (c *Connect) setIsTerm(preSession *ssh.Session) (session *ssh.Session, err 
 
 // @brief:
 //     get ssh proxy server slice
-func GetProxyList(server string, conf conf.Config) (proxyServers []string) {
+func GetProxyList(server string, config conf.Config) (proxyList []string, proxyType map[string]string, err error) {
+	var targetType string
+	var preProxy, preProxyType string
+
 	targetServer := server
+	proxyType = map[string]string{}
 
 	for {
-		serverConf := conf.Server[targetServer]
-		if serverConf.Proxy == "" {
+		var ok bool
+
+		switch targetType {
+		case "http", "https", "socks5":
+			_, ok = config.Proxy[targetServer]
+			preProxy = ""
+			preProxyType = ""
+		default:
+			var preProxyConf conf.ServerConfig
+			preProxyConf, ok = config.Server[targetServer]
+			preProxy = preProxyConf.Proxy
+			preProxyType = preProxyConf.ProxyType
+		}
+
+		// not use pre proxy
+		if preProxy == "" {
 			break
 		}
 
-		proxyServers = append(proxyServers, serverConf.Proxy)
-		targetServer = serverConf.Proxy
+		if !ok {
+			err = fmt.Errorf("Not Found proxy : %s", targetServer)
+			return nil, nil, err
+		}
+
+		// set proxy info
+		proxy := new(Proxy)
+		proxy.Name = preProxy
+
+		switch preProxyType {
+		case "http", "https", "socks5":
+			proxy.Type = preProxyType
+		default:
+			proxy.Type = "ssh"
+		}
+
+		proxyList = append(proxyList, proxy.Name)
+		proxyType[proxy.Name] = proxy.Type
+
+		targetServer = proxy.Name
+		targetType = proxy.Type
 	}
 
 	// reverse proxyServers slice
-	for i, j := 0, len(proxyServers)-1; i < j; i, j = i+1, j-1 {
-		proxyServers[i], proxyServers[j] = proxyServers[j], proxyServers[i]
+	for i, j := 0, len(proxyList)-1; i < j; i, j = i+1, j-1 {
+		proxyList[i], proxyList[j] = proxyList[j], proxyList[i]
 	}
 
-	return proxyServers
+	return
 }
