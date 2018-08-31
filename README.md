@@ -95,6 +95,14 @@ example:
 	note = "connect use ssh proxy(multiple)"
 	proxy = "overProxyServer"
 
+	[proxy.HttpProxy]
+	addr = "example.com"
+	port = "8080"
+
+	[proxy.Socks5Proxy]
+	addr = "example.com"
+	port = "54321"
+
 After run command.
 
     lssh

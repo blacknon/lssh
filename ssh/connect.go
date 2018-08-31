@@ -15,6 +15,7 @@ import (
 
 	"golang.org/x/crypto/ssh"
 	"golang.org/x/crypto/ssh/terminal"
+	"golang.org/x/net/proxy"
 
 	"github.com/blacknon/lssh/conf"
 )
@@ -75,7 +76,8 @@ func (c *Connect) createSshClient() (client *ssh.Client, err error) {
 	return client, err
 }
 
-// @brief: Create ssh client via proxy
+// @brief:
+//     Create ssh client via proxy
 func (c *Connect) createSshClientOverProxy(serverConf conf.ServerConfig, sshConf *ssh.ClientConfig) (client *ssh.Client, err error) {
 	// get proxy slice
 	proxyList, proxyType, err := GetProxyList(c.Server, c.Conf)
@@ -85,70 +87,43 @@ func (c *Connect) createSshClientOverProxy(serverConf conf.ServerConfig, sshConf
 
 	// var
 	var proxyClient *ssh.Client
-	var proxyConn net.Conn
+	var proxyDialer proxy.Dialer
 
 	for _, proxy := range proxyList {
-		// New Proxy ClientConfig
-		proxyConf := c.Conf.Server[proxy]
-		proxySshConf, err := c.createSshClientConfig(proxy)
-		if err != nil {
-			return client, err
-		}
-
 		switch proxyType[proxy] {
 		case "http", "https":
+			proxyConf := c.Conf.Proxy[proxy]
+			proxyDialer, err = createProxyDialerHttp(proxyConf)
 
 		case "socks5":
+			proxyConf := c.Conf.Proxy[proxy]
+			proxyDialer, err = createProxyDialerSocks5(proxyConf)
 
 		default:
-			proxyClient, err = createProxySshClientViaSsh(proxyConf, proxySshConf, proxyClient)
+			proxyConf := c.Conf.Server[proxy]
+			proxySshConf, err := c.createSshClientConfig(proxy)
+			if err != nil {
+				return client, err
+			}
+			proxyClient, err = createSshClientViaProxy(proxyConf, proxySshConf, proxyClient, proxyDialer)
+
 		}
 
 		if err != nil {
 			return client, err
 		}
-
-		// if i == 0 {
-		// 	// first proxy
-		// 	proxyClient, err = ssh.Dial("tcp", net.JoinHostPort(proxyConf.Addr, proxyConf.Port), proxySshConf)
-		// 	if err != nil {
-		// 		return client, err
-		// 	}
-
-		// } else {
-		// 	// after second proxy
-		// 	proxyConn, err = proxyClient.Dial("tcp", net.JoinHostPort(proxyConf.Addr, proxyConf.Port))
-		// 	if err != nil {
-		// 		return client, err
-		// 	}
-
-		// 	pConnect, pChans, pReqs, err := ssh.NewClientConn(proxyConn, net.JoinHostPort(proxyConf.Addr, proxyConf.Port), proxySshConf)
-		// 	if err != nil {
-		// 		return client, err
-		// 	}
-
-		// 	proxyClient = ssh.NewClient(pConnect, pChans, pReqs)
-		// }
 	}
 
-	// target server connect over last proxy
-	proxyConn, err = proxyClient.Dial("tcp", net.JoinHostPort(serverConf.Addr, serverConf.Port))
-
+	client, err = createSshClientViaProxy(serverConf, sshConf, proxyClient, proxyDialer)
 	if err != nil {
 		return client, err
 	}
-
-	// create ssh client
-	clientConnect, clientChans, clientReqs, err := ssh.NewClientConn(proxyConn, net.JoinHostPort(serverConf.Addr, serverConf.Port), sshConf)
-	if err != nil {
-		return client, err
-	}
-	client = ssh.NewClient(clientConnect, clientChans, clientReqs)
 
 	return
 }
 
-// @brief: Create ssh Client
+// @brief:
+//     Create ssh Client
 func (c *Connect) createSshClientConfig(server string) (clientConfig *ssh.ClientConfig, err error) {
 	conf := c.Conf.Server[server]
 
@@ -202,7 +177,8 @@ func (c *Connect) createSshAuth(server string) (auth []ssh.AuthMethod, err error
 	return auth, err
 }
 
-// @brief: run command over ssh
+// @brief:
+//    run command over ssh
 func (c *Connect) RunCmd(session *ssh.Session, command []string) (err error) {
 	defer session.Close()
 
@@ -242,7 +218,8 @@ CheckCommandExit:
 	return
 }
 
-// @brief: run command over ssh, output to gochannel
+// @brief:
+//     Run command over ssh, output to gochannel
 func (c *Connect) RunCmdGetOutput(session *ssh.Session, command []string, outputChan chan string) {
 	var outputBuf bytes.Buffer
 	session.Stdout = &outputBuf
@@ -299,7 +276,8 @@ GetOutputLoop:
 	}
 }
 
-// @brief: connect ssh terminal
+// @brief:
+//     connect ssh terminal
 func (c *Connect) ConTerm(session *ssh.Session) (err error) {
 	// defer session.Close()
 	fd := int(os.Stdin.Fd())
@@ -362,7 +340,8 @@ func (c *Connect) ConTerm(session *ssh.Session) (err error) {
 	return
 }
 
-// @brief: set pesudo (run command only)
+// @brief:
+//     set pesudo (run command only)
 func (c *Connect) setIsTerm(preSession *ssh.Session) (session *ssh.Session, err error) {
 	if c.IsTerm {
 		modes := ssh.TerminalModes{
