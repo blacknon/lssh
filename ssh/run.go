@@ -47,7 +47,26 @@ func (r *Run) printRunCommand() {
 
 func (r *Run) printProxy() {
 	if len(r.ServerList) == 1 {
-		proxyList := GetProxyList(r.ServerList[0], r.Conf)
+		proxyList := []string{}
+
+		proxyListOrigin, proxyTypeMap, _ := GetProxyList(r.ServerList[0], r.Conf)
+
+		for _, proxy := range proxyListOrigin {
+			proxyType := proxyTypeMap[proxy]
+
+			proxyPort := ""
+			switch proxyType {
+			case "http", "https", "socks5":
+				proxyPort = r.Conf.Proxy[proxy].Port
+			default:
+				proxyPort = r.Conf.Server[proxy].Port
+			}
+
+			// "[type://server:port]"
+			// ex) [ssh://test-server:22]
+			proxyString := "[" + proxyType + "://" + proxy + ":" + proxyPort + "]"
+			proxyList = append(proxyList, proxyString)
+		}
 
 		if len(proxyList) > 0 {
 			proxyList = append([]string{"localhost"}, proxyList...)
