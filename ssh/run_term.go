@@ -48,6 +48,11 @@ func (r *Run) term() (err error) {
 		runCmdLocal(preCmd)
 	}
 
+	// defer run post local command
+	if postCmd != "" {
+		defer runCmdLocal(postCmd)
+	}
+
 	// Connect ssh terminal
 	finished := make(chan bool)
 	go func() {
@@ -55,11 +60,6 @@ func (r *Run) term() (err error) {
 		finished <- true
 	}()
 	<-finished
-
-	// run post local command
-	if postCmd != "" {
-		runCmdLocal(postCmd)
-	}
 
 	return
 }

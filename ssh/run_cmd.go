@@ -18,6 +18,8 @@ func (r *Run) cmd() {
 	fmt.Println() // print newline
 
 	for i, server := range r.ServerList {
+		count := i
+
 		c := new(Connect)
 		c.Server = server
 		c.Conf = r.Conf
@@ -28,12 +30,21 @@ func (r *Run) cmd() {
 		// run command
 		outputChan := make(chan string)
 		go r.cmdRun(c, i, outputChan)
-		go r.cmdPrintOutput(c, i, outputChan, finished)
+		if r.IsParallel {
+			go func() {
+				r.cmdPrintOutput(c, count, outputChan)
+				finished <- true
+			}()
+		} else {
+			r.cmdPrintOutput(c, count, outputChan)
+		}
 	}
 
 	// wait all finish
-	for i := 1; i <= len(r.ServerList); i++ {
-		<-finished
+	if r.IsParallel {
+		for i := 1; i <= len(r.ServerList); i++ {
+			<-finished
+		}
 	}
 
 	return
@@ -58,7 +69,7 @@ func (r *Run) cmdRun(conn *Connect, serverListIndex int, outputChan chan string)
 	close(outputChan)
 }
 
-func (r *Run) cmdPrintOutput(conn *Connect, serverListIndex int, outputChan chan string, finished chan bool) {
+func (r *Run) cmdPrintOutput(conn *Connect, serverListIndex int, outputChan chan string) {
 	serverNameMaxLength := common.GetMaxLength(r.ServerList)
 
 	for outputLine := range outputChan {
@@ -69,7 +80,6 @@ func (r *Run) cmdPrintOutput(conn *Connect, serverListIndex int, outputChan chan
 			fmt.Println(outputLine)
 		}
 	}
-	finished <- true
 }
 
 func outColorStrings(num int, inStrings string) (str string) {
