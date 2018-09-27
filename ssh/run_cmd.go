@@ -25,11 +25,12 @@ func (r *Run) cmd() {
 		c.Conf = r.Conf
 		c.IsTerm = r.IsTerm
 		c.IsParallel = r.IsParallel
-		// serverListIndex := i
 
 		// run command
 		outputChan := make(chan string)
 		go r.cmdRun(c, i, outputChan)
+
+		// print command output
 		if r.IsParallel {
 			go func() {
 				r.cmdPrintOutput(c, count, outputChan)
@@ -65,7 +66,7 @@ func (r *Run) cmdRun(conn *Connect, serverListIndex int, outputChan chan string)
 	session.Stdin = bytes.NewReader(r.StdinData)
 
 	// run command and get output data to outputChan
-	conn.RunCmdGetOutput(session, r.ExecCmd, outputChan)
+	conn.RunCmdWithOutput(session, r.ExecCmd, outputChan)
 	close(outputChan)
 }
 
