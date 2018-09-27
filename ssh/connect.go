@@ -220,7 +220,7 @@ CheckCommandExit:
 
 // @brief:
 //     Run command over ssh, output to gochannel
-func (c *Connect) RunCmdGetOutput(session *ssh.Session, command []string, outputChan chan string) {
+func (c *Connect) RunCmdWithOutput(session *ssh.Session, command []string, outputChan chan string) {
 	var outputBuf bytes.Buffer
 	session.Stdout = &outputBuf
 	session.Stderr = &outputBuf
