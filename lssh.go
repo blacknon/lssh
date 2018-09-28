@@ -108,5 +108,6 @@ func main() {
 	r.IsTerm = isTerminal
 	r.IsParallel = isParallel
 	r.ExecCmd = runCommand
+
 	r.Start()
 }

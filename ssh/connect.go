@@ -21,10 +21,13 @@ import (
 )
 
 type Connect struct {
-	Server     string
-	Conf       conf.Config
-	IsTerm     bool
-	IsParallel bool
+	Server           string
+	Conf             conf.Config
+	IsTerm           bool
+	IsParallel       bool
+	IsLocalRc        bool
+	LocalRcData      string
+	LocalRcDecodeCmd string
 }
 
 type Proxy struct {
@@ -304,9 +307,17 @@ func (c *Connect) ConTerm(session *ssh.Session) (err error) {
 		return
 	}
 
-	err = session.Shell()
-	if err != nil {
-		return
+	// start shell
+	if c.IsLocalRc {
+		session, err = c.runLocalRcShell(session)
+		if err != nil {
+			return
+		}
+	} else {
+		err = session.Shell()
+		if err != nil {
+			return
+		}
 	}
 
 	// Terminal resize
@@ -426,4 +437,22 @@ func GetProxyList(server string, config conf.Config) (proxyList []string, proxyT
 	}
 
 	return
+}
+
+// @brief:
+//    run shell use local rc file.
+func (c *Connect) runLocalRcShell(preSession *ssh.Session) (session *ssh.Session, err error) {
+	session = preSession
+
+	// command
+	cmd := fmt.Sprintf("bash --rcfile <(echo %s|((base64 --help | grep -q coreutils) && base64 -d <(cat) || base64 -D <(cat) ))", c.LocalRcData)
+	if len(c.LocalRcDecodeCmd) > 0 {
+
+		cmd = fmt.Sprintf("bash --rcfile <(echo %s | %s)", c.LocalRcData, c.LocalRcDecodeCmd)
+		fmt.Println(cmd)
+	}
+
+	err = session.Start(cmd)
+
+	return session, err
 }

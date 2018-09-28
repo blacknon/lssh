@@ -1,6 +1,8 @@
 package common
 
 import (
+	"encoding/base64"
+	"io/ioutil"
 	"os"
 	"os/user"
 	"path/filepath"
@@ -15,8 +17,21 @@ func IsExist(filename string) bool {
 
 func MapReduce(map1, map2 map[string]interface{}) map[string]interface{} {
 	for ia, va := range map1 {
-		if va != "" && map2[ia] == "" {
-			map2[ia] = va
+		switch value := va.(type) {
+		case string:
+			if value != "" && map2[ia] == "" {
+				map2[ia] = value
+			}
+		case []string:
+			map2Value := reflect.ValueOf(map2[ia])
+			if len(value) > 0 && map2Value.Len() == 0 {
+				map2[ia] = value
+			}
+		case bool:
+			map2Value := reflect.ValueOf(map2[ia])
+			if value == true && map2Value.Bool() == false {
+				map2[ia] = value
+			}
 		}
 	}
 
@@ -64,4 +79,29 @@ func GetMaxLength(list []string) (MaxLength int) {
 		}
 	}
 	return
+}
+
+func GetFilesBase64(list []string) (result string, err error) {
+	var data []byte
+	for _, path := range list {
+
+		fullPath := GetFullPath(path)
+
+		// open file
+		file, err := os.Open(fullPath)
+		if err != nil {
+			return "", err
+		}
+		defer file.Close()
+
+		file_data, err := ioutil.ReadAll(file)
+		if err != nil {
+			return "", err
+		}
+
+		data = append(data, file_data...)
+	}
+
+	result = base64.StdEncoding.EncodeToString(data)
+	return result, err
 }
