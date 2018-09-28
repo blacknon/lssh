@@ -10,20 +10,26 @@ import (
 	"strings"
 	"time"
 
+	"github.com/blacknon/lssh/common"
 	"golang.org/x/crypto/ssh"
 )
 
 func (r *Run) term() (err error) {
 	server := r.ServerList[0]
+	c := new(Connect)
+	c.Server = server
+	c.Conf = r.Conf
+	serverConf := c.Conf.Server[c.Server]
 
 	// print header
 	r.printSelectServer()
 	r.printProxy()
 	fmt.Println() // print newline
 
-	c := new(Connect)
-	c.Server = server
-	c.Conf = r.Conf
+	if serverConf.LocalRcUse {
+		fmt.Fprintf(os.Stderr, "Infomation    : This connect use local bashrc. \n")
+		fmt.Println() // print newline
+	}
 
 	// create ssh session
 	session, err := c.CreateSession()
@@ -39,9 +45,26 @@ func (r *Run) term() (err error) {
 		return err
 	}
 
-	serverConf := c.Conf.Server[c.Server]
 	preCmd := serverConf.PreCmd
 	postCmd := serverConf.PostCmd
+
+	// if use local bashrc file.
+	c.IsLocalRc = serverConf.LocalRcUse
+	if c.IsLocalRc {
+		if len(serverConf.LocalRcPath) > 0 {
+			c.LocalRcData, err = common.GetFilesBase64(serverConf.LocalRcPath)
+			if err != nil {
+				return err
+			}
+		} else {
+			rcfile := []string{"~/.bashrc"}
+			c.LocalRcData, err = common.GetFilesBase64(rcfile)
+			if err != nil {
+				return err
+			}
+		}
+		c.LocalRcDecodeCmd = serverConf.LocalRcDecodeCmd
+	}
 
 	// run pre local command
 	if preCmd != "" {
