@@ -53,9 +53,9 @@ type ProxyConfig struct {
 	Note string `toml:"note"`
 }
 
-type ServerConfigMaps map[string]ServerConfig
+// type ServerConfigMaps map[string]ServerConfig
 
-type ProxyConfigMaps map[string]ProxyConfig
+// type ProxyConfigMaps map[string]ProxyConfig
 
 func ReadConf(confPath string) (checkConf Config) {
 	if !common.IsExist(confPath) {
