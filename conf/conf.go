@@ -39,7 +39,7 @@ type ServerConfig struct {
 	PostCmd          string   `toml:"post_cmd"`
 	ProxyType        string   `toml:"proxy_type"`
 	Proxy            string   `toml:"proxy"`
-	LocalRcUse       bool     `toml:"local_rc"`
+	LocalRcUse       string   `toml:"local_rc"` // yes|no
 	LocalRcPath      []string `toml:"local_rc_file"`
 	LocalRcDecodeCmd string   `toml:"local_rc_decode_cmd"`
 	Note             string   `toml:"note"`
@@ -52,10 +52,6 @@ type ProxyConfig struct {
 	Pass string `toml:"pass"`
 	Note string `toml:"note"`
 }
-
-// type ServerConfigMaps map[string]ServerConfig
-
-// type ProxyConfigMaps map[string]ProxyConfig
 
 func ReadConf(confPath string) (checkConf Config) {
 	if !common.IsExist(confPath) {

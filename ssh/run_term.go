@@ -26,11 +26,6 @@ func (r *Run) term() (err error) {
 	r.printProxy()
 	fmt.Println() // print newline
 
-	if serverConf.LocalRcUse {
-		fmt.Fprintf(os.Stderr, "Infomation    : This connect use local bashrc. \n")
-		fmt.Println() // print newline
-	}
-
 	// create ssh session
 	session, err := c.CreateSession()
 	if err != nil {
@@ -49,8 +44,16 @@ func (r *Run) term() (err error) {
 	postCmd := serverConf.PostCmd
 
 	// if use local bashrc file.
-	c.IsLocalRc = serverConf.LocalRcUse
+	switch serverConf.LocalRcUse {
+	case "yes", "Yes", "YES", "y":
+		c.IsLocalRc = true
+	default:
+		c.IsLocalRc = false
+	}
+
 	if c.IsLocalRc {
+		fmt.Fprintf(os.Stderr, "Infomation    : This connect use local bashrc. \n")
+		fmt.Println() // print newline
 		if len(serverConf.LocalRcPath) > 0 {
 			c.LocalRcData, err = common.GetFilesBase64(serverConf.LocalRcPath)
 			if err != nil {
