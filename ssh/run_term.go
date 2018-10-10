@@ -140,7 +140,7 @@ func (r *Run) writeTimestampTerminalLog(logPath string) {
 				preLine = append(preLine, line...)
 				continue
 			} else {
-				timestamp := time.Now().Format("2006/01/02 15:04:05 ")
+				timestamp := time.Now().Format("2006/01/02 15:04:05 ") // yyyy/mm/dd HH:MM:SS
 				fmt.Fprintf(logWriter, timestamp+string(append(preLine, line...)))
 				preLine = []byte{}
 			}
