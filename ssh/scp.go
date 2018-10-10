@@ -116,7 +116,7 @@ func (r *RunScp) pull(target string, scp *scplib.SCPClient) {
 	if r.From.Type == "remote" && r.To.Type == "remote" {
 		r.CopyData, err = scp.GetData(r.From.Path)
 	} else {
-		toPath := createServersDir(target, r.To.Server, r.To.Path)
+		toPath := createServersDir(target, r.From.Server, r.To.Path)
 		err = scp.GetFile(r.From.Path, toPath)
 	}
 
@@ -131,10 +131,10 @@ func ParseScpPath(arg string) (hostType string, path string, result bool) {
 	argArray := strings.SplitN(arg, ":", 2)
 
 	// check split count
-	if len(argArray) != 2 {
-		hostType = ""
-		path = ""
-		result = false
+	if len(argArray) < 2 {
+		hostType = "local"
+		path = argArray[0]
+		result = true
 		return
 	}
 
