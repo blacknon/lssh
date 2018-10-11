@@ -57,7 +57,7 @@ example:
 	port = "22"
 	user = "test"
 
-	# include config file settings and path (only common,server conf)
+	# include config file settings and path (only common,server config).
 	[include.Name]
 	path = "/path/to/include/file"
 
@@ -78,6 +78,20 @@ example:
 	note = "Before/After run local command"
 	pre_cmd = "(option) exec command before ssh connect."
 	post_cmd = "(option) exec command after ssh disconnected."
+
+	[server.UseLocalBashrc_ServerName]
+	addr = "192.168.100.104"
+	key  = "/path/to/private_key"
+	note = "Use local bashrc files."
+	pre_cmd = "(option) exec command before ssh connect."
+	local_rc = 'yes'
+	local_rc_file = [
+         "~/dotfiles/.bashrc"
+        ,"~/dotfiles/bash_prompt"
+        ,"~/dotfiles/sh_alias"
+        ,"~/dotfiles/sh_export"
+        ,"~/dotfiles/sh_function"
+	]
 
 	[server.sshProxyServer]
 	addr = "192.168.100.200"
@@ -104,7 +118,7 @@ example:
 	proxy_type = "http"
 
 	[server.overSocks5Proxy]
-	addr = "192.168.10.100"
+	addr = "192.168.10.101"
 	key  = "/path/to/private_key"
 	note = "connect use socks5 proxy"
 	proxy = "Socks5Proxy"
@@ -125,7 +139,7 @@ After run command.
 
 option(lssh)
 
-	lssh v0.5.0
+	lssh v0.5.1
 	Usage: lssh [--host HOST] [--list] [--file FILE] [--terminal] [--parallel] [--generate] [--command COMMAND]
 
 	Options:
@@ -142,7 +156,7 @@ option(lssh)
 
 option(lscp)
 
-	lscp v0.5.0
+	lscp v0.5.1
 	Usage: lscp [--host HOST] [--file FILE] [--permission] FROM TO
 
 	Positional arguments:
