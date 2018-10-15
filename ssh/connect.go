@@ -449,7 +449,6 @@ func (c *Connect) runLocalRcShell(preSession *ssh.Session) (session *ssh.Session
 	if len(c.LocalRcDecodeCmd) > 0 {
 
 		cmd = fmt.Sprintf("bash --rcfile <(echo %s | %s)", c.LocalRcData, c.LocalRcDecodeCmd)
-		fmt.Println(cmd)
 	}
 
 	err = session.Start(cmd)
