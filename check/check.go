@@ -5,6 +5,8 @@ import (
 	"os"
 )
 
+// @brief
+//
 func ExistServer(inputServer []string, nameList []string) bool {
 	for _, nv := range nameList {
 		for _, iv := range inputServer {
@@ -16,6 +18,8 @@ func ExistServer(inputServer []string, nameList []string) bool {
 	return false
 }
 
+// @brief
+//
 func CheckScpPathResult(fromResult bool, toResult bool) {
 	if fromResult == false || toResult == false {
 		fmt.Fprintln(os.Stderr, "The format of the specified argument is incorrect.")
@@ -23,6 +27,8 @@ func CheckScpPathResult(fromResult bool, toResult bool) {
 	}
 }
 
+// @brief
+//
 func CheckScpPathType(fromType string, toType string, countHosts int) {
 	// Check HostType local only
 	if fromType == "local" && toType == "local" {
