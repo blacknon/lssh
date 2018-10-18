@@ -57,7 +57,7 @@ func main() {
 	}
 
 	// Get config data
-	listConf := conf.ReadConf(configFile)
+	data := conf.ReadConf(configFile)
 
 	// Set exec command flag
 	isMultiSelect := false
@@ -65,8 +65,8 @@ func main() {
 		isMultiSelect = true
 	}
 
-	// Extraction server name list from 'listConf'
-	nameList := conf.GetNameList(listConf)
+	// Extraction server name list from 'data'
+	nameList := conf.GetNameList(data)
 	sort.Strings(nameList)
 
 	// check list flag
@@ -91,7 +91,7 @@ func main() {
 		l := new(list.ListInfo)
 		l.Prompt = "lssh>>"
 		l.NameList = nameList
-		l.DataList = listConf
+		l.DataList = data
 		l.MultiFlag = isMultiSelect
 
 		l.View()
@@ -104,7 +104,7 @@ func main() {
 
 	r := new(sshcmd.Run)
 	r.ServerList = selectServer
-	r.Conf = listConf
+	r.Conf = data
 	r.IsTerm = isTerminal
 	r.IsParallel = isParallel
 	r.ExecCmd = runCommand

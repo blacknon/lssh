@@ -57,29 +57,34 @@ func main() {
 	check.CheckScpPathType(fromType, toType, len(connectHost))
 
 	// Get config data
-	listConf := conf.ReadConf(configFile)
+	data := conf.ReadConf(configFile)
 
 	// Get Server Name List (and sort List)
-	nameList := conf.GetNameList(listConf)
+	nameList := conf.GetNameList(data)
 	sort.Strings(nameList)
 
 	selectServer := []string{}
 	toServer := []string{}
 	fromServer := []string{}
 
-	if len(connectHost) != 0 {
+	// view server list
+	switch {
+	// connectHost is set
+	case len(connectHost) != 0:
 		if check.ExistServer(connectHost, nameList) == false {
 			fmt.Fprintln(os.Stderr, "Input Server not found from list.")
 			os.Exit(1)
 		} else {
 			toServer = connectHost
 		}
-	} else if fromType == "remote" && toType == "remote" {
+
+	// remote to remote scp
+	case fromType == "remote" && toType == "remote":
 		// View From list
 		from_l := new(list.ListInfo)
 		from_l.Prompt = "lscp(from)>>"
 		from_l.NameList = nameList
-		from_l.DataList = listConf
+		from_l.DataList = data
 		from_l.MultiFlag = false
 		from_l.View()
 		fromServer = from_l.SelectName
@@ -92,7 +97,7 @@ func main() {
 		to_l := new(list.ListInfo)
 		to_l.Prompt = "lscp(to)>>"
 		to_l.NameList = nameList
-		to_l.DataList = listConf
+		to_l.DataList = data
 		to_l.MultiFlag = true
 		to_l.View()
 		toServer = to_l.SelectName
@@ -100,12 +105,13 @@ func main() {
 			fmt.Fprintln(os.Stderr, "Server not selected.")
 			os.Exit(1)
 		}
-	} else {
+
+	default:
 		// View List And Get Select Line
 		l := new(list.ListInfo)
 		l.Prompt = "lscp>>"
 		l.NameList = nameList
-		l.DataList = listConf
+		l.DataList = data
 		l.MultiFlag = true
 		l.View()
 
@@ -146,7 +152,7 @@ func main() {
 	runScp.To.Server = toServer
 
 	runScp.Permission = isPermission
-	runScp.Config = listConf
+	runScp.Config = data
 
 	// print from
 	if runScp.From.Type == "local" {
