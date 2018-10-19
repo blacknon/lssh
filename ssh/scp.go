@@ -5,16 +5,15 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"strings"
 
 	scplib "github.com/blacknon/go-scplib"
 	"github.com/blacknon/lssh/conf"
 )
 
 type CopyConInfo struct {
-	Type   string
-	Path   string
-	Server []string
+	IsRemote bool
+	Path     []string
+	Server   []string
 }
 
 type RunScp struct {
@@ -29,12 +28,17 @@ type RunScp struct {
 //    start
 func (r *RunScp) Start() {
 	switch {
-	case r.From.Type == "remote" && r.To.Type == "remote":
+	// remote to remote
+	case r.From.IsRemote && r.To.IsRemote:
 		r.run("pull")
 		r.run("push")
-	case r.From.Type == "remote" && r.To.Type == "local":
+
+	// remote to local
+	case r.From.IsRemote && !r.To.IsRemote:
 		r.run("pull")
-	case r.From.Type == "local" && r.To.Type == "remote":
+
+	// local to remote
+	case !r.From.IsRemote && r.To.IsRemote:
 		r.run("push")
 	}
 }
@@ -97,14 +101,18 @@ func (r *RunScp) run(mode string) {
 //    push scp
 func (r *RunScp) push(target string, scp *scplib.SCPClient) {
 	var err error
-	if r.From.Type == "remote" && r.To.Type == "remote" {
-		err = scp.PutData(r.CopyData, r.To.Path)
+	if r.From.IsRemote && r.To.IsRemote {
+		err = scp.PutData(r.CopyData, r.To.Path[0])
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Failed to run %v \n", err)
+		}
 	} else {
-		err = scp.PutFile(r.From.Path, r.To.Path)
-	}
-
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "Failed to run %v \n", err)
+		for _, fromPath := range r.From.Path {
+			err = scp.PutFile(fromPath, r.To.Path[0])
+			if err != nil {
+				fmt.Fprintf(os.Stderr, "Failed to run %v \n", err)
+			}
+		}
 	}
 }
 
@@ -113,47 +121,25 @@ func (r *RunScp) push(target string, scp *scplib.SCPClient) {
 func (r *RunScp) pull(target string, scp *scplib.SCPClient) {
 	var err error
 	// scp pull
-	if r.From.Type == "remote" && r.To.Type == "remote" {
-		r.CopyData, err = scp.GetData(r.From.Path)
+	if r.From.IsRemote && r.To.IsRemote {
+		for _, fromPath := range r.From.Path {
+			buff := new(bytes.Buffer)
+
+			buff, err = scp.GetData(fromPath)
+			_, err = r.CopyData.Write(buff.Bytes())
+		}
+
 	} else {
-		toPath := createServersDir(target, r.From.Server, r.To.Path)
-		err = scp.GetFile(r.From.Path, toPath)
+		toPath := createServersDir(target, r.From.Server, r.To.Path[0])
+		for _, fromPath := range r.From.Path {
+			err = scp.GetFile(fromPath, toPath)
+		}
+
 	}
 
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Failed to run %v \n", err.Error())
 	}
-}
-
-// @brief:
-//    parse lscp args path
-func ParseScpPath(arg string) (hostType string, path string, result bool) {
-	argArray := strings.SplitN(arg, ":", 2)
-
-	// check split count
-	if len(argArray) < 2 {
-		hostType = "local"
-		path = argArray[0]
-		result = true
-		return
-	}
-
-	pathType := strings.ToLower(argArray[0])
-	switch pathType {
-	case "local", "l":
-		hostType = "local"
-		path = argArray[1]
-	case "remote", "r":
-		hostType = "remote"
-		path = argArray[1]
-	default:
-		hostType = ""
-		path = ""
-		result = false
-		return
-	}
-	result = true
-	return
 }
 
 func createServersDir(target string, serverList []string, toPath string) (path string) {
