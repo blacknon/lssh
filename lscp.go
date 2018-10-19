@@ -5,7 +5,6 @@ import (
 	"os"
 	"os/user"
 	"sort"
-	"strings"
 
 	arg "github.com/alexflint/go-arg"
 	"github.com/blacknon/lssh/check"
@@ -20,7 +19,7 @@ type CommandOption struct {
 	Host       []string `arg:"-H,help:connect servername"`
 	File       string   `arg:"-f,help:config file path"`
 	Permission bool     `arg:"-p,help:copy file permission"`
-	From       string   `arg:"positional,required,help:copy from path (local:<path>|remote:<path>)"`
+	From       []string `arg:"positional,required,help:copy from path (local:<path>|remote:<path>)"`
 	To         string   `arg:"positional,required,help:copy to path (local:<path>|remote:<path>)"`
 }
 
@@ -46,15 +45,23 @@ func main() {
 	connectHost := args.Host
 	isPermission := args.Permission
 
-	// Check and Parse args path
-	fromType, fromPath, fromResult := ssh.ParseScpPath(args.From)
-	toType, toPath, toResult := ssh.ParseScpPath(args.To)
+	// Check scp type remote
+	isFromInRemote := false
+	isFromInLocal := false
+	for _, from := range args.From {
+		// parse args
+		isFromRemote, _ := check.ParseScpPath(from)
 
-	// Check {from,to}Result
-	check.CheckScpPathResult(fromResult, toResult)
+		if isFromRemote {
+			isFromInRemote = true
+		} else {
+			isFromInLocal = true
+		}
+	}
+	isToRemote, _ := check.ParseScpPath(args.To)
 
-	// Check {from,to}Type
-	check.CheckScpPathType(fromType, toType, len(connectHost))
+	// Check from and to Type
+	check.CheckTypeError(isFromInRemote, isFromInLocal, isToRemote, len(connectHost))
 
 	// Get config data
 	data := conf.ReadConf(configFile)
@@ -79,7 +86,7 @@ func main() {
 		}
 
 	// remote to remote scp
-	case fromType == "remote" && toType == "remote":
+	case isFromInRemote && isToRemote:
 		// View From list
 		from_l := new(list.ListInfo)
 		from_l.Prompt = "lscp(from)>>"
@@ -121,52 +128,59 @@ func main() {
 			os.Exit(1)
 		}
 
-		if fromType == "local" {
-			toServer = selectServer
-		} else {
+		if isFromInRemote {
 			fromServer = selectServer
+		} else {
+			toServer = selectServer
 		}
 	}
 
-	// Check local file exisits
-	if fromType == "local" {
-		_, err := os.Stat(common.GetFullPath(fromPath))
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "not found path %s \n", fromPath)
-			os.Exit(1)
-		}
-
-		fromPath = common.GetFullPath(fromPath)
-	}
-
+	// scp struct
 	runScp := new(ssh.RunScp)
 
-	// from info
-	runScp.From.Type = fromType
-	runScp.From.Path = fromPath
+	// set from info
+	for _, from := range args.From {
+		// parse args
+		isFromRemote, fromPath := check.ParseScpPath(from)
+
+		// Check local file exisits
+		if !isFromRemote {
+			_, err := os.Stat(common.GetFullPath(fromPath))
+			if err != nil {
+				fmt.Fprintf(os.Stderr, "not found path %s \n", fromPath)
+				os.Exit(1)
+			}
+			fromPath = common.GetFullPath(fromPath)
+		}
+
+		// set from data
+		runScp.From.IsRemote = isFromRemote
+		runScp.From.Path = append(runScp.From.Path, fromPath)
+	}
 	runScp.From.Server = fromServer
 
-	// to info
-	runScp.To.Type = toType
-	runScp.To.Path = toPath
+	// set to info
+	isToRemote, toPath := check.ParseScpPath(args.To)
+	runScp.To.IsRemote = isToRemote
+	runScp.To.Path = []string{toPath}
 	runScp.To.Server = toServer
 
 	runScp.Permission = isPermission
 	runScp.Config = data
 
-	// print from
-	if runScp.From.Type == "local" {
-		fmt.Fprintf(os.Stderr, "From %s:%s\n", runScp.From.Type, runScp.From.Path)
-	} else {
-		fmt.Fprintf(os.Stderr, "From %s(%s):%s\n", runScp.From.Type, strings.Join(runScp.From.Server, ","), runScp.From.Path)
-	}
+	// // print from
+	// if !runScp.From.IsRemote {
+	// 	fmt.Fprintf(os.Stderr, "From %s:%s\n", runScp.From.Type, runScp.From.Path)
+	// } else {
+	// 	fmt.Fprintf(os.Stderr, "From %s(%s):%s\n", runScp.From.Type, strings.Join(runScp.From.Server, ","), runScp.From.Path)
+	// }
 
-	// print to
-	if runScp.From.Type == "local" {
-		fmt.Fprintf(os.Stderr, "To   %s:%s\n", runScp.To.Type, runScp.To.Path)
-	} else {
-		fmt.Fprintf(os.Stderr, "To   %s(%s):%s\n", runScp.To.Type, strings.Join(runScp.To.Server, ","), runScp.To.Path)
-	}
+	// // print to
+	// if !runScp.To.IsRemote {
+	// 	fmt.Fprintf(os.Stderr, "To   %s:%s\n", runScp.To.Type, runScp.To.Path)
+	// } else {
+	// 	fmt.Fprintf(os.Stderr, "To   %s(%s):%s\n", runScp.To.Type, strings.Join(runScp.To.Server, ","), runScp.To.Path)
+	// }
 
 	runScp.Start()
 }
