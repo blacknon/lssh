@@ -56,6 +56,14 @@ func ParseScpPath(arg string) (isRemote bool, path string) {
 	return
 }
 
+func EscapePath(str string) (escapeStr string) {
+	str = strings.Replace(str, "\\", "\\\\", -1)
+	str = strings.Replace(str, ";", "\\;", -1)
+	str = strings.Replace(str, " ", "\\ ", -1)
+	escapeStr = str
+	return
+}
+
 // @brief
 //    check type.
 func CheckTypeError(isFromInRemote, isFromInLocal, isToRemote bool, countHosts int) {
