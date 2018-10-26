@@ -194,13 +194,20 @@ USAGE:
 
 			// set from data
 			runScp.From.IsRemote = isFromRemote
+			if isFromRemote {
+				fromPath = check.EscapePath(fromPath)
+			}
 			runScp.From.Path = append(runScp.From.Path, fromPath)
+
 		}
 		runScp.From.Server = fromServer
 
 		// set to info
 		isToRemote, toPath := check.ParseScpPath(toArg)
 		runScp.To.IsRemote = isToRemote
+		if isToRemote {
+			toPath = check.EscapePath(toPath)
+		}
 		runScp.To.Path = []string{toPath}
 		runScp.To.Server = toServer
 

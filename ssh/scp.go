@@ -107,11 +107,9 @@ func (r *RunScp) push(target string, scp *scplib.SCPClient) {
 			fmt.Fprintf(os.Stderr, "Failed to run %v \n", err)
 		}
 	} else {
-		for _, fromPath := range r.From.Path {
-			err = scp.PutFile(fromPath, r.To.Path[0])
-			if err != nil {
-				fmt.Fprintf(os.Stderr, "Failed to run %v \n", err)
-			}
+		err = scp.PutFile(r.From.Path, r.To.Path[0])
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Failed to run %v \n", err)
 		}
 	}
 }
@@ -120,21 +118,13 @@ func (r *RunScp) push(target string, scp *scplib.SCPClient) {
 //    pull scp
 func (r *RunScp) pull(target string, scp *scplib.SCPClient) {
 	var err error
+
 	// scp pull
 	if r.From.IsRemote && r.To.IsRemote {
-		for _, fromPath := range r.From.Path {
-			buff := new(bytes.Buffer)
-
-			buff, err = scp.GetData(fromPath)
-			_, err = r.CopyData.Write(buff.Bytes())
-		}
-
+		r.CopyData, err = scp.GetData(r.From.Path)
 	} else {
 		toPath := createServersDir(target, r.From.Server, r.To.Path[0])
-		for _, fromPath := range r.From.Path {
-			err = scp.GetFile(fromPath, toPath)
-		}
-
+		err = scp.GetFile(r.From.Path, toPath)
 	}
 
 	if err != nil {
