@@ -3,6 +3,7 @@ package ssh
 import (
 	"bytes"
 	"fmt"
+	"io"
 	"io/ioutil"
 	"net"
 	"os"
@@ -223,9 +224,9 @@ CheckCommandExit:
 // @brief:
 //     Run command over ssh, output to gochannel
 func (c *Connect) RunCmdWithOutput(session *ssh.Session, command []string, outputChan chan string) {
-	var outputBuf bytes.Buffer
-	session.Stdout = &outputBuf
-	session.Stderr = &outputBuf
+	outputBuf := new(bytes.Buffer)
+	session.Stdout = io.MultiWriter(outputBuf)
+	session.Stderr = io.MultiWriter(outputBuf)
 
 	// run command
 	isExit := make(chan bool)
@@ -234,41 +235,39 @@ func (c *Connect) RunCmdWithOutput(session *ssh.Session, command []string, outpu
 		isExit <- true
 	}()
 
+	preLine := []byte{}
+
 GetOutputLoop:
 	for {
-		time.Sleep(100 * time.Millisecond)
-
-		if outputBuf.Len() == 0 {
+		if outputBuf.Len() > 0 {
+			line, err := outputBuf.ReadBytes('\n')
+			if err == io.EOF {
+				preLine = append(preLine, line...)
+				continue
+			} else {
+				outputLine := strings.Split(string(append(preLine, line...)), "\n")[0]
+				outputChan <- outputLine
+			}
+		} else {
 			select {
 			case <-isExit:
 				break GetOutputLoop
-			case <-time.After(100 * time.Millisecond):
+			case <-time.After(1000 * time.Millisecond):
 				continue GetOutputLoop
 			}
-		}
-
-		for {
-			outputLine, err := outputBuf.ReadString('\n')
-			if err != nil {
-				break
-			}
-
-			outputLine = strings.Split(outputLine, "\n")[0]
-			outputChan <- string(outputLine)
 		}
 	}
 
 	// last check
-	var err error
 	if outputBuf.Len() > 0 {
-		for err == nil {
-			outputLine, err := outputBuf.ReadString('\n')
-			if err != nil {
+		for {
+			line, err := outputBuf.ReadBytes('\n')
+			if err != io.EOF {
+				outputLine := strings.Split(string(append(preLine, line...)), "\n")[0]
+				outputChan <- outputLine
+			} else {
 				break
 			}
-
-			outputLine = strings.Split(outputLine, "\n")[0]
-			outputChan <- string(outputLine)
 		}
 	}
 }
