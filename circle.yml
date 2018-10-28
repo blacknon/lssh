@@ -1,6 +1,6 @@
 dependencies:
     override:
-        - go get -t -d -v ./...
+        - go get -u -t -d -v ./...
         - make
 test:
     override:
