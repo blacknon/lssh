@@ -7,7 +7,6 @@ import (
 )
 
 // @brief
-//
 func ExistServer(inputServer []string, nameList []string) bool {
 	for _, nv := range nameList {
 		for _, iv := range inputServer {

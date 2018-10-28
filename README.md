@@ -23,7 +23,7 @@ lscp is need the following command in remote server.
 
 ## Install
 
-compile gofile(tested go1.8.3).
+compile gofile(tested go1.11.1).
 
     go get github.com/blacknon/lssh
     cd $GOPATH/src/github.com/blacknon/lssh
@@ -139,63 +139,96 @@ After run command.
 
 option(lssh)
 
-	lssh v0.5.1
-	Usage: lssh [--host HOST] [--list] [--file FILE] [--terminal] [--parallel] [--generate] [--command COMMAND]
+	NAME:
+    	lssh - TUI list select and parallel ssh client command.
+	USAGE:
+    	lssh [options] [commands...]
 
-	Options:
-	  --host HOST, -H HOST   connect servername
-	  --list, -l             print server list
-	  --file FILE, -f FILE   config file path
-	  --terminal, -t         run specified command at terminal
-	  --parallel, -p         run command parallel node(tail -F etc...)
-	  --generate             (beta) generate .lssh.conf from .ssh/config.(not support ProxyCommand)
-	  --command COMMAND, -c COMMAND
-	                         remote Server exec command.
-	  --help, -h             display this help and exit
-	  --version              display version and exit
+	OPTIONS:
+	    --host value, -H value  connect servernames
+	    --list, -l              print server list from config
+	    --file value, -f value  config file path (default: "$HOME/.lssh.conf")
+	    --term, -t              run specified command at terminal
+	    --parallel, -p          run command parallel node(tail -F etc...)
+	    --generate              (beta) generate .lssh.conf from .ssh/config.(not support ProxyCommand)
+	    --help, -h              print this help
+	    --version, -v           print the version
+
+	COPYRIGHT:
+    	blacknon(blacknon@orebibou.com)
+
+	VERSION:
+    	0.5.1
+
+	USAGE:
+    	# connect ssh
+    	lssh
+
+    	# parallel run command in select server over ssh
+    	lssh -p command...
+
 
 option(lscp)
 
-	lscp v0.5.1
-	Usage: lscp [--host HOST] [--file FILE] [--permission] FROM TO
+	NAME:
+	    lscp - TUI list select and parallel scp client command.
+	USAGE:
+	    lscp [options] (local|remote):from_path... (local|remote):to_path
 
-	Positional arguments:
-	  FROM                   copy from path (local:<path>|remote:<path>)
-	  TO                     copy to path (local:<path>|remote:<path>)
+	OPTIONS:
+	    --host value, -H value  connect servernames
+	    --list, -l              print server list from config
+	    --file value, -f value  config file path (default: "$HOME/.lssh.conf")
+	    --permission, -p        copy file permission
+	    --help, -h              print this help
+	    --version, -v           print the version
 
-	Options:
-	  --host HOST, -H HOST   connect servername
-	  --file FILE, -f FILE   config file path
-	  --permission, -p       copy file permission
-	  --help, -h             display this help and exit
-	  --version              display version and exit
+	COPYRIGHT:
+	    blacknon(blacknon@orebibou.com)
+
+	VERSION:
+	    0.5.1
+
+	USAGE:
+	    # local to remote scp
+	    lscp /path/to/local... /path/to/remote
+
+	    # remote to local scp
+	    lscp remote:/path/to/remote... /path/to/local
 
 If you specify a command as an argument, you can select multiple hosts. Select host 'Tab', select all displayed hosts 'Ctrl + A'.
 
-### [lssh] copy files using stdin/stdout to/from remote server
+### [lssh] copy files using stdin/stdout, and to/from remote server
 
 You can scp like copy files using stdin/stdout.It also supports multiple nodes(parallel is not yet supported now).
 
 	# from local to remote server
-	cat LOCAL_PATH | lssh -C 'cat > REMOTE_PATH'
+	cat LOCAL_PATH | lssh 'cat > REMOTE_PATH'
 
 	# from remote server to local
-	lssh -C 'cat REMOTE_PATH' | cat > LOCAL_PATH
+	lssh cat REMOTE_PATH | cat > LOCAL_PATH
 
 <p align="center">
 <img src="./example/lssh_stdcp.gif" />
 </p>
 
-### [lssh] multiple node select exec tail -f
-
+### [lssh] multiple node select, exec tail -f
 
 	# -p option parallel exec command
-	lssh -p -c 'cmd'
+	lssh -p cmd
 
 
 <p align="center">
 <img src="./example/lssh_parallel.gif" />
 </p>
+
+### [lssh] ssh connect, and change Terminal theme.
+
+
+
+### [lssh] use local bashrc file.
+
+
 
 ### [lscp] scp remote to local (get)
 
@@ -205,6 +238,7 @@ exec lscp get file/dir (remote to local scp).
 	
 	# short version
 	lscp r:/path/to/remote l:/path/to/local
+	lscp r:/path/to/remote /path/to/local
 
 <p align="center">
 <img src="./example/scp_l2r.gif" />
@@ -218,6 +252,7 @@ exec lscp put file/dir (local to remote scp). If multiple server selected, mkdir
 	
 	# short version
 	lscp l:/path/to/local r:/path/to/remote
+	lscp /path/to/local r:/path/to/remote
 
 <p align="center">
 <img src="./example/scp_r2l1.gif" />
