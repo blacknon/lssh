@@ -1,6 +1,7 @@
 dependencies:
     override:
-        - go get -u -t -d -v ./...
+        - go get -t -d -v ./...
+        - go get -u github.com/blacknon/go-scplib
         - make
 test:
     override:
