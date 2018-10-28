@@ -23,7 +23,7 @@ lscp is need the following command in remote server.
 
 ## Install
 
-compile gofile(tested go1.11.1).
+compile gofile(tested go1.8.3).
 
     go get github.com/blacknon/lssh
     cd $GOPATH/src/github.com/blacknon/lssh
