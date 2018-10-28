@@ -8,7 +8,6 @@ import (
 	"os"
 	"os/signal"
 	"os/user"
-	"regexp"
 	"strings"
 	"syscall"
 	"time"
@@ -235,50 +234,42 @@ func (c *Connect) RunCmdWithOutput(session *ssh.Session, command []string, outpu
 		isExit <- true
 	}()
 
-	readedLineBytes := 0
-
 GetOutputLoop:
 	for {
 		time.Sleep(100 * time.Millisecond)
 
-		outputBufStr := outputBuf.String()
-		if len(outputBufStr) == 0 {
+		if outputBuf.Len() == 0 {
 			select {
 			case <-isExit:
 				break GetOutputLoop
 			case <-time.After(100 * time.Millisecond):
-				continue
+				continue GetOutputLoop
 			}
 		}
 
-		outputBufByte := []byte(outputBufStr)
-		outputBufSlice := regexp.MustCompile("\r\n|\n\r|\n|\r").Split(string(outputBufByte[readedLineBytes:]), -1)
-
-		readedLineBytes = len(outputBufByte)
-
-		for i, outputLine := range outputBufSlice {
-			if i == len(outputBufSlice)-1 {
+		for {
+			outputLine, err := outputBuf.ReadString('\n')
+			if err != nil {
 				break
 			}
-			outputChan <- outputLine
-		}
 
-		select {
-		case <-isExit:
-			break GetOutputLoop
-		case <-time.After(100 * time.Millisecond):
-			continue GetOutputLoop
+			outputLine = strings.Split(outputLine, "\n")[0]
+			outputChan <- string(outputLine)
 		}
 	}
 
 	// last check
-	outputBufByte := []byte(outputBuf.String())
-	outputBufSlice := regexp.MustCompile("\r\n|\n\r|\n|\r").Split(string(outputBufByte[readedLineBytes:]), -1)
-	for i, outputLine := range outputBufSlice {
-		if i == len(outputBufSlice) {
-			break
+	var err error
+	if outputBuf.Len() > 0 {
+		for err == nil {
+			outputLine, err := outputBuf.ReadString('\n')
+			if err != nil {
+				break
+			}
+
+			outputLine = strings.Split(outputLine, "\n")[0]
+			outputChan <- string(outputLine)
 		}
-		outputChan <- outputLine
 	}
 }
 
