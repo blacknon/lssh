@@ -273,14 +273,12 @@ GetOutputLoop:
 
 	// last check
 	outputBufByte := []byte(outputBuf.String())
-	if len(outputBufByte) > readedLineBytes {
-		outputBufSlice := regexp.MustCompile("\r\n|\n\r|\n|\r").Split(string(outputBufByte[readedLineBytes:]), -1)
-		for i, outputLine := range outputBufSlice {
-			if i == len(outputBufSlice)-1 {
-				break
-			}
-			outputChan <- outputLine
+	outputBufSlice := regexp.MustCompile("\r\n|\n\r|\n|\r").Split(string(outputBufByte[readedLineBytes:]), -1)
+	for i, outputLine := range outputBufSlice {
+		if i == len(outputBufSlice) {
+			break
 		}
+		outputChan <- outputLine
 	}
 }
 
