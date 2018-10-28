@@ -243,7 +243,12 @@ GetOutputLoop:
 
 		outputBufStr := outputBuf.String()
 		if len(outputBufStr) == 0 {
-			continue
+			select {
+			case <-isExit:
+				break GetOutputLoop
+			case <-time.After(100 * time.Millisecond):
+				continue
+			}
 		}
 
 		outputBufByte := []byte(outputBufStr)
