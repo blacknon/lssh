@@ -226,17 +226,31 @@ You can scp like copy files using stdin/stdout.It also supports multiple nodes(p
 
 sample lssh.conf
 
-    [server.iTerm2]
+    [server.iTerm2_sample]
 	addr = "192.168.100.103"
 	key  = "/path/to/private_key"
 	note = "Before/After run local command"
-	pre_cmd = "(option) exec command before ssh connect."
+	pre_cmd = 'printf "\033]50;SetProfile=dq\a"' # ssh theme 
+    post_cmd = 'printf "\033]50;SetProfile=Default\a"' # local theme
 	post_cmd = "(option) exec command after ssh disconnected."
-
 
 
 ### [lssh] use local bashrc file.
 
+sample lssh.conf(bash only).
+
+    [server.localrc]
+	addr = "192.168.100.104"
+	key  = "/path/to/private_key"
+	note = "Use local bashrc files."
+	local_rc = 'yes'
+	local_rc_file = [
+         "~/dotfiles/.bashrc"
+        ,"~/dotfiles/bash_prompt"
+        ,"~/dotfiles/sh_alias"
+        ,"~/dotfiles/sh_export"
+        ,"~/dotfiles/sh_function"
+	]
 
 
 ### [lscp] scp remote to local (get)
