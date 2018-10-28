@@ -224,6 +224,15 @@ You can scp like copy files using stdin/stdout.It also supports multiple nodes(p
 
 ### [lssh] ssh connect, and change Terminal theme.
 
+sample lssh.conf
+
+    [server.iTerm2]
+	addr = "192.168.100.103"
+	key  = "/path/to/private_key"
+	note = "Before/After run local command"
+	pre_cmd = "(option) exec command before ssh connect."
+	post_cmd = "(option) exec command after ssh disconnected."
+
 
 
 ### [lssh] use local bashrc file.
@@ -240,9 +249,6 @@ exec lscp get file/dir (remote to local scp).
 	lscp r:/path/to/remote l:/path/to/local
 	lscp r:/path/to/remote /path/to/local
 
-<p align="center">
-<img src="./example/scp_l2r.gif" />
-</p>
 
 ### [lscp] scp local to remote (put)
 
@@ -254,13 +260,6 @@ exec lscp put file/dir (local to remote scp). If multiple server selected, mkdir
 	lscp l:/path/to/local r:/path/to/remote
 	lscp /path/to/local r:/path/to/remote
 
-<p align="center">
-<img src="./example/scp_r2l1.gif" />
-</p>
-
-<p align="center">
-<img src="./example/scp_r2l2.gif" />
-</p>
 
 ### [lscp] scp remote to remote
 
@@ -270,11 +269,6 @@ exec lscp get/put file/dir (remote to remote scp).
 	
 	# short version
 	lscp r:/path/to/remote(get) r:/path/to/local(put)
-
-
-<p align="center">
-<img src="./example/scp_r2r.gif" />
-</p>
 
 
 ## Licence
