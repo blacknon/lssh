@@ -69,9 +69,7 @@ func ReadConf(confPath string) (checkConf Config) {
 	// reduce common setting (in .lssh.conf servers)
 	for key, value := range checkConf.Server {
 		setValue := serverConfigReduct(checkConf.Common, value)
-		// if len(checkConf.Server) > 0 {
 		checkConf.Server[key] = setValue
-		// }
 	}
 
 	// Read include files
