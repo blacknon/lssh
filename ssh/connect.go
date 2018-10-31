@@ -295,7 +295,8 @@ func (c *Connect) ConTerm(session *ssh.Session) (err error) {
 		ssh.TTY_OP_OSPEED: 14400,
 	}
 
-	err = session.RequestPty("xterm", height, width, modes)
+	term := os.Getenv("TERM")
+	err = session.RequestPty(term, height, width, modes)
 	if err != nil {
 		return
 	}
@@ -362,7 +363,8 @@ func (c *Connect) setIsTerm(preSession *ssh.Session) (session *ssh.Session, err 
 			return session, err
 		}
 
-		if err = preSession.RequestPty("xterm", hight, width, modes); err != nil {
+		term := os.Getenv("TERM")
+		if err = preSession.RequestPty(term, hight, width, modes); err != nil {
 			preSession.Close()
 			return session, err
 		}
