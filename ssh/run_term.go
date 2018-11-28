@@ -52,7 +52,7 @@ func (r *Run) term() (err error) {
 	}
 
 	if c.IsLocalRc {
-		fmt.Fprintf(os.Stderr, "Infomation    : This connect use local bashrc. \n")
+		fmt.Fprintf(os.Stderr, "Infomation    :This connect use local bashrc. \n")
 		fmt.Println() // print newline
 		if len(serverConf.LocalRcPath) > 0 {
 			c.LocalRcData, err = common.GetFilesBase64(serverConf.LocalRcPath)
