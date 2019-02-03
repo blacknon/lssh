@@ -1,27 +1,35 @@
 package conf
 
 import (
+	"crypto/md5"
+	"encoding/hex"
 	"fmt"
 	"os"
 	"os/user"
 	"strings"
+	"time"
 
 	"github.com/BurntSushi/toml"
 	"github.com/blacknon/lssh/common"
 )
 
 type Config struct {
-	Log     LogConfig
-	Include map[string]IncludeConfig
-	Common  ServerConfig
-	Server  map[string]ServerConfig
-	Proxy   map[string]ProxyConfig
+	Log      LogConfig
+	Include  map[string]IncludeConfig
+	Includes IncludesConfig
+	Common   ServerConfig
+	Server   map[string]ServerConfig
+	Proxy    map[string]ProxyConfig
 }
 
 type LogConfig struct {
 	Enable    bool   `toml:"enable"`
 	Timestamp bool   `toml:"timestamp"`
 	Dir       string `toml:"dirpath"`
+}
+
+type IncludesConfig struct {
+	Path []string `toml:"path"`
 }
 
 type IncludeConfig struct {
@@ -54,6 +62,9 @@ type ProxyConfig struct {
 }
 
 func ReadConf(confPath string) (checkConf Config) {
+	// user path
+	usr, _ := user.Current()
+
 	if !common.IsExist(confPath) {
 		fmt.Printf("Config file(%s) Not Found.\nPlease create file.\n\n", confPath)
 		fmt.Printf("sample: %s\n", "https://raw.githubusercontent.com/blacknon/lssh/master/example/config.tml")
@@ -72,13 +83,34 @@ func ReadConf(confPath string) (checkConf Config) {
 		checkConf.Server[key] = setValue
 	}
 
+	// for append includes to include.path
+	if checkConf.Includes.Path != nil {
+		if checkConf.Include == nil {
+			checkConf.Include = map[string]IncludeConfig{}
+		}
+
+		for _, includePath := range checkConf.Includes.Path {
+			unixTime := time.Now().Unix()
+			keyString := strings.Join([]string{string(unixTime), includePath}, "_")
+
+			fmt.Println(includePath)
+
+			// key to md5
+			hasher := md5.New()
+			hasher.Write([]byte(keyString))
+			key := string(hex.EncodeToString(hasher.Sum(nil)))
+
+			// append checkConf.Include[key]
+			checkConf.Include[key] = IncludeConfig{strings.Replace(includePath, "~", usr.HomeDir, 1)}
+		}
+	}
+
 	// Read include files
 	if checkConf.Include != nil {
 		for _, v := range checkConf.Include {
 			var includeConf Config
 
 			// user path
-			usr, _ := user.Current()
 			path := strings.Replace(v.Path, "~", usr.HomeDir, 1)
 
 			// Read include config file

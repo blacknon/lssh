@@ -39,8 +39,8 @@ VERSION:
     {{.Version}}
     {{end}}
 USAGE:
-    # connect ssh 
-    {{.Name}} 
+    # connect ssh
+    {{.Name}}
 
     # parallel run command in select server over ssh
     {{.Name}} -p command...
@@ -51,7 +51,7 @@ USAGE:
 	app.Name = "lssh"
 	app.Usage = "TUI list select and parallel ssh client command."
 	app.Copyright = "blacknon(blacknon@orebibou.com)"
-	app.Version = "0.5.1"
+	app.Version = "0.5.2"
 
 	// Set options
 	app.Flags = []cli.Flag{
