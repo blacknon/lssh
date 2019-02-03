@@ -33,8 +33,7 @@ func (l *ListInfo) keyEvent() (lineData []string) {
 
 	for {
 		switch ev := termbox.PollEvent(); ev.Type {
-
-		// Get Key Event
+		// Type Key
 		case termbox.EventKey:
 			switch ev.Key {
 			// ESC or Ctrl + C Key (Exit)
@@ -138,6 +137,20 @@ func (l *ListInfo) keyEvent() (lineData []string) {
 					l.draw()
 				}
 			}
+
+		// Type Mouse
+		case termbox.EventMouse:
+			if ev.Key == termbox.MouseLeft {
+				// mouse select line is (ev.MouseY - headLine) line.
+				mouseSelectLine := ev.MouseY - headLine
+
+				if mouseSelectLine <= len(l.ViewText)-headLine {
+					l.CursorLine = mouseSelectLine
+				}
+				l.draw()
+			}
+
+		// Other
 		default:
 			l.draw()
 		}

@@ -130,6 +130,10 @@ func (l *ListInfo) View() {
 		panic(err)
 	}
 	defer termbox.Close()
+
+	// enable termbox mouse input
+	termbox.SetInputMode(termbox.InputMouse)
+
 	l.getText()
 	l.keyEvent()
 }
