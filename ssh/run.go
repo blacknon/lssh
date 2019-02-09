@@ -13,13 +13,15 @@ import (
 )
 
 type Run struct {
-	ServerList []string
-	Conf       conf.Config
-	IsTerm     bool
-	IsParallel bool
-	ExecCmd    []string
-	StdinData  []byte
-	OutputData *bytes.Buffer
+	ServerList        []string
+	Conf              conf.Config
+	IsTerm            bool
+	IsParallel        bool
+	PortForwardLocal  string
+	PortForwardRemote string
+	ExecCmd           []string
+	StdinData         []byte
+	OutputData        *bytes.Buffer
 }
 
 func (r *Run) Start() {

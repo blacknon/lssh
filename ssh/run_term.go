@@ -78,6 +78,15 @@ func (r *Run) term() (err error) {
 		defer runCmdLocal(postCmd)
 	}
 
+	// Overwrite port forward option.
+	if len(r.PortForwardLocal) > 0 {
+		serverConf.PortForwardLocal = r.PortForwardLocal
+	}
+
+	if len(r.PortForwardRemote) > 0 {
+		serverConf.PortForwardRemote = r.PortForwardRemote
+	}
+
 	// Port Forwarding
 	if len(serverConf.PortForwardLocal) > 0 && len(serverConf.PortForwardRemote) > 0 {
 		c.ForwardLocal = serverConf.PortForwardLocal
