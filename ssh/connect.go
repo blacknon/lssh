@@ -23,11 +23,14 @@ import (
 type Connect struct {
 	Server           string
 	Conf             conf.Config
+	sshClient        *ssh.Client
 	IsTerm           bool
 	IsParallel       bool
 	IsLocalRc        bool
 	LocalRcData      string
 	LocalRcDecodeCmd string
+	ForwardLocal     string
+	ForwardRemote    string
 }
 
 type Proxy struct {
@@ -38,13 +41,14 @@ type Proxy struct {
 // @brief: create ssh session
 func (c *Connect) CreateSession() (session *ssh.Session, err error) {
 	// New connect
-	conn, err := c.createSshClient()
+	err = c.createSshClient()
 	if err != nil {
 		return session, err
 	}
 
 	// New session
-	session, err = conn.NewSession()
+	session, err = c.sshClient.NewSession()
+
 	if err != nil {
 		return session, err
 	}
@@ -54,38 +58,41 @@ func (c *Connect) CreateSession() (session *ssh.Session, err error) {
 
 // @brief: create ssh client
 // @note:
-//     support multiple proxy connect
-func (c *Connect) createSshClient() (client *ssh.Client, err error) {
+//     support multiple proxy connect.
+func (c *Connect) createSshClient() (err error) {
 	// New ClientConfig
 	serverConf := c.Conf.Server[c.Server]
 	sshConf, err := c.createSshClientConfig(c.Server)
 	if err != nil {
-		return client, err
+		return err
 	}
 
 	// not use proxy
 	if serverConf.Proxy == "" {
-		client, err = ssh.Dial("tcp", net.JoinHostPort(serverConf.Addr, serverConf.Port), sshConf)
+		client, err := ssh.Dial("tcp", net.JoinHostPort(serverConf.Addr, serverConf.Port), sshConf)
 		if err != nil {
-			return client, err
+			return err
 		}
+
+		// set sshClient
+		c.sshClient = client
 	} else {
-		client, err = c.createSshClientOverProxy(serverConf, sshConf)
+		err := c.createSshClientOverProxy(serverConf, sshConf)
 		if err != nil {
-			return client, err
+			return err
 		}
 	}
 
-	return client, err
+	return err
 }
 
 // @brief:
 //     Create ssh client via proxy
-func (c *Connect) createSshClientOverProxy(serverConf conf.ServerConfig, sshConf *ssh.ClientConfig) (client *ssh.Client, err error) {
+func (c *Connect) createSshClientOverProxy(serverConf conf.ServerConfig, sshConf *ssh.ClientConfig) (err error) {
 	// get proxy slice
 	proxyList, proxyType, err := GetProxyList(c.Server, c.Conf)
 	if err != nil {
-		return client, err
+		return err
 	}
 
 	// var
@@ -106,21 +113,24 @@ func (c *Connect) createSshClientOverProxy(serverConf conf.ServerConfig, sshConf
 			proxyConf := c.Conf.Server[proxy]
 			proxySshConf, err := c.createSshClientConfig(proxy)
 			if err != nil {
-				return client, err
+				return err
 			}
 			proxyClient, err = createSshClientViaProxy(proxyConf, proxySshConf, proxyClient, proxyDialer)
 
 		}
 
 		if err != nil {
-			return client, err
+			return err
 		}
 	}
 
-	client, err = createSshClientViaProxy(serverConf, sshConf, proxyClient, proxyDialer)
+	client, err := createSshClientViaProxy(serverConf, sshConf, proxyClient, proxyDialer)
 	if err != nil {
-		return client, err
+		return err
 	}
+
+	// set c.sshClient
+	c.sshClient = client
 
 	return
 }

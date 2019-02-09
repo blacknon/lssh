@@ -79,6 +79,15 @@ func (r *Run) term() (err error) {
 		defer runCmdLocal(postCmd)
 	}
 
+	// Port Forwarding
+	if len(serverConf.PortForwardLocal) > 0 && len(serverConf.PortForwardRemote) > 0 {
+		c.ForwardLocal = serverConf.PortForwardLocal
+		c.ForwardRemote = serverConf.PortForwardRemote
+		go func() {
+			c.PortForwarder()
+		}()
+	}
+
 	// Connect ssh terminal
 	finished := make(chan bool)
 	go func() {
