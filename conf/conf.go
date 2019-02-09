@@ -37,20 +37,22 @@ type IncludeConfig struct {
 }
 
 type ServerConfig struct {
-	Addr             string   `toml:"addr"`
-	Port             string   `toml:"port"`
-	User             string   `toml:"user"`
-	Pass             string   `toml:"pass"`
-	Key              string   `toml:"key"`
-	KeyPass          string   `toml:"keypass"`
-	PreCmd           string   `toml:"pre_cmd"`
-	PostCmd          string   `toml:"post_cmd"`
-	ProxyType        string   `toml:"proxy_type"`
-	Proxy            string   `toml:"proxy"`
-	LocalRcUse       string   `toml:"local_rc"` // yes|no
-	LocalRcPath      []string `toml:"local_rc_file"`
-	LocalRcDecodeCmd string   `toml:"local_rc_decode_cmd"`
-	Note             string   `toml:"note"`
+	Addr              string   `toml:"addr"`
+	Port              string   `toml:"port"`
+	User              string   `toml:"user"`
+	Pass              string   `toml:"pass"`
+	Key               string   `toml:"key"`
+	KeyPass           string   `toml:"keypass"`
+	PreCmd            string   `toml:"pre_cmd"`
+	PostCmd           string   `toml:"post_cmd"`
+	ProxyType         string   `toml:"proxy_type"`
+	Proxy             string   `toml:"proxy"`
+	LocalRcUse        string   `toml:"local_rc"` // yes|no
+	LocalRcPath       []string `toml:"local_rc_file"`
+	LocalRcDecodeCmd  string   `toml:"local_rc_decode_cmd"`
+	PortForwardLocal  string   `toml:"port_forward_local"`  // host:port
+	PortForwardRemote string   `toml:"port_forward_remote"` // host:port
+	Note              string   `toml:"note"`
 }
 
 type ProxyConfig struct {
@@ -92,8 +94,6 @@ func ReadConf(confPath string) (checkConf Config) {
 		for _, includePath := range checkConf.Includes.Path {
 			unixTime := time.Now().Unix()
 			keyString := strings.Join([]string{string(unixTime), includePath}, "_")
-
-			fmt.Println(includePath)
 
 			// key to md5
 			hasher := md5.New()
