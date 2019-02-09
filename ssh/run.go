@@ -45,6 +45,10 @@ func (r *Run) printRunCommand() {
 	fmt.Fprintf(os.Stderr, "Run Command   :%s\n", runCmdStr)
 }
 
+func (r *Run) printPortForward(forwardLocal, forwardRemote string) {
+	fmt.Fprintf(os.Stderr, "Port Forward  :local[%s] <=> remote[%s]\n", forwardLocal, forwardRemote)
+}
+
 func (r *Run) printProxy() {
 	if len(r.ServerList) == 1 {
 		proxyList := []string{}
