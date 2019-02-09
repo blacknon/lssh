@@ -24,7 +24,6 @@ func (r *Run) term() (err error) {
 	// print header
 	r.printSelectServer()
 	r.printProxy()
-	fmt.Println() // print newline
 
 	// create ssh session
 	session, err := c.CreateSession()
@@ -83,10 +82,16 @@ func (r *Run) term() (err error) {
 	if len(serverConf.PortForwardLocal) > 0 && len(serverConf.PortForwardRemote) > 0 {
 		c.ForwardLocal = serverConf.PortForwardLocal
 		c.ForwardRemote = serverConf.PortForwardRemote
+
+		r.printPortForward(c.ForwardLocal, c.ForwardRemote)
+
 		go func() {
 			c.PortForwarder()
 		}()
 	}
+
+	// print newline
+	fmt.Println()
 
 	// Connect ssh terminal
 	finished := make(chan bool)
