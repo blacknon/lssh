@@ -12,6 +12,7 @@ import (
 
 	"github.com/blacknon/lssh/common"
 	"golang.org/x/crypto/ssh"
+	"golang.org/x/crypto/ssh/agent"
 )
 
 func (r *Run) term() (err error) {
@@ -52,7 +53,6 @@ func (r *Run) term() (err error) {
 
 	if c.IsLocalRc {
 		fmt.Fprintf(os.Stderr, "Infomation    :This connect use local bashrc. \n")
-		fmt.Println() // print newline
 		if len(serverConf.LocalRcPath) > 0 {
 			c.LocalRcData, err = common.GetFilesBase64(serverConf.LocalRcPath)
 			if err != nil {
@@ -82,7 +82,6 @@ func (r *Run) term() (err error) {
 	if len(r.PortForwardLocal) > 0 {
 		serverConf.PortForwardLocal = r.PortForwardLocal
 	}
-
 	if len(r.PortForwardRemote) > 0 {
 		serverConf.PortForwardRemote = r.PortForwardRemote
 	}
@@ -99,8 +98,16 @@ func (r *Run) term() (err error) {
 		}()
 	}
 
+	// ssh-agent
+	if serverConf.SSHAgentUse {
+		fmt.Fprintf(os.Stderr, "Infomation    :This connect use ssh agent. \n")
+		keyring := c.CreateSshAgentKeyring()
+		agent.ForwardToAgent(c.sshClient, keyring)
+		agent.RequestAgentForwarding(session)
+	}
+
 	// print newline
-	fmt.Println()
+	fmt.Println("------------------------------")
 
 	// Connect ssh terminal
 	finished := make(chan bool)
