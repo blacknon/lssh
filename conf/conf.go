@@ -50,8 +50,10 @@ type ServerConfig struct {
 	LocalRcUse        string   `toml:"local_rc"` // yes|no
 	LocalRcPath       []string `toml:"local_rc_file"`
 	LocalRcDecodeCmd  string   `toml:"local_rc_decode_cmd"`
-	PortForwardLocal  string   `toml:"port_forward_local"`  // host:port
-	PortForwardRemote string   `toml:"port_forward_remote"` // host:port
+	PortForwardLocal  string   `toml:"port_forward_local"`  // port forward (local). "host:port"
+	PortForwardRemote string   `toml:"port_forward_remote"` // port forward (remote). "host:port"
+	SSHAgentUse       bool     `toml:"ssh_agent"`
+	SSHAgentKeyPath   []string `toml:"ssh_agent_key"`
 	Note              string   `toml:"note"`
 }
 
