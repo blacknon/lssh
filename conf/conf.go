@@ -53,7 +53,7 @@ type ServerConfig struct {
 	PortForwardLocal  string   `toml:"port_forward_local"`  // port forward (local). "host:port"
 	PortForwardRemote string   `toml:"port_forward_remote"` // port forward (remote). "host:port"
 	SSHAgentUse       bool     `toml:"ssh_agent"`
-	SSHAgentKeyPath   []string `toml:"ssh_agent_key"`
+	SSHAgentKeyPath   []string `toml:"ssh_agent_key"` // "keypath::passphase"
 	Note              string   `toml:"note"`
 }
 

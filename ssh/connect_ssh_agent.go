@@ -21,9 +21,14 @@ func (c *Connect) CreateSshAgentKeyring() (keyring agent.Agent) {
 	conf := c.Conf.Server[c.Server]
 	sshKeys := conf.SSHAgentKeyPath
 
-	for _, keyPath := range sshKeys {
+	for _, keyPathData := range sshKeys {
+		// parse ssh key strings
+		//    * keyPathArray[0] ... KeyPath
+		//    * keyPathArray[1] ... KeyPassPhase
+		keyPathArray := strings.SplitN(keyPathData, "::", 2)
+
 		// key path to fullpath
-		keyPath = strings.Replace(keyPath, "~", usr.HomeDir, 1)
+		keyPath := strings.Replace(keyPathArray[0], "~", usr.HomeDir, 1)
 
 		// read key file
 		keyData, err := ioutil.ReadFile(keyPath)
@@ -33,7 +38,13 @@ func (c *Connect) CreateSshAgentKeyring() (keyring agent.Agent) {
 		}
 
 		// parse key data
-		key, err := ssh.ParseRawPrivateKey(keyData)
+		var key interface{}
+		if len(keyPathArray) > 1 {
+			key, err = ssh.ParseRawPrivateKeyWithPassphrase(keyData, []byte(keyPathArray[1]))
+		} else {
+			key, err = ssh.ParseRawPrivateKey(keyData)
+		}
+
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "failed parse key file: %v, %v\n", keyPath, err)
 			continue
