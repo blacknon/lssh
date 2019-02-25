@@ -7,7 +7,19 @@ TUI list select ssh/scp client.
 
 ## Description
 
-command to read a prepared list in advance and connect ssh/scp the selected host. List file is set in yaml format.When selecting a host, you can filter by keywords. Can execute commands concurrently to multiple hosts. Supported multiple ssh proxy, and supported http/socks5 proxy.
+command to read a prepared list in advance and connect ssh/scp the selected host. List file is set in yaml format. When selecting a host, you can filter by keywords. Can execute commands concurrently to multiple hosts. Supported multiple ssh proxy, and supported http/socks5 proxy.
+
+## Features
+
+* List selection type ssh client.
+* Pure Go.
+* Commands can be executed by ssh connection in parallel.
+* Supported multiple proxy.
+* Can use bashrc of local machine at ssh connection destination.
+* 
+
+
+
 
 ## Demo
 
@@ -23,7 +35,7 @@ lscp is need the following command in remote server.
 
 ## Install
 
-compile gofile(tested go1.8.3).
+compile gofile(tested go1.11.5).
 
     go get github.com/blacknon/lssh
     cd $GOPATH/src/github.com/blacknon/lssh
@@ -53,7 +65,7 @@ example:
 	dirpath = "/path/to/logdir"
 
 	# server common settings
-	[common] 
+	[common]
 	port = "22"
 	user = "test"
 
