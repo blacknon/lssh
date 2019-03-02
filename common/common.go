@@ -100,6 +100,7 @@ func GetFilesBase64(list []string) (result string, err error) {
 		}
 
 		data = append(data, file_data...)
+		data = append(data, '\n')
 	}
 
 	result = base64.StdEncoding.EncodeToString(data)

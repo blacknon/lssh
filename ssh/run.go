@@ -13,13 +13,15 @@ import (
 )
 
 type Run struct {
-	ServerList []string
-	Conf       conf.Config
-	IsTerm     bool
-	IsParallel bool
-	ExecCmd    []string
-	StdinData  []byte
-	OutputData *bytes.Buffer
+	ServerList        []string
+	Conf              conf.Config
+	IsTerm            bool
+	IsParallel        bool
+	PortForwardLocal  string
+	PortForwardRemote string
+	ExecCmd           []string
+	StdinData         []byte
+	OutputData        *bytes.Buffer
 }
 
 func (r *Run) Start() {
@@ -43,6 +45,10 @@ func (r *Run) printSelectServer() {
 func (r *Run) printRunCommand() {
 	runCmdStr := strings.Join(r.ExecCmd, " ")
 	fmt.Fprintf(os.Stderr, "Run Command   :%s\n", runCmdStr)
+}
+
+func (r *Run) printPortForward(forwardLocal, forwardRemote string) {
+	fmt.Fprintf(os.Stderr, "Port Forward  :local[%s] <=> remote[%s]\n", forwardLocal, forwardRemote)
 }
 
 func (r *Run) printProxy() {

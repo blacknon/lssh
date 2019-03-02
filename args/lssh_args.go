@@ -39,8 +39,8 @@ VERSION:
     {{.Version}}
     {{end}}
 USAGE:
-    # connect ssh 
-    {{.Name}} 
+    # connect ssh
+    {{.Name}}
 
     # parallel run command in select server over ssh
     {{.Name}} -p command...
@@ -51,13 +51,15 @@ USAGE:
 	app.Name = "lssh"
 	app.Usage = "TUI list select and parallel ssh client command."
 	app.Copyright = "blacknon(blacknon@orebibou.com)"
-	app.Version = "0.5.1"
+	app.Version = "0.5.2"
 
 	// Set options
 	app.Flags = []cli.Flag{
 		cli.StringSliceFlag{Name: "host,H", Usage: "connect servernames"},
 		cli.BoolFlag{Name: "list,l", Usage: "print server list from config"},
 		cli.StringFlag{Name: "file,f", Value: defConf, Usage: "config file path"},
+		cli.StringFlag{Name: "portforward-local", Usage: "port forwarding local port(ex. 127.0.0.1:8080)"},
+		cli.StringFlag{Name: "portforward-remote", Usage: "port forwarding remote port(ex. 127.0.0.1:80)"},
 		cli.BoolFlag{Name: "term,t", Usage: "run specified command at terminal"},
 		cli.BoolFlag{Name: "parallel,p", Usage: "run command parallel node(tail -F etc...)"},
 		cli.BoolFlag{Name: "generate", Usage: "(beta) generate .lssh.conf from .ssh/config.(not support ProxyCommand)"},
@@ -135,6 +137,9 @@ USAGE:
 		r.IsTerm = c.Bool("term")
 		r.IsParallel = c.Bool("parallel")
 		r.ExecCmd = c.Args()
+
+		r.PortForwardLocal = c.String("portforward-local")
+		r.PortForwardRemote = c.String("portforward-remote")
 
 		r.Start()
 		return nil

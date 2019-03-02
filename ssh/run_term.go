@@ -12,6 +12,7 @@ import (
 
 	"github.com/blacknon/lssh/common"
 	"golang.org/x/crypto/ssh"
+	"golang.org/x/crypto/ssh/agent"
 )
 
 func (r *Run) term() (err error) {
@@ -24,7 +25,6 @@ func (r *Run) term() (err error) {
 	// print header
 	r.printSelectServer()
 	r.printProxy()
-	fmt.Println() // print newline
 
 	// create ssh session
 	session, err := c.CreateSession()
@@ -52,8 +52,7 @@ func (r *Run) term() (err error) {
 	}
 
 	if c.IsLocalRc {
-		fmt.Fprintf(os.Stderr, "Infomation    : This connect use local bashrc. \n")
-		fmt.Println() // print newline
+		fmt.Fprintf(os.Stderr, "Infomation    :This connect use local bashrc. \n")
 		if len(serverConf.LocalRcPath) > 0 {
 			c.LocalRcData, err = common.GetFilesBase64(serverConf.LocalRcPath)
 			if err != nil {
@@ -78,6 +77,37 @@ func (r *Run) term() (err error) {
 	if postCmd != "" {
 		defer runCmdLocal(postCmd)
 	}
+
+	// Overwrite port forward option.
+	if len(r.PortForwardLocal) > 0 {
+		serverConf.PortForwardLocal = r.PortForwardLocal
+	}
+	if len(r.PortForwardRemote) > 0 {
+		serverConf.PortForwardRemote = r.PortForwardRemote
+	}
+
+	// Port Forwarding
+	if len(serverConf.PortForwardLocal) > 0 && len(serverConf.PortForwardRemote) > 0 {
+		c.ForwardLocal = serverConf.PortForwardLocal
+		c.ForwardRemote = serverConf.PortForwardRemote
+
+		r.printPortForward(c.ForwardLocal, c.ForwardRemote)
+
+		go func() {
+			c.PortForwarder()
+		}()
+	}
+
+	// ssh-agent
+	if serverConf.SSHAgentUse {
+		fmt.Fprintf(os.Stderr, "Infomation    :This connect use ssh agent. \n")
+		keyring := c.CreateSshAgentKeyring()
+		agent.ForwardToAgent(c.sshClient, keyring)
+		agent.RequestAgentForwarding(session)
+	}
+
+	// print newline
+	fmt.Println("------------------------------")
 
 	// Connect ssh terminal
 	finished := make(chan bool)

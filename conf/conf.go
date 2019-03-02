@@ -1,21 +1,25 @@
 package conf
 
 import (
+	"crypto/md5"
+	"encoding/hex"
 	"fmt"
 	"os"
 	"os/user"
 	"strings"
+	"time"
 
 	"github.com/BurntSushi/toml"
 	"github.com/blacknon/lssh/common"
 )
 
 type Config struct {
-	Log     LogConfig
-	Include map[string]IncludeConfig
-	Common  ServerConfig
-	Server  map[string]ServerConfig
-	Proxy   map[string]ProxyConfig
+	Log      LogConfig
+	Include  map[string]IncludeConfig
+	Includes IncludesConfig
+	Common   ServerConfig
+	Server   map[string]ServerConfig
+	Proxy    map[string]ProxyConfig
 }
 
 type LogConfig struct {
@@ -24,25 +28,33 @@ type LogConfig struct {
 	Dir       string `toml:"dirpath"`
 }
 
+type IncludesConfig struct {
+	Path []string `toml:"path"`
+}
+
 type IncludeConfig struct {
 	Path string `toml:"path"`
 }
 
 type ServerConfig struct {
-	Addr             string   `toml:"addr"`
-	Port             string   `toml:"port"`
-	User             string   `toml:"user"`
-	Pass             string   `toml:"pass"`
-	Key              string   `toml:"key"`
-	KeyPass          string   `toml:"keypass"`
-	PreCmd           string   `toml:"pre_cmd"`
-	PostCmd          string   `toml:"post_cmd"`
-	ProxyType        string   `toml:"proxy_type"`
-	Proxy            string   `toml:"proxy"`
-	LocalRcUse       string   `toml:"local_rc"` // yes|no
-	LocalRcPath      []string `toml:"local_rc_file"`
-	LocalRcDecodeCmd string   `toml:"local_rc_decode_cmd"`
-	Note             string   `toml:"note"`
+	Addr              string   `toml:"addr"`
+	Port              string   `toml:"port"`
+	User              string   `toml:"user"`
+	Pass              string   `toml:"pass"`
+	Key               string   `toml:"key"`
+	KeyPass           string   `toml:"keypass"`
+	PreCmd            string   `toml:"pre_cmd"`
+	PostCmd           string   `toml:"post_cmd"`
+	ProxyType         string   `toml:"proxy_type"`
+	Proxy             string   `toml:"proxy"`
+	LocalRcUse        string   `toml:"local_rc"` // yes|no
+	LocalRcPath       []string `toml:"local_rc_file"`
+	LocalRcDecodeCmd  string   `toml:"local_rc_decode_cmd"`
+	PortForwardLocal  string   `toml:"port_forward_local"`  // port forward (local). "host:port"
+	PortForwardRemote string   `toml:"port_forward_remote"` // port forward (remote). "host:port"
+	SSHAgentUse       bool     `toml:"ssh_agent"`
+	SSHAgentKeyPath   []string `toml:"ssh_agent_key"` // "keypath::passphase"
+	Note              string   `toml:"note"`
 }
 
 type ProxyConfig struct {
@@ -54,6 +66,9 @@ type ProxyConfig struct {
 }
 
 func ReadConf(confPath string) (checkConf Config) {
+	// user path
+	usr, _ := user.Current()
+
 	if !common.IsExist(confPath) {
 		fmt.Printf("Config file(%s) Not Found.\nPlease create file.\n\n", confPath)
 		fmt.Printf("sample: %s\n", "https://raw.githubusercontent.com/blacknon/lssh/master/example/config.tml")
@@ -72,13 +87,32 @@ func ReadConf(confPath string) (checkConf Config) {
 		checkConf.Server[key] = setValue
 	}
 
+	// for append includes to include.path
+	if checkConf.Includes.Path != nil {
+		if checkConf.Include == nil {
+			checkConf.Include = map[string]IncludeConfig{}
+		}
+
+		for _, includePath := range checkConf.Includes.Path {
+			unixTime := time.Now().Unix()
+			keyString := strings.Join([]string{string(unixTime), includePath}, "_")
+
+			// key to md5
+			hasher := md5.New()
+			hasher.Write([]byte(keyString))
+			key := string(hex.EncodeToString(hasher.Sum(nil)))
+
+			// append checkConf.Include[key]
+			checkConf.Include[key] = IncludeConfig{strings.Replace(includePath, "~", usr.HomeDir, 1)}
+		}
+	}
+
 	// Read include files
 	if checkConf.Include != nil {
 		for _, v := range checkConf.Include {
 			var includeConf Config
 
 			// user path
-			usr, _ := user.Current()
 			path := strings.Replace(v.Path, "~", usr.HomeDir, 1)
 
 			// Read include config file
