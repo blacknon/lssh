@@ -250,7 +250,7 @@ sample lssh.conf
 	addr = "192.168.100.103"
 	key  = "/path/to/private_key"
 	note = "Before/After run local command"
-	pre_cmd = 'printf "\033]50;SetProfile=dq\a"' # ssh theme 
+	pre_cmd = 'printf "\033]50;SetProfile=dq\a"' # ssh theme
     post_cmd = 'printf "\033]50;SetProfile=Default\a"' # local theme
 	post_cmd = "(option) exec command after ssh disconnected."
 
@@ -258,9 +258,9 @@ sample lssh.conf
 	addr = "192.168.100.103"
 	key  = "/path/to/private_key"
 	note = "Before/After run local command"
-	pre_cmd = 'printf "\033]50;SetProfile=dq\a"' # ssh theme 
+	pre_cmd = 'printf "\033]50;SetProfile=dq\a"' # ssh theme
     post_cmd = 'printf "\033]50;SetProfile=Default\a"' # local theme
-	post_cmd = "(option) exec command after ssh disconnected."	
+	post_cmd = "(option) exec command after ssh disconnected."
 
 
 ### [lssh] use local bashrc file.
