@@ -16,10 +16,6 @@ command to read a prepared list in advance and connect ssh/scp the selected host
 * Commands can be executed by ssh connection in parallel.
 * Supported multiple proxy.
 * Can use bashrc of local machine at ssh connection destination.
-* 
-
-
-
 
 ## Demo
 
@@ -52,9 +48,10 @@ brew install(Mac OS X)
 	# generate .lssh.conf(use ~/.ssh/config.not support proxy)
 	lssh --generate > ~/.lssh.conf
 
-## Usage
+## Config
 
-Please edit "~/.lssh.conf". The connection information at servers,can be divided into external files. log dir "\<Date\>" => date(YYYYMMDD) ,"\<Hostname\>" => Servername.
+Please edit "~/.lssh.conf".  
+For details see [wiki](https://github.com/blacknon/lssh/wiki/Config).
 
 example:
 
@@ -144,7 +141,10 @@ example:
 	addr = "example.com"
 	port = "54321"
 
-After run command.
+
+## Usage
+
+run command.
 
     lssh
 
@@ -152,61 +152,65 @@ After run command.
 option(lssh)
 
 	NAME:
-    	lssh - TUI list select and parallel ssh client command.
+	    lssh - TUI list select and parallel ssh client command.
 	USAGE:
-    	lssh [options] [commands...]
-
+	    lssh [options] [commands...]
+	    
 	OPTIONS:
-	    --host value, -H value  connect servernames
-	    --list, -l              print server list from config
-	    --file value, -f value  config file path (default: "$HOME/.lssh.conf")
-	    --term, -t              run specified command at terminal
-	    --parallel, -p          run command parallel node(tail -F etc...)
-	    --generate              (beta) generate .lssh.conf from .ssh/config.(not support ProxyCommand)
-	    --help, -h              print this help
-	    --version, -v           print the version
-
+	    --host value, -H value      connect servernames
+	    --list, -l                  print server list from config
+	    --file value, -f value      config file path (default: "/home/blacknon/.lssh.conf")
+	    --portforward-local value   port forwarding local port(ex. 127.0.0.1:8080)
+	    --portforward-remote value  port forwarding remote port(ex. 127.0.0.1:80)
+	    --term, -t                  run specified command at terminal
+	    --parallel, -p              run command parallel node(tail -F etc...)
+	    --generate                  (beta) generate .lssh.conf from .ssh/config.(not support ProxyCommand)
+	    --help, -h                  print this help
+	    --version, -v               print the version
+	    
 	COPYRIGHT:
-    	blacknon(blacknon@orebibou.com)
-
+	    blacknon(blacknon@orebibou.com)
+	    
 	VERSION:
-    	0.5.1
-
+	    0.5.2
+	    
 	USAGE:
-    	# connect ssh
-    	lssh
+	    # connect ssh
+	    lssh
+	
+	    # parallel run command in select server over ssh
+	    lssh -p command...
+                    
 
-    	# parallel run command in select server over ssh
-    	lssh -p command...
 
-
-option(lscp)
-
+	option(lscp)
+	
 	NAME:
 	    lscp - TUI list select and parallel scp client command.
 	USAGE:
 	    lscp [options] (local|remote):from_path... (local|remote):to_path
-
+	    
 	OPTIONS:
 	    --host value, -H value  connect servernames
 	    --list, -l              print server list from config
-	    --file value, -f value  config file path (default: "$HOME/.lssh.conf")
+	    --file value, -f value  config file path (default: "/home/blacknon/.lssh.conf")
 	    --permission, -p        copy file permission
 	    --help, -h              print this help
 	    --version, -v           print the version
-
+	    
 	COPYRIGHT:
 	    blacknon(blacknon@orebibou.com)
-
+	    
 	VERSION:
-	    0.5.1
-
+	    0.5.2
+	    
 	USAGE:
 	    # local to remote scp
 	    lscp /path/to/local... /path/to/remote
-
+	
 	    # remote to local scp
 	    lscp remote:/path/to/remote... /path/to/local
+	                              
 
 If you specify a command as an argument, you can select multiple hosts. Select host 'Tab', select all displayed hosts 'Ctrl + A'.
 
@@ -238,6 +242,10 @@ You can scp like copy files using stdin/stdout.It also supports multiple nodes(p
 
 sample lssh.conf
 
+<p align="center">
+<img src="./example/lssh_iterm2.gif" />
+</p>
+
     [server.iTerm2_sample]
 	addr = "192.168.100.103"
 	key  = "/path/to/private_key"
@@ -245,6 +253,14 @@ sample lssh.conf
 	pre_cmd = 'printf "\033]50;SetProfile=dq\a"' # ssh theme 
     post_cmd = 'printf "\033]50;SetProfile=Default\a"' # local theme
 	post_cmd = "(option) exec command after ssh disconnected."
+
+    [server.GnomeTerminal_sample]
+	addr = "192.168.100.103"
+	key  = "/path/to/private_key"
+	note = "Before/After run local command"
+	pre_cmd = 'printf "\033]50;SetProfile=dq\a"' # ssh theme 
+    post_cmd = 'printf "\033]50;SetProfile=Default\a"' # local theme
+	post_cmd = "(option) exec command after ssh disconnected."	
 
 
 ### [lssh] use local bashrc file.
