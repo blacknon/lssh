@@ -1,5 +1,6 @@
 [log]
 enable = true
+timestamp = true
 dirpath = "/path/to/logdir"
 
 [server.PasswordAuth_ServerName]
