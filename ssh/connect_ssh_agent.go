@@ -3,6 +3,7 @@ package ssh
 import (
 	"fmt"
 	"io/ioutil"
+	"net"
 	"os"
 	"os/user"
 	"strings"
@@ -11,9 +12,16 @@ import (
 	"golang.org/x/crypto/ssh/agent"
 )
 
-func (c *Connect) CreateSshAgentKeyring() (keyring agent.Agent) {
-	// declare keyring
-	keyring = agent.NewKeyring()
+func (c *Connect) CreateSshAgent() (err error) {
+	// Get SSH_AUTH-SOCK
+	sock, err := net.Dial("unix", os.Getenv("SSH_AUTH_SOCK"))
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Unable to connect to SSH Agent %v", err)
+		return
+	}
+
+	// declare sshAgent
+	sshAgent := agent.NewClient(sock)
 
 	// user path
 	usr, _ := user.Current()
@@ -50,17 +58,19 @@ func (c *Connect) CreateSshAgentKeyring() (keyring agent.Agent) {
 			continue
 		}
 
-		// add key to keyring
-		err = keyring.Add(agent.AddedKey{
+		// add key to sshAgent
+		err = sshAgent.Add(agent.AddedKey{
 			PrivateKey:       key,
 			ConfirmBeforeUse: true,
-			LifetimeSecs:     36000,
+			LifetimeSecs:     30,
 		})
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "failed add key to keyring: %v, %v\n", keyPath, err)
+			fmt.Fprintf(os.Stderr, "failed add key to sshAgent: %v, %v\n", keyPath, err)
 			continue
 		}
 	}
+
+	c.sshAgent = sshAgent
 
 	return
 }

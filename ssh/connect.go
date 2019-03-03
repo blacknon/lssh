@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"golang.org/x/crypto/ssh"
+	"golang.org/x/crypto/ssh/agent"
 	"golang.org/x/crypto/ssh/terminal"
 	"golang.org/x/net/proxy"
 
@@ -24,6 +25,7 @@ type Connect struct {
 	Server           string
 	Conf             conf.Config
 	sshClient        *ssh.Client
+	sshAgent         agent.ExtendedAgent
 	IsTerm           bool
 	IsParallel       bool
 	IsLocalRc        bool
@@ -62,6 +64,15 @@ func (c *Connect) CreateSession() (session *ssh.Session, err error) {
 func (c *Connect) createSshClient() (err error) {
 	// New ClientConfig
 	serverConf := c.Conf.Server[c.Server]
+
+	// if use ssh-agent
+	if serverConf.SSHAgentUse || serverConf.AgentAuth {
+		err := c.CreateSshAgent()
+		if err != nil {
+			return err
+		}
+	}
+
 	sshConf, err := c.createSshClientConfig(c.Server)
 	if err != nil {
 		return err
@@ -155,7 +166,12 @@ func (c *Connect) createSshClientConfig(server string) (clientConfig *ssh.Client
 	return clientConfig, err
 }
 
-// @brief: Create ssh session auth
+// @brief:
+//     Create ssh session auth
+// @note:
+//     - public key auth
+//     - password auth
+//     - ssh-agent auth
 func (c *Connect) createSshAuth(server string) (auth []ssh.AuthMethod, err error) {
 	usr, _ := user.Current()
 	conf := c.Conf.Server[server]
@@ -183,7 +199,14 @@ func (c *Connect) createSshAuth(server string) (auth []ssh.AuthMethod, err error
 		}
 
 		auth = []ssh.AuthMethod{ssh.PublicKeys(signer)}
-	} else {
+	} else if conf.AgentAuth {
+		signers, err := c.sshAgent.Signers()
+		if err != nil {
+			return auth, err
+		}
+
+		auth = []ssh.AuthMethod{ssh.PublicKeys(signers...)}
+	} else if conf.Pass != "" {
 		auth = []ssh.AuthMethod{ssh.Password(conf.Pass)}
 	}
 
