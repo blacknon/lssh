@@ -78,6 +78,11 @@ func (c *Connect) createSshClient() (err error) {
 		return err
 	}
 
+	// set default port 22
+	if serverConf.Port == "" {
+		serverConf.Port = "22"
+	}
+
 	// not use proxy
 	if serverConf.Proxy == "" {
 		client, err := ssh.Dial("tcp", net.JoinHostPort(serverConf.Addr, serverConf.Port), sshConf)
