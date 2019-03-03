@@ -101,8 +101,8 @@ func (r *Run) term() (err error) {
 	// ssh-agent
 	if serverConf.SSHAgentUse {
 		fmt.Fprintf(os.Stderr, "Infomation    :This connect use ssh agent. \n")
-		keyring := c.CreateSshAgentKeyring()
-		agent.ForwardToAgent(c.sshClient, keyring)
+		// sshagent := c.CreateSshAgent()
+		agent.ForwardToAgent(c.sshClient, c.sshAgent)
 		agent.RequestAgentForwarding(session)
 	}
 
