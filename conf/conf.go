@@ -43,6 +43,7 @@ type ServerConfig struct {
 	Pass              string   `toml:"pass"`
 	Key               string   `toml:"key"`
 	KeyPass           string   `toml:"keypass"`
+	AgentAuth         bool     `toml:"agentauth"`
 	PreCmd            string   `toml:"pre_cmd"`
 	PostCmd           string   `toml:"post_cmd"`
 	ProxyType         string   `toml:"proxy_type"`
@@ -163,10 +164,16 @@ func checkFormatServerConf(c Config) (isFormat bool) {
 		}
 
 		// Password or Keyfile Input Check
-		if v.Pass == "" && v.Key == "" {
-			fmt.Printf("%s: Both Password and KeyPath are entered.Please enter either.\n", k)
+		if v.Pass != "" && v.Key != "" {
+			fmt.Printf("%s: Both Password and KeyPath are entered. Please enter either.\n", k)
 			isFormat = false
 		}
+
+		if v.Pass == "" && v.Key == "" && v.AgentAuth == false {
+			fmt.Printf("%s: Authentication information is not set.\n", k)
+			isFormat = false
+		}
+
 	}
 	return
 }
