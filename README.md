@@ -33,9 +33,7 @@ lscp is need the following command in remote server.
 
 compile gofile(tested go1.11.5).
 
-    go get github.com/blacknon/lssh
-    cd $GOPATH/src/github.com/blacknon/lssh
-    make && sudo make install && make clean
+    go get github.com/blacknon/lssh/cmd/...
 
 brew install(Mac OS X)
 
