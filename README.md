@@ -33,7 +33,9 @@ lscp is need the following command in remote server.
 
 compile gofile(tested go1.11.5).
 
-    go get github.com/blacknon/lssh/cmd/...
+    go get -u github.com/blacknon/lssh/cmd/lssh
+    go get -u github.com/blacknon/lssh/cmd/lscp
+
 
 brew install(Mac OS X)
 
@@ -170,7 +172,7 @@ option(lssh)
 	    blacknon(blacknon@orebibou.com)
 	    
 	VERSION:
-	    0.5.2
+	    0.5.3
 	    
 	USAGE:
 	    # connect ssh
@@ -200,7 +202,7 @@ option(lssh)
 	    blacknon(blacknon@orebibou.com)
 	    
 	VERSION:
-	    0.5.2
+	    0.5.3
 	    
 	USAGE:
 	    # local to remote scp
