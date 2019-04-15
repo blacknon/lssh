@@ -2,11 +2,9 @@ package main
 
 import (
 	"os"
-
-	"github.com/blacknon/lssh/args"
 )
 
 func main() {
-	app := args.Lscp()
+	app := Lssh()
 	app.Run(os.Args)
 }
