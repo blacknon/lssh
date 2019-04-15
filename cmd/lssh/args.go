@@ -1,4 +1,4 @@
-package args
+package main
 
 import (
 	"fmt"
@@ -51,16 +51,17 @@ USAGE:
 	app.Name = "lssh"
 	app.Usage = "TUI list select and parallel ssh client command."
 	app.Copyright = "blacknon(blacknon@orebibou.com)"
-	app.Version = "0.5.3"
+	app.Version = "0.6.0"
 
 	// Set options
 	app.Flags = []cli.Flag{
 		cli.StringSliceFlag{Name: "host,H", Usage: "connect servernames"},
-		cli.BoolFlag{Name: "list,l", Usage: "print server list from config"},
 		cli.StringFlag{Name: "file,f", Value: defConf, Usage: "config file path"},
 		cli.StringFlag{Name: "portforward-local", Usage: "port forwarding local port(ex. 127.0.0.1:8080)"},
 		cli.StringFlag{Name: "portforward-remote", Usage: "port forwarding remote port(ex. 127.0.0.1:80)"},
+		cli.BoolFlag{Name: "list,l", Usage: "print server list from config"},
 		cli.BoolFlag{Name: "term,t", Usage: "run specified command at terminal"},
+		cli.BoolFlag{Name: "shell,s", Usage: "use lssh shell (beta)"},
 		cli.BoolFlag{Name: "parallel,p", Usage: "run command parallel node(tail -F etc...)"},
 		cli.BoolFlag{Name: "generate", Usage: "(beta) generate .lssh.conf from .ssh/config.(not support ProxyCommand)"},
 		cli.BoolFlag{Name: "help,h", Usage: "print this help"},
