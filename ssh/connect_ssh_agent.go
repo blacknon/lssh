@@ -12,6 +12,11 @@ import (
 	"golang.org/x/crypto/ssh/agent"
 )
 
+// @TODO: v0.5.3
+//     ssh-agentの処理について、既存のagentがない場合は自動生成するように修正する
+//     ※ Agentを作成しておき、それを使ってExtendAgentを作るようにすればいい
+//     　 とりあえず、Agentがない場合は適当な名前のファイルで作成するようにしてやればいいか…
+//     　 (~/.lssh_sshagent_$(md5 unixtime).sock)とかで
 func (c *Connect) CreateSshAgent() (err error) {
 	// Get SSH_AUTH-SOCK
 	sock, err := net.Dial("unix", os.Getenv("SSH_AUTH_SOCK"))
