@@ -7,10 +7,6 @@ import (
 	"os"
 )
 
-// @TODO:
-//    ・sshClinetをStructのフィールドにする(引数にする必要もないだろうし)
-//    ・forward単体でポートフォワードが終わるようにする
-
 // @brief:
 func (c *Connect) forward(localConn net.Conn) {
 	// Create ssh connect
