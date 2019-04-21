@@ -4,11 +4,9 @@ import (
 	"bytes"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"net"
 	"os"
 	"os/signal"
-	"os/user"
 	"strings"
 	"syscall"
 	"time"
@@ -169,53 +167,6 @@ func (c *Connect) createSshClientConfig(server string) (clientConfig *ssh.Client
 		Timeout:         3600 * time.Hour,
 	}
 	return clientConfig, err
-}
-
-// @brief:
-//     Create ssh session auth
-// @note:
-//     - public key auth
-//     - password auth
-//     - ssh-agent auth
-func (c *Connect) createSshAuth(server string) (auth []ssh.AuthMethod, err error) {
-	usr, _ := user.Current()
-	conf := c.Conf.Server[server]
-
-	if conf.Key != "" {
-		conf.Key = strings.Replace(conf.Key, "~", usr.HomeDir, 1)
-
-		// Read PrivateKey file
-		key, err := ioutil.ReadFile(conf.Key)
-		if err != nil {
-			return auth, err
-		}
-
-		// Read signer from PrivateKey
-		var signer ssh.Signer
-		if conf.KeyPass != "" {
-			signer, err = ssh.ParsePrivateKeyWithPassphrase(key, []byte(conf.KeyPass))
-		} else {
-			signer, err = ssh.ParsePrivateKey(key)
-		}
-
-		// check err
-		if err != nil {
-			return auth, err
-		}
-
-		auth = []ssh.AuthMethod{ssh.PublicKeys(signer)}
-	} else if conf.AgentAuth {
-		signers, err := c.sshAgent.Signers()
-		if err != nil {
-			return auth, err
-		}
-
-		auth = []ssh.AuthMethod{ssh.PublicKeys(signers...)}
-	} else if conf.Pass != "" {
-		auth = []ssh.AuthMethod{ssh.Password(conf.Pass)}
-	}
-
-	return auth, err
 }
 
 // @brief:

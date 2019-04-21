@@ -41,20 +41,23 @@ type ServerConfig struct {
 	Port              string   `toml:"port"`
 	User              string   `toml:"user"`
 	Pass              string   `toml:"pass"`
+	Passes            []string `toml:"passes"`
 	Key               string   `toml:"key"`
 	KeyPass           string   `toml:"keypass"`
+	Keys              []string `toml:"keys"` // "keypath::passphase"
 	AgentAuth         bool     `toml:"agentauth"`
+	SSHAgentUse       bool     `toml:"ssh_agent"`
+	SSHAgentKeyPath   []string `toml:"ssh_agent_key"`   // "keypath::passphase"
+	CommonAuthUse     string   `toml:"common_auth_use"` // yes|no (default: yes)
 	PreCmd            string   `toml:"pre_cmd"`
 	PostCmd           string   `toml:"post_cmd"`
 	ProxyType         string   `toml:"proxy_type"`
 	Proxy             string   `toml:"proxy"`
-	LocalRcUse        string   `toml:"local_rc"` // yes|no
+	LocalRcUse        string   `toml:"local_rc"` // yes|no (default: yes)
 	LocalRcPath       []string `toml:"local_rc_file"`
 	LocalRcDecodeCmd  string   `toml:"local_rc_decode_cmd"`
 	PortForwardLocal  string   `toml:"port_forward_local"`  // port forward (local). "host:port"
 	PortForwardRemote string   `toml:"port_forward_remote"` // port forward (remote). "host:port"
-	SSHAgentUse       bool     `toml:"ssh_agent"`
-	SSHAgentKeyPath   []string `toml:"ssh_agent_key"` // "keypath::passphase"
 	Note              string   `toml:"note"`
 }
 
@@ -151,21 +154,15 @@ func ReadConf(confPath string) (checkConf Config) {
 func checkFormatServerConf(c Config) (isFormat bool) {
 	isFormat = true
 	for k, v := range c.Server {
-		// Address Input Check
+		// Address Set Check
 		if v.Addr == "" {
-			fmt.Printf("%s: 'addr' is not inserted.\n", k)
+			fmt.Printf("%s: 'addr' is not set.\n", k)
 			isFormat = false
 		}
 
-		// User Input Check
+		// User Set Check
 		if v.User == "" {
-			fmt.Printf("%s: 'user' is not inserted.\n", k)
-			isFormat = false
-		}
-
-		// Password or Keyfile Input Check
-		if v.Pass != "" && v.Key != "" {
-			fmt.Printf("%s: Both Password and KeyPath are entered. Please enter either.\n", k)
+			fmt.Printf("%s: 'user' is not set.\n", k)
 			isFormat = false
 		}
 
@@ -173,7 +170,6 @@ func checkFormatServerConf(c Config) (isFormat bool) {
 			fmt.Printf("%s: Authentication information is not set.\n", k)
 			isFormat = false
 		}
-
 	}
 	return
 }
