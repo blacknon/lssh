@@ -23,7 +23,8 @@ type Connect struct {
 	Server           string
 	Conf             conf.Config
 	sshClient        *ssh.Client
-	sshAgent         agent.ExtendedAgent
+	sshAgent         agent.Agent
+	sshExtendedAgent agent.ExtendedAgent
 	IsTerm           bool
 	IsParallel       bool
 	IsLocalRc        bool
