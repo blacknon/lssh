@@ -12,70 +12,82 @@ import (
 	"golang.org/x/crypto/ssh/agent"
 )
 
-// @TODO: v0.5.3
-//     ssh-agentの処理について、既存のagentがない場合は自動生成するように修正する
-//     ※ Agentを作成しておき、それを使ってExtendAgentを作るようにすればいい
-//     　 とりあえず、Agentがない場合は適当な名前のファイルで作成するようにしてやればいいか…
-//     　 (~/.lssh_sshagent_$(md5 unixtime).sock)とかで
 func (c *Connect) CreateSshAgent() (err error) {
-	// Get SSH_AUTH-SOCK
-	sock, err := net.Dial("unix", os.Getenv("SSH_AUTH_SOCK"))
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "Unable to connect to SSH Agent %v", err)
-		return
-	}
-
-	// declare sshAgent
-	sshAgent := agent.NewClient(sock)
-
-	// user path
-	usr, _ := user.Current()
-
 	conf := c.Conf.Server[c.Server]
 	sshKeys := conf.SSHAgentKeyPath
 
-	for _, keyPathData := range sshKeys {
-		// parse ssh key strings
-		//    * keyPathArray[0] ... KeyPath
-		//    * keyPathArray[1] ... KeyPassPhase
-		keyPathArray := strings.SplitN(keyPathData, "::", 2)
+	// Get SSH_AUTH-SOCK
+	sock, err := net.Dial("unix", os.Getenv("SSH_AUTH_SOCK"))
+	if err != nil {
+		// declare sshAgent(Agent)
+		sshAgent := agent.NewKeyring()
+		for _, keyPathData := range sshKeys {
+			key, err := parseKeyArray(keyPathData)
+			if err != nil {
+				fmt.Fprintf(os.Stderr, "failed parse key: %v\n", err)
+				continue
+			}
 
-		// key path to fullpath
-		keyPath := strings.Replace(keyPathArray[0], "~", usr.HomeDir, 1)
-
-		// read key file
-		keyData, err := ioutil.ReadFile(keyPath)
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "failed read key file: %v\n", err)
-			continue
+			// add key to sshAgent
+			err = sshAgent.Add(agent.AddedKey{
+				PrivateKey:       key,
+				ConfirmBeforeUse: true,
+				LifetimeSecs:     30,
+			})
+			if err != nil {
+				fmt.Fprintf(os.Stderr, "failed add key to sshAgent: %v\n", err)
+				continue
+			}
 		}
+		c.sshAgent = sshAgent
+	} else {
+		// declare sshAgent(ExtendedAgent)
+		sshAgent := agent.NewClient(sock)
+		for _, keyPathData := range sshKeys {
+			key, err := parseKeyArray(keyPathData)
+			if err != nil {
+				fmt.Fprintf(os.Stderr, "failed parse key: %v\n", err)
+				continue
+			}
 
-		// parse key data
-		var key interface{}
-		if len(keyPathArray) > 1 {
-			key, err = ssh.ParseRawPrivateKeyWithPassphrase(keyData, []byte(keyPathArray[1]))
-		} else {
-			key, err = ssh.ParseRawPrivateKey(keyData)
+			// add key to sshAgent
+			err = sshAgent.Add(agent.AddedKey{
+				PrivateKey:       key,
+				ConfirmBeforeUse: true,
+				LifetimeSecs:     30,
+			})
+			if err != nil {
+				fmt.Fprintf(os.Stderr, "failed add key to sshAgent: %v\n", err)
+				continue
+			}
 		}
+		c.sshExtendedAgent = sshAgent
+	}
+	return
+}
 
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "failed parse key file: %v, %v\n", keyPath, err)
-			continue
-		}
+func parseKeyArray(keyPathStr string) (key interface{}, err error) {
+	// parse ssh key strings
+	//    * keyPathArray[0] ... KeyPath
+	//    * keyPathArray[1] ... KeyPassPhase
+	keyArray := strings.SplitN(keyPathStr, "::", 2)
 
-		// add key to sshAgent
-		err = sshAgent.Add(agent.AddedKey{
-			PrivateKey:       key,
-			ConfirmBeforeUse: true,
-			LifetimeSecs:     30,
-		})
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "failed add key to sshAgent: %v, %v\n", keyPath, err)
-			continue
-		}
+	// key path to fullpath
+	usr, _ := user.Current()
+	keyPath := strings.Replace(keyArray[0], "~", usr.HomeDir, 1)
+
+	// read key file
+	keyData, err := ioutil.ReadFile(keyPath)
+	if err != nil {
+		return
 	}
 
-	c.sshAgent = sshAgent
+	// parse key data
+	if len(keyArray) > 1 {
+		key, err = ssh.ParseRawPrivateKeyWithPassphrase(keyData, []byte(keyArray[1]))
+	} else {
+		key, err = ssh.ParseRawPrivateKey(keyData)
+	}
 
 	return
 }

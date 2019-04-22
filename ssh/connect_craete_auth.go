@@ -32,11 +32,8 @@ func (c *Connect) createSshAuth(server string) (auth []ssh.AuthMethod, err error
 	// public key (multiple)
 	if len(conf.Keys) > 0 {
 		for _, key := range conf.Keys {
-			keyPathArray := strings.SplitN(keyPathData, "::", 2)
-			keyPath := strings.Replace(keyPathArray[0], "~", usr.HomeDir, 1)
-			keyPassphase := keyPathArray[1]
-
-			authMethod, err := createSshAuthPublicKey(keyPath, keyPassphase)
+			keyPathArray := strings.SplitN(key, "::", 2)
+			authMethod, err := createSshAuthPublicKey(keyPathArray[0], keyPathArray[1])
 			if err != nil {
 				return auth, err
 			}
@@ -52,7 +49,7 @@ func (c *Connect) createSshAuth(server string) (auth []ssh.AuthMethod, err error
 
 	// ssh password (multiple)
 	if len(conf.Passes) > 0 {
-		for _, pass = range conf.Passes {
+		for _, pass := range conf.Passes {
 			auth = append(auth, ssh.Password(pass))
 		}
 	}
