@@ -166,11 +166,30 @@ func checkFormatServerConf(c Config) (isFormat bool) {
 			isFormat = false
 		}
 
-		if v.Pass == "" && v.Key == "" && v.AgentAuth == false {
+		// @TODO: 別の関数で処理させるようにする(必須のauthチェックはifが長くなるので)
+		if checkFormatServerConfAuth(v) {
 			fmt.Printf("%s: Authentication information is not set.\n", k)
 			isFormat = false
 		}
 	}
+	return
+}
+
+// @TODO: vだけ渡す
+func checkFormatServerConfAuth(c ServerConfig) (isFormat bool) {
+	isFormat = false
+	if c.Pass != "" || c.Key != "" {
+		isFormat = true
+	}
+
+	if c.AgentAuth == true {
+		isFormat = true
+	}
+
+	if len(c.Keys) > 0 || len(c.Passes) > 0 {
+		isFormat = true
+	}
+
 	return
 }
 
