@@ -166,7 +166,6 @@ func checkFormatServerConf(c Config) (isFormat bool) {
 			isFormat = false
 		}
 
-		// @TODO: 別の関数で処理させるようにする(必須のauthチェックはifが長くなるので)
 		if checkFormatServerConfAuth(v) {
 			fmt.Printf("%s: Authentication information is not set.\n", k)
 			isFormat = false
@@ -175,7 +174,6 @@ func checkFormatServerConf(c Config) (isFormat bool) {
 	return
 }
 
-// @TODO: vだけ渡す
 func checkFormatServerConfAuth(c ServerConfig) (isFormat bool) {
 	isFormat = false
 	if c.Pass != "" || c.Key != "" {
