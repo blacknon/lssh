@@ -37,28 +37,40 @@ type IncludeConfig struct {
 }
 
 type ServerConfig struct {
-	Addr              string   `toml:"addr"`
-	Port              string   `toml:"port"`
-	User              string   `toml:"user"`
-	Pass              string   `toml:"pass"`
-	Passes            []string `toml:"passes"`
-	Key               string   `toml:"key"`
-	KeyPass           string   `toml:"keypass"`
-	Keys              []string `toml:"keys"` // "keypath::passphase"
-	AgentAuth         bool     `toml:"agentauth"`
-	SSHAgentUse       bool     `toml:"ssh_agent"`
-	SSHAgentKeyPath   []string `toml:"ssh_agent_key"`   // "keypath::passphase"
-	CommonAuthUse     string   `toml:"common_auth_use"` // yes|no (default: yes)
-	PreCmd            string   `toml:"pre_cmd"`
-	PostCmd           string   `toml:"post_cmd"`
-	ProxyType         string   `toml:"proxy_type"`
-	Proxy             string   `toml:"proxy"`
-	LocalRcUse        string   `toml:"local_rc"` // yes|no (default: yes)
-	LocalRcPath       []string `toml:"local_rc_file"`
-	LocalRcDecodeCmd  string   `toml:"local_rc_decode_cmd"`
-	PortForwardLocal  string   `toml:"port_forward_local"`  // port forward (local). "host:port"
-	PortForwardRemote string   `toml:"port_forward_remote"` // port forward (remote). "host:port"
-	Note              string   `toml:"note"`
+	// Connect Setting
+	Addr string `toml:"addr"`
+	Port string `toml:"port"`
+	User string `toml:"user"`
+
+	// Connect auth Setting
+	Pass            string   `toml:"pass"`
+	Passes          []string `toml:"passes"`
+	Key             string   `toml:"key"`
+	KeyPass         string   `toml:"keypass"`
+	Keys            []string `toml:"keys"` // "keypath::passphase"
+	AgentAuth       bool     `toml:"agentauth"`
+	SSHAgentUse     bool     `toml:"ssh_agent"`
+	SSHAgentKeyPath []string `toml:"ssh_agent_key"`  // "keypath::passphase"
+	PKCS11Provider  string   `toml:"pkcs11provider"` // PKCS11 Provider PATH
+	PKCS11PIN       string   `toml:"pkcs11PIN"`      // PKCS11 PIN code
+
+	// pre | post command setting
+	PreCmd  string `toml:"pre_cmd"`
+	PostCmd string `toml:"post_cmd"`
+
+	// proxy setting
+	ProxyType string `toml:"proxy_type"`
+	Proxy     string `toml:"proxy"`
+
+	// local rcfile setting
+	LocalRcUse       string   `toml:"local_rc"` // yes|no (default: yes)
+	LocalRcPath      []string `toml:"local_rc_file"`
+	LocalRcDecodeCmd string   `toml:"local_rc_decode_cmd"`
+
+	// port forwarding setting
+	PortForwardLocal  string `toml:"port_forward_local"`  // port forward (local). "host:port"
+	PortForwardRemote string `toml:"port_forward_remote"` // port forward (remote). "host:port"
+	Note              string `toml:"note"`
 }
 
 type ProxyConfig struct {
