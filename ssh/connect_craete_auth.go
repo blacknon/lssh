@@ -2,6 +2,8 @@ package ssh
 
 import (
 	"io/ioutil"
+	"net"
+	"os"
 	"os/user"
 	"strings"
 
@@ -56,11 +58,20 @@ func (c *Connect) createSshAuth(server string) (auth []ssh.AuthMethod, err error
 
 	// ssh agent
 	if conf.AgentAuth {
-		signers, err := c.sshAgent.Signers()
+		var signers []ssh.Signer
+		_, err := net.Dial("unix", os.Getenv("SSH_AUTH_SOCK"))
 		if err != nil {
-			return auth, err
-		}
+			signers, err = c.sshAgent.Signers()
+			if err != nil {
+				return auth, err
+			}
+		} else {
+			signers, err = c.sshExtendedAgent.Signers()
 
+			if err != nil {
+				return auth, err
+			}
+		}
 		auth = append(auth, ssh.PublicKeys(signers...))
 	}
 
