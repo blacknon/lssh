@@ -178,7 +178,7 @@ func checkFormatServerConf(c Config) (isFormat bool) {
 			isFormat = false
 		}
 
-		if checkFormatServerConfAuth(v) {
+		if !checkFormatServerConfAuth(v) {
 			fmt.Printf("%s: Authentication information is not set.\n", k)
 			isFormat = false
 		}
