@@ -20,5 +20,6 @@ clean:
 	rm -f lssh
 	rm -f lscp
 install:
-	$(GOINSTALL) ./...
+	cp lssh /usr/local/bin/
+	cp lscp /usr/local/bin/
 	cp -n example/config.tml ~/.lssh.conf || true

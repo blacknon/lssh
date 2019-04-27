@@ -32,7 +32,7 @@ func (c *Connect) CreateSshAgent() (err error) {
 			err = sshAgent.Add(agent.AddedKey{
 				PrivateKey:       key,
 				ConfirmBeforeUse: true,
-				LifetimeSecs:     30,
+				LifetimeSecs:     3000,
 			})
 			if err != nil {
 				fmt.Fprintf(os.Stderr, "failed add key to sshAgent: %v\n", err)
@@ -40,6 +40,7 @@ func (c *Connect) CreateSshAgent() (err error) {
 			}
 		}
 		c.sshAgent = sshAgent
+		err = nil
 	} else {
 		// declare sshAgent(ExtendedAgent)
 		sshAgent := agent.NewClient(sock)
@@ -54,7 +55,7 @@ func (c *Connect) CreateSshAgent() (err error) {
 			err = sshAgent.Add(agent.AddedKey{
 				PrivateKey:       key,
 				ConfirmBeforeUse: true,
-				LifetimeSecs:     30,
+				LifetimeSecs:     3000,
 			})
 			if err != nil {
 				fmt.Fprintf(os.Stderr, "failed add key to sshAgent: %v\n", err)
