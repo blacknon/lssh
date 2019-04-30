@@ -75,6 +75,19 @@ func (c *Connect) createSshAuth(server string) (auth []ssh.AuthMethod, err error
 		auth = append(auth, ssh.PublicKeys(signers...))
 	}
 
+	if conf.PKCS11Use {
+		// @TODO: confのチェック時にPKCS11のProviderのPATHチェックを行う
+		var signers []ssh.Signer
+		signers, err := c.getSshSignerFromPkcs11(server)
+		if err != nil {
+			return auth, err
+		}
+
+		for _, signer := range signers {
+			auth = append(auth, ssh.PublicKeys(signer))
+		}
+	}
+
 	return auth, err
 }
 

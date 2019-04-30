@@ -50,9 +50,10 @@ type ServerConfig struct {
 	Keys            []string `toml:"keys"` // "keypath::passphase"
 	AgentAuth       bool     `toml:"agentauth"`
 	SSHAgentUse     bool     `toml:"ssh_agent"`
-	SSHAgentKeyPath []string `toml:"ssh_agent_key"`  // "keypath::passphase"
+	SSHAgentKeyPath []string `toml:"ssh_agent_key"` // "keypath::passphase"
+	PKCS11Use       bool     `toml:"pkcs11"`
 	PKCS11Provider  string   `toml:"pkcs11provider"` // PKCS11 Provider PATH
-	PKCS11PIN       string   `toml:"pkcs11PIN"`      // PKCS11 PIN code
+	PKCS11PIN       string   `toml:"pkcs11pin"`      // PKCS11 PIN code
 
 	// pre | post command setting
 	PreCmd  string `toml:"pre_cmd"`
@@ -194,6 +195,13 @@ func checkFormatServerConfAuth(c ServerConfig) (isFormat bool) {
 
 	if c.AgentAuth == true {
 		isFormat = true
+	}
+
+	if c.PKCS11Use == true {
+		_, err := os.Stat(c.PKCS11Provider)
+		if err == nil {
+			isFormat = true
+		}
 	}
 
 	if len(c.Keys) > 0 || len(c.Passes) > 0 {
