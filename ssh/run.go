@@ -21,11 +21,12 @@ type Run struct {
 	PortForwardRemote string
 	ExecCmd           []string
 	StdinData         []byte
+	InputData         []byte
 	OutputData        *bytes.Buffer
 }
 
 func (r *Run) Start() {
-	// Get stdin
+	// Get stdin data(pipe)
 	if !terminal.IsTerminal(syscall.Stdin) {
 		r.StdinData, _ = ioutil.ReadAll(os.Stdin)
 	}

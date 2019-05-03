@@ -9,24 +9,31 @@ import (
 )
 
 func (r *Run) cmd() {
+	// make channel
 	finished := make(chan bool)
+
+	// if IsTerminal, Get input data
+	// @CommentOut 20190503
+	// if terminal.IsTerminal(syscall.Stdin) {
+	// 	go r.getInputFromStdin()
+	// }
 
 	// print header
 	r.printSelectServer()
 	r.printRunCommand()
 	r.printProxy()
 
-	fmt.Println() // print newline
+	// print newline
+	fmt.Println()
+
+	// @TODO: add get input in buffer
 
 	for i, server := range r.ServerList {
 		count := i
 
 		c := new(Connect)
-
 		c.Server = server
-
 		c.Conf = r.Conf
-
 		c.IsTerm = r.IsTerm
 		c.IsParallel = r.IsParallel
 
@@ -70,7 +77,19 @@ func (r *Run) cmdRun(conn *Connect, serverListIndex int, outputChan chan string)
 	}
 
 	// set stdin
-	session.Stdin = bytes.NewReader(r.StdinData)
+	if len(r.StdinData) > 0 { // if stdin from pipe
+		session.Stdin = bytes.NewReader(r.StdinData)
+	} else { // if not stdin from pipe
+		// @TODO:
+		//     os.Stdinをそのまま渡すのだとだめなので、一度bufferに書き出してから各Sessionに書き出す必要がある。
+		//     なので、Structとかもっと上位に入力を受け付ける代物を入れる必要があるので注意。もしくはchannelかな？？
+		// @CommentOut 20190503
+		// go r.putInputToSession(session)
+
+		if len(r.ServerList) == 1 {
+			session.Stdin = os.Stdin
+		}
+	}
 
 	// run command and get output data to outputChan
 	isExit := make(chan bool)
@@ -98,6 +117,36 @@ func (r *Run) cmdPrintOutput(conn *Connect, serverListIndex int, outputChan chan
 	}
 
 }
+
+// get input data
+// @CommentOut 20190503
+// func (r *Run) getInputFromStdin() {
+// 	stdin := bufio.NewScanner(os.Stdin)
+
+// 	for {
+// 		for stdin.Scan() {
+// 			data := stdin.Bytes()
+// 			r.InputData = append(r.InputData, data...)
+// 		}
+// 		time.Sleep(10 * time.Millisecond)
+// 	}
+// }
+
+// @CommentOut 20190503
+// func (r *Run) putInputToSession(session *ssh.Session) {
+// 	stdin, _ := session.StdinPipe()
+// 	i := 0
+// 	for {
+// 		size := len(r.InputData)
+// 		if len(r.InputData) > i {
+// 			// fmt.Println(string(r.InputData[i:size]))
+// 			fmt.Fprint(stdin, string(r.InputData[i:size]))
+// 			// session.Stdin.Read(r.InputData[i:size])
+// 			i = size
+// 		}
+// 		time.Sleep(10 * time.Millisecond)
+// 	}
+// }
 
 func outColorStrings(num int, inStrings string) (str string) {
 	// 1=Red,2=Yellow,3=Blue,4=Magenta,0=Cyan
