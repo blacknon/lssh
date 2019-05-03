@@ -15,6 +15,7 @@ import (
 
 type Config struct {
 	Log      LogConfig
+	Shell    ShellConfig
 	Include  map[string]IncludeConfig
 	Includes IncludesConfig
 	Common   ServerConfig
@@ -28,12 +29,20 @@ type LogConfig struct {
 	Dir       string `toml:"dirpath"`
 }
 
-type IncludesConfig struct {
-	Path []string `toml:"path"`
+type ShellConfig struct {
+	// prompt
+	Prompt  string `toml:"PROMPT"`  // lssh shell prompt
+	RPrompt string `toml:"RPROMPT"` // lssh shell right prompt
+	OPrompt string `toml:"OPROMPT"` // lssh shell output prompt
 }
 
 type IncludeConfig struct {
 	Path string `toml:"path"`
+}
+
+// multiple include path
+type IncludesConfig struct {
+	Path []string `toml:"path"`
 }
 
 type ServerConfig struct {
