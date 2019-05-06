@@ -61,7 +61,7 @@ USAGE:
 		cli.StringFlag{Name: "portforward-remote", Usage: "port forwarding remote port(ex. 127.0.0.1:80)"},
 		cli.BoolFlag{Name: "list,l", Usage: "print server list from config"},
 		cli.BoolFlag{Name: "term,t", Usage: "run specified command at terminal"},
-		cli.BoolFlag{Name: "shell,s", Usage: "use lssh shell (beta)"},
+		// cli.BoolFlag{Name: "shell,s", Usage: "use lssh shell (beta)"},
 		cli.BoolFlag{Name: "parallel,p", Usage: "run command parallel node(tail -F etc...)"},
 		cli.BoolFlag{Name: "generate", Usage: "(beta) generate .lssh.conf from .ssh/config.(not support ProxyCommand)"},
 		cli.BoolFlag{Name: "help,h", Usage: "print this help"},
