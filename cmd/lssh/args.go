@@ -51,7 +51,7 @@ USAGE:
 	app.Name = "lssh"
 	app.Usage = "TUI list select and parallel ssh client command."
 	app.Copyright = "blacknon(blacknon@orebibou.com)"
-	app.Version = "0.6.0"
+	app.Version = "0.5.3"
 
 	// Set options
 	app.Flags = []cli.Flag{
