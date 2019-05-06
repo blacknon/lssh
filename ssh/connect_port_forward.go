@@ -7,14 +7,10 @@ import (
 	"os"
 )
 
-// @TODO:
-//    ・sshClinetをStructのフィールドにする(引数にする必要もないだろうし)
-//    ・forward単体でポートフォワードが終わるようにする
-
 // @brief:
 func (c *Connect) forward(localConn net.Conn) {
 	// Create ssh connect
-	sshConn, err := c.sshClient.Dial("tcp", c.ForwardRemote)
+	sshConn, err := c.Client.Dial("tcp", c.ForwardRemote)
 
 	// Copy localConn.Reader to sshConn.Writer
 	go func() {

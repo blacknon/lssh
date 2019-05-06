@@ -15,6 +15,7 @@ import (
 
 type Config struct {
 	Log      LogConfig
+	Shell    ShellConfig
 	Include  map[string]IncludeConfig
 	Includes IncludesConfig
 	Common   ServerConfig
@@ -28,33 +29,58 @@ type LogConfig struct {
 	Dir       string `toml:"dirpath"`
 }
 
-type IncludesConfig struct {
-	Path []string `toml:"path"`
+type ShellConfig struct {
+	// prompt
+	Prompt  string `toml:"PROMPT"`  // lssh shell prompt
+	RPrompt string `toml:"RPROMPT"` // lssh shell right prompt
+	OPrompt string `toml:"OPROMPT"` // lssh shell output prompt
 }
 
 type IncludeConfig struct {
 	Path string `toml:"path"`
 }
 
+// multiple include path
+type IncludesConfig struct {
+	Path []string `toml:"path"`
+}
+
 type ServerConfig struct {
-	Addr              string   `toml:"addr"`
-	Port              string   `toml:"port"`
-	User              string   `toml:"user"`
-	Pass              string   `toml:"pass"`
-	Key               string   `toml:"key"`
-	KeyPass           string   `toml:"keypass"`
-	PreCmd            string   `toml:"pre_cmd"`
-	PostCmd           string   `toml:"post_cmd"`
-	ProxyType         string   `toml:"proxy_type"`
-	Proxy             string   `toml:"proxy"`
-	LocalRcUse        string   `toml:"local_rc"` // yes|no
-	LocalRcPath       []string `toml:"local_rc_file"`
-	LocalRcDecodeCmd  string   `toml:"local_rc_decode_cmd"`
-	PortForwardLocal  string   `toml:"port_forward_local"`  // port forward (local). "host:port"
-	PortForwardRemote string   `toml:"port_forward_remote"` // port forward (remote). "host:port"
-	SSHAgentUse       bool     `toml:"ssh_agent"`
-	SSHAgentKeyPath   []string `toml:"ssh_agent_key"` // "keypath::passphase"
-	Note              string   `toml:"note"`
+	// Connect Setting
+	Addr string `toml:"addr"`
+	Port string `toml:"port"`
+	User string `toml:"user"`
+
+	// Connect auth Setting
+	Pass            string   `toml:"pass"`
+	Passes          []string `toml:"passes"`
+	Key             string   `toml:"key"`
+	KeyPass         string   `toml:"keypass"`
+	Keys            []string `toml:"keys"` // "keypath::passphase"
+	AgentAuth       bool     `toml:"agentauth"`
+	SSHAgentUse     bool     `toml:"ssh_agent"`
+	SSHAgentKeyPath []string `toml:"ssh_agent_key"` // "keypath::passphase"
+	PKCS11Use       bool     `toml:"pkcs11"`
+	PKCS11Provider  string   `toml:"pkcs11provider"` // PKCS11 Provider PATH
+	PKCS11PIN       string   `toml:"pkcs11pin"`      // PKCS11 PIN code
+
+	// pre | post command setting
+	PreCmd  string `toml:"pre_cmd"`
+	PostCmd string `toml:"post_cmd"`
+
+	// proxy setting
+	ProxyType string `toml:"proxy_type"`
+	Proxy     string `toml:"proxy"`
+
+	// local rcfile setting
+	LocalRcUse       string   `toml:"local_rc"` // yes|no (default: yes)
+	LocalRcPath      []string `toml:"local_rc_file"`
+	LocalRcDecodeCmd string   `toml:"local_rc_decode_cmd"`
+
+	// port forwarding setting
+	PortForwardLocal  string `toml:"port_forward_local"`  // port forward (local). "host:port"
+	PortForwardRemote string `toml:"port_forward_remote"` // port forward (remote). "host:port"
+	Note              string `toml:"note"`
 }
 
 type ProxyConfig struct {
@@ -150,24 +176,47 @@ func ReadConf(confPath string) (checkConf Config) {
 func checkFormatServerConf(c Config) (isFormat bool) {
 	isFormat = true
 	for k, v := range c.Server {
-		// Address Input Check
+		// Address Set Check
 		if v.Addr == "" {
-			fmt.Printf("%s: 'addr' is not inserted.\n", k)
+			fmt.Printf("%s: 'addr' is not set.\n", k)
 			isFormat = false
 		}
 
-		// User Input Check
+		// User Set Check
 		if v.User == "" {
-			fmt.Printf("%s: 'user' is not inserted.\n", k)
+			fmt.Printf("%s: 'user' is not set.\n", k)
 			isFormat = false
 		}
 
-		// Password or Keyfile Input Check
-		if v.Pass == "" && v.Key == "" {
-			fmt.Printf("%s: Both Password and KeyPath are entered.Please enter either.\n", k)
+		if !checkFormatServerConfAuth(v) {
+			fmt.Printf("%s: Authentication information is not set.\n", k)
 			isFormat = false
 		}
 	}
+	return
+}
+
+func checkFormatServerConfAuth(c ServerConfig) (isFormat bool) {
+	isFormat = false
+	if c.Pass != "" || c.Key != "" {
+		isFormat = true
+	}
+
+	if c.AgentAuth == true {
+		isFormat = true
+	}
+
+	if c.PKCS11Use == true {
+		_, err := os.Stat(c.PKCS11Provider)
+		if err == nil {
+			isFormat = true
+		}
+	}
+
+	if len(c.Keys) > 0 || len(c.Passes) > 0 {
+		isFormat = true
+	}
+
 	return
 }
 

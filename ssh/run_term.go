@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"fmt"
 	"io"
+	"net"
 	"os"
 	"os/exec"
 	"os/user"
@@ -101,8 +102,14 @@ func (r *Run) term() (err error) {
 	// ssh-agent
 	if serverConf.SSHAgentUse {
 		fmt.Fprintf(os.Stderr, "Infomation    :This connect use ssh agent. \n")
-		keyring := c.CreateSshAgentKeyring()
-		agent.ForwardToAgent(c.sshClient, keyring)
+
+		// forward agent
+		_, err := net.Dial("unix", os.Getenv("SSH_AUTH_SOCK"))
+		if err != nil {
+			agent.ForwardToAgent(c.Client, c.sshAgent)
+		} else {
+			agent.ForwardToAgent(c.Client, c.sshExtendedAgent)
+		}
 		agent.RequestAgentForwarding(session)
 	}
 
