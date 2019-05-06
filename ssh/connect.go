@@ -22,8 +22,8 @@ import (
 type Connect struct {
 	Server           string
 	Conf             conf.Config
-	sshClient        *ssh.Client
-	sshSession       *ssh.Session
+	Client           *ssh.Client
+	StdinWriter      io.Writer
 	sshAgent         agent.Agent
 	sshExtendedAgent agent.ExtendedAgent
 	IsTerm           bool
@@ -43,13 +43,15 @@ type Proxy struct {
 // @brief: create ssh session
 func (c *Connect) CreateSession() (session *ssh.Session, err error) {
 	// New connect
-	err = c.createSshClient()
-	if err != nil {
-		return session, err
+	if c.Client == nil {
+		err = c.CreateClient()
+		if err != nil {
+			return session, err
+		}
 	}
 
 	// New session
-	session, err = c.sshClient.NewSession()
+	session, err = c.Client.NewSession()
 
 	if err != nil {
 		return session, err
@@ -61,7 +63,7 @@ func (c *Connect) CreateSession() (session *ssh.Session, err error) {
 // @brief: create ssh client
 // @note:
 //     support multiple proxy connect.
-func (c *Connect) createSshClient() (err error) {
+func (c *Connect) CreateClient() (err error) {
 	// New ClientConfig
 	serverConf := c.Conf.Server[c.Server]
 
@@ -73,7 +75,7 @@ func (c *Connect) createSshClient() (err error) {
 		}
 	}
 
-	sshConf, err := c.createSshClientConfig(c.Server)
+	sshConf, err := c.createClientConfig(c.Server)
 	if err != nil {
 		return err
 	}
@@ -90,10 +92,10 @@ func (c *Connect) createSshClient() (err error) {
 			return err
 		}
 
-		// set sshClient
-		c.sshClient = client
+		// set client
+		c.Client = client
 	} else {
-		err := c.createSshClientOverProxy(serverConf, sshConf)
+		err := c.createClientOverProxy(serverConf, sshConf)
 		if err != nil {
 			return err
 		}
@@ -104,7 +106,7 @@ func (c *Connect) createSshClient() (err error) {
 
 // @brief:
 //     Create ssh client via proxy
-func (c *Connect) createSshClientOverProxy(serverConf conf.ServerConfig, sshConf *ssh.ClientConfig) (err error) {
+func (c *Connect) createClientOverProxy(serverConf conf.ServerConfig, sshConf *ssh.ClientConfig) (err error) {
 	// get proxy slice
 	proxyList, proxyType, err := GetProxyList(c.Server, c.Conf)
 	if err != nil {
@@ -127,11 +129,11 @@ func (c *Connect) createSshClientOverProxy(serverConf conf.ServerConfig, sshConf
 
 		default:
 			proxyConf := c.Conf.Server[proxy]
-			proxySshConf, err := c.createSshClientConfig(proxy)
+			proxySshConf, err := c.createClientConfig(proxy)
 			if err != nil {
 				return err
 			}
-			proxyClient, err = createSshClientViaProxy(proxyConf, proxySshConf, proxyClient, proxyDialer)
+			proxyClient, err = createClientViaProxy(proxyConf, proxySshConf, proxyClient, proxyDialer)
 
 		}
 
@@ -140,20 +142,20 @@ func (c *Connect) createSshClientOverProxy(serverConf conf.ServerConfig, sshConf
 		}
 	}
 
-	client, err := createSshClientViaProxy(serverConf, sshConf, proxyClient, proxyDialer)
+	client, err := createClientViaProxy(serverConf, sshConf, proxyClient, proxyDialer)
 	if err != nil {
 		return err
 	}
 
-	// set c.sshClient
-	c.sshClient = client
+	// set c.client
+	c.Client = client
 
 	return
 }
 
 // @brief:
 //     Create ssh Client
-func (c *Connect) createSshClientConfig(server string) (clientConfig *ssh.ClientConfig, err error) {
+func (c *Connect) createClientConfig(server string) (clientConfig *ssh.ClientConfig, err error) {
 	conf := c.Conf.Server[server]
 
 	auth, err := c.createSshAuth(server)
@@ -227,20 +229,13 @@ func (c *Connect) RunCmdWithOutput(session *ssh.Session, command []string, outpu
 		isExit <- true
 	}()
 
-	preLine := []byte{}
+	// preLine := []byte{}
 
 GetOutputLoop:
 	for {
 		if outputBuf.Len() > 0 {
-			line, err := outputBuf.ReadBytes('\n')
-			if err == io.EOF {
-				preLine = append(preLine, line...)
-				continue
-			} else {
-				// outputLine := strings.Split(string(append(preLine, line...)), "\n")[0]
-				// outputChan <- outputLine
-				outputChan <- append(preLine, line...)
-			}
+			line, _ := outputBuf.ReadBytes('\n')
+			outputChan <- line
 		} else {
 			select {
 			case <-isExit:
@@ -256,9 +251,7 @@ GetOutputLoop:
 		for {
 			line, err := outputBuf.ReadBytes('\n')
 			if err != io.EOF {
-				// outputLine := strings.Split(string(append(preLine, line...)), "\n")[0]
-				// outputChan <- outputLine
-				outputChan <- append(preLine, line...)
+				outputChan <- line
 			} else {
 				break
 			}
