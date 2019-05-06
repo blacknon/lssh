@@ -21,7 +21,7 @@ type Run struct {
 	PortForwardRemote string
 	ExecCmd           []string
 	StdinData         []byte
-	InputData         []byte
+	InputData         []byte // @TODO: Delete???
 	OutputData        *bytes.Buffer
 }
 
