@@ -106,9 +106,9 @@ func (r *Run) term() (err error) {
 		// forward agent
 		_, err := net.Dial("unix", os.Getenv("SSH_AUTH_SOCK"))
 		if err != nil {
-			agent.ForwardToAgent(c.sshClient, c.sshAgent)
+			agent.ForwardToAgent(c.Client, c.sshAgent)
 		} else {
-			agent.ForwardToAgent(c.sshClient, c.sshExtendedAgent)
+			agent.ForwardToAgent(c.Client, c.sshExtendedAgent)
 		}
 		agent.RequestAgentForwarding(session)
 	}

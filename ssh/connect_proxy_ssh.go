@@ -8,7 +8,7 @@ import (
 	"golang.org/x/net/proxy"
 )
 
-func createSshClientViaProxy(config conf.ServerConfig, sshConf *ssh.ClientConfig, proxyClient *ssh.Client, dialer proxy.Dialer) (client *ssh.Client, err error) {
+func createClientViaProxy(config conf.ServerConfig, sshConf *ssh.ClientConfig, proxyClient *ssh.Client, dialer proxy.Dialer) (client *ssh.Client, err error) {
 	switch {
 	// direct connect ssh proxy
 	case (proxyClient == nil) && (dialer == nil):
