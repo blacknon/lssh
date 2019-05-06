@@ -31,11 +31,14 @@ lscp is need the following command in remote server.
 
 ## Install
 
-compile gofile(tested go1.11.5).
+compile gofile(tested go1.12.4).
 
     go get -u github.com/blacknon/lssh/cmd/lssh
     go get -u github.com/blacknon/lssh/cmd/lscp
 
+or
+
+    make && sudo make install
 
 brew install(Mac OS X)
 
@@ -76,10 +79,16 @@ example:
 	note = "Password Auth Server"
 
 	[server.KeyAuth_ServerName]
-	addr = "192.168.100.102"
-	user = "test-user"
+	addr = "192.168.100.101"
+	user = "test-user" # user change
 	key  = "/path/to/private_key"
 	note = "Key Auth Server"
+
+	[server.AuthPkcs11_ServerName]
+	addr = "192.168.100.101"
+	pkcs11provider = "/usr/local/lib/opensc-pkcs11.so"
+	pkcs11pin = "123456" # option: pkcs11 pin code
+	note = "Password Auth Server"
 
 	[server.LocalCommand_ServerName]
 	addr = "192.168.100.103"
@@ -155,32 +164,31 @@ option(lssh)
 	    lssh - TUI list select and parallel ssh client command.
 	USAGE:
 	    lssh [options] [commands...]
-	    
+	
 	OPTIONS:
 	    --host value, -H value      connect servernames
-	    --list, -l                  print server list from config
-	    --file value, -f value      config file path (default: "/home/blacknon/.lssh.conf")
+	    --file value, -f value      config file path (default: "/Users/blacknon/.lssh.conf")
 	    --portforward-local value   port forwarding local port(ex. 127.0.0.1:8080)
 	    --portforward-remote value  port forwarding remote port(ex. 127.0.0.1:80)
+	    --list, -l                  print server list from config
 	    --term, -t                  run specified command at terminal
 	    --parallel, -p              run command parallel node(tail -F etc...)
 	    --generate                  (beta) generate .lssh.conf from .ssh/config.(not support ProxyCommand)
 	    --help, -h                  print this help
 	    --version, -v               print the version
-	    
+	
 	COPYRIGHT:
 	    blacknon(blacknon@orebibou.com)
-	    
+	
 	VERSION:
 	    0.5.3
-	    
+	
 	USAGE:
 	    # connect ssh
 	    lssh
 	
 	    # parallel run command in select server over ssh
 	    lssh -p command...
-                    
 
 
 	option(lscp)

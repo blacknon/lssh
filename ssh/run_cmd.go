@@ -137,36 +137,6 @@ func (r *Run) cmdPrintOutput(conn *Connect, serverListIndex int, outputChan chan
 	}
 }
 
-// get input data
-// @CommentOut 20190503
-// func (r *Run) getInputFromStdin() {
-// 	stdin := bufio.NewScanner(os.Stdin)
-
-// 	for {
-// 		for stdin.Scan() {
-// 			data := stdin.Bytes()
-// 			r.InputData = append(r.InputData, data...)
-// 		}
-// 		time.Sleep(10 * time.Millisecond)
-// 	}
-// }
-
-// @CommentOut 20190503
-// func (r *Run) putInputToSession(session *ssh.Session) {
-// 	stdin, _ := session.StdinPipe()
-// 	i := 0
-// 	for {
-// 		size := len(r.InputData)
-// 		if len(r.InputData) > i {
-// 			// fmt.Println(string(r.InputData[i:size]))
-// 			fmt.Fprint(stdin, string(r.InputData[i:size]))
-// 			// session.Stdin.Read(r.InputData[i:size])
-// 			i = size
-// 		}
-// 		time.Sleep(10 * time.Millisecond)
-// 	}
-// }
-
 func getInputFromStdin(ch chan<- []byte, isExit <-chan bool) {
 	// stdin scanner
 	sc := bufio.NewScanner(os.Stdin)
