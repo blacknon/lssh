@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"fmt"
 	"os"
+	"strings"
 
 	"github.com/blacknon/lssh/common"
 )
@@ -11,12 +12,6 @@ import (
 func (r *Run) cmd() {
 	// make channel
 	finished := make(chan bool)
-
-	// if IsTerminal, Get input data
-	// @CommentOut 20190503
-	// if terminal.IsTerminal(syscall.Stdin) {
-	// 	go r.getInputFromStdin()
-	// }
 
 	// print header
 	r.printSelectServer()
@@ -26,7 +21,9 @@ func (r *Run) cmd() {
 	// print newline
 	fmt.Println()
 
-	// @TODO: add get input in buffer
+	// create input data channel
+	// input := make(chan []byte)
+	// defer close(input)
 
 	for i, server := range r.ServerList {
 		count := i
@@ -38,7 +35,9 @@ func (r *Run) cmd() {
 		c.IsParallel = r.IsParallel
 
 		// run command
-		outputChan := make(chan string)
+		// @TODO: sessionを外出しして、StdinPipeを別に処理してやる必要がありそう。
+		//        sessionはr.cmdRunの引数にしてやることで解決する。
+		outputChan := make(chan []byte)
 		go r.cmdRun(c, i, outputChan)
 
 		// print command output
@@ -63,7 +62,7 @@ func (r *Run) cmd() {
 	return
 }
 
-func (r *Run) cmdRun(conn *Connect, serverListIndex int, outputChan chan string) {
+func (r *Run) cmdRun(conn *Connect, serverListIndex int, outputChan chan []byte) {
 	// create session
 	session, err := conn.CreateSession()
 
@@ -83,11 +82,14 @@ func (r *Run) cmdRun(conn *Connect, serverListIndex int, outputChan chan string)
 		// @TODO:
 		//     os.Stdinをそのまま渡すのだとだめなので、一度bufferに書き出してから各Sessionに書き出す必要がある。
 		//     なので、Structとかもっと上位に入力を受け付ける代物を入れる必要があるので注意。もしくはchannelかな？？
+		//     ifでサーバ台数に応じて処理してるけど、これだと汚いので一緒くたに全部channelでの処理にする
 		// @CommentOut 20190503
 		// go r.putInputToSession(session)
 
-		if len(r.ServerList) == 1 {
+		if len(r.ServerList) == 1 { // if only 1 server
 			session.Stdin = os.Stdin
+		} else { // if multiple server
+			// @NOTE: やっぱ、parallelモードのときだけ処理させるようにしないとだめかも…？(出力おかしなことになるし)
 		}
 	}
 
@@ -104,18 +106,20 @@ func (r *Run) cmdRun(conn *Connect, serverListIndex int, outputChan chan string)
 	}
 }
 
-func (r *Run) cmdPrintOutput(conn *Connect, serverListIndex int, outputChan chan string) {
+func (r *Run) cmdPrintOutput(conn *Connect, serverListIndex int, outputChan chan []byte) {
 	serverNameMaxLength := common.GetMaxLength(r.ServerList)
 
-	for outputLine := range outputChan {
+	for data := range outputChan {
+		// data: []byte => str
+		dataStr := strings.TrimRight(string(data), "\n")
+
 		if len(r.ServerList) > 1 {
 			lineHeader := fmt.Sprintf("%-*s", serverNameMaxLength, conn.Server)
-			fmt.Println(outColorStrings(serverListIndex, lineHeader)+" :: ", outputLine)
+			fmt.Printf("%s :: %s\n", outColorStrings(serverListIndex, lineHeader), dataStr)
 		} else {
-			fmt.Println(outputLine)
+			fmt.Printf("%s\n", dataStr)
 		}
 	}
-
 }
 
 // get input data

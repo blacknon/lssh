@@ -23,6 +23,7 @@ type Connect struct {
 	Server           string
 	Conf             conf.Config
 	sshClient        *ssh.Client
+	sshSession       *ssh.Session
 	sshAgent         agent.Agent
 	sshExtendedAgent agent.ExtendedAgent
 	IsTerm           bool
@@ -213,7 +214,8 @@ CheckCommandExit:
 
 // @brief:
 //     Run command over ssh, output to gochannel
-func (c *Connect) RunCmdWithOutput(session *ssh.Session, command []string, outputChan chan string) {
+// func (c *Connect) RunCmdWithOutput(session *ssh.Session, command []string, outputChan chan string) {
+func (c *Connect) RunCmdWithOutput(session *ssh.Session, command []string, outputChan chan []byte) {
 	outputBuf := new(bytes.Buffer)
 	session.Stdout = io.MultiWriter(outputBuf)
 	session.Stderr = io.MultiWriter(outputBuf)
@@ -235,8 +237,9 @@ GetOutputLoop:
 				preLine = append(preLine, line...)
 				continue
 			} else {
-				outputLine := strings.Split(string(append(preLine, line...)), "\n")[0]
-				outputChan <- outputLine
+				// outputLine := strings.Split(string(append(preLine, line...)), "\n")[0]
+				// outputChan <- outputLine
+				outputChan <- append(preLine, line...)
 			}
 		} else {
 			select {
@@ -253,8 +256,9 @@ GetOutputLoop:
 		for {
 			line, err := outputBuf.ReadBytes('\n')
 			if err != io.EOF {
-				outputLine := strings.Split(string(append(preLine, line...)), "\n")[0]
-				outputChan <- outputLine
+				// outputLine := strings.Split(string(append(preLine, line...)), "\n")[0]
+				// outputChan <- outputLine
+				outputChan <- append(preLine, line...)
 			} else {
 				break
 			}
