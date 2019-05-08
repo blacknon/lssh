@@ -149,10 +149,7 @@ scan:
 
 		case <-time.After(10 * time.Millisecond):
 			data := sc.Bytes()
-
-			if len(data) > 0 {
-				ch <- data
-			}
+			ch <- data
 		}
 	}
 }

@@ -23,7 +23,6 @@ type Connect struct {
 	Server           string
 	Conf             conf.Config
 	Client           *ssh.Client
-	StdinWriter      io.Writer
 	sshAgent         agent.Agent
 	sshExtendedAgent agent.ExtendedAgent
 	IsTerm           bool
@@ -168,7 +167,7 @@ func (c *Connect) createClientConfig(server string) (clientConfig *ssh.ClientCon
 		User:            conf.User,
 		Auth:            auth,
 		HostKeyCallback: ssh.InsecureIgnoreHostKey(),
-		Timeout:         3600 * time.Hour,
+		Timeout:         0,
 	}
 	return clientConfig, err
 }
