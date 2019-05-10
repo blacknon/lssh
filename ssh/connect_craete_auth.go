@@ -10,15 +10,13 @@ import (
 	"golang.org/x/crypto/ssh"
 )
 
-// @TODO: v0.5.3
-//     ssh authを複数指定できるようにする(conf.goについても修正が必要？)
-
 // @brief:
 //     Create ssh session auth
 // @note:
 //     - public key auth
 //     - password auth
 //     - ssh-agent auth
+//     - pkcs11 auth
 func (c *Connect) createSshAuth(server string) (auth []ssh.AuthMethod, err error) {
 	conf := c.Conf.Server[server]
 
