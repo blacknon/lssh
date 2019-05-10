@@ -90,7 +90,7 @@ func (c *Connect) createSshAuth(server string) (auth []ssh.AuthMethod, err error
 }
 
 // Craete ssh auth (public key)
-func createSshAuthPublicKey(key string, pass string) (auth ssh.AuthMethod, err error) {
+func createSshAuthPublicKey(key, pass string) (auth ssh.AuthMethod, err error) {
 	usr, _ := user.Current()
 	key = strings.Replace(key, "~", usr.HomeDir, 1)
 
@@ -115,4 +115,19 @@ func createSshAuthPublicKey(key string, pass string) (auth ssh.AuthMethod, err e
 
 	auth = ssh.PublicKeys(signer)
 	return auth, err
+}
+
+// @brief:
+//     Create ssh auth (Certificate)
+//     key ... keypath::password
+func createSshAuthCertificate(cert, key, pass string) (auth ssh.AuthMethod, err error) {
+	usr, _ := user.Current()
+	cert = strings.Replace(cert, "~", usr.HomeDir, 1)
+	key = strings.Replace(key, "~", usr.HomeDir, 1)
+
+	// Read PrivateKey file
+	keyData, err := ioutil.ReadFile(key)
+	if err != nil {
+		return auth, err
+	}
 }
