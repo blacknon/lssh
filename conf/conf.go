@@ -58,7 +58,8 @@ type ServerConfig struct {
 	KeyPass         string   `toml:"keypass"`
 	Keys            []string `toml:"keys"` // "keypath::passphase"
 	Cert            string   `toml:"cert"`
-	Certs           []string `toml:"certs"`
+	CertKey         string   `toml:"certkey"` // "keypath::passphase"
+	Certs           []string `toml:"certs"`   // "certpath::keypath::passphase"
 	AgentAuth       bool     `toml:"agentauth"`
 	SSHAgentUse     bool     `toml:"ssh_agent"`
 	SSHAgentKeyPath []string `toml:"ssh_agent_key"` // "keypath::passphase"
