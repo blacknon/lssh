@@ -159,7 +159,9 @@ func (c *Connect) createClientConfig(server string) (clientConfig *ssh.ClientCon
 
 	auth, err := c.createSshAuth(server)
 	if err != nil {
-		return clientConfig, err
+		if len(auth) == 0 {
+			return clientConfig, err
+		}
 	}
 
 	// create ssh ClientConfig
