@@ -1,6 +1,7 @@
 package ssh
 
 import (
+	"fmt"
 	"io/ioutil"
 	"net"
 	"os"
@@ -10,15 +11,13 @@ import (
 	"golang.org/x/crypto/ssh"
 )
 
-// @TODO: v0.5.3
-//     ssh authを複数指定できるようにする(conf.goについても修正が必要？)
-
 // @brief:
 //     Create ssh session auth
 // @note:
 //     - public key auth
 //     - password auth
 //     - ssh-agent auth
+//     - pkcs11 auth
 func (c *Connect) createSshAuth(server string) (auth []ssh.AuthMethod, err error) {
 	conf := c.Conf.Server[server]
 
@@ -26,9 +25,10 @@ func (c *Connect) createSshAuth(server string) (auth []ssh.AuthMethod, err error
 	if conf.Key != "" {
 		authMethod, err := createSshAuthPublicKey(conf.Key, conf.KeyPass)
 		if err != nil {
-			return auth, err
+			fmt.Fprintf(os.Stderr, "%s's create public key ssh.AuthMethod err: %s\n", server, err)
+		} else {
+			auth = append(auth, authMethod)
 		}
-		auth = append(auth, authMethod)
 	}
 
 	// public key (multiple)
@@ -37,9 +37,19 @@ func (c *Connect) createSshAuth(server string) (auth []ssh.AuthMethod, err error
 			keyPathArray := strings.SplitN(key, "::", 2)
 			authMethod, err := createSshAuthPublicKey(keyPathArray[0], keyPathArray[1])
 			if err != nil {
-				return auth, err
+				fmt.Fprintf(os.Stderr, "%s's create public keys ssh.AuthMethod err: %s\n", server, err)
+			} else {
+				auth = append(auth, authMethod)
 			}
+		}
+	}
 
+	// cert
+	if conf.Cert != "" {
+		authMethod, err := createSshAuthCertificate(conf.Cert, conf.CertKey, conf.CertKey)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "%s's create certificate ssh.AuthMethod err: %s\n", server, err)
+		} else {
 			auth = append(auth, authMethod)
 		}
 	}
@@ -63,16 +73,19 @@ func (c *Connect) createSshAuth(server string) (auth []ssh.AuthMethod, err error
 		if err != nil {
 			signers, err = c.sshAgent.Signers()
 			if err != nil {
-				return auth, err
+				fmt.Fprintf(os.Stderr, "%s's create sshAgent ssh.AuthMethod err: %s\n", server, err)
+
+			} else {
+				auth = append(auth, ssh.PublicKeys(signers...))
 			}
 		} else {
 			signers, err = c.sshExtendedAgent.Signers()
-
 			if err != nil {
-				return auth, err
+				fmt.Fprintf(os.Stderr, "%s's create sshAgent ssh.AuthMethod err: %s\n", server, err)
+			} else {
+				auth = append(auth, ssh.PublicKeys(signers...))
 			}
 		}
-		auth = append(auth, ssh.PublicKeys(signers...))
 	}
 
 	if conf.PKCS11Use {
@@ -80,11 +93,11 @@ func (c *Connect) createSshAuth(server string) (auth []ssh.AuthMethod, err error
 		var signers []ssh.Signer
 		signers, err := c.getSshSignerFromPkcs11(server)
 		if err != nil {
-			return auth, err
-		}
-
-		for _, signer := range signers {
-			auth = append(auth, ssh.PublicKeys(signer))
+			fmt.Fprintf(os.Stderr, "%s's create pkcs11 ssh.AuthMethod err: %s\n", server, err)
+		} else {
+			for _, signer := range signers {
+				auth = append(auth, ssh.PublicKeys(signer))
+			}
 		}
 	}
 
@@ -92,7 +105,7 @@ func (c *Connect) createSshAuth(server string) (auth []ssh.AuthMethod, err error
 }
 
 // Craete ssh auth (public key)
-func createSshAuthPublicKey(key string, pass string) (auth ssh.AuthMethod, err error) {
+func createSshAuthPublicKey(key, pass string) (auth ssh.AuthMethod, err error) {
 	usr, _ := user.Current()
 	key = strings.Replace(key, "~", usr.HomeDir, 1)
 
@@ -117,4 +130,63 @@ func createSshAuthPublicKey(key string, pass string) (auth ssh.AuthMethod, err e
 
 	auth = ssh.PublicKeys(signer)
 	return auth, err
+}
+
+// @brief:
+//     Create ssh auth (Certificate)
+//     key ... keypath::password
+func createSshAuthCertificate(cert, key, pass string) (auth ssh.AuthMethod, err error) {
+	usr, _ := user.Current()
+	cert = strings.Replace(cert, "~", usr.HomeDir, 1)
+	key = strings.Replace(key, "~", usr.HomeDir, 1)
+
+	// Read PrivateKey file
+	keyData, err := ioutil.ReadFile(key)
+	if err != nil {
+		return auth, err
+	}
+
+	// Create PrivateKey Signer
+	var keySigner ssh.Signer
+	if pass != "" {
+		keySigner, err = ssh.ParsePrivateKeyWithPassphrase(keyData, []byte(pass))
+	} else {
+		keySigner, err = ssh.ParsePrivateKey(keyData)
+	}
+
+	// check err
+	if err != nil {
+		return auth, err
+	}
+
+	// Read Cert file
+	certData, err := ioutil.ReadFile(cert)
+	if err != nil {
+		return auth, err
+	}
+
+	// Create PublicKey from Cert
+	pubkey, _, _, _, err := ssh.ParseAuthorizedKey(certData)
+	if err != nil {
+		return auth, err
+	}
+
+	// Create Certificate Struct
+	certificate, ok := pubkey.(*ssh.Certificate)
+	if !ok {
+		err = fmt.Errorf("%s\n", "Error: Not create certificate struct data")
+		return auth, err
+	}
+
+	// Create Certificate Signer
+	signer, err := ssh.NewCertSigner(certificate, keySigner)
+	if err != nil {
+		return auth, err
+	}
+
+	// Create AuthMethod
+	auth = ssh.PublicKeys(signer)
+
+	return
+
 }
