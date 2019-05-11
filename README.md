@@ -84,11 +84,18 @@ example:
 	key  = "/path/to/private_key"
 	note = "Key Auth Server"
 
+	[server.CertAuth_ServerName]
+	addr = "192.168.100.101"
+	user = "test-user" # user change
+	cert  = "/path/to/cert"
+	certkey  = "/path/to/private_key"
+	note = "Cert Auth Server"
+
 	[server.AuthPkcs11_ServerName]
 	addr = "192.168.100.101"
 	pkcs11provider = "/usr/local/lib/opensc-pkcs11.so"
 	pkcs11pin = "123456" # option: pkcs11 pin code
-	note = "Password Auth Server"
+	note = "PKCS11 Auth Server"
 
 	[server.LocalCommand_ServerName]
 	addr = "192.168.100.103"
