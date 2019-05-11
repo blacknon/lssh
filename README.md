@@ -188,7 +188,7 @@ option(lssh)
 	    blacknon(blacknon@orebibou.com)
 	
 	VERSION:
-	    0.5.3
+	    0.5.4
 	
 	USAGE:
 	    # connect ssh
@@ -217,7 +217,7 @@ option(lssh)
 	    blacknon(blacknon@orebibou.com)
 	    
 	VERSION:
-	    0.5.3
+	    0.5.4
 	    
 	USAGE:
 	    # local to remote scp
