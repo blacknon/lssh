@@ -57,6 +57,9 @@ type ServerConfig struct {
 	Key             string   `toml:"key"`
 	KeyPass         string   `toml:"keypass"`
 	Keys            []string `toml:"keys"` // "keypath::passphase"
+	Cert            string   `toml:"cert"`
+	CertKey         string   `toml:"certkey"`
+	CertKeyPass     string   `toml:"certkeypass"`
 	AgentAuth       bool     `toml:"agentauth"`
 	SSHAgentUse     bool     `toml:"ssh_agent"`
 	SSHAgentKeyPath []string `toml:"ssh_agent_key"` // "keypath::passphase"
@@ -198,7 +201,7 @@ func checkFormatServerConf(c Config) (isFormat bool) {
 
 func checkFormatServerConfAuth(c ServerConfig) (isFormat bool) {
 	isFormat = false
-	if c.Pass != "" || c.Key != "" {
+	if c.Pass != "" || c.Key != "" || c.Cert != "" {
 		isFormat = true
 	}
 
