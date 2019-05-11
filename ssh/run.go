@@ -31,6 +31,7 @@ func (r *Run) Start() {
 		r.StdinData, _ = ioutil.ReadAll(os.Stdin)
 	}
 
+	// @TODO: r.shell()で分岐するよう、selectにする
 	if len(r.ExecCmd) > 0 {
 		r.cmd()
 	} else {
