@@ -178,10 +178,10 @@ func (c *Connect) RunCmd(session *ssh.Session, command []string) (err error) {
 	defer session.Close()
 
 	// set timeout
-	go func() {
-		time.Sleep(2419200 * time.Second)
-		session.Close()
-	}()
+	// go func() {
+	// 	time.Sleep(2419200 * time.Second)
+	// 	session.Close()
+	// }()
 
 	// set TerminalModes
 	if session, err = c.setIsTerm(session); err != nil {
@@ -201,7 +201,7 @@ func (c *Connect) RunCmd(session *ssh.Session, command []string) (err error) {
 	// check command exit
 CheckCommandExit:
 	for {
-		time.Sleep(100 * time.Millisecond)
+		// time.Sleep(100 * time.Millisecond)
 		select {
 		case <-isExit:
 			break CheckCommandExit
