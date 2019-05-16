@@ -21,8 +21,8 @@ type Run struct {
 	PortForwardRemote string
 	ExecCmd           []string
 	StdinData         []byte
-	InputData         []byte // @TODO: Delete???
-	OutputData        *bytes.Buffer
+	InputData         []byte        // @TODO: Delete???
+	OutputData        *bytes.Buffer // use terminal log
 }
 
 func (r *Run) Start() {
