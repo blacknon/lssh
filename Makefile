@@ -3,11 +3,10 @@ GOCMD=go
 MODULE=GO111MODULE=on
 GOBUILD=$(MODULE) $(GOCMD) build
 GOCLEAN=$(GOCMD) clean
-GOTEST=$(GOCMD) test
+GOTEST=$(MODULE) $(GOCMD) test -cover
 GOGET=$(GOCMD) get
 GOMOD=$(MODULE) $(GOCMD) mod
 GOINSTALL=$(MODULE) $(GOCMD) install
-GOTEST=$(MODULE) $(GOCMD) test -cover
 
 build:
 	# 依存ライブラリの不要なものを削除
