@@ -66,7 +66,6 @@ func TestStructToMap(t *testing.T) {
 	}
 }
 
-// TODO
 func TestMapToStruct(t *testing.T) {
 	type A struct {
 		S string
