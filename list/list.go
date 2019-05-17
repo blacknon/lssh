@@ -10,6 +10,7 @@ import (
 	termbox "github.com/nsf/termbox-go"
 )
 
+// arrayContains returns that arr contains str.
 func arrayContains(arr []string, str string) bool {
 	for _, v := range arr {
 		if v == str {
@@ -40,7 +41,7 @@ func (l *ListInfo) toggle(newLine string) {
 
 func (l *ListInfo) allToggle(allFlag bool) {
 	SelectedList := []string{}
-	allSelectedList := []string{}
+	allSelectedList := []string{} // WARN: is not used
 	// selectedList in allSelectedList
 	for _, selectedLine := range l.SelectName {
 		SelectedList = append(SelectedList, selectedLine)
@@ -48,6 +49,8 @@ func (l *ListInfo) allToggle(allFlag bool) {
 
 	// allFlag is False
 	if allFlag == false {
+		// On each lines that except a header line and are not selected line,
+		// toggles left end fields
 		for _, addLine := range l.ViewText[1:] {
 			addName := strings.Fields(addLine)[0]
 			if !arrayContains(SelectedList, addName) {
@@ -57,6 +60,7 @@ func (l *ListInfo) allToggle(allFlag bool) {
 		}
 		return
 	} else {
+		// On each lines that except a header line, toggles left end fields
 		for _, addLine := range l.ViewText[1:] {
 			addName := strings.Fields(addLine)[0]
 			l.toggle(addName)
