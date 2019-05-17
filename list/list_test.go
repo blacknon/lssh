@@ -181,3 +181,99 @@ func TestGetText(t *testing.T) {
 		assert.Equal(t, v.expect, v.l.DataText, v.desc)
 	}
 }
+
+func TestGetFilterText(t *testing.T) {
+	type TestData struct {
+		desc   string
+		l      ListInfo
+		expect []string
+	}
+	tds := []TestData{
+		{
+			desc: "Expect is DataText if keyword is empty",
+			l: ListInfo{
+				Keyword: "",
+				DataText: []string{
+					"ServerName         Connect Infomation         Note",
+					"dev_web1           user1@192.168.101.1        WebServer",
+				},
+			},
+			expect: []string{
+				"ServerName         Connect Infomation         Note",
+				"dev_web1           user1@192.168.101.1        WebServer",
+			},
+		},
+		{
+			desc: "ServerName (text)",
+			l: ListInfo{
+				Keyword: "dev_web",
+				DataText: []string{
+					"ServerName         Connect Infomation         Note",
+					"dev_web1           user1@192.168.101.1        WebServer",
+					"dev_web2           user1@192.168.101.1        WebServer",
+					"dev_app1           user1@192.168.101.1        ApplicationServer",
+				},
+			},
+			expect: []string{
+				"ServerName         Connect Infomation         Note",
+				"dev_web1           user1@192.168.101.1        WebServer",
+				"dev_web2           user1@192.168.101.1        WebServer",
+			},
+		},
+		{
+			desc: "Connect Information",
+			l: ListInfo{
+				Keyword: "33",
+				DataText: []string{
+					"ServerName         Connect Infomation         Note",
+					"dev_web1           user1@192.168.101.1        WebServer",
+					"dev_web2           user1@192.168.101.2        WebServer",
+					"dev_app1           user1@192.168.101.33       ApplicationServer",
+				},
+			},
+			expect: []string{
+				"ServerName         Connect Infomation         Note",
+				"dev_app1           user1@192.168.101.33       ApplicationServer",
+			},
+		},
+		{
+			desc: "Note (ignore case)",
+			l: ListInfo{
+				Keyword: "webserver",
+				DataText: []string{
+					"ServerName         Connect Infomation         Note",
+					"dev_web1           user1@192.168.101.1        WebServer",
+					"dev_web2           user1@192.168.101.2        WebServer",
+					"dev_app1           user1@192.168.101.33       ApplicationServer",
+				},
+			},
+			expect: []string{
+				"ServerName         Connect Infomation         Note",
+				"dev_web1           user1@192.168.101.1        WebServer",
+				"dev_web2           user1@192.168.101.2        WebServer",
+			},
+		},
+		// { // Can't use regexp
+		// 	desc: "Regexp \\d",
+		// 	l: ListInfo{
+		// 		Keyword: `dev_web\d+`,
+		// 		DataText: []string{
+		// 			"ServerName         Connect Infomation         Note",
+		// 			"dev_web            user1@192.168.101.99       WebServer",
+		// 			"dev_web1           user1@192.168.101.1        WebServer",
+		// 			"dev_web2           user1@192.168.101.2        WebServer",
+		// 			"dev_webX           user1@192.168.101.31       WebServer",
+		// 		},
+		// 	},
+		// 	expect: []string{
+		// 		"ServerName         Connect Infomation         Note",
+		// 		"dev_web1           user1@192.168.101.1        WebServer",
+		// 		"dev_web2           user1@192.168.101.2        WebServer",
+		// 	},
+		// },
+	}
+	for _, v := range tds {
+		v.l.getFilterText()
+		assert.Equal(t, v.expect, v.l.ViewText, v.desc)
+	}
+}
