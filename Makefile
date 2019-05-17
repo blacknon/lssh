@@ -7,6 +7,7 @@ GOTEST=$(GOCMD) test
 GOGET=$(GOCMD) get
 GOMOD=$(MODULE) $(GOCMD) mod
 GOINSTALL=$(MODULE) $(GOCMD) install
+GOTEST=$(MODULE) $(GOCMD) test -cover
 
 build:
 	# 依存ライブラリの不要なものを削除
@@ -24,4 +25,4 @@ install:
 	cp lscp /usr/local/bin/
 	cp -n example/config.tml ~/.lssh.conf || true
 test:
-	go test -cover ./...
+	$(GOTEST) ./...

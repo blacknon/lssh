@@ -7,4 +7,4 @@ test:
     override:
         - ./lssh --help
         - ./lscp --help
-        - go test -cover ./...
+        - make test
