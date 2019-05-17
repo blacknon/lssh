@@ -10,7 +10,7 @@ require (
 	github.com/miekg/pkcs11 v1.0.2
 	github.com/nsf/termbox-go v0.0.0-20190325093121-288510b9734e
 	github.com/pelletier/go-buffruneio v0.2.0 // indirect
-	github.com/stretchr/testify v1.3.0 // indirect
+	github.com/stretchr/testify v1.3.0
 	github.com/urfave/cli v1.20.0
 	github.com/youtube/vitess v2.1.1+incompatible // indirect
 	golang.org/x/crypto v0.0.0-20190418165655-df01cb2cc480
