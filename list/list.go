@@ -94,6 +94,8 @@ func (l *ListInfo) getText() {
 	}
 }
 
+// getFilterText updates l.ViewText with matching keyword (ignore case).
+// DataText sets ViewText if keyword is empty.
 func (l *ListInfo) getFilterText() {
 	// Initialization ViewText
 	l.ViewText = []string{}
