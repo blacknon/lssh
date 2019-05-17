@@ -4,6 +4,8 @@ github.com/BurntSushi/toml
 github.com/ThalesIgnite/crypto11
 # github.com/blacknon/go-scplib v0.0.0-20190214025421-eff8fdc20f75
 github.com/blacknon/go-scplib
+# github.com/davecgh/go-spew v1.1.0
+github.com/davecgh/go-spew/spew
 # github.com/golang/glog v0.0.0-20160126235308-23def4e6c14b
 github.com/golang/glog
 # github.com/kevinburke/ssh_config v0.0.0-20180830205328-81db2a75821e
@@ -16,6 +18,10 @@ github.com/miekg/pkcs11
 github.com/nsf/termbox-go
 # github.com/pelletier/go-buffruneio v0.2.0
 github.com/pelletier/go-buffruneio
+# github.com/pmezard/go-difflib v1.0.0
+github.com/pmezard/go-difflib/difflib
+# github.com/stretchr/testify v1.3.0
+github.com/stretchr/testify/assert
 # github.com/urfave/cli v1.20.0
 github.com/urfave/cli
 # github.com/youtube/vitess v2.1.1+incompatible
