@@ -207,7 +207,7 @@ CheckCommandExit:
 		select {
 		case <-isExit:
 			break CheckCommandExit
-		case <-time.After(100 * time.Millisecond):
+		case <-time.After(10 * time.Millisecond):
 			continue CheckCommandExit
 		}
 	}
@@ -241,7 +241,7 @@ GetOutputLoop:
 			select {
 			case <-isExit:
 				break GetOutputLoop
-			case <-time.After(1000 * time.Millisecond):
+			case <-time.After(10 * time.Millisecond):
 				continue GetOutputLoop
 			}
 		}
