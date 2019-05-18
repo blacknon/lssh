@@ -176,6 +176,12 @@ func ReadConf(confPath string) (checkConf Config) {
 	return
 }
 
+// checkFormatServerConf checkes format of server config.
+//
+// Note: Checking Addr, User and authentications
+// having a value. No checking a validity of each fields.
+//
+// See also: checkFormatServerConfAuth function.
 func checkFormatServerConf(c Config) (isFormat bool) {
 	isFormat = true
 	for k, v := range c.Server {
@@ -199,6 +205,10 @@ func checkFormatServerConf(c Config) (isFormat bool) {
 	return
 }
 
+// checkFormatServerConfAuth checkes format of server config authentication.
+//
+// Note: Checking Pass, Key, Cert, AgentAuth, PKCS11Use, PKCS11Provider, Keys or
+// Passes having a value. No checking a validity of each fields.
 func checkFormatServerConfAuth(c ServerConfig) (isFormat bool) {
 	isFormat = false
 	if c.Pass != "" || c.Key != "" || c.Cert != "" {
@@ -223,6 +233,8 @@ func checkFormatServerConfAuth(c ServerConfig) (isFormat bool) {
 	return
 }
 
+// serverConfigReduct returns a new server config that set perConfig field to
+// childConfig empty filed.
 func serverConfigReduct(perConfig, childConfig ServerConfig) ServerConfig {
 	result := ServerConfig{}
 

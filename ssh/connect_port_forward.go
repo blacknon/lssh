@@ -16,7 +16,7 @@ func (c *Connect) forward(localConn net.Conn) {
 	go func() {
 		_, err = io.Copy(sshConn, localConn)
 		if err != nil {
-			fmt.Println("Port forward local to remote failed: %v\n", err)
+			fmt.Printf("Port forward local to remote failed: %v\n", err)
 		}
 	}()
 
@@ -24,7 +24,7 @@ func (c *Connect) forward(localConn net.Conn) {
 	go func() {
 		_, err = io.Copy(localConn, sshConn)
 		if err != nil {
-			fmt.Println("Port forward remote to local failed: %v\n", err)
+			fmt.Printf("Port forward remote to local failed: %v\n", err)
 		}
 	}()
 }
@@ -44,7 +44,7 @@ func (c *Connect) PortForwarder() {
 				// Setup localConn (type net.Conn)
 				localConn, err := localListener.Accept()
 				if err != nil {
-					fmt.Println("listen.Accept failed: %v\n", err)
+					fmt.Printf("listen.Accept failed: %v\n", err)
 				}
 				go c.forward(localConn)
 			}
