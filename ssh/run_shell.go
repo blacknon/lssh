@@ -4,17 +4,21 @@ import (
 	"os"
 	"os/signal"
 	"syscall"
+
+	"github.com/c-bata/go-prompt"
 )
 
 func (r *Run) shell() {
-
 	shellConf := r.Conf.Shell //shell config
 
 	// create new shell struct
 	s := new(shell)
 
-	// create ssh connects
-	// s.CreateConn() // 一時的にコメントアウト
+	// create ssh shell connects
+	conns := r.createConn()
+	s.CreateConn(conns)
+
+	// connect ssh
 
 	// set prompt templete
 	s.PROMPT = shellConf.Prompt
@@ -25,18 +29,18 @@ func (r *Run) shell() {
 	signal.Notify(s.Signal, syscall.SIGTERM, syscall.SIGINT)
 
 	// create prompt
-	// shellPrompt, _ := s.CreatePrompt() // 一時的にコメントアウト
+	shellPrompt, _ := s.CreatePrompt()
 
 	// create new go-prompt
-	// p := prompt.New(
-	// 	s.Executor,
-	// 	s.Completer,
-	// 	prompt.OptionPrefix(shellPrompt),
-	// 	prompt.OptionLivePrefix(s.CreatePrompt),
-	// 	prompt.OptionInputTextColor(prompt.Green),
-	// 	prompt.OptionPrefixTextColor(prompt.Blue),
-	// )
+	p := prompt.New(
+		s.Executor,
+		s.Completer,
+		prompt.OptionPrefix(shellPrompt),
+		prompt.OptionLivePrefix(s.CreatePrompt),
+		prompt.OptionInputTextColor(prompt.Green),
+		prompt.OptionPrefixTextColor(prompt.Blue),
+	)
 
 	// run go-prompt
-	// p.Run()
+	p.Run()
 }

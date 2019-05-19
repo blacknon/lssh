@@ -7,6 +7,7 @@ import (
 	"os/user"
 	"path/filepath"
 	"reflect"
+	"regexp"
 	"strings"
 )
 
@@ -125,4 +126,11 @@ func GetFilesBase64(paths []string) (result string, err error) {
 
 	result = base64.StdEncoding.EncodeToString(data)
 	return result, err
+}
+
+// regex replace
+func RegexRep(str, aft, regex string) (result string) {
+	rep := regexp.MustCompile(regex)
+	result = rep.ReplaceAllString(str, aft)
+	return result
 }
