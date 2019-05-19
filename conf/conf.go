@@ -23,6 +23,11 @@ type Config struct {
 	Proxy    map[string]ProxyConfig
 }
 
+// all common setting
+// @TODO:
+// type ConfConfig struct {
+// }
+
 type LogConfig struct {
 	Enable    bool   `toml:"enable"`
 	Timestamp bool   `toml:"timestamp"`
@@ -32,7 +37,6 @@ type LogConfig struct {
 type ShellConfig struct {
 	// prompt
 	Prompt  string `toml:"PROMPT"`  // lssh shell prompt
-	RPrompt string `toml:"RPROMPT"` // lssh shell right prompt
 	OPrompt string `toml:"OPROMPT"` // lssh shell output prompt
 }
 

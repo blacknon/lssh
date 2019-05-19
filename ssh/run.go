@@ -17,6 +17,7 @@ type Run struct {
 	Conf              conf.Config
 	IsTerm            bool
 	IsParallel        bool
+	IsShell           bool
 	PortForwardLocal  string
 	PortForwardRemote string
 	ExecCmd           []string
@@ -31,12 +32,31 @@ func (r *Run) Start() {
 		r.StdinData, _ = ioutil.ReadAll(os.Stdin)
 	}
 
-	// @TODO: r.shell()で分岐するよう、selectにする
+	// connect shell
 	if len(r.ExecCmd) > 0 {
 		r.cmd()
 	} else {
-		r.term()
+		if r.IsShell {
+			r.shell()
+		} else {
+			r.term()
+		}
 	}
+}
+
+// Create Connect struct array
+// (not send ssh packet)
+func (r *Run) createConn() (conns []*Connect) {
+	for _, server := range r.ServerList {
+		c := new(Connect)
+		c.Server = server
+		c.Conf = r.Conf
+		c.IsTerm = r.IsTerm
+		c.IsParallel = r.IsParallel
+		conns = append(conns, c)
+	}
+
+	return
 }
 
 func (r *Run) printSelectServer() {
