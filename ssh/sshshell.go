@@ -222,6 +222,7 @@ wait:
 		s.outputData(c.Server, c.StderrData)
 	}
 
+	// @TODO: 出力が完了するまでに処理が終わってしまい待ちが発生することがあるので、違うとこで出力させる
 	fmt.Fprintf(os.Stderr, "\n\n%s\n\n", "run exit. input Enter.")
 
 	// isSignalExit <- true
