@@ -31,26 +31,30 @@ func (r *Run) cmd() {
 	exitInputPut := make(chan bool)
 	defer close(input)
 
-	conns := []*Connect{}
+	// conns := []*Connect{}
+	conns := r.createConn()
 
 	// Create session, Get writer
-	for i, server := range r.ServerList {
+	for i, conn := range conns {
+		c := conn
+		// for i, server := range r.ServerList {
 		count := i
 
-		c := new(Connect)
-		c.Server = server
-		c.Conf = r.Conf
-		c.IsTerm = r.IsTerm
-		c.IsParallel = r.IsParallel
-		conns = append(conns, c)
+		// c := new(Connect)
+		// c.Server = server
+		// c.Conf = r.Conf
+		// c.IsTerm = r.IsTerm
+		// c.IsParallel = r.IsParallel
+		// conns = append(conns, c)
 
+		// craete output data channel
 		outputChan := make(chan []byte)
 
 		// create session, and run command
-		go r.cmdRun(c, i, inputWriter, outputChan)
+		go r.cmdRun(c, count, inputWriter, outputChan)
 
 		// print command output
-		if r.IsParallel || len(r.ServerList) == 1 {
+		if r.IsParallel || len(conns) == 1 {
 			go func() {
 				r.cmdPrintOutput(c, count, outputChan)
 				finished <- true
