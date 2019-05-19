@@ -4,20 +4,30 @@ github.com/BurntSushi/toml
 github.com/ThalesIgnite/crypto11
 # github.com/blacknon/go-scplib v0.0.0-20190214025421-eff8fdc20f75
 github.com/blacknon/go-scplib
+# github.com/c-bata/go-prompt v0.2.3
+github.com/c-bata/go-prompt
 # github.com/davecgh/go-spew v1.1.0
 github.com/davecgh/go-spew/spew
 # github.com/golang/glog v0.0.0-20160126235308-23def4e6c14b
 github.com/golang/glog
 # github.com/kevinburke/ssh_config v0.0.0-20180830205328-81db2a75821e
 github.com/kevinburke/ssh_config
+# github.com/mattn/go-colorable v0.1.1
+github.com/mattn/go-colorable
+# github.com/mattn/go-isatty v0.0.5
+github.com/mattn/go-isatty
 # github.com/mattn/go-runewidth v0.0.4
 github.com/mattn/go-runewidth
+# github.com/mattn/go-tty v0.0.0-20190424173100-523744f04859
+github.com/mattn/go-tty
 # github.com/miekg/pkcs11 v1.0.2
 github.com/miekg/pkcs11
 # github.com/nsf/termbox-go v0.0.0-20190325093121-288510b9734e
 github.com/nsf/termbox-go
 # github.com/pelletier/go-buffruneio v0.2.0
 github.com/pelletier/go-buffruneio
+# github.com/pkg/term v0.0.0-20190109203006-aa71e9d9e942
+github.com/pkg/term/termios
 # github.com/pmezard/go-difflib v1.0.0
 github.com/pmezard/go-difflib/difflib
 # github.com/stretchr/testify v1.3.0
