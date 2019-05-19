@@ -37,15 +37,7 @@ func (r *Run) cmd() {
 	// Create session, Get writer
 	for i, conn := range conns {
 		c := conn
-		// for i, server := range r.ServerList {
 		count := i
-
-		// c := new(Connect)
-		// c.Server = server
-		// c.Conf = r.Conf
-		// c.IsTerm = r.IsTerm
-		// c.IsParallel = r.IsParallel
-		// conns = append(conns, c)
 
 		// craete output data channel
 		outputChan := make(chan []byte)

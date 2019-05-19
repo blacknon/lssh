@@ -42,6 +42,7 @@ type Proxy struct {
 // @brief: create ssh session
 func (c *Connect) CreateSession() (session *ssh.Session, err error) {
 	// New connect
+	// @TODO: Clientの接続確認をして、エラーだったら再度作成するように処理を変更
 	if c.Client == nil {
 		err = c.CreateClient()
 		if err != nil {
