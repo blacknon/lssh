@@ -51,7 +51,7 @@ USAGE:
 	app.Name = "lssh"
 	app.Usage = "TUI list select and parallel ssh client command."
 	app.Copyright = "blacknon(blacknon@orebibou.com)"
-	app.Version = "0.6.0"
+	app.Version = "0.5.5"
 
 	// Set options
 	app.Flags = []cli.Flag{
@@ -61,7 +61,7 @@ USAGE:
 		cli.StringFlag{Name: "portforward-remote", Usage: "port forwarding remote port(ex. 127.0.0.1:80)"},
 		cli.BoolFlag{Name: "list,l", Usage: "print server list from config"},
 		cli.BoolFlag{Name: "term,t", Usage: "run specified command at terminal"},
-		// cli.BoolFlag{Name: "shell,s", Usage: "use lssh shell (beta)"},
+		cli.BoolFlag{Name: "shell,s", Usage: "use lssh shell (Beta)"},
 		cli.BoolFlag{Name: "parallel,p", Usage: "run command parallel node(tail -F etc...)"},
 		cli.BoolFlag{Name: "generate", Usage: "(beta) generate .lssh.conf from .ssh/config.(not support ProxyCommand)"},
 		cli.BoolFlag{Name: "help,h", Usage: "print this help"},
@@ -89,9 +89,9 @@ USAGE:
 		// Get config data
 		data := conf.ReadConf(confpath)
 
-		// Set exec command flag
+		// Set `exec command` or `shell` flag
 		isMulti := false
-		if len(c.Args()) > 0 {
+		if len(c.Args()) > 0 || c.Bool("shell") {
 			isMulti = true
 		}
 
@@ -137,6 +137,7 @@ USAGE:
 		r.Conf = data
 		r.IsTerm = c.Bool("term")
 		r.IsParallel = c.Bool("parallel")
+		r.IsShell = c.Bool("shell")
 		r.ExecCmd = c.Args()
 
 		r.PortForwardLocal = c.String("portforward-local")
