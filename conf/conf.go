@@ -24,7 +24,7 @@ type Config struct {
 }
 
 // all common setting
-// @TODO:
+// @TODO: 全体の共通設定を定義できるようにする？？
 // type ConfConfig struct {
 // }
 
