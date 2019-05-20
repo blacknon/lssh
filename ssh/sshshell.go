@@ -28,6 +28,7 @@ type shellConn struct {
 }
 
 // @TODO: 変数名その他いろいろと見直しをする！！
+//        ローカルのコマンドとパイプでつなげるような処理を実装する予定なので、Stdin、Stdout等の扱いを分離して扱いやすくする
 func (c *shellConn) SshShellCmdRun(cmd string, isExit chan<- bool) (err error) {
 	c.Session.Stdout = c.StdoutData
 	c.Session.Stderr = c.StderrData
@@ -60,6 +61,7 @@ func (s *shell) CreateConn(conns []*Connect) {
 		sc.Connect = c
 
 		// Connect ssh
+		// @TODO: 接続をパラレルで実行するよう、Connectをgoroutineで行うようにする
 		err := sc.CreateClient()
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "cannot connect session %v, %v\n", sc.Server, err)
@@ -223,7 +225,7 @@ wait:
 	}
 
 	// @TODO: 出力が完了するまでに処理が終わってしまい待ちが発生することがあるので、違うとこで出力させる
-	fmt.Fprintf(os.Stderr, "\n\n%s\n\n", "run exit. input Enter.")
+	fmt.Fprintf(os.Stderr, "\n\n%s\n", "run exit. input Enter.")
 
 	// isSignalExit <- true
 	isInputExit <- true
