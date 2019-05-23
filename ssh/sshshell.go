@@ -64,7 +64,7 @@ func (s *shell) CreateConn(conns []*Connect) {
 		// @TODO: 接続をパラレルで実行するよう、Connectをgoroutineで行うようにする
 		err := sc.CreateClient()
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "cannot connect session %v, %v\n", sc.Server, err)
+			fmt.Fprintf(os.Stderr, "Cannot connect session %v, %v\n", sc.Server, err)
 			continue
 		}
 
