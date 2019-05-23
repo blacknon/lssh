@@ -53,7 +53,7 @@ brew install(Mac OS X)
 
 ## Config
 
-Please edit "~/.lssh.conf".  
+Please edit "~/.lssh.conf".\
 For details see [wiki](https://github.com/blacknon/lssh/wiki/Config).
 
 example:
