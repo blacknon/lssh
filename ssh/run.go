@@ -33,12 +33,12 @@ func (r *Run) Start() {
 	}
 
 	// connect shell
-	if len(r.ExecCmd) > 0 {
+	if len(r.ExecCmd) > 0 { // run command
 		r.cmd()
 	} else {
-		if r.IsShell {
+		if r.IsShell { // run lssh shell
 			r.shell()
-		} else {
+		} else { // connect remote shell
 			r.term()
 		}
 	}
@@ -59,20 +59,24 @@ func (r *Run) createConn() (conns []*Connect) {
 	return
 }
 
+// print header (select server)
 func (r *Run) printSelectServer() {
 	serverListStr := strings.Join(r.ServerList, ",")
 	fmt.Fprintf(os.Stderr, "Select Server :%s\n", serverListStr)
 }
 
+// print header (run command)
 func (r *Run) printRunCommand() {
 	runCmdStr := strings.Join(r.ExecCmd, " ")
 	fmt.Fprintf(os.Stderr, "Run Command   :%s\n", runCmdStr)
 }
 
+// print header (port forwarding)
 func (r *Run) printPortForward(forwardLocal, forwardRemote string) {
 	fmt.Fprintf(os.Stderr, "Port Forward  :local[%s] <=> remote[%s]\n", forwardLocal, forwardRemote)
 }
 
+// print header (proxy connect)
 func (r *Run) printProxy() {
 	if len(r.ServerList) == 1 {
 		proxyList := []string{}
