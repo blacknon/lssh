@@ -56,22 +56,51 @@ type shell struct {
 
 // Convert []*Connect to []*shellConn, and Connect ssh
 func (s *shell) CreateConn(conns []*Connect) {
+	isExit := make(chan bool)
+	connectChan := make(chan *Connect)
+
+	// create ssh connect
 	for _, c := range conns {
-		sc := new(shellConn)
-		sc.Connect = c
+		conn := c
 
 		// Connect ssh
 		// @TODO: 接続をパラレルで実行するよう、Connectをgoroutineで行うようにする
-		err := sc.CreateClient()
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "Cannot connect session %v, %v\n", sc.Server, err)
+		go func() {
+			// Connect ssh
+			err := conn.CreateClient()
+
+			// send exit channel
+			isExit <- true
+
+			// check error
+			if err != nil {
+				fmt.Fprintf(os.Stderr, "Cannot connect session %v, %v\n", conn.Server, err)
+				return
+			}
+
+			// send ssh client
+			connectChan <- conn
+		}()
+
+	}
+
+	for i := 0; i < len(conns); i++ {
+		<-isExit
+
+		select {
+		case c := <-connectChan:
+			// create shellConn
+			sc := new(shellConn)
+			sc.Connect = c
+			sc.StdoutData = new(bytes.Buffer)
+			sc.StderrData = new(bytes.Buffer)
+
+			// append shellConn
+			s.Connects = append(s.Connects, sc)
+		case <-time.After(10 * time.Millisecond):
 			continue
 		}
 
-		sc.StdoutData = new(bytes.Buffer)
-		sc.StderrData = new(bytes.Buffer)
-
-		s.Connects = append(s.Connects, sc)
 	}
 }
 
