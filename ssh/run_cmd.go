@@ -133,6 +133,7 @@ func (r *Run) cmdPrintOutput(conn *Connect, serverListIndex int, outputChan chan
 	}
 }
 
+// @TODO: sshshellの関数と統合して削除
 func getInputFromStdin(ch chan<- []byte, isExit <-chan bool) {
 	// stdin scanner
 	sc := bufio.NewScanner(os.Stdin)
@@ -150,6 +151,7 @@ scan:
 	}
 }
 
+// @TODO: sshshellの関数と統合して削除
 func putInputToSession(writer io.Writer, ch <-chan []byte, isExit <-chan bool) {
 pull:
 	for {
@@ -167,6 +169,7 @@ pull:
 	}
 }
 
+// @TODO: run.goに移動する
 func outColorStrings(num int, inStrings string) (str string) {
 	// 1=Red,2=Yellow,3=Blue,4=Magenta,0=Cyan
 	color := 31 + num%5

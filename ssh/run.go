@@ -1,12 +1,15 @@
 package ssh
 
 import (
+	"bufio"
 	"bytes"
 	"fmt"
+	"io"
 	"io/ioutil"
 	"os"
 	"strings"
 	"syscall"
+	"time"
 
 	"github.com/blacknon/lssh/conf"
 	"golang.org/x/crypto/ssh/terminal"
@@ -105,6 +108,26 @@ func (r *Run) printProxy() {
 			proxyList = append(proxyList, r.ServerList[0])
 			proxyListStr := strings.Join(proxyList, " => ")
 			fmt.Fprintf(os.Stderr, "Proxy         :%s\n", proxyListStr)
+		}
+	}
+}
+
+// @TODO: 後でcommand runの関数と統合する
+//        Run配下にすると辛いので、commonに突っ込んでおくか…
+func pushInput(isExit <-chan bool, writer io.Writer) {
+	rd := bufio.NewReader(os.Stdin)
+loop:
+	for {
+		data, _ := rd.ReadBytes('\n')
+		if len(data) > 0 {
+			writer.Write(data)
+		}
+
+		select {
+		case <-isExit:
+			break loop
+		case <-time.After(10 * time.Millisecond):
+			continue
 		}
 	}
 }
