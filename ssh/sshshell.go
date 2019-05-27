@@ -1,7 +1,6 @@
 package ssh
 
 import (
-	"bufio"
 	"bytes"
 	"fmt"
 	"io"
@@ -63,8 +62,7 @@ func (s *shell) CreateConn(conns []*Connect) {
 	for _, c := range conns {
 		conn := c
 
-		// Connect ssh
-		// @TODO: 接続をパラレルで実行するよう、Connectをgoroutineで行うようにする
+		// Connect ssh (goroutine)
 		go func() {
 			// Connect ssh
 			err := conn.CreateClient()
@@ -263,7 +261,8 @@ wait:
 	return
 }
 
-// @TODO: 後でcommand runの関数と統合するかなんかする
+// @TODO: 後でcommand runの関数と統合するかなんかする(run.goに移動？)
+//        Run配下にすると辛いので、commonに突っ込んでおくか…
 func (s *shell) outputData(server string, output *bytes.Buffer) {
 	op := s.CreateOPrompt(server)
 
@@ -278,25 +277,6 @@ func (s *shell) outputData(server string, output *bytes.Buffer) {
 			}
 		} else {
 			break
-		}
-	}
-}
-
-// @TODO: 後でcommand runの関数と統合する
-func pushInput(isExit <-chan bool, writer io.Writer) {
-	rd := bufio.NewReader(os.Stdin)
-loop:
-	for {
-		data, _ := rd.ReadBytes('\n')
-		if len(data) > 0 {
-			writer.Write(data)
-		}
-
-		select {
-		case <-isExit:
-			break loop
-		case <-time.After(10 * time.Millisecond):
-			continue
 		}
 	}
 }
