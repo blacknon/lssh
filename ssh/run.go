@@ -112,8 +112,7 @@ func (r *Run) printProxy() {
 	}
 }
 
-// @TODO: 後でcommand runの関数と統合する
-//        Run配下にすると辛いので、commonに突っ込んでおくか…
+// send input to ssh Session Stdin
 func pushInput(isExit <-chan bool, writer io.Writer) {
 	rd := bufio.NewReader(os.Stdin)
 loop:
@@ -130,4 +129,12 @@ loop:
 			continue
 		}
 	}
+}
+
+func outColorStrings(num int, inStrings string) (str string) {
+	// 1=Red,2=Yellow,3=Blue,4=Magenta,0=Cyan
+	color := 31 + num%5
+
+	str = fmt.Sprintf("\x1b[%dm%s\x1b[0m", color, inStrings)
+	return
 }
