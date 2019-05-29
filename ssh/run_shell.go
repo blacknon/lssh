@@ -174,8 +174,8 @@ func (s *shell) Executor(cmd string) {
 	switch cmd {
 	case "":
 		return
-	case "exit":
-		return
+	case "exit", "quit":
+		os.Exit(0)
 	case "clear":
 		fmt.Printf("\033[H\033[2J")
 		return

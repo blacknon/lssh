@@ -1,13 +1,11 @@
 package ssh
 
 import (
-	"bufio"
 	"bytes"
 	"fmt"
 	"io"
 	"os"
 	"strings"
-	"time"
 
 	"github.com/blacknon/lssh/common"
 )
