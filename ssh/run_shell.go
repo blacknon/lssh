@@ -11,8 +11,8 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/blacknon/lssh/common"
 	"github.com/c-bata/go-prompt"
+	"github.com/c-bata/go-prompt/completer"
 )
 
 func (r *Run) shell() {
@@ -44,6 +44,7 @@ func (r *Run) shell() {
 		prompt.OptionLivePrefix(s.CreatePrompt),
 		prompt.OptionInputTextColor(prompt.Green),
 		prompt.OptionPrefixTextColor(prompt.Blue),
+		prompt.OptionCompletionWordSeparator(completer.FilePathCompletionSeparator), // test
 	)
 
 	// run go-prompt
@@ -112,7 +113,7 @@ func (s *shell) CreateConn(conns []*Connect) {
 	}
 }
 
-// @TODO: KeepAlive用のリクエスト送信用の関数。後で記述する。多分channelで終わらせてあげないとだめかも？？
+// @TODO: KeepAlive用のリクエスト送信用の関数。後で記述する。多分channelで終わらせてあげないとだめかも？？(優先度 E)
 // func (s *shell) sendKeepAlive() {}
 
 // create shell prompt
@@ -137,6 +138,7 @@ func (s *shell) CreatePrompt() (p string, result bool) {
 	return p, true
 }
 
+// @TODO: ユーザ名等も指定できるよう、指定やConfigの受け取り方を考える(優先度B)
 // create shell output prompt
 func (s *shell) CreateOPrompt(server string) (op string) {
 	op = s.OPROMPT
@@ -151,26 +153,14 @@ func (s *shell) CreateOPrompt(server string) (op string) {
 	return
 }
 
-// shell complete function
-// @TODO: とりあえず値を仮置き。後で以下の処理を追加する
-//        ・ compgen(confで補完用の結果を取得するためのコマンドは指定可能にする)での補完結果の定期取得処理(+補完の取得用ローカルコマンドの追加)
-//        ・ compgenの結果をStructに保持させる
-//        ・ Structに保持されている補完内容をベースにCompleteの結果を返す
-func (s *shell) Completer(t prompt.Document) []prompt.Suggest {
-	ps := []prompt.Suggest{
-		{Text: "test-suggest"},
-	}
-	return prompt.FilterHasPrefix(ps, t.GetWordBeforeCursor(), true)
-}
-
 // run ssh command
 // @TODO: 全体的に見直しが必須！
 func (s *shell) Executor(cmd string) {
-	// delete head space
-	cmd = common.RegexRep(string(cmd), "", "^ *")
+	// trim space
+	cmd = strings.TrimSpace(cmd)
 
 	// check local command
-	// @TODO: 後でsshshell_cmd.goに移してちゃんと作る
+	// @TODO: 後でrun_shell_cmd.goに移してちゃんと作る
 	switch cmd {
 	case "":
 		return
@@ -182,7 +172,6 @@ func (s *shell) Executor(cmd string) {
 	}
 
 	// create chanel
-	// @TODO: 後で見直し
 	isExit := make(chan bool)
 	isFinished := make(chan bool)
 	isInputExit := make(chan bool)
@@ -209,7 +198,6 @@ func (s *shell) Executor(cmd string) {
 	multiWriter := io.MultiWriter(writers...)
 
 	// Run input goroutine
-	// @TODO: 後でcommand runと同じ関数に統合する
 	go pushInput(isInputExit, multiWriter)
 
 	// run command
@@ -262,16 +250,16 @@ wait:
 		s.outputData(c.Server, c.StderrData)
 	}
 
-	// @TODO: 出力が完了するまでに処理が終わってしまい待ちが発生することがあるので、違うとこで出力させる
-	fmt.Fprintf(os.Stderr, "\n\n%s\n", "run exit. input Enter.")
+	fmt.Fprintf(os.Stderr, "\n---\n%s\n", "Command exit. Please input Enter.")
 
-	// isSignalExit <- true
 	isInputExit <- true
 
 	s.Count += 1
 	return
 }
 
+// @TODO: サーバ名の幅をあわせるようにする
+// @TODO: 可能であれば、run_cmdの出力関数とマージすることを検討
 func (s *shell) outputData(server string, output *bytes.Buffer) {
 	// Create output prompt
 	op := s.CreateOPrompt(server)
