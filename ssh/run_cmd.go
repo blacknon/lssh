@@ -27,11 +27,10 @@ func (r *Run) cmd() {
 	// create input data channel
 	input := make(chan []byte)
 	inputWriter := make(chan io.Writer)
-	exitInputGet := make(chan bool)
-	exitInputPut := make(chan bool)
+	exitInput := make(chan bool)
 	defer close(input)
 
-	// conns := []*Connect{}
+	// create ssh connect
 	conns := r.createConn()
 
 	// Create session, Get writer
@@ -68,8 +67,7 @@ func (r *Run) cmd() {
 			}
 
 			stdinWriter := io.MultiWriter(writers...)
-			go getInputFromStdin(input, exitInputGet)
-			go putInputToSession(stdinWriter, input, exitInputPut)
+			go pushInput(exitInput, stdinWriter)
 		}
 
 		for i := 0; i < len(r.ServerList); i++ {
@@ -77,8 +75,8 @@ func (r *Run) cmd() {
 		}
 	}
 
-	close(exitInputGet)
-	close(exitInputPut)
+	close(exitInput)
+
 	return
 }
 
@@ -131,49 +129,4 @@ func (r *Run) cmdPrintOutput(conn *Connect, serverListIndex int, outputChan chan
 			fmt.Printf("%s\n", dataStr)
 		}
 	}
-}
-
-// @TODO: sshshellの関数と統合して削除
-func getInputFromStdin(ch chan<- []byte, isExit <-chan bool) {
-	// stdin scanner
-	sc := bufio.NewScanner(os.Stdin)
-
-scan:
-	for sc.Scan() {
-		select {
-		case <-isExit:
-			break scan
-
-		case <-time.After(10 * time.Millisecond):
-			data := sc.Bytes()
-			ch <- data
-		}
-	}
-}
-
-// @TODO: sshshellの関数と統合して削除
-func putInputToSession(writer io.Writer, ch <-chan []byte, isExit <-chan bool) {
-pull:
-	for {
-		select {
-		case <-isExit:
-			break pull
-
-		case data := <-ch:
-			writer.Write(data)
-			writer.Write([]byte("\n"))
-
-		case <-time.After(10 * time.Millisecond):
-			continue
-		}
-	}
-}
-
-// @TODO: run.goに移動する
-func outColorStrings(num int, inStrings string) (str string) {
-	// 1=Red,2=Yellow,3=Blue,4=Magenta,0=Cyan
-	color := 31 + num%5
-
-	str = fmt.Sprintf("\x1b[%dm%s\x1b[0m", color, inStrings)
-	return
 }
