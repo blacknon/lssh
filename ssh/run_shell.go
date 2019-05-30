@@ -16,7 +16,14 @@ import (
 )
 
 func (r *Run) shell() {
-	shellConf := r.Conf.Shell //shell config
+	// print header
+	r.printSelectServer()
+
+	// print newline
+	fmt.Println()
+
+	// read shell config
+	shellConf := r.Conf.Shell
 
 	// create new shell struct
 	s := new(shell)
@@ -139,6 +146,7 @@ func (s *shell) CreatePrompt() (p string, result bool) {
 }
 
 // @TODO: ユーザ名等も指定できるよう、指定やConfigの受け取り方を考える(優先度B)
+//        ※ run_outprompt.goに移動させて削除する
 // create shell output prompt
 func (s *shell) CreateOPrompt(server string) (op string) {
 	op = s.OPROMPT
@@ -258,8 +266,7 @@ wait:
 	return
 }
 
-// @TODO: サーバ名の幅をあわせるようにする
-// @TODO: 可能であれば、run_cmdの出力関数とマージすることを検討
+// @TODO: cmdの関数と統合してしまう
 func (s *shell) outputData(server string, output *bytes.Buffer) {
 	// Create output prompt
 	op := s.CreateOPrompt(server)
