@@ -35,5 +35,5 @@ func (s *shell) Completer(t prompt.Document) []prompt.Suggest {
 		{Text: "test-suggest19"},
 		{Text: "test-suggest20"},
 	}
-	return prompt.FilterHasPrefix(ps, t.GetWordBeforeCursor(), true)
+	return prompt.FilterHasPrefix(ps, t.GetWordBeforeCursor(), false)
 }

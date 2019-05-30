@@ -23,11 +23,6 @@ type Config struct {
 	Proxy    map[string]ProxyConfig
 }
 
-// all common setting
-// @TODO: 全体の共通設定を定義できるようにする？？
-// type ConfConfig struct {
-// }
-
 type LogConfig struct {
 	Enable    bool   `toml:"enable"`
 	Timestamp bool   `toml:"timestamp"`
@@ -38,6 +33,9 @@ type ShellConfig struct {
 	// prompt
 	Prompt  string `toml:"PROMPT"`  // lssh shell prompt
 	OPrompt string `toml:"OPROMPT"` // lssh shell output prompt
+
+	// message,title etc...
+	Title string `toml:"title"`
 }
 
 type IncludeConfig struct {
