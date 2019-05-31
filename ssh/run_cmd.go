@@ -5,9 +5,6 @@ import (
 	"fmt"
 	"io"
 	"os"
-	"strings"
-
-	"github.com/blacknon/lssh/common"
 )
 
 var (
@@ -127,20 +124,5 @@ func (r *Run) cmdRun(conn *Connect, serverListIndex int, inputWriter chan io.Wri
 	select {
 	case <-isExit:
 		close(outputChan)
-	}
-}
-
-func (r *Run) cmdPrintOutput(conn *Connect, serverListIndex int, outputChan chan []byte) {
-	serverNameMaxLength := common.GetMaxLength(r.ServerList)
-
-	for data := range outputChan {
-		dataStr := strings.TrimRight(string(data), "\n")
-
-		if len(r.ServerList) > 1 {
-			lineHeader := fmt.Sprintf("%-*s", serverNameMaxLength, conn.Server)
-			fmt.Printf("%s :: %s\n", outColorStrings(serverListIndex, lineHeader), dataStr)
-		} else {
-			fmt.Printf("%s\n", dataStr)
-		}
 	}
 }

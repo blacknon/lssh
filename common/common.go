@@ -7,7 +7,6 @@ import (
 	"os/user"
 	"path/filepath"
 	"reflect"
-	"regexp"
 	"strings"
 )
 
@@ -89,6 +88,17 @@ func GetFullPath(path string) (fullPath string) {
 	return fullPath
 }
 
+// Get order num in array
+func GetOrderNumber(value string, array []string) int {
+	for i, v := range array {
+		if v == value {
+			return i
+		}
+	}
+
+	return 0
+}
+
 // GetMaxLength returns a max length of list.
 // Length is byte length.
 func GetMaxLength(list []string) (MaxLength int) {
@@ -126,11 +136,4 @@ func GetFilesBase64(paths []string) (result string, err error) {
 
 	result = base64.StdEncoding.EncodeToString(data)
 	return result, err
-}
-
-// regex replace
-func RegexRep(str, aft, regex string) (result string) {
-	rep := regexp.MustCompile(regex)
-	result = rep.ReplaceAllString(str, aft)
-	return result
 }

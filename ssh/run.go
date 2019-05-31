@@ -130,11 +130,3 @@ loop:
 		}
 	}
 }
-
-func outColorStrings(num int, inStrings string) (str string) {
-	// 1=Red,2=Yellow,3=Blue,4=Magenta,0=Cyan
-	color := 31 + num%5
-
-	str = fmt.Sprintf("\x1b[%dm%s\x1b[0m", color, inStrings)
-	return
-}

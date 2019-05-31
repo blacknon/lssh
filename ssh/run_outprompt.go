@@ -36,11 +36,15 @@ func (o *Output) Create(server string) {
 	// get max length at server name
 	length := common.GetMaxLength(o.ServerList)
 
+	// get color num
+	n := common.GetOrderNumber(server, o.ServerList)
+	colorServerName := outColorStrings(n, server)
+
 	// set templete
 	p := o.Templete
 
 	// server info
-	p = strings.Replace(p, "$s", fmt.Sprintf("%-*s", length, server), -1)
+	p = strings.Replace(p, "$s", fmt.Sprintf("%-*s", length, colorServerName), -1)
 	p = strings.Replace(p, "$h", data.Addr, -1)
 	p = strings.Replace(p, "$u", data.User, -1)
 	p = strings.Replace(p, "$p", data.Port, -1)
@@ -68,5 +72,12 @@ func printOutput(o *Output, output chan []byte) {
 			fmt.Printf("%s\n", str)
 		}
 	}
+}
 
+func outColorStrings(num int, inStrings string) (str string) {
+	// 1=Red,2=Yellow,3=Blue,4=Magenta,0=Cyan
+	color := 31 + num%5
+
+	str = fmt.Sprintf("\x1b[%dm%s\x1b[0m", color, inStrings)
+	return
 }
