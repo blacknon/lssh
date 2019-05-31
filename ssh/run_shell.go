@@ -266,7 +266,7 @@ wait:
 	return
 }
 
-// @TODO: cmdの関数と統合してしまう
+// @TODO: Bufferから取得した内容をそのままchannelの関数に送信
 func (s *shell) outputData(server string, output *bytes.Buffer) {
 	// Create output prompt
 	op := s.CreateOPrompt(server)

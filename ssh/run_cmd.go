@@ -70,6 +70,7 @@ func (r *Run) cmd() {
 	// wait all finish
 	if r.IsParallel || len(r.ServerList) == 1 {
 		// create Input
+		// @TODO: 関数化する
 		go func() {
 			if len(r.StdinData) == 0 {
 				// create MultipleWriter
