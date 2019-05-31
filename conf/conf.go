@@ -36,6 +36,10 @@ type ShellConfig struct {
 
 	// message,title etc...
 	Title string `toml:"title"`
+
+	// pre | post command setting
+	PreCmd  string `toml:"pre_cmd"`
+	PostCmd string `toml:"post_cmd"`
 }
 
 type IncludeConfig struct {
