@@ -10,6 +10,10 @@ import (
 	"github.com/blacknon/lssh/common"
 )
 
+var (
+	cmdOPROMPT = "$s :: "
+)
+
 func (r *Run) cmd() {
 	// make channel
 	finished := make(chan bool)
@@ -36,37 +40,52 @@ func (r *Run) cmd() {
 		c := conn
 		count := i
 
+		// create Output
+		o := &Output{
+			Templete:   cmdOPROMPT,
+			Count:      0,
+			ServerList: r.ServerList,
+			Conf:       r.Conf.Server,
+			AutoColor:  true,
+		}
+		o.Create(c.Server)
+
 		// craete output data channel
 		outputChan := make(chan []byte)
 
 		// create session, and run command
-		go r.cmdRun(c, count, inputWriter, outputChan)
+		go func() {
+			r.cmdRun(c, count, inputWriter, outputChan)
+			finished <- true
+		}()
 
 		// print command output
 		if r.IsParallel || len(conns) == 1 {
 			go func() {
-				r.cmdPrintOutput(c, count, outputChan)
-				finished <- true
+				printOutput(o, outputChan)
 			}()
 		} else {
-			r.cmdPrintOutput(c, count, outputChan)
+			// r.cmdPrintOutput(c, count, outputChan)
+			printOutput(o, outputChan)
 		}
 	}
 
 	// wait all finish
 	if r.IsParallel || len(r.ServerList) == 1 {
 		// create Input
-		if len(r.StdinData) == 0 {
-			// create MultipleWriter
-			writers := []io.Writer{}
-			for i := 0; i < len(r.ServerList); i++ {
-				writer := <-inputWriter
-				writers = append(writers, writer)
-			}
+		go func() {
+			if len(r.StdinData) == 0 {
+				// create MultipleWriter
+				writers := []io.Writer{}
+				for i := 0; i < len(r.ServerList); i++ {
+					writer := <-inputWriter
+					writers = append(writers, writer)
+				}
 
-			stdinWriter := io.MultiWriter(writers...)
-			go pushInput(exitInput, stdinWriter)
-		}
+				stdinWriter := io.MultiWriter(writers...)
+				go pushInput(exitInput, stdinWriter)
+			}
+		}()
 
 		for i := 0; i < len(r.ServerList); i++ {
 			<-finished
@@ -83,11 +102,8 @@ func (r *Run) cmdRun(conn *Connect, serverListIndex int, inputWriter chan io.Wri
 	session, err := conn.CreateSession()
 
 	if err != nil {
-		go func() {
-			fmt.Fprintf(os.Stderr, "cannot connect session %v, %v\n", outColorStrings(serverListIndex, conn.Server), err)
-		}()
+		fmt.Fprintf(os.Stderr, "cannot connect session %v, %v\n", outColorStrings(serverListIndex, conn.Server), err)
 		close(outputChan)
-
 		return
 	}
 

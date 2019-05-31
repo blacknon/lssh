@@ -170,7 +170,7 @@ func (c *Connect) createClientConfig(server string) (clientConfig *ssh.ClientCon
 		User:            conf.User,
 		Auth:            auth,
 		HostKeyCallback: ssh.InsecureIgnoreHostKey(),
-		Timeout:         0,
+		Timeout:         30 * time.Second,
 	}
 	return clientConfig, err
 }
