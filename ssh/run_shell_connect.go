@@ -2,6 +2,7 @@ package ssh
 
 import (
 	"bytes"
+	"fmt"
 	"io"
 	"time"
 
@@ -47,19 +48,27 @@ func (c *shellConn) SshShellCmdRun(cmd string, isExit chan<- bool) (err error) {
 	go printOutput(o, outputChan)
 
 	// run command
-	c.Session.Run(cmd)
+	c.Session.Start(cmd)
+	c.Session.Wait()
+
+	fmt.Println(2) // debug
 
 	isExit <- true
 	outputExit <- true
+	c.Session.Close()
 
 	return
 }
 
 func sendOutput(outputChan chan<- []byte, buf *bytes.Buffer, isExit <-chan bool) {
+	// @TODO: Bufferが掴んじゃってるから、普通に[]byteでReadをするしかない
+	// その方式に切り替える
+
 loop:
 	for {
-		if buf.Len() > 0 {
-			line, err := buf.ReadBytes('\n')
+		if rd.Buffered() > 0 {
+			fmt.Println(9)
+			line, err := rd.ReadBytes('\n')
 			outputChan <- line
 			if err == io.EOF {
 				continue loop
@@ -75,8 +84,8 @@ loop:
 	}
 
 	for {
-		if buf.Len() > 0 {
-			line, _ := buf.ReadBytes('\n')
+		if rd.Buffered() > 0 {
+			line, _ := rd.ReadBytes('\n')
 			outputChan <- line
 		} else {
 			break
@@ -85,9 +94,12 @@ loop:
 	close(outputChan)
 }
 
-func (c *shellConn) Kill(isExit chan<- bool) (err error) {
+func (c *shellConn) Kill() (err error) {
+	fmt.Println(1) // debug
+
 	time.Sleep(10 * time.Millisecond)
 	c.Session.Signal(ssh.SIGINT)
-	err = c.Session.Close()
+	time.Sleep(10 * time.Millisecond)
+	c.Session.Close()
 	return
 }

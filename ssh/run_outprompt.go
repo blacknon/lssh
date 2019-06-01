@@ -24,11 +24,11 @@ type Output struct {
 //     - Text templeteでの処理に切り替え
 //     - Structを作って処理させるように切り替える
 // Create OPROMPT
-//     - $n ... Count
-//     - $s ... Server
-//     - $h ... Addr
-//     - $u ... User
-//     - $p ... Port
+//     - ${COUNT}  ... Count
+//     - ${SERVER} ... Server
+//     - ${ADDR}   ... Addr
+//     - ${USER}   ... User
+//     - ${PORT}   ... Port
 func (o *Output) Create(server string) {
 	o.server = server
 
@@ -43,10 +43,10 @@ func (o *Output) Create(server string) {
 	p := o.Templete
 
 	// server info
-	p = strings.Replace(p, "$s", fmt.Sprintf("%-*s", length, colorServerName), -1)
-	p = strings.Replace(p, "$h", o.Conf.Addr, -1)
-	p = strings.Replace(p, "$u", o.Conf.User, -1)
-	p = strings.Replace(p, "$p", o.Conf.Port, -1)
+	p = strings.Replace(p, "${SERVER}", fmt.Sprintf("%-*s", length, colorServerName), -1)
+	p = strings.Replace(p, "${ADDR}", o.Conf.Addr, -1)
+	p = strings.Replace(p, "${USER}", o.Conf.User, -1)
+	p = strings.Replace(p, "${PORT}", o.Conf.Port, -1)
 
 	o.prompt = p
 }
@@ -54,8 +54,7 @@ func (o *Output) Create(server string) {
 // update variable value
 func (o *Output) GetPrompt() (up string) {
 	// replace variable value
-	up = strings.Replace(o.prompt, "$n", strconv.Itoa(o.Count), -1)
-
+	up = strings.Replace(o.prompt, "${COUNT}", strconv.Itoa(o.Count), -1)
 	return
 }
 

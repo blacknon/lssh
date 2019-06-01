@@ -76,8 +76,8 @@ type shell struct {
 
 // variable
 var (
-	defaultPrompt  = "[$n]  >>>> " // Default PROMPT
-	defaultOPrompt = "[$s][$n] > " // Default OPROMPT
+	defaultPrompt  = "[${COUNT}] <<< "          // Default PROMPT
+	defaultOPrompt = "[${SERVER}][${COUNT}] > " // Default OPROMPT
 )
 
 // Convert []*Connect to []*shellConn, and Connect ssh
@@ -147,29 +147,13 @@ func (s *shell) CreatePrompt() (p string, result bool) {
 	pwd := os.Getenv("PWD")
 
 	// replace variable value
-	p = strings.Replace(p, "$n", strconv.Itoa(s.Count), -1)
-	p = strings.Replace(p, "$h", hostname, -1)
-	p = strings.Replace(p, "$u", username, -1)
-	p = strings.Replace(p, "$l", pwd, -1)
+	p = strings.Replace(p, "${COUNT}", strconv.Itoa(s.Count), -1)
+	p = strings.Replace(p, "${HOSTNAME}", hostname, -1)
+	p = strings.Replace(p, "${USER}", username, -1)
+	p = strings.Replace(p, "${PWD}", pwd, -1)
 
 	return p, true
 }
-
-// @TODO: ユーザ名等も指定できるよう、指定やConfigの受け取り方を考える(優先度B)
-//        ※ run_outprompt.goに移動させて削除する
-// create shell output prompt
-// func (s *shell) CreateOPrompt(server string) (op string) {
-// 	op = s.OPROMPT
-// 	if op == "" {
-// 		op = defaultOPrompt
-// 	}
-
-// 	// replace variable value
-// 	op = strings.Replace(op, "$n", strconv.Itoa(s.Count), -1)
-// 	op = strings.Replace(op, "$h", server, -1)
-
-// 	return
-// }
 
 // run ssh command
 // @TODO: 全体的に見直しが必須！
@@ -238,7 +222,7 @@ func (s *shell) Executor(cmd string) {
 		select {
 		case <-isSignal:
 			for _, con := range connect {
-				con.Kill(isExit)
+				con.Kill()
 			}
 
 			return
@@ -250,11 +234,6 @@ func (s *shell) Executor(cmd string) {
 
 wait:
 	for {
-		// for _, c := range s.Connects {
-		// 	s.outputData(c.Server, c.StdoutData)
-		// 	s.outputData(c.Server, c.StderrData)
-		// }
-
 		select {
 		case <-isFinished:
 			time.Sleep(10 * time.Millisecond)
@@ -264,35 +243,8 @@ wait:
 		}
 	}
 
-	// for _, c := range s.Connects {
-	// 	s.outputData(c.Server, c.StdoutData)
-	// 	s.outputData(c.Server, c.StderrData)
-	// }
-
 	fmt.Fprintf(os.Stderr, "\n---\n%s\n", "Command exit. Please input Enter.")
-
 	isInputExit <- true
-
 	s.Count += 1
 	return
 }
-
-// @TODO: Bufferから取得した内容をそのままchannelの関数に送信
-// func (s *shell) outputData(server string, output *bytes.Buffer) {
-// 	// Create output prompt
-// 	op := s.CreateOPrompt(server)
-
-// 	for {
-// 		if output.Len() > 0 {
-// 			line, err := output.ReadBytes('\n')
-// 			str := string(line)
-// 			str = strings.TrimRight(str, "\n")
-// 			fmt.Printf("%s %s\n", op, str)
-// 			if err == io.EOF {
-// 				continue
-// 			}
-// 		} else {
-// 			break
-// 		}
-// 	}
-// }

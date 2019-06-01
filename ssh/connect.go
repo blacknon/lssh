@@ -230,8 +230,6 @@ func (c *Connect) RunCmdWithOutput(session *ssh.Session, command []string, outpu
 		isExit <- true
 	}()
 
-	// preLine := []byte{}
-
 GetOutputLoop:
 	for {
 		if outputBuf.Len() > 0 {
