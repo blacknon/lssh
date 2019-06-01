@@ -42,7 +42,7 @@ func (r *Run) cmd() {
 			Templete:   cmdOPROMPT,
 			Count:      0,
 			ServerList: r.ServerList,
-			Conf:       r.Conf.Server,
+			Conf:       r.Conf.Server[c.Server],
 			AutoColor:  true,
 		}
 		o.Create(c.Server)

@@ -16,7 +16,7 @@ type Output struct {
 	server     string
 	Count      int
 	ServerList []string
-	Conf       map[string]conf.ServerConfig
+	Conf       conf.ServerConfig
 	AutoColor  bool
 }
 
@@ -31,7 +31,6 @@ type Output struct {
 //     - $p ... Port
 func (o *Output) Create(server string) {
 	o.server = server
-	data := o.Conf[server]
 
 	// get max length at server name
 	length := common.GetMaxLength(o.ServerList)
@@ -45,9 +44,9 @@ func (o *Output) Create(server string) {
 
 	// server info
 	p = strings.Replace(p, "$s", fmt.Sprintf("%-*s", length, colorServerName), -1)
-	p = strings.Replace(p, "$h", data.Addr, -1)
-	p = strings.Replace(p, "$u", data.User, -1)
-	p = strings.Replace(p, "$p", data.Port, -1)
+	p = strings.Replace(p, "$h", o.Conf.Addr, -1)
+	p = strings.Replace(p, "$u", o.Conf.User, -1)
+	p = strings.Replace(p, "$p", o.Conf.Port, -1)
 
 	o.prompt = p
 }
@@ -55,7 +54,7 @@ func (o *Output) Create(server string) {
 // update variable value
 func (o *Output) GetPrompt() (up string) {
 	// replace variable value
-	up = strings.Replace(o.prompt, "$n", strconv.Itoa(0), -1)
+	up = strings.Replace(o.prompt, "$n", strconv.Itoa(o.Count), -1)
 
 	return
 }
