@@ -28,17 +28,23 @@ func (r *Run) shell() {
 	// create new shell struct
 	s := new(shell)
 
-	// create ssh shell connects
-	conns := r.createConn()
-	s.CreateConn(conns)
+	// ServerList
+	s.ServerList = r.ServerList
 
 	// set prompt templete
 	s.PROMPT = shellConf.Prompt
 	s.OPROMPT = shellConf.OPrompt
+	if s.OPROMPT == "" {
+		s.OPROMPT = defaultOPrompt
+	}
 
 	// set signal
 	s.Signal = make(chan os.Signal)
 	signal.Notify(s.Signal, syscall.SIGTERM, syscall.SIGINT)
+
+	// create ssh shell connects
+	conns := r.createConn()
+	s.CreateConn(conns)
 
 	// create prompt
 	shellPrompt, _ := s.CreatePrompt()
@@ -58,17 +64,20 @@ func (r *Run) shell() {
 	p.Run()
 }
 
+// strcut
 type shell struct {
-	Signal   chan os.Signal
-	Connects []*shellConn
-	PROMPT   string
-	OPROMPT  string
-	Count    int
+	Signal     chan os.Signal
+	ServerList []string
+	Connects   []*shellConn
+	PROMPT     string
+	OPROMPT    string
+	Count      int
 }
 
+// variable
 var (
 	defaultPrompt  = "[$n]  >>>> " // Default PROMPT
-	defaultOPrompt = "[$h][$n] > " // Default OPROMPT
+	defaultOPrompt = "[$s][$n] > " // Default OPROMPT
 )
 
 // Convert []*Connect to []*shellConn, and Connect ssh
@@ -97,7 +106,6 @@ func (s *shell) CreateConn(conns []*Connect) {
 			// send ssh client
 			connectChan <- conn
 		}()
-
 	}
 
 	for i := 0; i < len(conns); i++ {
@@ -108,8 +116,10 @@ func (s *shell) CreateConn(conns []*Connect) {
 			// create shellConn
 			sc := new(shellConn)
 			sc.Connect = c
+			sc.ServerList = s.ServerList
 			sc.StdoutData = new(bytes.Buffer)
 			sc.StderrData = new(bytes.Buffer)
+			sc.OutputPrompt = s.OPROMPT
 
 			// append shellConn
 			s.Connects = append(s.Connects, sc)
@@ -148,18 +158,18 @@ func (s *shell) CreatePrompt() (p string, result bool) {
 // @TODO: ユーザ名等も指定できるよう、指定やConfigの受け取り方を考える(優先度B)
 //        ※ run_outprompt.goに移動させて削除する
 // create shell output prompt
-func (s *shell) CreateOPrompt(server string) (op string) {
-	op = s.OPROMPT
-	if op == "" {
-		op = defaultOPrompt
-	}
+// func (s *shell) CreateOPrompt(server string) (op string) {
+// 	op = s.OPROMPT
+// 	if op == "" {
+// 		op = defaultOPrompt
+// 	}
 
-	// replace variable value
-	op = strings.Replace(op, "$n", strconv.Itoa(s.Count), -1)
-	op = strings.Replace(op, "$h", server, -1)
+// 	// replace variable value
+// 	op = strings.Replace(op, "$n", strconv.Itoa(s.Count), -1)
+// 	op = strings.Replace(op, "$h", server, -1)
 
-	return
-}
+// 	return
+// }
 
 // run ssh command
 // @TODO: 全体的に見直しが必須！
@@ -210,6 +220,7 @@ func (s *shell) Executor(cmd string) {
 
 	// run command
 	for _, c := range s.Connects {
+		c.Count = s.Count
 		go c.SshShellCmdRun(cmd, isExit)
 	}
 
@@ -239,10 +250,10 @@ func (s *shell) Executor(cmd string) {
 
 wait:
 	for {
-		for _, c := range s.Connects {
-			s.outputData(c.Server, c.StdoutData)
-			s.outputData(c.Server, c.StderrData)
-		}
+		// for _, c := range s.Connects {
+		// 	s.outputData(c.Server, c.StdoutData)
+		// 	s.outputData(c.Server, c.StderrData)
+		// }
 
 		select {
 		case <-isFinished:
@@ -253,10 +264,10 @@ wait:
 		}
 	}
 
-	for _, c := range s.Connects {
-		s.outputData(c.Server, c.StdoutData)
-		s.outputData(c.Server, c.StderrData)
-	}
+	// for _, c := range s.Connects {
+	// 	s.outputData(c.Server, c.StdoutData)
+	// 	s.outputData(c.Server, c.StderrData)
+	// }
 
 	fmt.Fprintf(os.Stderr, "\n---\n%s\n", "Command exit. Please input Enter.")
 
@@ -267,21 +278,21 @@ wait:
 }
 
 // @TODO: Bufferから取得した内容をそのままchannelの関数に送信
-func (s *shell) outputData(server string, output *bytes.Buffer) {
-	// Create output prompt
-	op := s.CreateOPrompt(server)
+// func (s *shell) outputData(server string, output *bytes.Buffer) {
+// 	// Create output prompt
+// 	op := s.CreateOPrompt(server)
 
-	for {
-		if output.Len() > 0 {
-			line, err := output.ReadBytes('\n')
-			str := string(line)
-			str = strings.TrimRight(str, "\n")
-			fmt.Printf("%s %s\n", op, str)
-			if err == io.EOF {
-				continue
-			}
-		} else {
-			break
-		}
-	}
-}
+// 	for {
+// 		if output.Len() > 0 {
+// 			line, err := output.ReadBytes('\n')
+// 			str := string(line)
+// 			str = strings.TrimRight(str, "\n")
+// 			fmt.Printf("%s %s\n", op, str)
+// 			if err == io.EOF {
+// 				continue
+// 			}
+// 		} else {
+// 			break
+// 		}
+// 	}
+// }
