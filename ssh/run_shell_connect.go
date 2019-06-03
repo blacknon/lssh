@@ -115,14 +115,6 @@ func (c *shellConn) Kill() (err error) {
 
 	// Session Close
 	c.Session.Close()
-	// stdout?が掴んでしまってるので、正常にCloseできない。
-
-	// Client Close
-	// c.Client.Close()
-	// c.Client = nil
-
-	// @TODO:
-	//     新しいConnectを作る際にPassやPINが必要な場合にエラーになるので、そこを解消する
 
 	return
 }

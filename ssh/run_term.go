@@ -6,7 +6,6 @@ import (
 	"io"
 	"net"
 	"os"
-	"os/exec"
 	"os/user"
 	"strings"
 	"time"
@@ -185,11 +184,6 @@ func (r *Run) writeTimestampTerminalLog(logPath string) {
 			time.Sleep(10 * time.Millisecond)
 		}
 	}
-}
-
-func runCmdLocal(cmd string) {
-	out, _ := exec.Command("sh", "-c", cmd).CombinedOutput()
-	fmt.Printf(string(out))
 }
 
 func createLogDirPath(dirPath string, server string) string {

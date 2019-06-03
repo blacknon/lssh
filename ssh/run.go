@@ -7,6 +7,7 @@ import (
 	"io"
 	"io/ioutil"
 	"os"
+	"os/exec"
 	"strings"
 	"syscall"
 	"time"
@@ -110,6 +111,11 @@ func (r *Run) printProxy() {
 			fmt.Fprintf(os.Stderr, "Proxy         :%s\n", proxyListStr)
 		}
 	}
+}
+
+func runCmdLocal(cmd string) {
+	out, _ := exec.Command("sh", "-c", cmd).CombinedOutput()
+	fmt.Printf(string(out))
 }
 
 // send input to ssh Session Stdin
