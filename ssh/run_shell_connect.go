@@ -2,7 +2,6 @@ package ssh
 
 import (
 	"bytes"
-	"fmt"
 	"io"
 	"time"
 
@@ -26,8 +25,12 @@ type shellConn struct {
 func (c *shellConn) SshShellCmdRun(cmd string, isExit chan<- bool) (err error) {
 	// set output
 	outputData := new(bytes.Buffer)
-	c.Session.Stdout = io.MultiWriter(outputData)
-	c.Session.Stderr = io.MultiWriter(outputData)
+	stdoutReader, _ := c.Session.StdoutPipe()
+	stderrReader, _ := c.Session.StderrPipe()
+
+	//
+	mr := io.MultiReader(stdoutReader, stderrReader)
+	go io.Copy(outputData, mr)
 
 	// Create Output
 	o := &Output{
@@ -49,9 +52,9 @@ func (c *shellConn) SshShellCmdRun(cmd string, isExit chan<- bool) (err error) {
 
 	// run command
 	c.Session.Start(cmd)
-	c.Session.Wait()
 
-	fmt.Println(2) // debug
+	c.Session.Wait()
+	time.Sleep(10 * time.Millisecond)
 
 	isExit <- true
 	outputExit <- true
@@ -61,18 +64,19 @@ func (c *shellConn) SshShellCmdRun(cmd string, isExit chan<- bool) (err error) {
 }
 
 func sendOutput(outputChan chan<- []byte, buf *bytes.Buffer, isExit <-chan bool) {
-	// @TODO: Bufferが掴んじゃってるから、普通に[]byteでReadをするしかない
-	// その方式に切り替える
-
+	beforeLen := 0
 loop:
 	for {
-		if rd.Buffered() > 0 {
-			fmt.Println(9)
-			line, err := rd.ReadBytes('\n')
-			outputChan <- line
-			if err == io.EOF {
-				continue loop
+		len := buf.Len()
+		if len != beforeLen {
+			for {
+				line, err := buf.ReadBytes('\n')
+				outputChan <- line
+				if err == io.EOF {
+					break
+				}
 			}
+			beforeLen = len
 		} else {
 			select {
 			case <-isExit:
@@ -84,9 +88,14 @@ loop:
 	}
 
 	for {
-		if rd.Buffered() > 0 {
-			line, _ := rd.ReadBytes('\n')
-			outputChan <- line
+		if buf.Len() != beforeLen {
+			for {
+				line, err := buf.ReadBytes('\n')
+				outputChan <- line
+				if err == io.EOF {
+					break
+				}
+			}
 		} else {
 			break
 		}
@@ -95,11 +104,19 @@ loop:
 }
 
 func (c *shellConn) Kill() (err error) {
-	fmt.Println(1) // debug
-
 	time.Sleep(10 * time.Millisecond)
 	c.Session.Signal(ssh.SIGINT)
-	time.Sleep(10 * time.Millisecond)
+
+	// Session Close
 	c.Session.Close()
+	// stdout?が掴んでしまってるので、正常にCloseできない。
+
+	// Client Close
+	// c.Client.Close()
+	// c.Client = nil
+
+	// @TODO:
+	//     新しいConnectを作る際にPassやPINが必要な場合にエラーになるので、そこを解消する
+
 	return
 }

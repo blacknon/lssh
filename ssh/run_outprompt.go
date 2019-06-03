@@ -34,6 +34,7 @@ func (o *Output) Create(server string) {
 
 	// get max length at server name
 	length := common.GetMaxLength(o.ServerList)
+	addL := length - len(server)
 
 	// get color num
 	n := common.GetOrderNumber(server, o.ServerList)
@@ -43,7 +44,7 @@ func (o *Output) Create(server string) {
 	p := o.Templete
 
 	// server info
-	p = strings.Replace(p, "${SERVER}", fmt.Sprintf("%-*s", length, colorServerName), -1)
+	p = strings.Replace(p, "${SERVER}", fmt.Sprintf("%-*s", len(colorServerName)+addL, colorServerName), -1)
 	p = strings.Replace(p, "${ADDR}", o.Conf.Addr, -1)
 	p = strings.Replace(p, "${USER}", o.Conf.User, -1)
 	p = strings.Replace(p, "${PORT}", o.Conf.Port, -1)
@@ -62,7 +63,6 @@ func printOutput(o *Output, output chan []byte) {
 	// print output
 	for data := range output {
 		str := strings.TrimRight(string(data), "\n")
-
 		if len(o.ServerList) > 1 {
 			oPrompt := o.GetPrompt()
 			fmt.Printf("%s %s\n", oPrompt, str)

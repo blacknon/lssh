@@ -16,6 +16,12 @@ import (
 )
 
 func (r *Run) shell() {
+	// @TEST : Non Blocking I/O
+	// fd := int(os.Stdin.Fd())
+	// syscall.SetNonblock(fd, true)
+
+	// @TODO: 接続できてない状態でもコンソールに入ってしまうので、そこの処理を書き換える
+
 	// print header
 	r.printSelectServer()
 
@@ -175,12 +181,14 @@ func (s *shell) Executor(cmd string) {
 
 	// create chanel
 	isExit := make(chan bool)
+	// isKill := make(chan bool)
 	isFinished := make(chan bool)
 	isInputExit := make(chan bool)
 	isSignalExit := make(chan bool)
 
 	// defer close channel
 	defer close(isExit)
+	// defer close(isKill)
 	defer close(isFinished)
 	defer close(isInputExit)
 	defer close(isSignalExit)
