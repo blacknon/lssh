@@ -67,16 +67,19 @@ func sendOutput(outputChan chan<- []byte, buf *bytes.Buffer, isExit <-chan bool)
 	beforeLen := 0
 loop:
 	for {
-		len := buf.Len()
-		if len != beforeLen {
+		length := buf.Len()
+		if length != beforeLen {
 			for {
 				line, err := buf.ReadBytes('\n')
-				outputChan <- line
 				if err == io.EOF {
+					if len(line) > 0 {
+						outputChan <- line
+					}
 					break
 				}
+				outputChan <- line
 			}
-			beforeLen = len
+			beforeLen = length
 		} else {
 			select {
 			case <-isExit:
@@ -91,10 +94,13 @@ loop:
 		if buf.Len() != beforeLen {
 			for {
 				line, err := buf.ReadBytes('\n')
-				outputChan <- line
 				if err == io.EOF {
+					if len(line) > 0 {
+						outputChan <- line
+					}
 					break
 				}
+				outputChan <- line
 			}
 		} else {
 			break
