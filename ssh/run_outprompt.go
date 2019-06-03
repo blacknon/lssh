@@ -29,6 +29,8 @@ type Output struct {
 //     - ${ADDR}   ... Addr
 //     - ${USER}   ... User
 //     - ${PORT}   ... Port
+//     - ${DATE}   ... Date(YYYY/mm/dd)
+//     - ${Time}   ... Time(HH:MM:SS)
 func (o *Output) Create(server string) {
 	o.server = server
 
@@ -53,9 +55,11 @@ func (o *Output) Create(server string) {
 }
 
 // update variable value
-func (o *Output) GetPrompt() (up string) {
+func (o *Output) GetPrompt() (p string) {
+	// Get time
+
 	// replace variable value
-	up = strings.Replace(o.prompt, "${COUNT}", strconv.Itoa(o.Count), -1)
+	p = strings.Replace(o.prompt, "${COUNT}", strconv.Itoa(o.Count), -1)
 	return
 }
 

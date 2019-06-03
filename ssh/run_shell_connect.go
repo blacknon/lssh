@@ -8,8 +8,6 @@ import (
 	"golang.org/x/crypto/ssh"
 )
 
-// @TODO:
-//     Dataについては、Stdout/Stderrで分ける必要があるか検討する
 type shellConn struct {
 	*Connect
 	Session      *ssh.Session
@@ -24,11 +22,11 @@ type shellConn struct {
 //        ローカルのコマンドとパイプでつなげるような処理を実装する予定なので、Stdin、Stdout等の扱いを分離して扱いやすくする
 func (c *shellConn) SshShellCmdRun(cmd string, isExit chan<- bool) (err error) {
 	// set output
+	// @TODO: Stdout,Stderrについて、別途Bufferに書き込みをするよう定義する
 	outputData := new(bytes.Buffer)
 	stdoutReader, _ := c.Session.StdoutPipe()
 	stderrReader, _ := c.Session.StderrPipe()
 
-	//
 	mr := io.MultiReader(stdoutReader, stderrReader)
 	go io.Copy(outputData, mr)
 

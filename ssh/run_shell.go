@@ -23,6 +23,7 @@ func (r *Run) shell() {
 	// @TODO: 接続できてない状態でもコンソールに入ってしまうので、そこの処理を書き換える
 
 	// print header
+	fmt.Println("Start lssh shell...")
 	r.printSelectServer()
 
 	// print newline
@@ -56,6 +57,14 @@ func (r *Run) shell() {
 	conns := r.createConn()
 	s.CreateConn(conns)
 
+	// if can connect host not found...
+	if len(s.Connects) == 0 {
+		return
+	}
+
+	// history file
+	s.HistoryFile = shellConf.HistoryFile
+
 	// create prompt
 	shellPrompt, _ := s.CreatePrompt()
 
@@ -63,6 +72,7 @@ func (r *Run) shell() {
 	p := prompt.New(
 		s.Executor,
 		s.Completer,
+		prompt.OptionHistory([]string{"ls -la", "pwd"}),
 		prompt.OptionPrefix(shellPrompt),
 		prompt.OptionLivePrefix(s.CreatePrompt),
 		prompt.OptionInputTextColor(prompt.Green),
@@ -76,12 +86,13 @@ func (r *Run) shell() {
 
 // strcut
 type shell struct {
-	Signal     chan os.Signal
-	ServerList []string
-	Connects   []*shellConn
-	PROMPT     string
-	OPROMPT    string
-	Count      int
+	Signal      chan os.Signal
+	ServerList  []string
+	Connects    []*shellConn
+	PROMPT      string
+	OPROMPT     string
+	HistoryFile string
+	Count       int
 }
 
 // variable
