@@ -24,11 +24,8 @@ func (c *shellConn) SshShellCmdRun(cmd string, isExit chan<- bool) (err error) {
 	// set output
 	// @TODO: Stdout,Stderrについて、別途Bufferに書き込みをするよう定義する
 	outputData := new(bytes.Buffer)
-	stdoutReader, _ := c.Session.StdoutPipe()
-	stderrReader, _ := c.Session.StderrPipe()
-
-	mr := io.MultiReader(stdoutReader, stderrReader)
-	go io.Copy(outputData, mr)
+	c.Session.Stdout = io.MultiWriter(outputData)
+	c.Session.Stderr = io.MultiWriter(outputData)
 
 	// Create Output
 	o := &Output{
@@ -43,9 +40,10 @@ func (c *shellConn) SshShellCmdRun(cmd string, isExit chan<- bool) (err error) {
 	// craete output data channel
 	outputChan := make(chan []byte)
 	outputExit := make(chan bool)
+	sendExit := make(chan bool)
 
 	// start output
-	go sendOutput(outputChan, outputData, outputExit)
+	go sendOutput(outputChan, outputData, outputExit, sendExit)
 	go printOutput(o, outputChan)
 
 	// run command
@@ -54,14 +52,14 @@ func (c *shellConn) SshShellCmdRun(cmd string, isExit chan<- bool) (err error) {
 	c.Session.Wait()
 	time.Sleep(10 * time.Millisecond)
 
-	isExit <- true
 	outputExit <- true
+	<-sendExit
 	c.Session.Close()
-
+	isExit <- true
 	return
 }
 
-func sendOutput(outputChan chan<- []byte, buf *bytes.Buffer, isExit <-chan bool) {
+func sendOutput(outputChan chan<- []byte, buf *bytes.Buffer, isExit <-chan bool, sendExit chan<- bool) {
 	beforeLen := 0
 loop:
 	for {
@@ -105,6 +103,7 @@ loop:
 		}
 	}
 	close(outputChan)
+	sendExit <- true
 }
 
 func (c *shellConn) Kill() (err error) {
