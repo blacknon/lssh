@@ -261,7 +261,7 @@ wait:
 		case <-isFinished:
 			time.Sleep(10 * time.Millisecond)
 			break wait
-		case <-time.After(10 * time.Millisecond):
+		case <-time.After(100 * time.Millisecond):
 			continue
 		}
 	}
