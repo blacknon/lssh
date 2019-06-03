@@ -31,6 +31,10 @@ func (r *Run) shell() {
 	// read shell config
 	shellConf := r.Conf.Shell
 
+	// run pre cmd
+	runCmdLocal(shellConf.PreCmd)
+	defer runCmdLocal(shellConf.PostCmd)
+
 	// create new shell struct
 	s := new(shell)
 
