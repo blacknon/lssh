@@ -8,7 +8,7 @@ import (
 )
 
 var (
-	cmdOPROMPT = "$s :: "
+	cmdOPROMPT = "${SERVER} :: "
 )
 
 func (r *Run) cmd() {
