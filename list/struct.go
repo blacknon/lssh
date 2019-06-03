@@ -17,7 +17,7 @@ type ListInfo struct {
 
 type TermInfo struct {
 	Headline        int
-	LeftMergin      int
+	LeftMargin      int
 	Color           int
 	BackgroundColor int
 }

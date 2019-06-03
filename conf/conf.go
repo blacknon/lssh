@@ -37,6 +37,9 @@ type ShellConfig struct {
 	// message,title etc...
 	Title string `toml:"title"`
 
+	// history file
+	HistoryFile string `toml:"histfile"`
+
 	// pre | post command setting
 	PreCmd  string `toml:"pre_cmd"`
 	PostCmd string `toml:"post_cmd"`
