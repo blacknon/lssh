@@ -19,13 +19,13 @@ type shellConn struct {
 }
 
 // @TODO: 変数名その他いろいろと見直しをする！！
-//        ローカルのコマンドとパイプでつなげるような処理を実装する予定なので、Stdin、Stdout等の扱いを分離して扱いやすくする
+//        ローカルのコマンドとパイプでつなげるような処理を実装する予定なので、Stdin、Stdout、Stderrの扱いを分離して扱いやすくする
 func (c *shellConn) SshShellCmdRun(cmd string, isExit chan<- bool) (err error) {
 	// set output
 	// @TODO: Stdout,Stderrについて、別途Bufferに書き込みをするよう定義する
 	outputData := new(bytes.Buffer)
-	c.Session.Stdout = io.MultiWriter(outputData)
-	c.Session.Stderr = io.MultiWriter(outputData)
+	c.Session.Stdout = io.MultiWriter(outputData, c.StdoutData)
+	c.Session.Stderr = io.MultiWriter(outputData, c.StderrData)
 
 	// Create Output
 	o := &Output{
