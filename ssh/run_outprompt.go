@@ -22,7 +22,7 @@ type Output struct {
 
 // @TODO:
 //     - Text templeteでの処理に切り替え
-//     - Structを作って処理させるように切り替える
+//     - Structを作って処理させるように切り替える？
 // Create OPROMPT
 //     - ${COUNT}  ... Count
 //     - ${SERVER} ... Server
@@ -30,7 +30,13 @@ type Output struct {
 //     - ${USER}   ... User
 //     - ${PORT}   ... Port
 //     - ${DATE}   ... Date(YYYY/mm/dd)
-//     - ${Time}   ... Time(HH:MM:SS)
+//     - ${YEAR}   ... Year(YYYY)
+//     - ${MONTH}  ... Month(mm)
+//     - ${DAY}    ... Day(dd)
+//     - ${TIME}   ... Time(HH:MM:SS)
+//     - ${HOUR}   ... Hour(HH)
+//     - ${MINUTE} ... Minute(MM)
+//     - ${SECOND} ... Second(SS)
 func (o *Output) Create(server string) {
 	o.server = server
 
@@ -63,7 +69,6 @@ func (o *Output) GetPrompt() (p string) {
 	return
 }
 
-// @TODO: パイプで`tail -f hogehoge | grep hoge`とやると出力されなくなっているので、原因調査と修正
 func printOutput(o *Output, output chan []byte) {
 	// print output
 	for data := range output {

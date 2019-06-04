@@ -2,42 +2,99 @@ package ssh
 
 import (
 	"bytes"
+	"fmt"
 	"io"
+	"os"
 	"time"
 
 	"golang.org/x/crypto/ssh"
 )
 
+// Convert []*Connect to []*shellConn, and Connect ssh
+func (s *shell) CreateConn(conns []*Connect) {
+	isExit := make(chan bool)
+	connectChan := make(chan *Connect)
+
+	// create ssh connect
+	for _, c := range conns {
+		conn := c
+
+		// Connect ssh (goroutine)
+		go func() {
+			// Connect ssh
+			err := conn.CreateClient()
+
+			// send exit channel
+			isExit <- true
+
+			// check error
+			if err != nil {
+				fmt.Fprintf(os.Stderr, "Cannot connect session %v, %v\n", conn.Server, err)
+				return
+			}
+
+			// send ssh client
+			connectChan <- conn
+		}()
+	}
+
+	for i := 0; i < len(conns); i++ {
+		<-isExit
+
+		select {
+		case c := <-connectChan:
+			// create shellConn
+			sc := new(shellConn)
+			sc.ExecHistory = map[int]*ExecHistory{}
+			sc.Connect = c
+			sc.ServerList = s.ServerList
+			sc.OutputPrompt = s.OPROMPT
+
+			// append shellConn
+			s.Connects = append(s.Connects, sc)
+		case <-time.After(10 * time.Millisecond):
+			continue
+		}
+	}
+}
+
 type shellConn struct {
 	*Connect
 	Session      *ssh.Session
-	StdoutData   *bytes.Buffer
-	StderrData   *bytes.Buffer
 	ServerList   []string
 	OutputPrompt string
 	Count        int
+	ExecHistory  map[int]*ExecHistory
+}
+
+type ExecHistory struct {
+	Cmd        string
+	OutputData *bytes.Buffer
+	StdoutData *bytes.Buffer
+	StderrData *bytes.Buffer
 }
 
 // @TODO: 変数名その他いろいろと見直しをする！！
 //        ローカルのコマンドとパイプでつなげるような処理を実装する予定なので、Stdin、Stdout、Stderrの扱いを分離して扱いやすくする
 func (c *shellConn) SshShellCmdRun(cmd string, isExit chan<- bool) (err error) {
+	// Request tty
+	c.Session, err = c.setIsTerm(c.Session)
+	if err != nil {
+		fmt.Println(err)
+	}
+
+	// ExecHistory
+	execHist := &ExecHistory{
+		Cmd:        cmd,
+		OutputData: new(bytes.Buffer),
+		StdoutData: new(bytes.Buffer),
+		StderrData: new(bytes.Buffer),
+	}
+
 	// set output
-	// @TODO: Stdout,Stderrについて、別途Bufferに書き込みをするよう定義する
 	outputData := new(bytes.Buffer)
-	// writer := bufio.NewWriter(outputData)
-	c.Session.Stdout = io.MultiWriter(outputData, c.StdoutData)
-	c.Session.Stderr = io.MultiWriter(outputData, c.StderrData)
-	// c.Session.Stdout = io.MultiWriter(outputData)
-	// c.Session.Stderr = io.MultiWriter(outputData)
-
-	// stdoutReader, _ := c.Session.StdoutPipe()
-	// stderrReader, _ := c.Session.StderrPipe()
-
-	// mr := io.MultiReader(stdoutReader, stderrReader)
-	// go io.Copy(outputData, mr)
-
-	// c.Session.Stdout = writer
-	// c.Session.Stderr = writer
+	c.Session.Stdout = io.MultiWriter(outputData, execHist.OutputData, execHist.StdoutData)
+	c.Session.Stderr = io.MultiWriter(outputData, execHist.OutputData, execHist.StderrData)
 
 	// Create Output
 	o := &Output{
@@ -58,18 +115,27 @@ func (c *shellConn) SshShellCmdRun(cmd string, isExit chan<- bool) (err error) {
 	go sendOutput(outputChan, outputData, outputExit, sendExit)
 	go printOutput(o, outputChan)
 
-	// @TODO: sessionにttyの払い出し処理を追加する
-
 	// run command
 	c.Session.Start(cmd)
 
 	c.Session.Wait()
 	time.Sleep(10 * time.Millisecond)
 
+	// send output exit
 	outputExit <- true
+
+	// wait output exit finish
 	<-sendExit
+
+	// session close
 	c.Session.Close()
+
+	// exit run command
 	isExit <- true
+
+	// append ExecHistory
+	c.ExecHistory[c.Count] = execHist
+
 	return
 }
 
@@ -126,10 +192,6 @@ func (c *shellConn) Kill() (err error) {
 
 	// Session Close
 	err = c.Session.Close()
-
-	// Connection Close
-	// c.Connect.Client.Close()
-	// c.Connect.Client = nil
 
 	return
 }

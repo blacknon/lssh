@@ -1,11 +1,11 @@
 package ssh
 
 import (
-	"bytes"
 	"fmt"
 	"io"
 	"os"
 	"os/signal"
+	"regexp"
 	"strconv"
 	"strings"
 	"syscall"
@@ -16,14 +16,6 @@ import (
 )
 
 func (r *Run) shell() {
-	// @TEST : Non Blocking I/O
-	// fd := int(os.Stdin.Fd())
-	// syscall.SetNonblock(fd, true)
-
-	// @TODO: 接続できてない状態でもコンソールに入ってしまうので、そこの処理を書き換える
-
-	// @TODO: 仮想端末が必要かもしれない。呼び出し処理を追加する
-
 	// print header
 	fmt.Println("Start lssh shell...")
 	r.printSelectServer()
@@ -41,8 +33,15 @@ func (r *Run) shell() {
 	// create new shell struct
 	s := new(shell)
 
+	// ExecHistory
+	s.ExecHistory = map[int]string{}
+
 	// ServerList
 	s.ServerList = r.ServerList
+
+	// pre/post command
+	s.PreCmd = shellConf.PreCmd
+	s.PostCmd = shellConf.PostCmd
 
 	// set prompt templete
 	s.PROMPT = shellConf.Prompt
@@ -66,6 +65,21 @@ func (r *Run) shell() {
 
 	// history file
 	s.HistoryFile = shellConf.HistoryFile
+	if s.HistoryFile == "" {
+		s.HistoryFile = "~/.lssh_history"
+	}
+
+	// create history list
+	var histCmdList []string
+	histList, err := s.GetHistory()
+	if err == nil {
+		for _, hist := range histList {
+			histCmdList = append(histCmdList, hist.Command)
+		}
+	}
+
+	// create complete data
+	s.GetCompleteData()
 
 	// create prompt
 	shellPrompt, _ := s.CreatePrompt()
@@ -74,7 +88,7 @@ func (r *Run) shell() {
 	p := prompt.New(
 		s.Executor,
 		s.Completer,
-		prompt.OptionHistory([]string{"ls -la", "pwd"}),
+		prompt.OptionHistory(histCmdList),
 		prompt.OptionPrefix(shellPrompt),
 		prompt.OptionLivePrefix(s.CreatePrompt),
 		prompt.OptionInputTextColor(prompt.Green),
@@ -94,7 +108,11 @@ type shell struct {
 	PROMPT      string
 	OPROMPT     string
 	HistoryFile string
+	PreCmd      string
+	PostCmd     string
 	Count       int
+	ExecHistory map[int]string
+	Complete    []prompt.Suggest
 }
 
 // variable
@@ -102,56 +120,6 @@ var (
 	defaultPrompt  = "[${COUNT}] <<< "          // Default PROMPT
 	defaultOPrompt = "[${SERVER}][${COUNT}] > " // Default OPROMPT
 )
-
-// Convert []*Connect to []*shellConn, and Connect ssh
-func (s *shell) CreateConn(conns []*Connect) {
-	isExit := make(chan bool)
-	connectChan := make(chan *Connect)
-
-	// create ssh connect
-	for _, c := range conns {
-		conn := c
-
-		// Connect ssh (goroutine)
-		go func() {
-			// Connect ssh
-			err := conn.CreateClient()
-
-			// send exit channel
-			isExit <- true
-
-			// check error
-			if err != nil {
-				fmt.Fprintf(os.Stderr, "Cannot connect session %v, %v\n", conn.Server, err)
-				return
-			}
-
-			// send ssh client
-			connectChan <- conn
-		}()
-	}
-
-	for i := 0; i < len(conns); i++ {
-		<-isExit
-
-		select {
-		case c := <-connectChan:
-			// create shellConn
-			sc := new(shellConn)
-			sc.Connect = c
-			sc.ServerList = s.ServerList
-			sc.StdoutData = new(bytes.Buffer)
-			sc.StderrData = new(bytes.Buffer)
-			sc.OutputPrompt = s.OPROMPT
-
-			// append shellConn
-			s.Connects = append(s.Connects, sc)
-		case <-time.After(10 * time.Millisecond):
-			continue
-		}
-
-	}
-}
 
 // @TODO: KeepAlive用のリクエスト送信用の関数。後で記述する。多分channelで終わらせてあげないとだめかも？？(優先度 E)
 // func (s *shell) sendKeepAlive() {}
@@ -184,28 +152,60 @@ func (s *shell) Executor(cmd string) {
 	// trim space
 	cmd = strings.TrimSpace(cmd)
 
+	// local command regex
+	localCmdRegex_out := regexp.MustCompile(`^!out [0-9]+$`)
+
 	// check local command
-	// @TODO: 後でrun_shell_cmd.goに移してちゃんと作る
-	switch cmd {
-	case "":
+	switch {
+	// only enter(Ctrl + M)
+	case cmd == "":
 		return
-	case "exit", "quit":
+
+	// exit or quit
+	case cmd == "exit", cmd == "quit":
+		runCmdLocal(s.PostCmd)
+		s.PutHistory(cmd)
 		os.Exit(0)
-	case "clear":
+
+	// clear
+	case cmd == "clear":
 		fmt.Printf("\033[H\033[2J")
+		s.PutHistory(cmd)
+		return
+
+	// history
+	case cmd == "history":
+		s.localCmd_history()
+		return
+
+	// !out [num]
+	case localCmdRegex_out.MatchString(cmd):
+		cmdSlice := strings.SplitN(cmd, " ", 2)
+		num, err := strconv.Atoi(cmdSlice[1])
+		if err != nil {
+			return
+		}
+
+		if num >= s.Count {
+			return
+		}
+
+		s.localCmd_out(num)
+		fmt.Println()
 		return
 	}
 
+	// put history
+	s.PutHistory(cmd)
+
 	// create chanel
 	isExit := make(chan bool)
-	// isKill := make(chan bool)
 	isFinished := make(chan bool)
 	isInputExit := make(chan bool)
 	isSignalExit := make(chan bool)
 
 	// defer close channel
 	defer close(isExit)
-	// defer close(isKill)
 	defer close(isFinished)
 	defer close(isInputExit)
 	defer close(isSignalExit)
@@ -270,6 +270,7 @@ wait:
 
 	fmt.Fprintf(os.Stderr, "\n---\n%s\n", "Command exit. Please input Enter.")
 	isInputExit <- true
+	s.ExecHistory[s.Count] = cmd
 	s.Count += 1
 	return
 }
