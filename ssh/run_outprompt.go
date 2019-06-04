@@ -63,6 +63,7 @@ func (o *Output) GetPrompt() (p string) {
 	return
 }
 
+// @TODO: パイプで`tail -f hogehoge | grep hoge`とやると出力されなくなっているので、原因調査と修正
 func printOutput(o *Output, output chan []byte) {
 	// print output
 	for data := range output {
