@@ -229,7 +229,7 @@ option(lssh)
 
 If you specify a command as an argument, you can select multiple hosts. Select host 'Tab', select all displayed hosts 'Ctrl + A'.
 
-### [lssh] copy files using stdin/stdout, and to/from remote server
+<details><summary> [lssh] copy files using stdin/stdout, and to/from remote server </summary>
 
 You can scp like copy files using stdin/stdout.It also supports multiple nodes(parallel is not yet supported now).
 
@@ -242,6 +242,8 @@ You can scp like copy files using stdin/stdout.It also supports multiple nodes(p
 <p align="center">
 <img src="./example/lssh_stdcp.gif" />
 </p>
+
+</details>
 
 ### [lssh] multiple node select, exec tail -f
 
