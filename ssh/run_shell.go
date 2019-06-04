@@ -22,6 +22,8 @@ func (r *Run) shell() {
 
 	// @TODO: 接続できてない状態でもコンソールに入ってしまうので、そこの処理を書き換える
 
+	// @TODO: 仮想端末が必要かもしれない。呼び出し処理を追加する
+
 	// print header
 	fmt.Println("Start lssh shell...")
 	r.printSelectServer()

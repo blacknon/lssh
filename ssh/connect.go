@@ -179,12 +179,6 @@ func (c *Connect) createClientConfig(server string) (clientConfig *ssh.ClientCon
 func (c *Connect) RunCmd(session *ssh.Session, command []string) (err error) {
 	defer session.Close()
 
-	// set timeout
-	// go func() {
-	// 	time.Sleep(2419200 * time.Second)
-	// 	session.Close()
-	// }()
-
 	// set TerminalModes
 	if session, err = c.setIsTerm(session); err != nil {
 		return

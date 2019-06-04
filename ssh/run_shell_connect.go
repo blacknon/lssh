@@ -24,8 +24,20 @@ func (c *shellConn) SshShellCmdRun(cmd string, isExit chan<- bool) (err error) {
 	// set output
 	// @TODO: Stdout,Stderrについて、別途Bufferに書き込みをするよう定義する
 	outputData := new(bytes.Buffer)
+	// writer := bufio.NewWriter(outputData)
 	c.Session.Stdout = io.MultiWriter(outputData, c.StdoutData)
 	c.Session.Stderr = io.MultiWriter(outputData, c.StderrData)
+	// c.Session.Stdout = io.MultiWriter(outputData)
+	// c.Session.Stderr = io.MultiWriter(outputData)
+
+	// stdoutReader, _ := c.Session.StdoutPipe()
+	// stderrReader, _ := c.Session.StderrPipe()
+
+	// mr := io.MultiReader(stdoutReader, stderrReader)
+	// go io.Copy(outputData, mr)
+
+	// c.Session.Stdout = writer
+	// c.Session.Stderr = writer
 
 	// Create Output
 	o := &Output{
@@ -45,6 +57,8 @@ func (c *shellConn) SshShellCmdRun(cmd string, isExit chan<- bool) (err error) {
 	// start output
 	go sendOutput(outputChan, outputData, outputExit, sendExit)
 	go printOutput(o, outputChan)
+
+	// @TODO: sessionにttyの払い出し処理を追加する
 
 	// run command
 	c.Session.Start(cmd)
@@ -111,7 +125,11 @@ func (c *shellConn) Kill() (err error) {
 	c.Session.Signal(ssh.SIGINT)
 
 	// Session Close
-	c.Session.Close()
+	err = c.Session.Close()
+
+	// Connection Close
+	// c.Connect.Client.Close()
+	// c.Connect.Client = nil
 
 	return
 }
