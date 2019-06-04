@@ -1,25 +1,73 @@
 package ssh
 
 import (
+	"bufio"
+	"fmt"
 	"os"
+	"os/user"
+	"strings"
 	"time"
 )
 
-type history struct {
-	historyFile *os.File
-	timestamp   time.Time
-	command     string
+// @NOTE:
+//     [history file format]
+//         YYYY-mm-dd_HH:MM:SS command...
+//         YYYY-mm-dd_HH:MM:SS command...
+//         ...
+
+type History struct {
+	Timestamp string
+	Command   string
 }
 
-// @bref:
-func (h *history) SetHistoryFile(historyFile string) (err error) {
-	h.historyFile, err = os.OpenFile(historyFile, os.O_WRONLY|os.O_CREATE, 0600)
+func (s *shell) GetHistory() (data []History, err error) {
+	// user path
+	usr, _ := user.Current()
+	histfile := strings.Replace(s.HistoryFile, "~", usr.HomeDir, 1)
+
+	// Open history file
+	file, err := os.OpenFile(histfile, os.O_RDONLY, 0600)
+	if err != nil {
+		return
+	}
+	defer file.Close()
+
+	sc := bufio.NewScanner(file)
+	for sc.Scan() {
+		line := sc.Text()
+		text := strings.SplitN(line, " ", 2)
+
+		if len(text) < 2 {
+			continue
+		}
+
+		d := History{
+			Timestamp: text[0],
+			Command:   text[1],
+		}
+
+		data = append(data, d)
+	}
 	return
 }
 
-// @NOTE: jsonか否かでのチェック処理が必要(↓参考)
-//     https://stackoverflow.com/questions/22128282/how-to-check-string-is-in-json-format
+func (s *shell) PutHistory(cmd string) (err error) {
+	// user path
+	usr, _ := user.Current()
+	histfile := strings.Replace(s.HistoryFile, "~", usr.HomeDir, 1)
 
-// func (s *shell) GetHistory() (data []string) {}
+	// Open history file
+	file, err := os.OpenFile(histfile, os.O_WRONLY|os.O_CREATE|os.O_APPEND, 0600)
+	if err != nil {
+		return
+	}
+	defer file.Close()
 
-// func (s *shell) PutHistory(cmd string) {}
+	// Get Time
+	timestamp := time.Now().Format("2006/01/02_15:04:05 ") // "yyyy-mm-dd_HH:MM:SS "
+
+	// write history
+	fmt.Fprintln(file, timestamp+cmd)
+
+	return
+}
