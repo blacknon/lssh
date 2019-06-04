@@ -17,6 +17,9 @@ func (h *history) SetHistoryFile(historyFile string) (err error) {
 	return
 }
 
+// @NOTE: jsonか否かでのチェック処理が必要(↓参考)
+//     https://stackoverflow.com/questions/22128282/how-to-check-string-is-in-json-format
+
 // func (s *shell) GetHistory() (data []string) {}
 
 // func (s *shell) PutHistory(cmd string) {}
