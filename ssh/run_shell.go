@@ -153,7 +153,7 @@ func (s *shell) Executor(cmd string) {
 	cmd = strings.TrimSpace(cmd)
 
 	// local command regex
-	localCmdRegex_out := regexp.MustCompile(`^!out [0-9]+$`)
+	localCmdRegex_out := regexp.MustCompile(`^@out [0-9]+$`)
 
 	// check local command
 	switch {

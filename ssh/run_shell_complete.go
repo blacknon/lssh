@@ -14,7 +14,7 @@ import (
 //        - Structに保持されている補完内容をベースにCompleteの結果を返す
 //        - 何も入力していない場合は非表示にさせたい
 //        - ファイルについても対応させたい
-//        - ファイルやコマンドなど、状況に応じて補完対象を変えるにはやはり構文解析が必要になってくる。Parserを実装するまではコマンドのみに対応。
+//        - ファイルやコマンドなど、状況に応じて補完対象を変えるにはやはり構文解析が必要になってくる。Parserを実装するまではコマンドのみ対応。
 //        参考: https://github.com/c-bata/kube-prompt/blob/2276d167e2e693164c5980427a6809058a235c95/kube/completer.go
 func (s *shell) Completer(t prompt.Document) []prompt.Suggest {
 	// local command suggest
@@ -23,7 +23,7 @@ func (s *shell) Completer(t prompt.Document) []prompt.Suggest {
 		{Text: "quit", Description: "exit lssh shell"},
 		{Text: "clear", Description: "clear screen"},
 		{Text: "history", Description: "show history"},
-		{Text: "!out", Description: "!out [num],show history result."},
+		{Text: "@out", Description: "@out [num],show history result."},
 	}
 
 	// get complete data
@@ -35,6 +35,7 @@ func (s *shell) Completer(t prompt.Document) []prompt.Suggest {
 }
 
 // get complete (command)
+// @TODO: コマンドの重複対応
 func (s *shell) GetCompleteData() {
 	// bash complete command
 	compCmd := []string{"compgen", "-c"}
