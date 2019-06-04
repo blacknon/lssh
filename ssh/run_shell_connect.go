@@ -58,6 +58,9 @@ func (s *shell) CreateConn(conns []*Connect) {
 	}
 }
 
+// @TODO: from run_shell.go send signal
+// func (s *shell) sendSignal() {}
+
 type shellConn struct {
 	*Connect
 	Session      *ssh.Session
@@ -114,6 +117,14 @@ func (c *shellConn) SshShellCmdRun(cmd string, isExit chan<- bool) (err error) {
 	// start output
 	go sendOutput(outputChan, outputData, outputExit, sendExit)
 	go printOutput(o, outputChan)
+
+	// @TODO: test(keepalive)
+	go func() {
+		for {
+			_, _ = c.Session.SendRequest("keepalive@golang.org", true, nil)
+			time.Sleep(15 * time.Second)
+		}
+	}()
 
 	// run command
 	c.Session.Start(cmd)

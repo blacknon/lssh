@@ -249,12 +249,10 @@ func (s *shell) Executor(cmd string) {
 			for _, con := range connect {
 				con.Kill()
 			}
-
 			return
 		case <-isSignalExit:
 			return
 		}
-
 	}(s.Signal, isSignalExit, s.Connects)
 
 wait:
