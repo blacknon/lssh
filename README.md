@@ -248,6 +248,7 @@ You can scp like copy files using stdin/stdout.It also supports multiple nodes(p
 </details>
 
 ### [lssh] multiple node select, exec tail -f
+<details>
 
 	# -p option parallel exec command
 	lssh -p cmd
@@ -257,7 +258,10 @@ You can scp like copy files using stdin/stdout.It also supports multiple nodes(p
 <img src="./example/lssh_parallel.gif" />
 </p>
 
+</details>
+
 ### [lssh] ssh connect, and change Terminal theme.
+<details>
 
 sample lssh.conf
 
@@ -281,9 +285,11 @@ sample lssh.conf
     post_cmd = 'printf "\033]50;SetProfile=Default\a"' # local theme
 	post_cmd = "(option) exec command after ssh disconnected."
 
+</details>
 
 ### [lssh] use local bashrc file.
 
+<details>
 sample lssh.conf(bash only).
 
     [server.localrc]
@@ -299,9 +305,11 @@ sample lssh.conf(bash only).
         ,"~/dotfiles/sh_function"
 	]
 
+</details>
 
 ### [lscp] scp remote to local (get)
 
+<details>
 exec lscp get file/dir (remote to local scp).
 
 	lscp remote:/path/to/remote local:/path/to/local
@@ -310,9 +318,11 @@ exec lscp get file/dir (remote to local scp).
 	lscp r:/path/to/remote l:/path/to/local
 	lscp r:/path/to/remote /path/to/local
 
+</details>
 
 ### [lscp] scp local to remote (put)
 
+<details>
 exec lscp put file/dir (local to remote scp). If multiple server selected, mkdir servername dir.
 
 	lscp local:/path/to/remote remote:/path/to/local
@@ -321,9 +331,11 @@ exec lscp put file/dir (local to remote scp). If multiple server selected, mkdir
 	lscp l:/path/to/local r:/path/to/remote
 	lscp /path/to/local r:/path/to/remote
 
+</details>
 
 ### [lscp] scp remote to remote
 
+<details>
 exec lscp get/put file/dir (remote to remote scp).
 
 	lscp remote:/path/to/remote(get) remote:/path/to/remote(put)
@@ -331,6 +343,7 @@ exec lscp get/put file/dir (remote to remote scp).
 	# short version
 	lscp r:/path/to/remote(get) r:/path/to/local(put)
 
+</details>
 
 ## Licence
 
