@@ -41,6 +41,7 @@ func (r *Run) Start() {
 		r.cmd()
 	} else {
 		if r.IsShell { // run lssh shell
+			r.IsTerm = true
 			r.shell()
 		} else { // connect remote shell
 			r.term()
