@@ -24,9 +24,6 @@ func (s *shell) CreateConn(conns []*Connect) {
 			// Connect ssh
 			err := conn.CreateClient()
 
-			// @TODO:
-			//    add keep alive
-
 			// send exit channel
 			isExit <- true
 
@@ -35,6 +32,10 @@ func (s *shell) CreateConn(conns []*Connect) {
 				fmt.Fprintf(os.Stderr, "Cannot connect session %v, %v\n", conn.Server, err)
 				return
 			}
+
+			// @TODO:
+			//    add keep alive goroutine
+			//    ※ 専用のSessionを作成する必要がある
 
 			// send ssh client
 			connectChan <- conn
