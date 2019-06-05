@@ -24,6 +24,9 @@ func (s *shell) CreateConn(conns []*Connect) {
 			// Connect ssh
 			err := conn.CreateClient()
 
+			// @TODO:
+			//    add keep alive
+
 			// send exit channel
 			isExit <- true
 
@@ -117,14 +120,6 @@ func (c *shellConn) SshShellCmdRun(cmd string, isExit chan<- bool) (err error) {
 	// start output
 	go sendOutput(outputChan, outputData, outputExit, sendExit)
 	go printOutput(o, outputChan)
-
-	// @TODO: test(keepalive)
-	go func() {
-		for {
-			_, _ = c.Session.SendRequest("keepalive@golang.org", true, nil)
-			time.Sleep(15 * time.Second)
-		}
-	}()
 
 	// run command
 	c.Session.Start(cmd)

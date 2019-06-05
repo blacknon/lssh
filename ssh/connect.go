@@ -41,6 +41,8 @@ type Proxy struct {
 
 // @brief: create ssh session
 func (c *Connect) CreateSession() (session *ssh.Session, err error) {
+	// @TODO: ssh clientが接続できてるかをチェックして、できていない場合は指定回数(とりあえず3回)のssh clientの接続再試行を行う処理を追加
+
 	// New connect
 	if c.Client == nil {
 		err = c.CreateClient()
