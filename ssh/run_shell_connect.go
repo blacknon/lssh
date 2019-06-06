@@ -33,10 +33,6 @@ func (s *shell) CreateConn(conns []*Connect) {
 				return
 			}
 
-			// @TODO:
-			//    add keep alive goroutine
-			//    ※ 専用のSessionを作成する必要がある
-
 			// send ssh client
 			connectChan <- conn
 		}()

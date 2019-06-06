@@ -11,6 +11,10 @@ import (
 	"golang.org/x/crypto/ssh"
 )
 
+// @TODO:
+//     鍵ファイルにPassPhaseがかかっており、かつconfigにpassが設定されていない場合。入力を促すプロンプトを表示させる。
+//     また、入力された値を別に保持しておき、同じファイルが指定された場合はそれを利用するように書き換える。(PKCS11での処理も同様)
+
 // @brief:
 //     Create ssh session auth
 // @note:
