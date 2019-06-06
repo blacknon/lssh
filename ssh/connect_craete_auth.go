@@ -135,6 +135,7 @@ func createSshAuthPublicKey(key, pass string) (auth ssh.AuthMethod, err error) {
 // @brief:
 //     Create ssh auth (Certificate)
 //     key ... keypath::password
+// @TODO: PKCS11の利用もできるよう、引数にSignerを渡すように作り変える
 func createSshAuthCertificate(cert, key, pass string) (auth ssh.AuthMethod, err error) {
 	usr, _ := user.Current()
 	cert = strings.Replace(cert, "~", usr.HomeDir, 1)
