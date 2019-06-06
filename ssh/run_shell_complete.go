@@ -46,7 +46,7 @@ func (s *shell) Completer(t prompt.Document) []prompt.Suggest {
 }
 
 // get complete (command)
-// @TODO: コマンドの重複対応
+// @TODO: コマンドの重複対応の追加
 func (s *shell) GetCompleteData() {
 	// bash complete command
 	compCmd := []string{"compgen", "-c"}
