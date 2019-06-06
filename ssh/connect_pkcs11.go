@@ -55,6 +55,9 @@ func (c *Connect) getSshSignerFromPkcs11(server string) (signers []ssh.Signer, e
 		return
 	}
 
+	// @TODO: ↑までを別のfunctionにして、CryptoSignerを別に分ける
+	//        (CertAuth時に鍵ファイルをPKCS11で扱えるようにするため。)
+
 	for _, cryptoSigner := range cryptoSigners {
 		signer, _ := ssh.NewSignerFromSigner(cryptoSigner)
 		signers = append(signers, signer)
