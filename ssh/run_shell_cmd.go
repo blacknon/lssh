@@ -7,7 +7,8 @@ import (
 	"time"
 )
 
-// @bref: printout history
+// @brief: printout history (shell history)
+// @TODO: 通番をつけて、bash等のように `!<N>` で実行できるようにする
 func (s *shell) localCmd_history() {
 	data, err := s.GetHistory()
 	if err != nil {
