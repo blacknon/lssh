@@ -13,6 +13,8 @@ import (
 	"github.com/blacknon/lssh/common"
 )
 
+// @TODO: .ssh/configの読み込み処理を追加(多分ファイル分けたほうがいい)(v0.5.6)
+
 type Config struct {
 	Log      LogConfig
 	Shell    ShellConfig
