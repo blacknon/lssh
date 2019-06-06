@@ -105,7 +105,14 @@ func (r *Run) printProxy() {
 			proxyList = append(proxyList, proxyString)
 		}
 
-		if len(proxyList) > 0 {
+		serverConf := r.Conf.Server[r.ServerList[0]]
+
+		if len(proxyList) > 0 || serverConf.ProxyCommand != "" {
+			if serverConf.ProxyCommand != "" {
+				proxyCommandStr := "[ProxyCommand:" + serverConf.ProxyCommand + "]"
+				proxyList = append(proxyList, proxyCommandStr)
+			}
+
 			proxyList = append([]string{"localhost"}, proxyList...)
 			proxyList = append(proxyList, r.ServerList[0])
 			proxyListStr := strings.Join(proxyList, " => ")
