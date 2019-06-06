@@ -81,8 +81,9 @@ type ServerConfig struct {
 	PostCmd string `toml:"post_cmd"`
 
 	// proxy setting
-	ProxyType string `toml:"proxy_type"`
-	Proxy     string `toml:"proxy"`
+	ProxyType    string `toml:"proxy_type"`
+	Proxy        string `toml:"proxy"`
+	ProxyCommand string `toml:"proxy_cmd"` // OpenSSH type proxy setting
 
 	// local rcfile setting
 	LocalRcUse       string   `toml:"local_rc"` // yes|no (default: yes)

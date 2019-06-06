@@ -2,6 +2,9 @@ package ssh
 
 import (
 	"net"
+	"os"
+	"os/exec"
+	"strings"
 
 	"github.com/blacknon/lssh/conf"
 	"golang.org/x/crypto/ssh"
@@ -12,7 +15,11 @@ func createClientViaProxy(config conf.ServerConfig, sshConf *ssh.ClientConfig, p
 	switch {
 	// direct connect ssh proxy
 	case (proxyClient == nil) && (dialer == nil):
-		client, err = ssh.Dial("tcp", net.JoinHostPort(config.Addr, config.Port), sshConf)
+		if config.ProxyCommand == "" { // not set ProxyCommand
+			client, err = ssh.Dial("tcp", net.JoinHostPort(config.Addr, config.Port), sshConf)
+		} else { // set ProxyCommand
+			client, err = createClientViaProxyCommand(config, sshConf)
+		}
 
 	// connect ssh via proxy(http|socks5)
 	case (proxyClient == nil) && (dialer != nil):
@@ -45,4 +52,40 @@ func createClientViaProxy(config conf.ServerConfig, sshConf *ssh.ClientConfig, p
 	}
 
 	return client, err
+}
+
+// ssh.Client via proxycommand
+func createClientViaProxyCommand(config conf.ServerConfig, sshConf *ssh.ClientConfig) (client *ssh.Client, err error) {
+	// set
+	proxyCommand := config.ProxyCommand
+
+	// replace variable
+	proxyCommand = strings.Replace(proxyCommand, "%h", config.Addr, -1)
+	proxyCommand = strings.Replace(proxyCommand, "%p", config.Port, -1)
+	proxyCommand = strings.Replace(proxyCommand, "%r", config.User, -1)
+
+	// Create net.Pipe(), and set proxyCommand
+	pipeClient, pipeServer := net.Pipe()
+	cmd := exec.Command("sh", "-c", proxyCommand)
+
+	// setup FD
+	cmd.Stdin = pipeServer
+	cmd.Stdout = pipeServer
+	cmd.Stderr = os.Stderr
+
+	// run proxyCommand
+	if err := cmd.Start(); err != nil {
+		return client, err
+	}
+
+	// create ssh.Conn
+	conn, incomingChannels, incomingRequests, err := ssh.NewClientConn(pipeClient, net.JoinHostPort(config.Addr, config.Port), sshConf)
+	if err != nil {
+		return client, err
+	}
+
+	// create ssh.Client
+	client = ssh.NewClient(conn, incomingChannels, incomingRequests)
+
+	return
 }
