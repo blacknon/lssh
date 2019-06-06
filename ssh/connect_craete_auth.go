@@ -14,6 +14,14 @@ import (
 // @TODO:
 //     鍵ファイルにPassPhaseがかかっており、かつconfigにpassが設定されていない場合。入力を促すプロンプトを表示させる。
 //     また、入力された値を別に保持しておき、同じファイルが指定された場合はそれを利用するように書き換える。(PKCS11での処理も同様)
+// @NOTE:
+//     結構作りを本格的に変えないとだめかも…。大変なので、0.5.6で対応することにしよう。
+//
+//     【実装案】
+//     接続先選択
+//     → 先に認証用の各種データ(鍵やPKCS11を使ってるか否かなど)を取得
+//     → 認証用のauth作成処理してmap(連想配列map[<種別>][値]*ssh.Auth)にぶちこむ
+//     → 接続時に、認証情報のConfからどのAuthで接続するかをssh.Authから取り出してConnect
 
 // @brief:
 //     Create ssh session auth
@@ -78,7 +86,6 @@ func (c *Connect) createSshAuth(server string) (auth []ssh.AuthMethod, err error
 			signers, err = c.sshAgent.Signers()
 			if err != nil {
 				fmt.Fprintf(os.Stderr, "%s's create sshAgent ssh.AuthMethod err: %s\n", server, err)
-
 			} else {
 				auth = append(auth, ssh.PublicKeys(signers...))
 			}

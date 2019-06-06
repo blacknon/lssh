@@ -112,7 +112,8 @@ func (c *Connect) CreateClient() (err error) {
 	}
 
 	// not use proxy
-	if serverConf.Proxy == "" {
+	if serverConf.Proxy == "" && serverConf.ProxyCommand == "" {
+		fmt.Println(serverConf.ProxyCommand)
 		client, err := ssh.Dial("tcp", net.JoinHostPort(serverConf.Addr, serverConf.Port), sshConf)
 		if err != nil {
 			return err
@@ -238,7 +239,6 @@ CheckCommandExit:
 
 // @brief:
 //     Run command over ssh, output to gochannel
-// func (c *Connect) RunCmdWithOutput(session *ssh.Session, command []string, outputChan chan string) {
 func (c *Connect) RunCmdWithOutput(session *ssh.Session, command []string, outputChan chan []byte) {
 	outputBuf := new(bytes.Buffer)
 	session.Stdout = io.MultiWriter(outputBuf)
