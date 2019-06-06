@@ -41,10 +41,17 @@ type Proxy struct {
 
 // @brief: create ssh session
 func (c *Connect) CreateSession() (session *ssh.Session, err error) {
-	// @TODO: ssh clientが接続できてるかをチェックして、できていない場合は指定回数(とりあえず3回)のssh clientの接続再試行を行う処理を追加
-
-	// New connect
+	// new connect
 	if c.Client == nil {
+		err = c.CreateClient()
+		if err != nil {
+			return session, err
+		}
+	}
+
+	// Check ssh client alive
+	clientErr := c.CheckClientAlive()
+	if clientErr != nil {
 		err = c.CreateClient()
 		if err != nil {
 			return session, err
@@ -59,6 +66,24 @@ func (c *Connect) CreateSession() (session *ssh.Session, err error) {
 	}
 
 	return
+}
+
+// send keep alive packet
+func (c *Connect) SendKeepAlive(session *ssh.Session) {
+	for {
+		_, _ = session.SendRequest("keepalive@lssh.com", true, nil)
+		time.Sleep(15 * time.Second)
+	}
+}
+
+// Check ssh connet alive
+func (c *Connect) CheckClientAlive() error {
+	_, _, err := c.Client.SendRequest("keepalive@lssh.com", true, nil)
+	if err == nil || err.Error() == "request failed" {
+		return nil
+	}
+
+	return err
 }
 
 // @brief: create ssh client
@@ -312,12 +337,7 @@ func (c *Connect) ConTerm(session *ssh.Session) (err error) {
 	}()
 
 	// keep alive packet
-	go func() {
-		for {
-			_, _ = session.SendRequest("keepalive@golang.org", true, nil)
-			time.Sleep(15 * time.Second)
-		}
-	}()
+	go c.SendKeepAlive(session)
 
 	err = session.Wait()
 	if err != nil {
