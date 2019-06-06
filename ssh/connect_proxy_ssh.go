@@ -1,6 +1,7 @@
 package ssh
 
 import (
+	"fmt"
 	"net"
 	"os"
 	"os/exec"
@@ -37,6 +38,11 @@ func createClientViaProxy(config conf.ServerConfig, sshConf *ssh.ClientConfig, p
 
 	// connect ssh via proxy(ssh)
 	default:
+		if config.ProxyCommand != "" {
+			// エラーメッセージ出す
+			fmt.Fprint(os.Stderr, "`proxy` takes precedence in `proxy` and `proxy_cmd`")
+		}
+
 		proxyConn, err := proxyClient.Dial("tcp", net.JoinHostPort(config.Addr, config.Port))
 		if err != nil {
 			return client, err

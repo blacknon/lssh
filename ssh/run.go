@@ -99,6 +99,15 @@ func (r *Run) printProxy() {
 				proxyPort = r.Conf.Server[proxy].Port
 			}
 
+			if len(proxyList) == 0 {
+				proxyConf := r.Conf.Server[proxy]
+				if proxyConf.ProxyCommand != "" {
+					proxyCommandStr := "[ProxyCommand:" + proxyConf.ProxyCommand + "]"
+					proxyList = append(proxyList, proxyCommandStr)
+				}
+
+			}
+
 			// "[type://server:port]"
 			// ex) [ssh://test-server:22]
 			proxyString := "[" + proxyType + "://" + proxy + ":" + proxyPort + "]"
@@ -106,9 +115,8 @@ func (r *Run) printProxy() {
 		}
 
 		serverConf := r.Conf.Server[r.ServerList[0]]
-
 		if len(proxyList) > 0 || serverConf.ProxyCommand != "" {
-			if serverConf.ProxyCommand != "" {
+			if serverConf.ProxyCommand != "" && len(proxyList) == 0 {
 				proxyCommandStr := "[ProxyCommand:" + serverConf.ProxyCommand + "]"
 				proxyList = append(proxyList, proxyCommandStr)
 			}
