@@ -38,7 +38,6 @@ type AuthKey struct {
 	//   - agent
 	//   - key
 	//   - cert
-	//   - password
 	//   - pkcs11
 	Type string
 
@@ -49,12 +48,17 @@ type AuthKey struct {
 	//     ex.) ~/.ssh/id_rsa
 	//   - cert(path)
 	//     ex.) ~/.ssh/id_rsa.crt
-	//   - password(value)
-	//     ex.) Password
 	//   - pkcs11(libpath)
 	//     ex.) /usr/local/lib/opensc-pkcs11.so
 	Value string
 }
+
+const (
+	AUTHKEY_AGENT  = "agent"
+	AUTHKEY_KEY    = "key"
+	AUTHKEY_CERT   = "cert"
+	AUTHKEY_PKCS11 = "pkcs11"
+)
 
 func (r *Run) Start() {
 	// Get stdin data(pipe)
@@ -73,10 +77,6 @@ func (r *Run) Start() {
 			r.term()
 		}
 	}
-}
-
-func (r *Run) createAuthData() {
-
 }
 
 // Create Connect struct array
