@@ -32,6 +32,7 @@ type Connect struct {
 	LocalRcDecodeCmd string
 	ForwardLocal     string
 	ForwardRemote    string
+	AuthData         []ssh.Signer
 }
 
 type Proxy struct {

@@ -16,6 +16,8 @@ func createClientViaProxy(config conf.ServerConfig, sshConf *ssh.ClientConfig, p
 	switch {
 	// direct connect ssh proxy
 	case (proxyClient == nil) && (dialer == nil):
+
+		fmt.Println(1)
 		if config.ProxyCommand == "" { // not set ProxyCommand
 			client, err = ssh.Dial("tcp", net.JoinHostPort(config.Addr, config.Port), sshConf)
 		} else { // set ProxyCommand
@@ -39,8 +41,7 @@ func createClientViaProxy(config conf.ServerConfig, sshConf *ssh.ClientConfig, p
 	// connect ssh via proxy(ssh)
 	default:
 		if config.ProxyCommand != "" {
-			// エラーメッセージ出す
-			fmt.Fprint(os.Stderr, "`proxy` takes precedence in `proxy` and `proxy_cmd`")
+			fmt.Fprint(os.Stderr, "`proxy_cmd` takes precedence in `proxy` and `proxy_cmd`\n")
 		}
 
 		proxyConn, err := proxyClient.Dial("tcp", net.JoinHostPort(config.Addr, config.Port))
