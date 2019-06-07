@@ -7,10 +7,9 @@ import (
 	"os"
 	"os/user"
 	"strings"
-	"syscall"
 
+	"github.com/blacknon/lssh/common"
 	"golang.org/x/crypto/ssh"
-	"golang.org/x/crypto/ssh/terminal"
 )
 
 // @brief:
@@ -29,10 +28,12 @@ func (r *Run) createAuthMap() {
 		// Public keys auth (array)
 		if len(config.Keys) > 0 {
 			for _, key := range config.Keys {
-				// @TODO: バグあるので、対応が必要！！！
-				// パスワードがない場合、配列の数をオーバーしちゃうので分岐する！
 				keyPair := strings.SplitN(key, "::", 2)
-				r.registAuthMapPublicKey(server, keyPair[0], keyPair[1])
+				if len(keyPair) > 1 {
+					r.registAuthMapPublicKey(server, keyPair[0], keyPair[1])
+				} else {
+					r.registAuthMapPublicKey(server, keyPair[0], "")
+				}
 			}
 		}
 
@@ -41,15 +42,10 @@ func (r *Run) createAuthMap() {
 			r.registAuthMapCertificate(server, config.Cert, config.CertKey, config.CertKeyPass)
 		}
 
-		// ssh-agent
-		// if config.AgentAuth {
-
-		// }
-
 		// pkcs11
-		// if config.PKCS11Use {
+		if config.PKCS11Use {
 
-		// }
+		}
 	}
 }
 
@@ -77,6 +73,32 @@ func (r *Run) registAuthMapCertificate(server, cert, key, pass string) {
 	}
 }
 
+func (r *Run) registAuthMapPKCS11(server string) {
+	conf := r.Conf.Server[server]
+
+	authKey := AuthKey{AUTHKEY_PKCS11, conf.PKCS11Provider}
+
+	if _, ok := r.AuthMap[authKey]; !ok {
+		conf := r.Conf.Server[server]
+
+		p := new(P11)
+		p.Pkcs11Provider = conf.PKCS11Provider
+		p.PIN = conf.PKCS11PIN
+
+		// get crypto signers
+		cryptoSigners, err := p.Get()
+		if err != nil {
+			return
+		}
+
+		for _, cryptoSigner := range cryptoSigners {
+			signer, _ := ssh.NewSignerFromSigner(cryptoSigner)
+			r.AuthMap[authKey] = append(r.AuthMap[authKey], signer)
+		}
+	}
+	return
+}
+
 // @brief:
 //     create ssh.Signer from Publickey
 func createSshSignerPublicKey(key, pass string) (signer ssh.Signer, err error) {
@@ -100,7 +122,7 @@ func createSshSignerPublicKey(key, pass string) (signer ssh.Signer, err error) {
 			msg := key + "'s passphase:"
 
 			for i := 0; i < rep; i++ {
-				pass, _ = getPassPhase(msg)
+				pass, _ = common.GetPassPhase(msg)
 				signer, err = ssh.ParsePrivateKeyWithPassphrase(keyData, []byte(pass))
 
 				if err != errors.New("x509: decryption password incorrect") {
@@ -150,18 +172,6 @@ func createSshSignerCertificate(cert, key, pass string) (signer ssh.Signer, err 
 	signer, err = ssh.NewCertSigner(certificate, keySigner)
 	if err != nil {
 		return signer, err
-	}
-
-	return
-}
-
-func getPassPhase(msg string) (input string, err error) {
-	fmt.Printf(msg)
-	result, err := terminal.ReadPassword(int(syscall.Stdin))
-
-	if len(result) == 0 {
-		err = fmt.Errorf("err: input is empty")
-		return
 	}
 
 	return

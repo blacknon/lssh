@@ -35,15 +35,12 @@ type Run struct {
 // Auth map key
 type AuthKey struct {
 	// auth type:
-	//   - agent
 	//   - key
 	//   - cert
 	//   - pkcs11
 	Type string
 
 	// auth type value:
-	//   - agent(ENV)
-	//     ex.) "SSH_AUTH_SOCK"
 	//   - key(path)
 	//     ex.) ~/.ssh/id_rsa
 	//   - cert(path)

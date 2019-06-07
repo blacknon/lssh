@@ -2,12 +2,16 @@ package common
 
 import (
 	"encoding/base64"
+	"fmt"
 	"io/ioutil"
 	"os"
 	"os/user"
 	"path/filepath"
 	"reflect"
 	"strings"
+	"syscall"
+
+	"golang.org/x/crypto/ssh/terminal"
 )
 
 // IsExist returns existence of file.
@@ -136,4 +140,16 @@ func GetFilesBase64(paths []string) (result string, err error) {
 
 	result = base64.StdEncoding.EncodeToString(data)
 	return result, err
+}
+
+func GetPassPhase(msg string) (input string, err error) {
+	fmt.Printf(msg)
+	result, err := terminal.ReadPassword(int(syscall.Stdin))
+	if len(result) == 0 {
+		err = fmt.Errorf("err: input is empty")
+		return
+	}
+
+	input = string(result)
+	return
 }
