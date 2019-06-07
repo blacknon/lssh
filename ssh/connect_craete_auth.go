@@ -47,7 +47,13 @@ func (c *Connect) createSshAuth(server string) (auth []ssh.AuthMethod, err error
 	if len(conf.Keys) > 0 {
 		for _, key := range conf.Keys {
 			keyPathArray := strings.SplitN(key, "::", 2)
-			authMethod, err := createSshAuthPublicKey(keyPathArray[0], keyPathArray[1])
+
+			var authMethod ssh.AuthMethod
+			if len(keyPathArray) > 1 {
+				authMethod, err = createSshAuthPublicKey(keyPathArray[0], keyPathArray[1])
+			} else {
+				authMethod, err = createSshAuthPublicKey(keyPathArray[0], "")
+			}
 			if err != nil {
 				fmt.Fprintf(os.Stderr, "%s's create public keys ssh.AuthMethod err: %s\n", server, err)
 			} else {
