@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/blacknon/lssh/conf"
+	"golang.org/x/crypto/ssh"
 	"golang.org/x/crypto/ssh/terminal"
 )
 
@@ -28,6 +29,31 @@ type Run struct {
 	StdinData         []byte
 	InputData         []byte        // @TODO: Delete???
 	OutputData        *bytes.Buffer // use terminal log
+	AuthMap           map[AuthKey][]ssh.Signer
+}
+
+// Auth map key
+type AuthKey struct {
+	// auth type:
+	//   - agent
+	//   - key
+	//   - cert
+	//   - password
+	//   - pkcs11
+	Type string
+
+	// auth type value:
+	//   - agent(ENV)
+	//     ex.) "SSH_AUTH_SOCK"
+	//   - key(path)
+	//     ex.) ~/.ssh/id_rsa
+	//   - cert(path)
+	//     ex.) ~/.ssh/id_rsa.crt
+	//   - password(value)
+	//     ex.) Password
+	//   - pkcs11(libpath)
+	//     ex.) /usr/local/lib/opensc-pkcs11.so
+	Value string
 }
 
 func (r *Run) Start() {
@@ -47,6 +73,10 @@ func (r *Run) Start() {
 			r.term()
 		}
 	}
+}
+
+func (r *Run) createAuthData() {
+
 }
 
 // Create Connect struct array
@@ -99,26 +129,28 @@ func (r *Run) printProxy() {
 				proxyPort = r.Conf.Server[proxy].Port
 			}
 
+			// "[type://server:port]"
+			// ex) [ssh://test-server:22]
 			if len(proxyList) == 0 {
 				proxyConf := r.Conf.Server[proxy]
 				if proxyConf.ProxyCommand != "" {
 					proxyCommandStr := "[ProxyCommand:" + proxyConf.ProxyCommand + "]"
 					proxyList = append(proxyList, proxyCommandStr)
+				} else {
+					if proxyPort == "" {
+						proxyPort = "22"
+					}
+					proxyString := "[" + proxyType + "://" + proxy + ":" + proxyPort + "]"
+					proxyList = append(proxyList, proxyString)
 				}
-
 			}
-
-			// "[type://server:port]"
-			// ex) [ssh://test-server:22]
-			proxyString := "[" + proxyType + "://" + proxy + ":" + proxyPort + "]"
-			proxyList = append(proxyList, proxyString)
 		}
 
 		serverConf := r.Conf.Server[r.ServerList[0]]
 		if len(proxyList) > 0 || serverConf.ProxyCommand != "" {
-			if serverConf.ProxyCommand != "" && len(proxyList) == 0 {
+			if serverConf.ProxyCommand != "" {
 				proxyCommandStr := "[ProxyCommand:" + serverConf.ProxyCommand + "]"
-				proxyList = append(proxyList, proxyCommandStr)
+				proxyList = []string{proxyCommandStr}
 			}
 
 			proxyList = append([]string{"localhost"}, proxyList...)
