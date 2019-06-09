@@ -44,6 +44,9 @@ USAGE:
 
     # parallel run command in select server over ssh
     {{.Name}} -p command...
+
+    # parallel run command in select server over ssh, do it interactively.
+    {{.Name}} -s command...
 `
 
 	// Create app
