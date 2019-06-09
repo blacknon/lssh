@@ -48,6 +48,14 @@ func (r *RunScp) Start() {
 func (r *RunScp) run(mode string) {
 	finished := make(chan bool)
 
+	// create AuthMap
+	slist := append(r.To.Server, r.From.Server...)
+	run := new(Run)
+	run.ServerList = slist
+	run.Conf = r.Config
+	run.createAuthMap()
+	authMap := run.AuthMap
+
 	// set target list
 	targetList := []string{}
 	switch mode {
@@ -65,6 +73,7 @@ func (r *RunScp) run(mode string) {
 			con := new(Connect)
 			con.Server = target
 			con.Conf = r.Config
+			con.AuthMap = authMap
 
 			// create ssh session
 			session, err := con.CreateSession()

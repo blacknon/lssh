@@ -42,17 +42,20 @@ VERSION:
     {{end}}
 USAGE:
     # local to remote scp
-    {{.Name}} /path/to/local... /path/to/remote
+    {{.Name}} /path/to/local... remote:/path/to/remote
 
     # remote to local scp
     {{.Name}} remote:/path/to/remote... /path/to/local
+
+    # remote to remote scp
+    {{.Name}} remote:/path/to/remote... remote:/path/to/local
 `
 	// Create app
 	app = cli.NewApp()
 	app.Name = "lscp"
 	app.Usage = "TUI list select and parallel scp client command."
 	app.Copyright = "blacknon(blacknon@orebibou.com)"
-	app.Version = "0.5.4"
+	app.Version = "0.5.5"
 
 	app.Flags = []cli.Flag{
 		cli.StringSliceFlag{Name: "host,H", Usage: "connect servernames"},

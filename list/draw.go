@@ -63,7 +63,7 @@ func drawFilterLine(x, y int, str string, colorNum int, backColorNum int, keywor
 // Draw List
 func (l *ListInfo) draw() {
 	l.Term.Headline = 2
-	l.Term.LeftMergin = 2
+	l.Term.LeftMargin = 2
 	l.Term.Color = 255
 	l.Term.BackgroundColor = 255
 
@@ -88,7 +88,7 @@ func (l *ListInfo) draw() {
 	// View Head
 	drawLine(0, 0, l.Prompt, 3, l.Term.BackgroundColor)
 	drawLine(len(l.Prompt), 0, l.Keyword, l.Term.Color, l.Term.BackgroundColor)
-	drawLine(l.Term.LeftMergin, 1, l.ViewText[0], 3, l.Term.BackgroundColor)
+	drawLine(l.Term.LeftMargin, 1, l.ViewText[0], 3, l.Term.BackgroundColor)
 
 	// View List
 	for listKey, listValue := range viewList {
@@ -112,10 +112,10 @@ func (l *ListInfo) draw() {
 		}
 
 		// Draw filter line
-		drawLine(l.Term.LeftMergin, listKey+l.Term.Headline, paddingData, cursorColor, cursorBackColor)
+		drawLine(l.Term.LeftMargin, listKey+l.Term.Headline, paddingData, cursorColor, cursorBackColor)
 
 		// Keyword Highlight
-		drawFilterLine(l.Term.LeftMergin, listKey+l.Term.Headline, paddingData, cursorColor, cursorBackColor, keywordColor, l.Keyword)
+		drawFilterLine(l.Term.LeftMargin, listKey+l.Term.Headline, paddingData, cursorColor, cursorBackColor, keywordColor, l.Keyword)
 		listKey += 1
 	}
 
