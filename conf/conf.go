@@ -16,13 +16,14 @@ import (
 // @TODO: .ssh/configの読み込み処理を追加(多分ファイル分けたほうがいい)(v0.5.6)
 
 type Config struct {
-	Log      LogConfig
-	Shell    ShellConfig
-	Include  map[string]IncludeConfig
-	Includes IncludesConfig
-	Common   ServerConfig
-	Server   map[string]ServerConfig
-	Proxy    map[string]ProxyConfig
+	Log        LogConfig
+	Shell      ShellConfig
+	Include    map[string]IncludeConfig
+	Includes   IncludesConfig
+	Common     ServerConfig
+	Server     map[string]ServerConfig
+	Proxy      map[string]ProxyConfig
+	SshConfigs []string // OpenSsh Configs(@TODO: 多分このままだと指定はできないので、後で指定できるようにする)
 }
 
 type LogConfig struct {
@@ -106,7 +107,14 @@ type ProxyConfig struct {
 	Note string `toml:"note"`
 }
 
-func ReadConf(confPath string) (checkConf Config) {
+// @NOTE: this struct is not use...
+// @TODO: そのうち実装する
+type OpenSshConfig struct {
+	Path string `toml:"path"`
+	ServerConfig
+}
+
+func ReadConf(confPath string) (config Config) {
 	// user path
 	usr, _ := user.Current()
 
@@ -117,24 +125,48 @@ func ReadConf(confPath string) (checkConf Config) {
 	}
 
 	// Read config file
-	_, err := toml.DecodeFile(confPath, &checkConf)
+	_, err := toml.DecodeFile(confPath, &config)
 	if err != nil {
-		panic(err)
+		fmt.Println(err)
+		os.Exit(1)
+	}
+
+	config.Server = map[string]ServerConfig{}
+
+	// Read Openssh configs
+	if len(config.SshConfigs) == 0 {
+		openSshServerConfig, err := getOpenSshConfig("~/.ssh/config")
+		if err == nil {
+			// append data
+			for key, value := range openSshServerConfig {
+				config.Server[key] = value
+			}
+		}
+	} else {
+		for _, sshConfigPath := range config.SshConfigs {
+			openSshServerConfig, err := getOpenSshConfig(sshConfigPath)
+			if err == nil {
+				// append data
+				for key, value := range openSshServerConfig {
+					config.Server[key] = value
+				}
+			}
+		}
 	}
 
 	// reduce common setting (in .lssh.conf servers)
-	for key, value := range checkConf.Server {
-		setValue := serverConfigReduct(checkConf.Common, value)
-		checkConf.Server[key] = setValue
+	for key, value := range config.Server {
+		setValue := serverConfigReduct(config.Common, value)
+		config.Server[key] = setValue
 	}
 
 	// for append includes to include.path
-	if checkConf.Includes.Path != nil {
-		if checkConf.Include == nil {
-			checkConf.Include = map[string]IncludeConfig{}
+	if config.Includes.Path != nil {
+		if config.Include == nil {
+			config.Include = map[string]IncludeConfig{}
 		}
 
-		for _, includePath := range checkConf.Includes.Path {
+		for _, includePath := range config.Includes.Path {
 			unixTime := time.Now().Unix()
 			keyString := strings.Join([]string{string(unixTime), includePath}, "_")
 
@@ -143,14 +175,14 @@ func ReadConf(confPath string) (checkConf Config) {
 			hasher.Write([]byte(keyString))
 			key := string(hex.EncodeToString(hasher.Sum(nil)))
 
-			// append checkConf.Include[key]
-			checkConf.Include[key] = IncludeConfig{strings.Replace(includePath, "~", usr.HomeDir, 1)}
+			// append config.Include[key]
+			config.Include[key] = IncludeConfig{strings.Replace(includePath, "~", usr.HomeDir, 1)}
 		}
 	}
 
 	// Read include files
-	if checkConf.Include != nil {
-		for _, v := range checkConf.Include {
+	if config.Include != nil {
+		for _, v := range config.Include {
 			var includeConf Config
 
 			// user path
@@ -163,24 +195,24 @@ func ReadConf(confPath string) (checkConf Config) {
 			}
 
 			// reduce common setting
-			setCommon := serverConfigReduct(checkConf.Common, includeConf.Common)
+			setCommon := serverConfigReduct(config.Common, includeConf.Common)
 
 			// map init
-			if len(checkConf.Server) == 0 {
-				checkConf.Server = map[string]ServerConfig{}
+			if len(config.Server) == 0 {
+				config.Server = map[string]ServerConfig{}
 			}
 
 			// add include file serverconf
 			for key, value := range includeConf.Server {
 				// reduce common setting
 				setValue := serverConfigReduct(setCommon, value)
-				checkConf.Server[key] = setValue
+				config.Server[key] = setValue
 			}
 		}
 	}
 
 	// Check Config Parameter
-	checkAlertFlag := checkFormatServerConf(checkConf)
+	checkAlertFlag := checkFormatServerConf(config)
 	if !checkAlertFlag {
 		os.Exit(1)
 	}
