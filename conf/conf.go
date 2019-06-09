@@ -124,14 +124,14 @@ func ReadConf(confPath string) (config Config) {
 		os.Exit(1)
 	}
 
+	config.Server = map[string]ServerConfig{}
+
 	// Read config file
 	_, err := toml.DecodeFile(confPath, &config)
 	if err != nil {
 		fmt.Println(err)
 		os.Exit(1)
 	}
-
-	config.Server = map[string]ServerConfig{}
 
 	// Read Openssh configs
 	if len(config.SshConfigs) == 0 {
