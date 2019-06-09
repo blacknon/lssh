@@ -4,12 +4,12 @@ import (
 	"encoding/base64"
 	"fmt"
 	"io/ioutil"
+	"log"
 	"os"
 	"os/user"
 	"path/filepath"
 	"reflect"
 	"strings"
-	"syscall"
 
 	"golang.org/x/crypto/ssh/terminal"
 )
@@ -144,12 +144,23 @@ func GetFilesBase64(paths []string) (result string, err error) {
 
 func GetPassPhase(msg string) (input string, err error) {
 	fmt.Printf(msg)
-	result, err := terminal.ReadPassword(int(syscall.Stdin))
+
+	// Open /dev/tty
+	tty, err := os.Open("/dev/tty")
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer tty.Close()
+
+	// get input
+	result, err := terminal.ReadPassword(int(tty.Fd()))
+
 	if len(result) == 0 {
 		err = fmt.Errorf("err: input is empty")
 		return
 	}
 
 	input = string(result)
+	fmt.Println()
 	return
 }

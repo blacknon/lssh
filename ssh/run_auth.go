@@ -1,11 +1,11 @@
 package ssh
 
 import (
-	"errors"
 	"fmt"
 	"io/ioutil"
 	"os"
 	"os/user"
+	"regexp"
 	"strings"
 
 	"github.com/blacknon/lssh/common"
@@ -16,13 +16,15 @@ import (
 //     Create ssh.Signer into r.AuthMap.
 //     Passwords is not get this function.
 func (r *Run) createAuthMap() {
+	r.AuthMap = map[AuthKey][]ssh.Signer{}
+
 	for _, server := range r.ServerList {
 		// get server config
 		config := r.Conf.Server[server]
 
 		// Public key auth (single)
 		if config.Key != "" {
-			r.registAuthMapPublicKey(server, config.Key, config.Pass)
+			r.registAuthMapPublicKey(server, config.Key, config.KeyPass)
 		}
 
 		// Public keys auth (array)
@@ -42,9 +44,9 @@ func (r *Run) createAuthMap() {
 			r.registAuthMapCertificate(server, config.Cert, config.CertKey, config.CertKeyPass)
 		}
 
-		// pkcs11
+		// PKCS11 Auth
 		if config.PKCS11Use {
-
+			r.registAuthMapPKCS11(server)
 		}
 	}
 }
@@ -54,7 +56,7 @@ func (r *Run) registAuthMapPublicKey(server, key, pass string) {
 
 	if _, ok := r.AuthMap[authKey]; !ok {
 		signer, err := createSshSignerPublicKey(key, pass)
-		if err != nil {
+		if signer == nil {
 			fmt.Fprintf(os.Stderr, "%s's create public key ssh.Signer err: %s\n", server, err)
 		}
 		r.AuthMap[authKey] = []ssh.Signer{signer}
@@ -117,16 +119,20 @@ func createSshSignerPublicKey(key, pass string) (signer ssh.Signer, err error) {
 	if pass != "" {
 		signer, err = ssh.ParsePrivateKeyWithPassphrase(keyData, []byte(pass))
 	} else {
+		rgx := regexp.MustCompile(`cannot decode`)
 		signer, err = ssh.ParsePrivateKey(keyData)
-		if err == errors.New("ssh: cannot decode encrypted private keys") {
-			msg := key + "'s passphase:"
+		if err != nil {
+			if rgx.MatchString(err.Error()) {
+				msg := key + "'s passphase:"
 
-			for i := 0; i < rep; i++ {
-				pass, _ = common.GetPassPhase(msg)
-				signer, err = ssh.ParsePrivateKeyWithPassphrase(keyData, []byte(pass))
-
-				if err != errors.New("x509: decryption password incorrect") {
-					break
+				for i := 0; i < rep; i++ {
+					pass, _ = common.GetPassPhase(msg)
+					pass = strings.TrimRight(pass, "\n")
+					sshSigner, err := ssh.ParsePrivateKeyWithPassphrase(keyData, []byte(pass))
+					signer = sshSigner
+					if err == nil {
+						break
+					}
 				}
 			}
 		}
