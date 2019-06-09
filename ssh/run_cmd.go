@@ -21,7 +21,7 @@ func (r *Run) cmd() {
 	r.printProxy()
 
 	// print newline
-	fmt.Println()
+	// fmt.Println()
 
 	// create input data channel
 	input := make(chan []byte)

@@ -63,6 +63,9 @@ func (r *Run) Start() {
 		r.StdinData, _ = ioutil.ReadAll(os.Stdin)
 	}
 
+	// create AuthMap
+	r.createAuthMap()
+
 	// connect shell
 	if len(r.ExecCmd) > 0 { // run command
 		r.cmd()
@@ -85,6 +88,7 @@ func (r *Run) createConn() (conns []*Connect) {
 		c.Conf = r.Conf
 		c.IsTerm = r.IsTerm
 		c.IsParallel = r.IsParallel
+		c.AuthMap = r.AuthMap // @TODO: 特に問題ないだろうが、必要なSignerだけを渡すようにしたほうがいいかも？
 		conns = append(conns, c)
 	}
 

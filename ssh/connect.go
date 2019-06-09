@@ -32,7 +32,7 @@ type Connect struct {
 	LocalRcDecodeCmd string
 	ForwardLocal     string
 	ForwardRemote    string
-	AuthData         []ssh.Signer
+	AuthMap          map[AuthKey][]ssh.Signer
 }
 
 type Proxy struct {
@@ -114,7 +114,6 @@ func (c *Connect) CreateClient() (err error) {
 
 	// not use proxy
 	if serverConf.Proxy == "" && serverConf.ProxyCommand == "" {
-		fmt.Println(serverConf.ProxyCommand)
 		client, err := ssh.Dial("tcp", net.JoinHostPort(serverConf.Addr, serverConf.Port), sshConf)
 		if err != nil {
 			return err
