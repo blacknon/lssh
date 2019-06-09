@@ -32,6 +32,7 @@ type Connect struct {
 	LocalRcDecodeCmd string
 	ForwardLocal     string
 	ForwardRemote    string
+	AuthMap          map[AuthKey][]ssh.Signer
 }
 
 type Proxy struct {
@@ -41,8 +42,17 @@ type Proxy struct {
 
 // @brief: create ssh session
 func (c *Connect) CreateSession() (session *ssh.Session, err error) {
-	// New connect
+	// new connect
 	if c.Client == nil {
+		err = c.CreateClient()
+		if err != nil {
+			return session, err
+		}
+	}
+
+	// Check ssh client alive
+	clientErr := c.CheckClientAlive()
+	if clientErr != nil {
 		err = c.CreateClient()
 		if err != nil {
 			return session, err
@@ -57,6 +67,24 @@ func (c *Connect) CreateSession() (session *ssh.Session, err error) {
 	}
 
 	return
+}
+
+// send keep alive packet
+func (c *Connect) SendKeepAlive(session *ssh.Session) {
+	for {
+		_, _ = session.SendRequest("keepalive@lssh.com", true, nil)
+		time.Sleep(15 * time.Second)
+	}
+}
+
+// Check ssh connet alive
+func (c *Connect) CheckClientAlive() error {
+	_, _, err := c.Client.SendRequest("keepalive@lssh.com", true, nil)
+	if err == nil || err.Error() == "request failed" {
+		return nil
+	}
+
+	return err
 }
 
 // @brief: create ssh client
@@ -85,7 +113,7 @@ func (c *Connect) CreateClient() (err error) {
 	}
 
 	// not use proxy
-	if serverConf.Proxy == "" {
+	if serverConf.Proxy == "" && serverConf.ProxyCommand == "" {
 		client, err := ssh.Dial("tcp", net.JoinHostPort(serverConf.Addr, serverConf.Port), sshConf)
 		if err != nil {
 			return err
@@ -169,7 +197,7 @@ func (c *Connect) createClientConfig(server string) (clientConfig *ssh.ClientCon
 		User:            conf.User,
 		Auth:            auth,
 		HostKeyCallback: ssh.InsecureIgnoreHostKey(),
-		Timeout:         0,
+		Timeout:         30 * time.Second,
 	}
 	return clientConfig, err
 }
@@ -178,12 +206,6 @@ func (c *Connect) createClientConfig(server string) (clientConfig *ssh.ClientCon
 //    run command over ssh
 func (c *Connect) RunCmd(session *ssh.Session, command []string) (err error) {
 	defer session.Close()
-
-	// set timeout
-	go func() {
-		time.Sleep(2419200 * time.Second)
-		session.Close()
-	}()
 
 	// set TerminalModes
 	if session, err = c.setIsTerm(session); err != nil {
@@ -203,11 +225,11 @@ func (c *Connect) RunCmd(session *ssh.Session, command []string) (err error) {
 	// check command exit
 CheckCommandExit:
 	for {
-		time.Sleep(100 * time.Millisecond)
+		// time.Sleep(100 * time.Millisecond)
 		select {
 		case <-isExit:
 			break CheckCommandExit
-		case <-time.After(100 * time.Millisecond):
+		case <-time.After(10 * time.Millisecond):
 			continue CheckCommandExit
 		}
 	}
@@ -217,7 +239,6 @@ CheckCommandExit:
 
 // @brief:
 //     Run command over ssh, output to gochannel
-// func (c *Connect) RunCmdWithOutput(session *ssh.Session, command []string, outputChan chan string) {
 func (c *Connect) RunCmdWithOutput(session *ssh.Session, command []string, outputChan chan []byte) {
 	outputBuf := new(bytes.Buffer)
 	session.Stdout = io.MultiWriter(outputBuf)
@@ -230,8 +251,6 @@ func (c *Connect) RunCmdWithOutput(session *ssh.Session, command []string, outpu
 		isExit <- true
 	}()
 
-	// preLine := []byte{}
-
 GetOutputLoop:
 	for {
 		if outputBuf.Len() > 0 {
@@ -241,7 +260,7 @@ GetOutputLoop:
 			select {
 			case <-isExit:
 				break GetOutputLoop
-			case <-time.After(1000 * time.Millisecond):
+			case <-time.After(10 * time.Millisecond):
 				continue GetOutputLoop
 			}
 		}
@@ -318,12 +337,7 @@ func (c *Connect) ConTerm(session *ssh.Session) (err error) {
 	}()
 
 	// keep alive packet
-	go func() {
-		for {
-			_, _ = session.SendRequest("keepalive@golang.org", true, nil)
-			time.Sleep(15 * time.Second)
-		}
-	}()
+	go c.SendKeepAlive(session)
 
 	err = session.Wait()
 	if err != nil {

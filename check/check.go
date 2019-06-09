@@ -6,6 +6,7 @@ import (
 	"strings"
 )
 
+// ExistServer returns true if inputServer exists in nameList.
 // @brief
 func ExistServer(inputServer []string, nameList []string) bool {
 	for _, nv := range nameList {
@@ -18,6 +19,19 @@ func ExistServer(inputServer []string, nameList []string) bool {
 	return false
 }
 
+// ParseScpPath parses remote or local path string.
+// Path string has a `:` delimiter.
+// A prefix of path string is a scp location.
+// A scp location is `local (l)` or `remote (r)`.
+//
+// arg examples:
+//
+//   local:/tmp/a.txt
+//   l:/tmp/a.txt
+//
+//   remote:/tmp/a.txt
+//   r:/tmp/a.txt
+//
 // @brief:
 //    parse lscp args path
 func ParseScpPath(arg string) (isRemote bool, path string) {
@@ -55,6 +69,7 @@ func ParseScpPath(arg string) (isRemote bool, path string) {
 	return
 }
 
+// EscapePath escapes characters (`\`, `;`, ` `).
 func EscapePath(str string) (escapeStr string) {
 	str = strings.Replace(str, "\\", "\\\\", -1)
 	str = strings.Replace(str, ";", "\\;", -1)
@@ -63,6 +78,7 @@ func EscapePath(str string) (escapeStr string) {
 	return
 }
 
+// CheckTypeError validates from-remote, from-local, to-remote and host-counts.
 // @brief
 //    check type.
 func CheckTypeError(isFromInRemote, isFromInLocal, isToRemote bool, countHosts int) {
