@@ -256,29 +256,17 @@ You can select multiple connection destinations.
 
 `local => remote(multiple)`
 
-<p align="center">
-<img src="./example/4-1.gif" />
-</p>
-
     # lscp local => remote(multiple)
     lscp /path/to/local... r:/path/to/remote
 
 
 `remote(multiple) => local`
 
-<p align="center">
-<img src="./example/4-2.gif" />
-</p>
-
     # lscp remote(multiple) => local
     lscp r:/path/to/remote... /path/to/local
 
 
 `remote => remote(multiple)`
-
-<p align="center">
-<img src="./example/4-3.gif" />
-</p>
 
     # lscp remote => remote(multiple)
     lscp r:/path/to/remote... r:/path/to/local
