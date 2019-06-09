@@ -1,11 +1,14 @@
 #compdef lssh
 _lssh() {
     _arguments -s \
-        '(- *)'{-h,--help}'[Show help]' \
+        '(- *)'{-h,--help}'[print this help]' \
+        '(- *)'{-v,--version}'[print the version]' \
         '(-H --host)'{-H,--host}'[Connect servername]:_message' \
-        '(- *)'{-l,--list}'[Print server list]' \
+        '(-f --file)'{-f,--file}'+[Config file path]:include file:_files' \
+        '(--portforward-local){--portforward-local}[port forwarding local port(ex. 127.0.0.1:8080)]' \
+        '(--portforward-remote){--portforward-remote}[port forwarding remote port(ex. 127.0.0.1:80)]' \
+        '(-l --list)'{-l,--list}'[Print server list]' \
+        '(-s --shell)'{-s,--shell}'[use lssh shell (Beta)]' \
         '(-t --terminal)'{-t,--terminal}'[Run specified command at terminal]' \
         '(-p --parallel)'{-p,--parallel}'[Exec command parallel node(tail -F etc...)]' \
-        '(-c --command)'{-c,--command}'[Remote Server exec command.]:_message' \
-        '(-f --file)'{-f,--file}'+[Config file path]:include file:_files' \
 }

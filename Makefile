@@ -3,7 +3,7 @@ GOCMD=go
 MODULE=GO111MODULE=on
 GOBUILD=$(MODULE) $(GOCMD) build
 GOCLEAN=$(GOCMD) clean
-GOTEST=$(GOCMD) test
+GOTEST=$(MODULE) $(GOCMD) test -cover
 GOGET=$(GOCMD) get
 GOMOD=$(MODULE) $(GOCMD) mod
 GOINSTALL=$(MODULE) $(GOCMD) install
@@ -23,3 +23,5 @@ install:
 	cp lssh /usr/local/bin/
 	cp lscp /usr/local/bin/
 	cp -n example/config.tml ~/.lssh.conf || true
+test:
+	$(GOTEST) ./...
