@@ -14,7 +14,6 @@ import (
 // @TODO: 項目のアップデートをする(v0.5.6)
 // @TODO: import処理をできるように考慮する(v0.5.6)
 // @TODO: .ssh/configの読み込み、Parse処理を分離するので、そちらを参照させる(v0.5.6)
-
 func ReadSshConfig() (cfg *ssh_config.Config, err error) {
 	// Open ~/.ssh/config
 	sshConfigFile := common.GetFullPath("~/.ssh/config")

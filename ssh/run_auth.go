@@ -133,6 +133,7 @@ func createSshSignerPublicKey(key, pass string) (signer ssh.Signer, err error) {
 					if err == nil {
 						break
 					}
+					fmt.Println("\n" + err.Error())
 				}
 			}
 		}
