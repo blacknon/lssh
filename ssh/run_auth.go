@@ -144,7 +144,8 @@ func createSshSignerPublicKey(key, pass string) (signer ssh.Signer, err error) {
 
 // @brief:
 //     create ssh.Signer from Certificate
-// @TODO: 証明書認証でのPKCS11の鍵ファイル指定を追加！
+// @TODO: 引数を[]ssh.Signerを受け付けるようにして、それで処理させる
+//        forで回してやれば処理できる？？
 func createSshSignerCertificate(cert, key, pass string) (signer ssh.Signer, err error) {
 	usr, _ := user.Current()
 	cert = strings.Replace(cert, "~", usr.HomeDir, 1)
