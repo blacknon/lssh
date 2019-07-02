@@ -41,9 +41,6 @@ func (s *shell) Completer(t prompt.Document) []prompt.Suggest {
 	ps := s.Complete
 	ps = append(ps, localCmdSuggest...)
 
-	// ローカルコマンドを処理する場合、「%%Command ... 」といった書き方が良いと思うので、それで処理させる。
-	// ※ このとき、パイプで次処理に渡せるようにすること！
-
 	return prompt.FilterHasPrefix(ps, t.GetWordBeforeCursor(), false)
 }
 
