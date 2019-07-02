@@ -24,23 +24,25 @@ func (s *shell) Completer(t prompt.Document) []prompt.Suggest {
 		{Text: "clear", Description: "clear screen"},
 		{Text: "history", Description: "show history"},
 		// outのリストを出力ためのローカルコマンド
-		// {Text: "%outlist", Description: "@outlist, show history result list."},
+		// {Text: "%outlist", Description: "%outlist, show history result list."},
 
 		// outの出力でdiffをするためのローカルコマンド。すべての出力と比較するのはあまりに辛いと思われるため、最初の出力との比較、といった方式で対応するのが良いか？？
-		// {Text: "%diff", Description: "@diff [num], show history result list."},
+		// {Text: "%diff", Description: "%diff [num], show history result list."},
 
 		// outの出力でユニークな出力だけを表示するコマンド
-		// {Text: "%unique", Description: "@unique [num], show history result list."},
+		// {Text: "%unique", Description: "%unique [num], show history result list."},
 
 		// outの出力で重複している出力だけを表示するコマンド
-		// {Text: "%duplicate", Description: "@duplicate [num], show history result list."},
-		{Text: "%out", Description: "@out [num], show history result."},
+		// {Text: "%duplicate", Description: "%duplicate [num], show history result list."},
+		{Text: "%out", Description: "%out [num], show history result."},
 	}
 
 	// get complete data
 	ps := s.Complete
-
 	ps = append(ps, localCmdSuggest...)
+
+	// ローカルコマンドを処理する場合、「%%Command ... 」といった書き方が良いと思うので、それで処理させる。
+	// ※ このとき、パイプで次処理に渡せるようにすること！
 
 	return prompt.FilterHasPrefix(ps, t.GetWordBeforeCursor(), false)
 }
