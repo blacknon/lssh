@@ -21,7 +21,7 @@ command to read a prepared list in advance and connect ssh/scp the selected host
 ## Demo
 
 <p align="center">
-<img src="./example/lssh.gif" />
+<img src="./images/lssh.gif" />
 </p>
 
 ## Requirement
@@ -98,7 +98,7 @@ option(lssh)
 	    lssh -p command...
 	
 	    # parallel run command in select server over ssh, do it interactively.
-	    lssh -s command...
+	    lssh -s
 
 
 option(lscp)
@@ -141,14 +141,14 @@ If you specify a command as an argument, you can select multiple hosts. Select h
 You can connect to the terminal like a normal ssh command (OpenSSH).
 
 <p align="center">
-<img src="./example/1-1.gif" />
+<img src="./images/1-1.gif" />
 </p>
 
 
 You can connect using a local bashrc file (if ssh login shell is bash).
 
 <p align="center">
-<img src="./example/1-2.gif" />
+<img src="./images/1-2.gif" />
 </p>
 
 `~/.lssh.conf` example.
@@ -173,7 +173,7 @@ You can also change the color of each host's terminal by combining it with the O
 if iTerm 2, you can also change the profile.
 
 <p align="center">
-<img src="./example/1-3.gif" />
+<img src="./images/1-3.gif" />
 </p>
 
 
@@ -204,7 +204,7 @@ It is possible to execute by specifying command in argument.\
 Parallel execution can be performed by adding the `-p` option.
 
 <p align="center">
-<img src="./example/2-1.gif" />
+<img src="./images/2-1.gif" />
 </p>
 
 	# exec command over ssh.
@@ -217,14 +217,14 @@ Parallel execution can be performed by adding the `-p` option.
 In parallel connection mode (`-p` option), Stdin can be sent to each host.\
 
 <p align="center">
-<img src="./example/2-2.gif" />
+<img src="./images/2-2.gif" />
 </p>
 
 
 Can be piped to send Stdin.
 
 <p align="center">
-<img src="./example/2-3.gif" />
+<img src="./images/2-3.gif" />
 </p>
 
 	# You can pass values ​​in a pipe
@@ -239,7 +239,7 @@ Can be piped to send Stdin.
 You can send commands to multiple servers interactively.
 
 <p align="center">
-<img src="./example/3-1.gif" />
+<img src="./images/3-1.gif" />
 </p>
 
 	# lssh shell connect

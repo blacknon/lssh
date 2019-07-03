@@ -1,3 +1,6 @@
+/*
+common is a package that summarizes the common processing of lssh package.
+*/
 package common
 
 import (
@@ -142,6 +145,7 @@ func GetFilesBase64(paths []string) (result string, err error) {
 	return result, err
 }
 
+// GetPassPhase gets the passphrase from virtual terminal input and returns the result. Works only on UNIX-based OS.
 func GetPassPhase(msg string) (input string, err error) {
 	fmt.Printf(msg)
 

@@ -7,17 +7,19 @@ import (
 	termbox "github.com/nsf/termbox-go"
 )
 
+// Add Rune to search keywords(l.Keyword)
 func (l *ListInfo) insertRune(inputRune rune) {
 	l.Keyword = l.Keyword + string(inputRune)
 
 }
 
+// Delete Rune at search keywords(l.Keyword)
 func (l *ListInfo) deleteRune() {
 	sc := []rune(l.Keyword)
 	l.Keyword = string(sc[:(len(sc) - 1)])
 }
 
-//func (l *ListInfo) keyEvent() (lineData []string) {
+// keyEvent wait for keyboard events
 func (l *ListInfo) keyEvent() (lineData []string) {
 	l.CursorLine = 0
 	headLine := 2

@@ -1,3 +1,6 @@
+/*
+conf is a package used to read configuration file (~/.lssh.conf).
+*/
 package conf
 
 import (
@@ -13,25 +16,34 @@ import (
 	"github.com/blacknon/lssh/common"
 )
 
-// @TODO: .ssh/configの読み込み処理を追加(多分ファイル分けたほうがいい)(v0.5.6)
-
+// Config is Struct that stores the entire configuration file
 type Config struct {
-	Log        LogConfig
-	Shell      ShellConfig
-	Include    map[string]IncludeConfig
-	Includes   IncludesConfig
-	Common     ServerConfig
-	Server     map[string]ServerConfig
-	Proxy      map[string]ProxyConfig
-	SshConfigs []string // OpenSsh Configs(@TODO: 多分このままだと指定はできないので、後で指定できるようにする)
+	Log      LogConfig
+	Shell    ShellConfig
+	Include  map[string]IncludeConfig
+	Includes IncludesConfig
+	Common   ServerConfig
+	Server   map[string]ServerConfig
+	Proxy    map[string]ProxyConfig
+
+	// WARN: not use now.(v0.5.5)
+	SshConfigs []string
 }
 
+// LogConfig store the contents about the terminal log.
+// The log file name is created in "YYYYmmdd_HHMMSS_servername.log" of the specified directory.
 type LogConfig struct {
-	Enable    bool   `toml:"enable"`
-	Timestamp bool   `toml:"timestamp"`
-	Dir       string `toml:"dirpath"`
+	// Enable terminal logging.
+	Enable bool `toml:"enable"`
+
+	// Add a timestamp at the beginning of the terminal log line.
+	Timestamp bool `toml:"timestamp"`
+
+	// Specifies the directory for creating terminal logs.
+	Dir string `toml:"dirpath"`
 }
 
+// Structure for storing lssh-shell settings.
 type ShellConfig struct {
 	// prompt
 	Prompt  string `toml:"PROMPT"`  // lssh shell prompt
@@ -48,17 +60,25 @@ type ShellConfig struct {
 	PostCmd string `toml:"post_cmd"`
 }
 
+// Specify the configuration file to include (ServerConfig only).
 type IncludeConfig struct {
 	Path string `toml:"path"`
 }
 
-// multiple include path
+// Specify the configuration file to include (ServerConfig only).
+// Struct that can specify multiple files in array.
 type IncludesConfig struct {
+	// example:
+	// 	path = [
+	// 		 "~/.lssh.d/home.conf"
+	// 		,"~/.lssh.d/cloud.conf"
+	// 	]
 	Path []string `toml:"path"`
 }
 
+// Structure for holding SSH connection information
 type ServerConfig struct {
-	// Connect Setting
+	// Connect basic Setting
 	Addr string `toml:"addr"`
 	Port string `toml:"port"`
 	User string `toml:"user"`
@@ -99,6 +119,7 @@ type ServerConfig struct {
 	Note              string `toml:"note"`
 }
 
+// Struct that stores Proxy server settings connected via http and socks5.
 type ProxyConfig struct {
 	Addr string `toml:"addr"`
 	Port string `toml:"port"`
@@ -107,13 +128,16 @@ type ProxyConfig struct {
 	Note string `toml:"note"`
 }
 
-// @NOTE: this struct is not use...
-// @TODO: そのうち実装する
+// Structure to read OpenSSH configuration file.
+//
+// WARN: This struct is not use...
 type OpenSshConfig struct {
+	// TODO(blacknon): Implement with v0.5.6
 	Path string `toml:"path"`
 	ServerConfig
 }
 
+// ReadConf load configuration file and return Config structure
 func ReadConf(confPath string) (config Config) {
 	// user path
 	usr, _ := user.Current()
@@ -292,6 +316,7 @@ func serverConfigReduct(perConfig, childConfig ServerConfig) ServerConfig {
 	return result
 }
 
+// GetNameList return a list of server names from the Config structure.
 func GetNameList(listConf Config) (nameList []string) {
 	for k := range listConf.Server {
 		nameList = append(nameList, k)
