@@ -8,6 +8,7 @@ import (
 	termbox "github.com/nsf/termbox-go"
 )
 
+// Draw a string based on the specified coordinate information
 func drawLine(x, y int, str string, colorNum int, backColorNum int) {
 	color := termbox.Attribute(colorNum + 1)
 	backColor := termbox.Attribute(backColorNum + 1)
@@ -18,6 +19,7 @@ func drawLine(x, y int, str string, colorNum int, backColorNum int) {
 	}
 }
 
+// Highlight lines and draw text based on filtering results
 func drawFilterLine(x, y int, str string, colorNum int, backColorNum int, keywordColorNum int, searchText string) {
 	// SearchText Bounds Space
 	searchWords := strings.Fields(searchText)
@@ -60,7 +62,7 @@ func drawFilterLine(x, y int, str string, colorNum int, backColorNum int, keywor
 	}
 }
 
-// Draw List
+// draw list
 func (l *ListInfo) draw() {
 	l.Term.Headline = 2
 	l.Term.LeftMargin = 2

@@ -46,7 +46,7 @@ USAGE:
     {{.Name}} -p command...
 
     # parallel run command in select server over ssh, do it interactively.
-    {{.Name}} -s command...
+    {{.Name}} -s
 `
 
 	// Create app
@@ -66,7 +66,6 @@ USAGE:
 		cli.BoolFlag{Name: "term,t", Usage: "run specified command at terminal"},
 		cli.BoolFlag{Name: "shell,s", Usage: "use lssh shell (Beta)"},
 		cli.BoolFlag{Name: "parallel,p", Usage: "run command parallel node(tail -F etc...)"},
-		cli.BoolFlag{Name: "generate", Usage: "(beta) generate .lssh.conf from .ssh/config.(not support ProxyCommand)"},
 		cli.BoolFlag{Name: "help,h", Usage: "print this help"},
 	}
 	app.EnableBashCompletion = true
@@ -82,12 +81,6 @@ USAGE:
 
 		hosts := c.StringSlice("host")
 		confpath := c.String("file")
-
-		// Generate .lssh.conf data from ~/.ssh/config
-		if c.Bool("generate") {
-			conf.GenConf()
-			os.Exit(0)
-		}
 
 		// Get config data
 		data := conf.ReadConf(confpath)
