@@ -1,3 +1,6 @@
+/*
+list package creates a TUI list based on the contents specified in a structure, and returns the selected row.
+*/
 package list
 
 import (
@@ -20,7 +23,7 @@ func arrayContains(arr []string, str string) bool {
 	return false
 }
 
-// toggle select line (multi select)
+// Toggle the selected state of cursor line.
 func (l *ListInfo) toggle(newLine string) {
 	tmpList := []string{}
 
@@ -39,6 +42,7 @@ func (l *ListInfo) toggle(newLine string) {
 	l.SelectName = tmpList
 }
 
+// Toggle the selected state of the currently displayed list
 func (l *ListInfo) allToggle(allFlag bool) {
 	SelectedList := []string{}
 	allSelectedList := []string{} // WARN: is not used
@@ -131,6 +135,7 @@ func (l *ListInfo) getFilterText() {
 	return
 }
 
+// View() display the list in TUI
 func (l *ListInfo) View() {
 	if err := termbox.Init(); err != nil {
 		panic(err)

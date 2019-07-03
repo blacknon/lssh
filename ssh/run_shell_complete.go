@@ -34,6 +34,7 @@ func (s *shell) Completer(t prompt.Document) []prompt.Suggest {
 
 		// outの出力で重複している出力だけを表示するコマンド
 		// {Text: "%duplicate", Description: "%duplicate [num], show history result list."},
+
 		{Text: "%out", Description: "%out [num], show history result."},
 	}
 
