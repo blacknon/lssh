@@ -20,7 +20,7 @@ func (r *Run) term() (err error) {
 	c := new(Connect)
 	c.Server = server
 	c.Conf = r.Conf
-	c.AuthMap = r.AuthMap // @TODO: 特に問題ないだろうが、必要なSignerだけを渡すようにしたほうがいいかも？
+	c.AuthMap = r.AuthMap // TODO(blacknon): 特に問題ないだろうが、必要なSignerだけを渡すようにしたほうがいいかも？要検討。
 	serverConf := c.Conf.Server[c.Server]
 
 	// print header
