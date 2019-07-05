@@ -22,7 +22,7 @@ import (
 // Connect structure to store contents about ssh connection.
 type Connect struct {
 	// Name of server to connect.
-	//It plays an important role in obtaining connection information from Configure.
+	// It plays an important role in obtaining connection information from Configure.
 	Server string
 
 	// conf/Config Structure.

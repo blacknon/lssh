@@ -1,4 +1,3 @@
-[![CircleCI](https://circleci.com/gh/blacknon/lssh.svg?style=svg)](https://circleci.com/gh/blacknon/lssh)
 [![TravisCI](https://travis-ci.org/blacknon/lssh.svg?branch=master)](https://travis-ci.org/blacknon/lssh)
 
 lssh

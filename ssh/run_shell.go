@@ -18,7 +18,7 @@ import (
 // run lssh-shell
 func (r *Run) shell() {
 	// print header
-	fmt.Println("Start lssh shell...")
+	fmt.Println("Start lssh-shell...")
 	r.printSelectServer()
 
 	// print newline
