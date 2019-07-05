@@ -51,12 +51,13 @@ type AuthKey struct {
 }
 
 const (
-	AUTHKEY_AGENT  = "agent"
+	// AUTHKEY_AGENT  = "agent"
 	AUTHKEY_KEY    = "key"
 	AUTHKEY_CERT   = "cert"
 	AUTHKEY_PKCS11 = "pkcs11"
 )
 
+// Start ssh connect
 func (r *Run) Start() {
 	// Get stdin data(pipe)
 	if !terminal.IsTerminal(syscall.Stdin) {
@@ -162,6 +163,7 @@ func (r *Run) printProxy() {
 	}
 }
 
+// runCmdLocal exec command local machine.
 func runCmdLocal(cmd string) {
 	out, _ := exec.Command("sh", "-c", cmd).CombinedOutput()
 	fmt.Printf(string(out))

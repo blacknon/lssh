@@ -7,7 +7,7 @@ import (
 	"os"
 )
 
-// @brief:
+// forward function to do port io.Copy with goroutine
 func (c *Connect) forward(localConn net.Conn) {
 	// Create ssh connect
 	sshConn, err := c.Client.Dial("tcp", c.ForwardRemote)
@@ -29,7 +29,7 @@ func (c *Connect) forward(localConn net.Conn) {
 	}()
 }
 
-// @brief:
+// PortForwarder port forwarding based on the value of Connect
 func (c *Connect) PortForwarder() {
 	// Open local port.
 	localListener, err := net.Listen("tcp", c.ForwardLocal)

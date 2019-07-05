@@ -11,11 +11,11 @@ import (
 	"golang.org/x/crypto/ssh"
 )
 
-// Create ssh session auth
-// - public key auth
-// - password auth
-// - ssh-agent auth
-// - pkcs11 auth
+// createSshAuth return ssh.AuthMethod.
+//     - public key auth
+//     - password auth
+//     - ssh-agent auth
+//     - pkcs11 auth
 func (c *Connect) createSshAuth(server string) (auth []ssh.AuthMethod, err error) {
 	conf := c.Conf.Server[server]
 
@@ -109,6 +109,7 @@ func (c *Connect) createSshAuth(server string) (auth []ssh.AuthMethod, err error
 	return auth, err
 }
 
+// createSshAuthPublicKey create and return ssh.AuthMethod from public key
 func createSshAuthPublicKey(key, pass string) (auth ssh.AuthMethod, err error) {
 	usr, _ := user.Current()
 	key = strings.Replace(key, "~", usr.HomeDir, 1)
@@ -136,11 +137,9 @@ func createSshAuthPublicKey(key, pass string) (auth ssh.AuthMethod, err error) {
 	return auth, err
 }
 
-// @brief:
-//     Create ssh auth (Certificate)
-//     key ... keypath::password
-// @TODO: PKCS11の利用もできるよう、引数にSignerを渡すように作り変える
+// createSshAuthPublicKey create and return ssh.AuthMethod from cert.
 func createSshAuthCertificate(cert, key, pass string) (auth ssh.AuthMethod, err error) {
+	// TODO(blacknon): PKCS11の利用もできるよう、引数にSignerを渡すように作り変える
 	usr, _ := user.Current()
 	cert = strings.Replace(cert, "~", usr.HomeDir, 1)
 	key = strings.Replace(key, "~", usr.HomeDir, 1)

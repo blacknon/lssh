@@ -7,6 +7,7 @@ import (
 	"golang.org/x/net/proxy"
 )
 
+// createProxyDialerSocks5 return proxy.Dialer via Socks5 proxy
 func createProxyDialerSocks5(proxyConf conf.ProxyConfig) (proxyDialer proxy.Dialer, err error) {
 	var proxyAuth *proxy.Auth
 
