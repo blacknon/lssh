@@ -21,5 +21,4 @@ notifications:
 # - docker run --name test_sshd -d --rm -p 50022:22 -v ${PWD}/.docker/.ssh:/root/.ssh rastasheep/ubuntu-sshd
 
 script:
-  - make
-  - make install
+  - make # makeが通れば、とりあえずBuildは出来てるからまずはokとする
