@@ -25,6 +25,7 @@ type httpProxy struct {
 	forward  proxy.Dialer
 }
 
+// Dial return net.Conn via http proxy
 func (s *httpProxy) Dial(network, addr string) (net.Conn, error) {
 	c, err := s.forward.Dial("tcp", s.host)
 	if err != nil {

@@ -12,21 +12,19 @@ import (
 	"golang.org/x/crypto/ssh/agent"
 )
 
-// TODO: sshAgentをinterfaceにしてちゃんとStructに格納する
-//     sshAgentをちゃんとinterfaceでStructに格納して、無駄にKeyを格納させるような状態を改善する
-//     ※ 0.6.0に上げる際のリファクタ対象
-//     // sample
-//     switch sshAgent.(type) {
-//     case agent.Agent :
-//         hogehoge
-//     case agent.ExtendedAgent :
-//         fugafuga
-//     }
+// CreateSshAgent create sshAgent and into Connecct.sshAgent
 func (c *Connect) CreateSshAgent() (err error) {
 	conf := c.Conf.Server[c.Server]
 	sshKeys := conf.SSHAgentKeyPath
 
-	// TODO(blacknon): Structureの項目をinterface化して分岐を統合する
+	// TODO(blacknon): Structureの項目をinterface化して分岐を統合する(v0.5.6)
+	//     // sample
+	//     switch sshAgent.(type) {
+	//     case agent.Agent :
+	//         hogehoge
+	//     case agent.ExtendedAgent :
+	//         fugafuga
+	//     }
 
 	// Get SSH_AUTH-SOCK
 	sock, err := net.Dial("unix", os.Getenv("SSH_AUTH_SOCK"))
