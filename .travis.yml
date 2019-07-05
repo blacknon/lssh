@@ -1,0 +1,25 @@
+dist: xenial
+
+language: go
+
+env:
+  - GO111MODULE=on
+
+# services:
+#   - docker
+
+go:
+  - 1.12.x
+
+git:
+  depth: 1
+
+notifications:
+  email: false
+
+# before_install:
+# - docker run --name test_sshd -d --rm -p 50022:22 -v ${PWD}/.docker/.ssh:/root/.ssh rastasheep/ubuntu-sshd
+
+script:
+  - make
+  - make install
