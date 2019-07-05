@@ -9,6 +9,8 @@ jobs:
       - checkout
       - run: go build cmd/lssh
       - run: go build cmd/lscp
+      - run: lssh --help
+      - run: lscp --help
 
 workflows:
   version: 2
