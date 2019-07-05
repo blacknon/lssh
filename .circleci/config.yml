@@ -7,8 +7,8 @@ jobs:
     working_directory: /go/src/github.com/blacknon/lssh
     steps:
       - checkout
-      - run: go build cmd/lssh
-      - run: go build cmd/lscp
+      - run: make
+      - run: make install
       - run: lssh --help
       - run: lscp --help
 
