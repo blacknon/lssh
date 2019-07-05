@@ -9,3 +9,9 @@ jobs:
       - checkout
       - run: go build cmd/lssh
       - run: go build cmd/lscp
+
+workflows:
+  version: 2
+  build:
+    jobs:
+      - build-go-latest
