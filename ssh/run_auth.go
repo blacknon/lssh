@@ -12,9 +12,7 @@ import (
 	"golang.org/x/crypto/ssh"
 )
 
-// @brief:
-//     Create ssh.Signer into r.AuthMap.
-//     Passwords is not get this function.
+// Create ssh.Signer into r.AuthMap. Passwords is not get this function.
 func (r *Run) createAuthMap() {
 	r.AuthMap = map[AuthKey][]ssh.Signer{}
 
@@ -101,8 +99,7 @@ func (r *Run) registAuthMapPKCS11(server string) {
 	return
 }
 
-// @brief:
-//     create ssh.Signer from Publickey
+// create ssh.Signer from Publickey
 func createSshSignerPublicKey(key, pass string) (signer ssh.Signer, err error) {
 	// repeat count
 	rep := 3
@@ -142,10 +139,8 @@ func createSshSignerPublicKey(key, pass string) (signer ssh.Signer, err error) {
 	return
 }
 
-// @brief:
-//     create ssh.Signer from Certificate
-// @TODO: 引数を[]ssh.Signerを受け付けるようにして、それで処理させる
-//        forで回してやれば処理できる？？
+// create ssh.Signer from Certificate
+// TODO(blacknon): 引数を[]ssh.Signerを受け付けるようにして、それで処理させる(forで回してやれば処理できる？？)
 func createSshSignerCertificate(cert, key, pass string) (signer ssh.Signer, err error) {
 	usr, _ := user.Current()
 	cert = strings.Replace(cert, "~", usr.HomeDir, 1)

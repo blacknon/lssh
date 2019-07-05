@@ -7,22 +7,25 @@ import (
 	"github.com/c-bata/go-prompt"
 )
 
-// shell complete function
-// @TODO: とりあえず値を仮置き。後で以下の処理を追加する(優先度A)
-//        - compgen(confで補完用の結果を取得するためのコマンドは指定可能にする)での補完結果の定期取得処理(+補完の取得用ローカルコマンドの追加)
-//        - compgenの結果をStructに保持させる
-//        - Structに保持されている補完内容をベースにCompleteの結果を返す
-//        - 何も入力していない場合は非表示にさせたい
-//        - ファイルについても対応させたい
-//        - ファイルやコマンドなど、状況に応じて補完対象を変えるにはやはり構文解析が必要になってくる。Parserを実装するまではコマンドのみ対応。
-//        参考: https://github.com/c-bata/kube-prompt/blob/2276d167e2e693164c5980427a6809058a235c95/kube/completer.go
+// Completer lssh-shell complete function
 func (s *shell) Completer(t prompt.Document) []prompt.Suggest {
+	// TODO(blacknon): とりあえず値を仮置き。後で以下の処理を追加する(優先度A)
+	//        - compgen(confで補完用の結果を取得するためのコマンドは指定可能にする)での補完結果の定期取得処理(+補完の取得用ローカルコマンドの追加)
+	//        - compgenの結果をStructに保持させる
+	//        - Structに保持されている補完内容をベースにCompleteの結果を返す
+	//        - 何も入力していない場合は非表示にさせたい
+	//        - ファイルについても対応させたい
+	//        - ファイルやコマンドなど、状況に応じて補完対象を変えるにはやはり構文解析が必要になってくる。Parserを実装するまではコマンドのみ対応。
+	//        	参考: https://github.com/c-bata/kube-prompt/blob/2276d167e2e693164c5980427a6809058a235c95/kube/completer.go
+
 	// local command suggest
 	localCmdSuggest := []prompt.Suggest{
 		{Text: "exit", Description: "exit lssh shell"},
 		{Text: "quit", Description: "exit lssh shell"},
 		{Text: "clear", Description: "clear screen"},
 		{Text: "history", Description: "show history"},
+		{Text: "%out", Description: "%out [num], show history result."},
+
 		// outのリストを出力ためのローカルコマンド
 		// {Text: "%outlist", Description: "%outlist, show history result list."},
 
@@ -35,7 +38,6 @@ func (s *shell) Completer(t prompt.Document) []prompt.Suggest {
 		// outの出力で重複している出力だけを表示するコマンド
 		// {Text: "%duplicate", Description: "%duplicate [num], show history result list."},
 
-		{Text: "%out", Description: "%out [num], show history result."},
 	}
 
 	// get complete data
@@ -45,11 +47,14 @@ func (s *shell) Completer(t prompt.Document) []prompt.Suggest {
 	return prompt.FilterHasPrefix(ps, t.GetWordBeforeCursor(), false)
 }
 
-// get complete (command)
-// @TODO: コマンドの重複対応の追加
+// GetCompleteData get command list remote machine.
 func (s *shell) GetCompleteData() {
 	// bash complete command
 	compCmd := []string{"compgen", "-c"}
+
+	// TODO(blacknon):
+	// - 重複データの排除
+	// - 構文解析して、ファイルの補完処理も行わせる
 
 	for _, c := range s.Connects {
 		buf := new(bytes.Buffer)

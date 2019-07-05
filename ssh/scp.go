@@ -24,8 +24,7 @@ type RunScp struct {
 	Config     conf.Config
 }
 
-// @brief:
-//    start
+// Start scp, switching process.
 func (r *RunScp) Start() {
 	switch {
 	// remote to remote
@@ -43,8 +42,7 @@ func (r *RunScp) Start() {
 	}
 }
 
-// @brief:
-//     run scp
+// Run execute scp according to mode.
 func (r *RunScp) run(mode string) {
 	finished := make(chan bool)
 
@@ -106,8 +104,7 @@ func (r *RunScp) run(mode string) {
 	}
 }
 
-// @brief:
-//    push scp
+// push file scp
 func (r *RunScp) push(target string, scp *scplib.SCPClient) {
 	var err error
 	if r.From.IsRemote && r.To.IsRemote {
@@ -123,8 +120,7 @@ func (r *RunScp) push(target string, scp *scplib.SCPClient) {
 	}
 }
 
-// @brief:
-//    pull scp
+// pull file scp
 func (r *RunScp) pull(target string, scp *scplib.SCPClient) {
 	var err error
 

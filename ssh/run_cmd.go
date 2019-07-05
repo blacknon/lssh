@@ -11,6 +11,7 @@ var (
 	cmdOPROMPT = "${SERVER} :: "
 )
 
+// cmd execut command remote machine over ssh
 func (r *Run) cmd() {
 	// make channel
 	finished := make(chan bool)
@@ -19,9 +20,6 @@ func (r *Run) cmd() {
 	r.printSelectServer()
 	r.printRunCommand()
 	r.printProxy()
-
-	// print newline
-	// fmt.Println()
 
 	// create input data channel
 	input := make(chan []byte)
@@ -95,6 +93,7 @@ func (r *Run) cmd() {
 	return
 }
 
+// cmdRun ssh connect and run command.
 func (r *Run) cmdRun(conn *Connect, serverListIndex int, inputWriter chan io.Writer, outputChan chan []byte) {
 	// create session
 	session, err := conn.CreateSession()

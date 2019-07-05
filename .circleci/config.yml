@@ -1,0 +1,11 @@
+version: 2.1
+
+jobs:
+  build-go-latest:
+    docker:
+      - image: golang:latest
+    working_directory: /go/src/github.com/blacknon/lssh
+    steps:
+      - checkout
+      - run: go build cmd/lssh
+      - run: go build cmd/lscp
