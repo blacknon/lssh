@@ -23,6 +23,8 @@ func (s *shell) localCmd_history() {
 // localCmd_out is print exec history at number
 // example:
 //     %out 3
+//
+// TODO(blacknon): 引数がない場合、直前の処理の出力を表示させる
 func (s *shell) localCmd_out(num int) {
 	cmd := s.ExecHistory[num]
 	fmt.Printf("%d :%s \n", num, cmd)

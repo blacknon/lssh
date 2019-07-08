@@ -49,6 +49,7 @@ func (r *Run) createAuthMap() {
 	}
 }
 
+// registAuthMapCertificate regist publickey ssh.Signer to AuthMap
 func (r *Run) registAuthMapPublicKey(server, key, pass string) {
 	authKey := AuthKey{AUTHKEY_KEY, key}
 
@@ -61,11 +62,19 @@ func (r *Run) registAuthMapPublicKey(server, key, pass string) {
 	}
 }
 
+// registAuthMapCertificate regist cert ssh.Signer to AuthMap
+//
+// TODO(blacknon): keyで指定したPATHのファイル種別を識別し、pkcs11か秘密鍵ファイルかに応じて処理を切り替える
 func (r *Run) registAuthMapCertificate(server, cert, key, pass string) {
 	authKey := AuthKey{AUTHKEY_CERT, cert}
 
 	if _, ok := r.AuthMap[authKey]; !ok {
-		signer, err := createSshSignerCertificate(cert, key, pass)
+		keySigner, err := createSshSignerPublicKey(key, pass)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "%s's create certificate ssh.Signer err: %s\n", server, err)
+		}
+
+		signer, err := createSshSignerCertificate(cert, keySigner)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "%s's create certificate ssh.Signer err: %s\n", server, err)
 		}
@@ -140,12 +149,9 @@ func createSshSignerPublicKey(key, pass string) (signer ssh.Signer, err error) {
 }
 
 // create ssh.Signer from Certificate
-//
-// TODO(blacknon): 鍵を引数([]ssh.Signer)で受け付けるようにして、それで処理させる
-func createSshSignerCertificate(cert, key, pass string) (signer ssh.Signer, err error) {
+func createSshSignerCertificate(cert string, keySigner ssh.Signer) (signer ssh.Signer, err error) {
 	usr, _ := user.Current()
 	cert = strings.Replace(cert, "~", usr.HomeDir, 1)
-	key = strings.Replace(key, "~", usr.HomeDir, 1)
 
 	// Read Cert file
 	certData, err := ioutil.ReadFile(cert)
@@ -163,13 +169,6 @@ func createSshSignerCertificate(cert, key, pass string) (signer ssh.Signer, err 
 	certificate, ok := pubkey.(*ssh.Certificate)
 	if !ok {
 		err = fmt.Errorf("%s\n", "Error: Not create certificate struct data")
-		return signer, err
-	}
-
-	// create key signer
-	var keySigner ssh.Signer
-	keySigner, err = createSshSignerPublicKey(key, pass)
-	if err != nil {
 		return signer, err
 	}
 
