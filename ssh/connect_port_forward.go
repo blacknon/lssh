@@ -7,6 +7,12 @@ import (
 	"os"
 )
 
+// TODO(blacknon): x11 forwardingの実装
+// 【参考】
+//       - https://ttssh2.osdn.jp/manual/ja/reference/sourcecode.html
+//       - https://godoc.org/golang.org/x/crypto/ssh#Conn
+//
+
 // forward function to do port io.Copy with goroutine
 func (c *Connect) forward(localConn net.Conn) {
 	// Create ssh connect
