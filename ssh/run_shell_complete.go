@@ -58,6 +58,7 @@ func (s *shell) GetCompleteData() {
 	//   - 引数にコマンドorファイルの種別を渡すようにする
 	// - 補完コマンドをconfigでオプションとして指定できるようにする
 	//   - あまり無いだろうけど、zshをリモートで使ってる場合なんかには指定(zshとかはデフォルトでcompgen使えないし)
+	//   - ashの補完ってどうしてるんだ？？
 
 	for _, c := range s.Connects {
 		buf := new(bytes.Buffer)
