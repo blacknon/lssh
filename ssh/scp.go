@@ -52,18 +52,8 @@ func (r *RunScp) Start() {
 }
 
 // Run execute scp according to mode.
-//
-// TODO(blacknon): Remote => Remote でAuthMapが2回作成されているので、最初に1度だけ生成させるように修正する
 func (r *RunScp) run(mode string, authMap map[AuthKey][]ssh.Signer) {
 	finished := make(chan bool)
-
-	// create AuthMap
-	// TODO(blacknon): Startに移せば解決しそう？？
-	// slist := append(r.To.Server, r.From.Server...)
-	// run := new(Run)
-	// run.ServerList = slist
-	// run.Conf = r.Config
-	// run.createAuthMap()
 
 	// set target list
 	targetList := []string{}

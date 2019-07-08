@@ -140,7 +140,8 @@ func createSshSignerPublicKey(key, pass string) (signer ssh.Signer, err error) {
 }
 
 // create ssh.Signer from Certificate
-// TODO(blacknon): 引数を[]ssh.Signerを受け付けるようにして、それで処理させる(forで回してやれば処理できる？？)
+//
+// TODO(blacknon): 鍵を引数([]ssh.Signer)で受け付けるようにして、それで処理させる
 func createSshSignerCertificate(cert, key, pass string) (signer ssh.Signer, err error) {
 	usr, _ := user.Current()
 	cert = strings.Replace(cert, "~", usr.HomeDir, 1)
