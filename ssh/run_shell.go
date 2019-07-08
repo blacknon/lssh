@@ -212,7 +212,7 @@ func (s *shell) Executor(cmd string) {
 	// create writers
 	writers := []io.Writer{}
 	for _, c := range s.Connects {
-		// @TODO: エラーハンドリングする
+		// TODO(blacknon): エラーハンドリングする
 		session, _ := c.CreateSession()
 		c.Session = session
 
