@@ -55,6 +55,9 @@ func (s *shell) GetCompleteData() {
 	// TODO(blacknon):
 	// - 重複データの排除
 	// - 構文解析して、ファイルの補完処理も行わせる
+	//   - 引数にコマンドorファイルの種別を渡すようにする
+	// - 補完コマンドをconfigでオプションとして指定できるようにする
+	//   - あまり無いだろうけど、zshをリモートで使ってる場合なんかには指定(zshとかはデフォルトでcompgen使えないし)
 
 	for _, c := range s.Connects {
 		buf := new(bytes.Buffer)

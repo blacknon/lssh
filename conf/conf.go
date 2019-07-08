@@ -26,8 +26,7 @@ type Config struct {
 	Server   map[string]ServerConfig
 	Proxy    map[string]ProxyConfig
 
-	// WARN: not use now.(v0.5.5)
-	SshConfigs []string
+	SshConfigs map[string]OpenSshConfig
 }
 
 // LogConfig store the contents about the terminal log.
@@ -157,31 +156,34 @@ func ReadConf(confPath string) (config Config) {
 		os.Exit(1)
 	}
 
+	// reduce common setting (in .lssh.conf servers)
+	for key, value := range config.Server {
+		setValue := serverConfigReduct(config.Common, value)
+		config.Server[key] = setValue
+	}
+
 	// Read Openssh configs
 	if len(config.SshConfigs) == 0 {
 		openSshServerConfig, err := getOpenSshConfig("~/.ssh/config")
 		if err == nil {
 			// append data
 			for key, value := range openSshServerConfig {
+				value := serverConfigReduct(config.Common, value)
 				config.Server[key] = value
 			}
 		}
 	} else {
-		for _, sshConfigPath := range config.SshConfigs {
-			openSshServerConfig, err := getOpenSshConfig(sshConfigPath)
+		for _, sshConfig := range config.SshConfigs {
+			openSshServerConfig, err := getOpenSshConfig(sshConfig.Path)
 			if err == nil {
 				// append data
 				for key, value := range openSshServerConfig {
+					value := serverConfigReduct(config.Common, value)
+					value = serverConfigReduct(sshConfig.ServerConfig, value)
 					config.Server[key] = value
 				}
 			}
 		}
-	}
-
-	// reduce common setting (in .lssh.conf servers)
-	for key, value := range config.Server {
-		setValue := serverConfigReduct(config.Common, value)
-		config.Server[key] = setValue
 	}
 
 	// for append includes to include.path
