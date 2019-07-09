@@ -37,6 +37,13 @@ func (c *Connect) forward(localConn net.Conn) {
 
 // PortForwarder port forwarding based on the value of Connect
 func (c *Connect) PortForwarder() {
+	// TODO(blacknon):
+	// 現在の方式だと、クライアント側で無理やりポートフォワーディングをしている状態なので、RFCに沿ってport forwardさせる処理についても追加する
+	//
+	// 【参考】
+	//     - https://github.com/maxhawkins/easyssh/blob/a4ce364b6dd8bf2433a0d67ae76cf1d880c71d75/tcpip.go
+	//     - https://www.unixuser.org/~haruyama/RFC/ssh/rfc4254.txt
+
 	// Open local port.
 	localListener, err := net.Listen("tcp", c.ForwardLocal)
 
