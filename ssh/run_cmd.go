@@ -105,7 +105,7 @@ func (r *Run) cmdRun(conn *Connect, serverListIndex int, inputWriter chan io.Wri
 	}
 
 	// x11
-	if r.IsX11 {
+	if r.IsX11 || conn.X11 {
 		conn.X11Forwarder(session)
 	}
 
