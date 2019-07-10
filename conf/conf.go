@@ -26,7 +26,7 @@ type Config struct {
 	Server   map[string]ServerConfig
 	Proxy    map[string]ProxyConfig
 
-	SshConfigs map[string]OpenSshConfig
+	SshConfig map[string]OpenSshConfig
 }
 
 // LogConfig store the contents about the terminal log.
@@ -163,7 +163,7 @@ func ReadConf(confPath string) (config Config) {
 	}
 
 	// Read Openssh configs
-	if len(config.SshConfigs) == 0 {
+	if len(config.SshConfig) == 0 {
 		openSshServerConfig, err := getOpenSshConfig("~/.ssh/config")
 		if err == nil {
 			// append data
@@ -173,7 +173,7 @@ func ReadConf(confPath string) (config Config) {
 			}
 		}
 	} else {
-		for _, sshConfig := range config.SshConfigs {
+		for _, sshConfig := range config.SshConfig {
 			openSshServerConfig, err := getOpenSshConfig(sshConfig.Path)
 			if err == nil {
 				// append data
