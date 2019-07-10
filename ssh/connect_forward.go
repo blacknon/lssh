@@ -12,6 +12,9 @@ import (
 	"golang.org/x/crypto/ssh"
 )
 
+// TODO(blacknon):
+//     socket forwardについても実装する
+
 type x11request struct {
 	SingleConnection bool
 	AuthProtocol     string
