@@ -56,6 +56,13 @@ USAGE:
 	app.Copyright = "blacknon(blacknon@orebibou.com)"
 	app.Version = "0.5.6"
 
+	// TODO(blacknon): オプションの追加
+	//     -f      ... バックグラウンドでの接続(X11接続をバックグラウンドで実行する場合など)
+	//     -X      ... X11の有効(configより優先)
+	//     -r,--rc ... ローカルのbashrcを利用して接続するかどうかの指定(configより優先)
+	//     -w      ... コマンド実行時にサーバ名ヘッダの表示をする
+	//     -W      ... コマンド実行時にサーバ名ヘッダの表示をしない
+
 	// Set options
 	app.Flags = []cli.Flag{
 		cli.StringSliceFlag{Name: "host,H", Usage: "connect servernames"},
@@ -66,6 +73,7 @@ USAGE:
 		cli.BoolFlag{Name: "term,t", Usage: "run specified command at terminal"},
 		cli.BoolFlag{Name: "shell,s", Usage: "use lssh shell (Beta)"},
 		cli.BoolFlag{Name: "parallel,p", Usage: "run command parallel node(tail -F etc...)"},
+		cli.BoolFlag{Name: "x11,X", Usage: "x11 forwarding(forward to `${DISPLAY}`)"},
 		cli.BoolFlag{Name: "help,h", Usage: "print this help"},
 	}
 	app.EnableBashCompletion = true
@@ -135,6 +143,7 @@ USAGE:
 		r.IsParallel = c.Bool("parallel")
 		r.IsShell = c.Bool("shell")
 		r.ExecCmd = c.Args()
+		r.IsX11 = c.Bool("x11")
 
 		r.PortForwardLocal = c.String("portforward-local")
 		r.PortForwardRemote = c.String("portforward-remote")

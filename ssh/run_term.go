@@ -34,6 +34,10 @@ func (r *Run) term() (err error) {
 		return err
 	}
 
+	if r.IsX11 {
+		c.X11Forwarder(session)
+	}
+
 	// setup terminal log
 	session, err = r.setTerminalLog(session, c.Server)
 	if err != nil {
