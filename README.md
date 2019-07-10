@@ -38,11 +38,16 @@ compile gofile(tested go1.12.4).
     go get -u github.com/blacknon/lssh/cmd/lssh
     go get -u github.com/blacknon/lssh/cmd/lscp
 
+    # copy sample config. create `~/.lssh.conf`.
+    curl -s https://raw.githubusercontent.com/blacknon/lssh/master/example/config.tml -o ~/.lssh.conf
 or
 
     git clone https://github.com/blacknon/lssh
     cd lssh
     make && sudo make install
+
+    # copy sample config. create `~/.lssh.conf`.
+    curl -s https://raw.githubusercontent.com/blacknon/lssh/master/example/config.tml -o ~/.lssh.conf
 
 brew install(Mac OS X)
 
@@ -50,7 +55,7 @@ brew install(Mac OS X)
 	brew install lssh
 
 	# copy sample config. create `~/.lssh.conf`.
-	curl -s https://raw.githubusercontent.com/blacknon/lssh/master/example/config.tml | cp -n <(cat) ~/.lssh.conf
+	curl -s https://raw.githubusercontent.com/blacknon/lssh/master/example/config.tml -o ~/.lssh.conf
 
 ## Config
 
