@@ -115,7 +115,11 @@ type ServerConfig struct {
 	// port forwarding setting
 	PortForwardLocal  string `toml:"port_forward_local"`  // port forward (local). "host:port"
 	PortForwardRemote string `toml:"port_forward_remote"` // port forward (remote). "host:port"
-	Note              string `toml:"note"`
+
+	// x11 forwarding setting
+	X11 bool `toml:"x11"`
+
+	Note string `toml:"note"`
 }
 
 // Struct that stores Proxy server settings connected via http and socks5.
