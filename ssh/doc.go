@@ -1,7 +1,7 @@
 /*
 ssh package is that describes the whole process of connecting to ssh with lssh.
 
-TODO(blacknon): 以下の機能について、汎用ライブラリとして外出ししてしまう
+TODO(blacknon): 以下の機能について、汎用ライブラリとして外出しする
     - 認証系(AuthMap系？)
         - 鍵認証
         - パスワード認証
@@ -12,6 +12,9 @@ TODO(blacknon): 以下の機能について、汎用ライブラリとして外�
         - http/httpsプロキシ
         - socks5プロキシ
         - ssh多段プロキシ
-    - ターミナル接続周り(キー入力をちゃんといけるように)
+    - フォワード系
+        - PortForward
+        - X11Forward
+    - シェルへの接続周り(local bashrcについては組み込まない)
 */
 package ssh

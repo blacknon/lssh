@@ -25,6 +25,7 @@ type Run struct {
 	IsShell           bool
 	PortForwardLocal  string
 	PortForwardRemote string
+	IsX11             bool
 	ExecCmd           []string
 	StdinData         []byte
 	InputData         []byte        // @TODO: Delete???

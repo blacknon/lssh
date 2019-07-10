@@ -53,6 +53,9 @@ type Connect struct {
 	ForwardLocal  string
 	ForwardRemote string
 
+	// x11 forward setting.
+	X11 bool
+
 	// AuthMap
 	AuthMap map[AuthKey][]ssh.Signer
 }

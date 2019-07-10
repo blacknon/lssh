@@ -104,6 +104,11 @@ func (r *Run) cmdRun(conn *Connect, serverListIndex int, inputWriter chan io.Wri
 		return
 	}
 
+	// x11
+	if r.IsX11 {
+		conn.X11Forwarder(session)
+	}
+
 	// set stdin
 	if len(r.StdinData) > 0 { // if stdin from pipe
 		session.Stdin = bytes.NewReader(r.StdinData)
