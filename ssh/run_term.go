@@ -34,7 +34,7 @@ func (r *Run) term() (err error) {
 		return err
 	}
 
-	if r.IsX11 {
+	if r.IsX11 || c.X11 {
 		c.X11Forwarder(session)
 	}
 

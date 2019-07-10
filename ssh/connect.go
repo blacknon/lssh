@@ -150,6 +150,8 @@ func (c *Connect) CreateClient() (err error) {
 		}
 	}
 
+	c.X11 = serverConf.X11
+
 	return err
 }
 
