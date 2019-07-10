@@ -14,8 +14,9 @@ command to read a prepared list in advance and connect ssh/scp the selected host
 * List selection type ssh client.
 * Pure Go.
 * Commands can be executed by ssh connection in parallel.
-* Supported multiple proxy.
+* Supported ssh multiple proxy, http/socks5 proxy.
 * Supported ssh-agent.
+* Supported Port forward, x11 forward.
 * Can use bashrc of local machine at ssh connection destination.
 
 ## Demo
@@ -72,14 +73,14 @@ option(lssh)
 	
 	OPTIONS:
 	    --host value, -H value      connect servernames
-	    --file value, -f value      config file path (default: "/Users/blacknon/.lssh.conf")
+	    --file value, -f value      config file path (default: "/Users/uesugi/.lssh.conf")
 	    --portforward-local value   port forwarding local port(ex. 127.0.0.1:8080)
 	    --portforward-remote value  port forwarding remote port(ex. 127.0.0.1:80)
 	    --list, -l                  print server list from config
 	    --term, -t                  run specified command at terminal
 	    --shell, -s                 use lssh shell (Beta)
 	    --parallel, -p              run command parallel node(tail -F etc...)
-	    --generate                  (beta) generate .lssh.conf from .ssh/config.(not support ProxyCommand)
+	    --x11, -X                   x11 forwarding(forward to ${DISPLAY})
 	    --help, -h                  print this help
 	    --version, -v               print the version
 	
@@ -87,7 +88,7 @@ option(lssh)
 	    blacknon(blacknon@orebibou.com)
 	
 	VERSION:
-	    0.5.5
+	    0.5.6
 	
 	USAGE:
 	    # connect ssh
@@ -110,7 +111,7 @@ option(lscp)
 	OPTIONS:
 	    --host value, -H value  connect servernames
 	    --list, -l              print server list from config
-	    --file value, -f value  config file path (default: "/Users/blacknon/.lssh.conf")
+	    --file value, -f value  config file path (default: "/Users/uesugi/.lssh.conf")
 	    --permission, -p        copy file permission
 	    --help, -h              print this help
 	    --version, -v           print the version
@@ -119,7 +120,7 @@ option(lscp)
 	    blacknon(blacknon@orebibou.com)
 	
 	VERSION:
-	    0.5.5
+	    0.5.6
 	
 	USAGE:
 	    # local to remote scp
@@ -131,7 +132,7 @@ option(lscp)
 	    # remote to remote scp
 	    lscp remote:/path/to/remote... remote:/path/to/local
 
-If you specify a command as an argument, you can select multiple hosts. Select host 'Tab', select all displayed hosts 'Ctrl + A'.
+If you specify a command as an argument, you can select multiple hosts. Select host <kbd>Tab</kbd>, select all displayed hosts <kbd>Ctrl</kbd> + <kbd>a</kbd>.
 
 
 ### 1. [lssh] connect terminal
@@ -169,7 +170,7 @@ You can connect using a local bashrc file (if ssh login shell is bash).
 You can execute commands before and after ssh connection.\
 You can also change the color of each host's terminal by combining it with the OSC escape sequence.
 
-if iTerm 2, you can also change the profile.
+if iTerm2, you can also change the profile.
 
 <p align="center">
 <img src="./images/1-3.gif" />

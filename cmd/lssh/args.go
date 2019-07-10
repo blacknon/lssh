@@ -73,7 +73,7 @@ USAGE:
 		cli.BoolFlag{Name: "term,t", Usage: "run specified command at terminal"},
 		cli.BoolFlag{Name: "shell,s", Usage: "use lssh shell (Beta)"},
 		cli.BoolFlag{Name: "parallel,p", Usage: "run command parallel node(tail -F etc...)"},
-		cli.BoolFlag{Name: "x11,X", Usage: "x11 forwarding(forward to `${DISPLAY}`)"},
+		cli.BoolFlag{Name: "x11,X", Usage: "x11 forwarding(forward to ${DISPLAY})"},
 		cli.BoolFlag{Name: "help,h", Usage: "print this help"},
 	}
 	app.EnableBashCompletion = true
