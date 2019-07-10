@@ -285,6 +285,13 @@ You can select multiple connection destinations.
 Load and use `~/.ssh/config` by default.\
 `ProxyCommand` can also be used.
 
+Alternatively, you can specify and read the path as follows: In addition to the path, ServerConfig items can be specified and applied collectively.
+
+	[sshconfig.default]
+	path = "~/.ssh/config"
+	pre_cmd = 'printf "\033]50;SetProfile=local\a"'
+	post_cmd = 'printf "\033]50;SetProfile=Default\a"'
+
 </details>
 
 ### 6. include ServerConfig file.
