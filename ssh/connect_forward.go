@@ -75,8 +75,9 @@ func x11SocketForward(channel ssh.Channel) {
 
 func (c *Connect) X11Forwarder(session *ssh.Session) {
 	// xgbConn, err := xgb.NewConn()
-
 	// cookie := xgbConn.NewCookie(true, true)
+
+	// TODO(blacknon): xauth listで確認できる、自身のCOOKIEを取得することがまずは肝心な気がする
 
 	// set x11-req Payload
 	payload := x11request{
