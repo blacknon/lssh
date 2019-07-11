@@ -9,7 +9,7 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/BurntSushi/xgb"
+	"github.com/blacknon/lssh/common"
 	"golang.org/x/crypto/ssh"
 )
 
@@ -38,10 +38,10 @@ func x11ConnectDisplay() (conn net.Conn, err error) {
 	if display[0] == '/' { // PATH type socket
 		conDisplay = display
 	} else { // /tmp/.X11-unix/X0
-		conDisplay = "/tmp/.X11-unix/X" + display[colonIdx:dotIdx+1]
+		conDisplay = "/tmp/.X11-unix/X" + display[colonIdx+1:dotIdx]
 	}
 
-	fmt.Println(conDisplay)
+	// fmt.Println(conDisplay)
 	conn, err = net.Dial("unix", conDisplay)
 	return
 }
@@ -74,15 +74,15 @@ func x11SocketForward(channel ssh.Channel) {
 }
 
 func (c *Connect) X11Forwarder(session *ssh.Session) {
-	xgbConn, err := xgb.NewConn()
+	// xgbConn, err := xgb.NewConn()
 
-	cookie := xgbConn.NewCookie(true, true)
+	// cookie := xgbConn.NewCookie(true, true)
 
 	// set x11-req Payload
 	payload := x11request{
 		SingleConnection: false,
 		AuthProtocol:     string("MIT-MAGIC-COOKIE-1"),
-		AuthCookie:       string(cookie.Sequence),
+		AuthCookie:       string(common.NewSHA1Hash()),
 		ScreenNumber:     uint32(0),
 	}
 
