@@ -34,12 +34,15 @@ func x11ConnectDisplay() (conn net.Conn, err error) {
 		return
 	}
 
+	var conDisplay string
 	if display[0] == '/' { // PATH type socket
-		conn, err = net.Dial("unix", display)
+		conDisplay = display
 	} else { // /tmp/.X11-unix/X0
-		conn, err = net.Dial("unix", "/tmp/.X11-unix/X"+display[colonIdx:dotIdx])
+		conDisplay = "/tmp/.X11-unix/X" + display[colonIdx:dotIdx]
 	}
 
+	fmt.Println(conDisplay)
+	conn, err = net.Dial("unix", conDisplay)
 	return
 }
 
@@ -72,6 +75,7 @@ func x11SocketForward(channel ssh.Channel) {
 
 func (c *Connect) X11Forwarder(session *ssh.Session) {
 	xgbConn, err := xgb.NewConn()
+
 	cookie := xgbConn.NewCookie(true, true)
 
 	// set x11-req Payload
