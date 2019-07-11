@@ -6,9 +6,10 @@ import (
 	"io"
 	"net"
 	"os"
+	"strings"
 	"sync"
 
-	"github.com/blacknon/lssh/common"
+	"github.com/BurntSushi/xgb"
 	"golang.org/x/crypto/ssh"
 )
 
@@ -22,9 +23,31 @@ type x11request struct {
 	ScreenNumber     uint32
 }
 
+func x11ConnectDisplay() (conn net.Conn, err error) {
+	display := os.Getenv("DISPLAY")
+	display0 := display
+	colonIdx := strings.LastIndex(display, ":")
+	dotIdx := strings.LastIndex(display, ".")
+
+	if colonIdx < 0 {
+		err = errors.New("bad display string: " + display0)
+		return
+	}
+
+	if display[0] == '/' { // PATH type socket
+		conn, err = net.Dial("unix", display)
+	} else { // /tmp/.X11-unix/X0
+		conn, err = net.Dial("unix", "/tmp/.X11-unix/X"+display[colonIdx:dotIdx])
+	}
+
+	return
+}
+
 func x11SocketForward(channel ssh.Channel) {
 	// TODO(blacknon): Socket通信しか考慮されていないので、TCP通信での指定もできるようにする
-	conn, err := net.Dial("unix", os.Getenv("DISPLAY"))
+	// TODO(blacknon): Cookieを登録する処理が必要になるので、その処理を追加する
+	conn, err := x11ConnectDisplay()
+
 	if err != nil {
 		return
 	}
@@ -48,11 +71,14 @@ func x11SocketForward(channel ssh.Channel) {
 }
 
 func (c *Connect) X11Forwarder(session *ssh.Session) {
+	xgbConn, err := xgb.NewConn()
+	cookie := xgbConn.NewCookie(true, true)
+
 	// set x11-req Payload
 	payload := x11request{
 		SingleConnection: false,
 		AuthProtocol:     string("MIT-MAGIC-COOKIE-1"),
-		AuthCookie:       string(common.NewSHA1Hash()),
+		AuthCookie:       string(cookie.Sequence),
 		ScreenNumber:     uint32(0),
 	}
 
