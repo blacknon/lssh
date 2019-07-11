@@ -57,7 +57,7 @@ func (r *Run) term() (err error) {
 	}
 
 	if c.IsLocalRc {
-		fmt.Fprintf(os.Stderr, "Infomation    :This connect use local bashrc. \n")
+		fmt.Fprintf(os.Stderr, "Information   :This connect use local bashrc. \n")
 		if len(serverConf.LocalRcPath) > 0 {
 			c.LocalRcData, err = common.GetFilesBase64(serverConf.LocalRcPath)
 			if err != nil {
@@ -105,7 +105,7 @@ func (r *Run) term() (err error) {
 
 	// ssh-agent
 	if serverConf.SSHAgentUse {
-		fmt.Fprintf(os.Stderr, "Infomation    :This connect use ssh agent. \n")
+		fmt.Fprintf(os.Stderr, "Information   :This connect use ssh agent. \n")
 
 		// forward agent
 		_, err := net.Dial("unix", os.Getenv("SSH_AUTH_SOCK"))
