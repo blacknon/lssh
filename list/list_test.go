@@ -124,7 +124,7 @@ func TestGetText(t *testing.T) {
 				},
 			},
 			expect: []string{
-				"ServerName         Connect Infomation         Note         \n",
+				"ServerName         Connect Information        Note         \n",
 				"dev_web1           user1@192.168.101.1        WebServer\n",
 			},
 		},
@@ -140,7 +140,7 @@ func TestGetText(t *testing.T) {
 				},
 			},
 			expect: []string{
-				"ServerName         Connect Infomation         Note         \n",
+				"ServerName         Connect Information        Note         \n",
 				"dev_web1           user1@192.168.101.1        WebServer\n",
 				"dev_web2           user1@192.168.101.2        WebServer\n",
 			},
@@ -157,7 +157,7 @@ func TestGetText(t *testing.T) {
 				},
 			},
 			expect: []string{
-				"ServerName         Connect Infomation         Note         \n",
+				"ServerName         Connect Information        Note         \n",
 			},
 		},
 		{
@@ -172,7 +172,7 @@ func TestGetText(t *testing.T) {
 				},
 			},
 			expect: []string{
-				"ServerName         Connect Infomation         Note         \n",
+				"ServerName         Connect Information        Note         \n",
 			},
 		},
 	}
@@ -194,12 +194,12 @@ func TestGetFilterText(t *testing.T) {
 			l: ListInfo{
 				Keyword: "",
 				DataText: []string{
-					"ServerName         Connect Infomation         Note",
+					"ServerName         Connect Information        Note",
 					"dev_web1           user1@192.168.101.1        WebServer",
 				},
 			},
 			expect: []string{
-				"ServerName         Connect Infomation         Note",
+				"ServerName         Connect Information        Note",
 				"dev_web1           user1@192.168.101.1        WebServer",
 			},
 		},
@@ -208,14 +208,14 @@ func TestGetFilterText(t *testing.T) {
 			l: ListInfo{
 				Keyword: "dev_web",
 				DataText: []string{
-					"ServerName         Connect Infomation         Note",
+					"ServerName         Connect Information        Note",
 					"dev_web1           user1@192.168.101.1        WebServer",
 					"dev_web2           user1@192.168.101.1        WebServer",
 					"dev_app1           user1@192.168.101.1        ApplicationServer",
 				},
 			},
 			expect: []string{
-				"ServerName         Connect Infomation         Note",
+				"ServerName         Connect Information        Note",
 				"dev_web1           user1@192.168.101.1        WebServer",
 				"dev_web2           user1@192.168.101.1        WebServer",
 			},
@@ -225,14 +225,14 @@ func TestGetFilterText(t *testing.T) {
 			l: ListInfo{
 				Keyword: "33",
 				DataText: []string{
-					"ServerName         Connect Infomation         Note",
+					"ServerName         Connect Information        Note",
 					"dev_web1           user1@192.168.101.1        WebServer",
 					"dev_web2           user1@192.168.101.2        WebServer",
 					"dev_app1           user1@192.168.101.33       ApplicationServer",
 				},
 			},
 			expect: []string{
-				"ServerName         Connect Infomation         Note",
+				"ServerName         Connect Information        Note",
 				"dev_app1           user1@192.168.101.33       ApplicationServer",
 			},
 		},
@@ -241,14 +241,14 @@ func TestGetFilterText(t *testing.T) {
 			l: ListInfo{
 				Keyword: "webserver",
 				DataText: []string{
-					"ServerName         Connect Infomation         Note",
+					"ServerName         Connect Information        Note",
 					"dev_web1           user1@192.168.101.1        WebServer",
 					"dev_web2           user1@192.168.101.2        WebServer",
 					"dev_app1           user1@192.168.101.33       ApplicationServer",
 				},
 			},
 			expect: []string{
-				"ServerName         Connect Infomation         Note",
+				"ServerName         Connect Information        Note",
 				"dev_web1           user1@192.168.101.1        WebServer",
 				"dev_web2           user1@192.168.101.2        WebServer",
 			},
@@ -258,7 +258,7 @@ func TestGetFilterText(t *testing.T) {
 		// 	l: ListInfo{
 		// 		Keyword: `dev_web\d+`,
 		// 		DataText: []string{
-		// 			"ServerName         Connect Infomation         Note",
+		// 			"ServerName         Connect Information        Note",
 		// 			"dev_web            user1@192.168.101.99       WebServer",
 		// 			"dev_web1           user1@192.168.101.1        WebServer",
 		// 			"dev_web2           user1@192.168.101.2        WebServer",
@@ -266,7 +266,7 @@ func TestGetFilterText(t *testing.T) {
 		// 		},
 		// 	},
 		// 	expect: []string{
-		// 		"ServerName         Connect Infomation         Note",
+		// 		"ServerName         Connect Information        Note",
 		// 		"dev_web1           user1@192.168.101.1        WebServer",
 		// 		"dev_web2           user1@192.168.101.2        WebServer",
 		// 	},

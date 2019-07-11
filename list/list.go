@@ -87,7 +87,7 @@ func (l *ListInfo) getText() {
 	buffer := &bytes.Buffer{}
 	tabWriterBuffer := new(tabwriter.Writer)
 	tabWriterBuffer.Init(buffer, 0, 4, 8, ' ', 0)
-	fmt.Fprintln(tabWriterBuffer, "ServerName \tConnect Infomation \tNote \t")
+	fmt.Fprintln(tabWriterBuffer, "ServerName \tConnect Information \tNote \t")
 
 	// Create list table
 	for _, key := range l.NameList {
