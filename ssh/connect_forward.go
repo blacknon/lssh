@@ -38,7 +38,7 @@ func x11ConnectDisplay() (conn net.Conn, err error) {
 	if display[0] == '/' { // PATH type socket
 		conDisplay = display
 	} else { // /tmp/.X11-unix/X0
-		conDisplay = "/tmp/.X11-unix/X" + display[colonIdx:dotIdx]
+		conDisplay = "/tmp/.X11-unix/X" + display[colonIdx:dotIdx+1]
 	}
 
 	fmt.Println(conDisplay)
