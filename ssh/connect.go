@@ -19,20 +19,45 @@ import (
 	"github.com/blacknon/lssh/conf"
 )
 
+// Connect structure to store contents about ssh connection.
 type Connect struct {
-	Server           string
-	Conf             conf.Config
-	Client           *ssh.Client
+	// Name of server to connect.
+	// It plays an important role in obtaining connection information from Configure.
+	Server string
+
+	// conf/Config Structure.
+	Conf   conf.Config
+	Client *ssh.Client
+
+	// ssh-agent interface.
+	// TODO(blacknon): Integrate later.
 	sshAgent         agent.Agent
 	sshExtendedAgent agent.ExtendedAgent
-	IsTerm           bool
-	IsParallel       bool
-	IsLocalRc        bool
-	LocalRcData      string
+
+	// connect login shell flag
+	IsTerm bool
+
+	// parallel connect flag
+	IsParallel bool
+
+	// use local bashrc flag
+	IsLocalRc bool
+
+	// local bashrc data
+	LocalRcData string
+
+	// local bashrc decode command
 	LocalRcDecodeCmd string
-	ForwardLocal     string
-	ForwardRemote    string
-	AuthMap          map[AuthKey][]ssh.Signer
+
+	// port forward setting.`host:port`
+	ForwardLocal  string
+	ForwardRemote string
+
+	// x11 forward setting.
+	X11 bool
+
+	// AuthMap
+	AuthMap map[AuthKey][]ssh.Signer
 }
 
 type Proxy struct {
@@ -40,7 +65,24 @@ type Proxy struct {
 	Type string
 }
 
-// @brief: create ssh session
+// SendKeepAlive send KeepAlive packet from specified Session.
+func (c *Connect) SendKeepAlive(session *ssh.Session) {
+	for {
+		_, _ = session.SendRequest("keepalive@lssh.com", true, nil)
+		time.Sleep(15 * time.Second)
+	}
+}
+
+// CheckClientAlive Check alive ssh.Client.
+func (c *Connect) CheckClientAlive() error {
+	_, _, err := c.Client.SendRequest("keepalive@lssh.com", true, nil)
+	if err == nil || err.Error() == "request failed" {
+		return nil
+	}
+	return err
+}
+
+// CreateSession return *ssh.Session
 func (c *Connect) CreateSession() (session *ssh.Session, err error) {
 	// new connect
 	if c.Client == nil {
@@ -69,27 +111,7 @@ func (c *Connect) CreateSession() (session *ssh.Session, err error) {
 	return
 }
 
-// send keep alive packet
-func (c *Connect) SendKeepAlive(session *ssh.Session) {
-	for {
-		_, _ = session.SendRequest("keepalive@lssh.com", true, nil)
-		time.Sleep(15 * time.Second)
-	}
-}
-
-// Check ssh connet alive
-func (c *Connect) CheckClientAlive() error {
-	_, _, err := c.Client.SendRequest("keepalive@lssh.com", true, nil)
-	if err == nil || err.Error() == "request failed" {
-		return nil
-	}
-
-	return err
-}
-
-// @brief: create ssh client
-// @note:
-//     support multiple proxy connect.
+// CreateClient create ssh.Client and store in Connect.Client
 func (c *Connect) CreateClient() (err error) {
 	// New ClientConfig
 	serverConf := c.Conf.Server[c.Server]
@@ -128,11 +150,12 @@ func (c *Connect) CreateClient() (err error) {
 		}
 	}
 
+	c.X11 = serverConf.X11
+
 	return err
 }
 
-// @brief:
-//     Create ssh client via proxy
+// createClientOverProxy create over multiple proxy ssh.Client, and store in Connect.Client
 func (c *Connect) createClientOverProxy(serverConf conf.ServerConfig, sshConf *ssh.ClientConfig) (err error) {
 	// get proxy slice
 	proxyList, proxyType, err := GetProxyList(c.Server, c.Conf)
@@ -180,8 +203,7 @@ func (c *Connect) createClientOverProxy(serverConf conf.ServerConfig, sshConf *s
 	return
 }
 
-// @brief:
-//     Create ssh Client
+// createClientConfig return *ssh.ClientConfig
 func (c *Connect) createClientConfig(server string) (clientConfig *ssh.ClientConfig, err error) {
 	conf := c.Conf.Server[server]
 
@@ -202,8 +224,7 @@ func (c *Connect) createClientConfig(server string) (clientConfig *ssh.ClientCon
 	return clientConfig, err
 }
 
-// @brief:
-//    run command over ssh
+// RunCmd execute command via ssh from specified session.
 func (c *Connect) RunCmd(session *ssh.Session, command []string) (err error) {
 	defer session.Close()
 
@@ -237,8 +258,7 @@ CheckCommandExit:
 	return
 }
 
-// @brief:
-//     Run command over ssh, output to gochannel
+// RunCmdWithOutput execute a command via ssh from the specified session and send its output to outputchan.
 func (c *Connect) RunCmdWithOutput(session *ssh.Session, command []string, outputChan chan []byte) {
 	outputBuf := new(bytes.Buffer)
 	session.Stdout = io.MultiWriter(outputBuf)
@@ -279,8 +299,7 @@ GetOutputLoop:
 	}
 }
 
-// @brief:
-//     connect ssh terminal
+// ConTerm connect to a shell using a terminal.
 func (c *Connect) ConTerm(session *ssh.Session) (err error) {
 	// defer session.Close()
 	fd := int(os.Stdin.Fd())
@@ -347,8 +366,7 @@ func (c *Connect) ConTerm(session *ssh.Session) (err error) {
 	return
 }
 
-// @brief:
-//     set pesudo (run command only)
+// setIsTerm Enable tty(pesudo) when executing command over ssh.
 func (c *Connect) setIsTerm(preSession *ssh.Session) (session *ssh.Session, err error) {
 	if c.IsTerm {
 		modes := ssh.TerminalModes{
@@ -375,8 +393,7 @@ func (c *Connect) setIsTerm(preSession *ssh.Session) (session *ssh.Session, err 
 	return
 }
 
-// @brief:
-//     get ssh proxy server slice
+// GetProxyList return proxy list and map by proxy type.
 func GetProxyList(server string, config conf.Config) (proxyList []string, proxyType map[string]string, err error) {
 	var targetType string
 	var preProxy, preProxyType string
@@ -436,15 +453,15 @@ func GetProxyList(server string, config conf.Config) (proxyList []string, proxyT
 	return
 }
 
-// @brief:
-//    run shell use local rc file.
+// runLocalRcShell connect to remote shell using local bashrc
 func (c *Connect) runLocalRcShell(preSession *ssh.Session) (session *ssh.Session, err error) {
 	session = preSession
 
 	// command
 	cmd := fmt.Sprintf("bash --rcfile <(echo %s|((base64 --help | grep -q coreutils) && base64 -d <(cat) || base64 -D <(cat) ))", c.LocalRcData)
-	if len(c.LocalRcDecodeCmd) > 0 {
 
+	// decode command
+	if len(c.LocalRcDecodeCmd) > 0 {
 		cmd = fmt.Sprintf("bash --rcfile <(echo %s | %s)", c.LocalRcData, c.LocalRcDecodeCmd)
 	}
 

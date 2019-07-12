@@ -3,12 +3,14 @@ package list
 import "github.com/blacknon/lssh/conf"
 
 type ListInfo struct {
-	Prompt     string      // prompt string
-	NameList   []string    // name list
-	SelectName []string    // selected name
-	DataList   conf.Config // original config data list
-	DataText   []string    // all data text
-	ViewText   []string    // filtered text
+	// Incremental search line prompt string
+	Prompt string
+
+	NameList   []string
+	SelectName []string
+	DataList   conf.Config // original config data(struct)
+	DataText   []string    // all data text list
+	ViewText   []string    // filtered text list
 	MultiFlag  bool        // multi select flag
 	Keyword    string      // input keyword
 	CursorLine int         // cursor line

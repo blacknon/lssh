@@ -7,8 +7,8 @@ import (
 	"time"
 )
 
-// @brief: printout history (shell history)
-// @TODO: 通番をつけて、bash等のように `!<N>` で実行できるようにする
+// localCmd_history is printout history (shell history)
+// TODO(blacknon): 通番をつけて、bash等のように `!<N>` で実行できるようにする
 func (s *shell) localCmd_history() {
 	data, err := s.GetHistory()
 	if err != nil {
@@ -20,7 +20,11 @@ func (s *shell) localCmd_history() {
 	}
 }
 
-// @bref: print exec history at number
+// localCmd_out is print exec history at number
+// example:
+//     %out 3
+//
+// TODO(blacknon): 引数がない場合、直前の処理の出力を表示させる
 func (s *shell) localCmd_out(num int) {
 	cmd := s.ExecHistory[num]
 	fmt.Printf("%d :%s \n", num, cmd)

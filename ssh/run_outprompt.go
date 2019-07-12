@@ -9,9 +9,24 @@ import (
 	"github.com/blacknon/lssh/conf"
 )
 
-// Output Prompt
+// Output struct. command execute and lssh-shell mode output data.
 type Output struct {
-	Templete   string
+	// Template variable value.
+	//     - ${COUNT}  ... Count value(int)
+	//     - ${SERVER} ... Server Name
+	//     - ${ADDR}   ... Address
+	//     - ${USER}   ... User Name
+	//     - ${PORT}   ... Port
+	//     - ${DATE}   ... Date(YYYY/mm/dd)
+	//     - ${YEAR}   ... Year(YYYY)
+	//     - ${MONTH}  ... Month(mm)
+	//     - ${DAY}    ... Day(dd)
+	//     - ${TIME}   ... Time(HH:MM:SS)
+	//     - ${HOUR}   ... Hour(HH)
+	//     - ${MINUTE} ... Minute(MM)
+	//     - ${SECOND} ... Second(SS)
+	Templete string
+
 	prompt     string
 	server     string
 	Count      int
@@ -20,24 +35,9 @@ type Output struct {
 	AutoColor  bool
 }
 
-// @TODO:
-//     - Text templeteでの処理に切り替え
-//     - Structを作って処理させるように切り替える？
-// Create OPROMPT
-//     - ${COUNT}  ... Count
-//     - ${SERVER} ... Server
-//     - ${ADDR}   ... Addr
-//     - ${USER}   ... User
-//     - ${PORT}   ... Port
-//     - ${DATE}   ... Date(YYYY/mm/dd)
-//     - ${YEAR}   ... Year(YYYY)
-//     - ${MONTH}  ... Month(mm)
-//     - ${DAY}    ... Day(dd)
-//     - ${TIME}   ... Time(HH:MM:SS)
-//     - ${HOUR}   ... Hour(HH)
-//     - ${MINUTE} ... Minute(MM)
-//     - ${SECOND} ... Second(SS)
+// Create template, set variable value.
 func (o *Output) Create(server string) {
+	// TODO(blacknon): Replaceでの処理ではなく、Text templateを作ってそちらで処理させる(置換処理だと脆弱性がありそうなので)
 	o.server = server
 
 	// get max length at server name
@@ -60,7 +60,7 @@ func (o *Output) Create(server string) {
 	o.prompt = p
 }
 
-// update variable value
+// GetPrompt update variable value
 func (o *Output) GetPrompt() (p string) {
 	// Get time
 

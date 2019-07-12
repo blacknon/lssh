@@ -1,18 +1,26 @@
+/*
+common is a package that summarizes the common processing of lssh package.
+*/
 package common
 
 import (
+	"crypto/sha1"
 	"encoding/base64"
 	"fmt"
 	"io/ioutil"
 	"log"
+	"math/rand"
 	"os"
 	"os/user"
 	"path/filepath"
 	"reflect"
 	"strings"
+	"time"
 
 	"golang.org/x/crypto/ssh/terminal"
 )
+
+var characterRunes = []rune("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789")
 
 // IsExist returns existence of file.
 func IsExist(filename string) bool {
@@ -142,6 +150,7 @@ func GetFilesBase64(paths []string) (result string, err error) {
 	return result, err
 }
 
+// GetPassPhase gets the passphrase from virtual terminal input and returns the result. Works only on UNIX-based OS.
 func GetPassPhase(msg string) (input string, err error) {
 	fmt.Printf(msg)
 
@@ -163,4 +172,43 @@ func GetPassPhase(msg string) (input string, err error) {
 	input = string(result)
 	fmt.Println()
 	return
+}
+
+func init() {
+	rand.Seed(time.Now().UnixNano())
+}
+
+// NewSHA1Hash generates a new SHA1 hash based on
+// a random number of characters.
+func NewSHA1Hash(n ...int) string {
+	noRandomCharacters := 32
+
+	if len(n) > 0 {
+		noRandomCharacters = n[0]
+	}
+
+	randString := RandomString(noRandomCharacters)
+
+	hash := sha1.New()
+	hash.Write([]byte(randString))
+	bs := hash.Sum(nil)
+
+	return fmt.Sprintf("%02x", bs)
+}
+
+// RandomString generates a random string of n length
+func RandomString(n int) string {
+	b := make([]rune, n)
+	for i := range b {
+		b[i] = characterRunes[rand.Intn(len(characterRunes))]
+	}
+	return string(b)
+}
+
+func GetAbsPath(path string) string {
+	// Replace home directory
+	usr, _ := user.Current()
+	path = strings.Replace(path, "~", usr.HomeDir, 1)
+
+	return filepath.Abs(path)
 }

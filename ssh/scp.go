@@ -8,6 +8,7 @@ import (
 
 	scplib "github.com/blacknon/go-scplib"
 	"github.com/blacknon/lssh/conf"
+	"golang.org/x/crypto/ssh"
 )
 
 type CopyConInfo struct {
@@ -24,37 +25,35 @@ type RunScp struct {
 	Config     conf.Config
 }
 
-// @brief:
-//    start
+// Start scp, switching process.
 func (r *RunScp) Start() {
-	switch {
-	// remote to remote
-	case r.From.IsRemote && r.To.IsRemote:
-		r.run("pull")
-		r.run("push")
-
-	// remote to local
-	case r.From.IsRemote && !r.To.IsRemote:
-		r.run("pull")
-
-	// local to remote
-	case !r.From.IsRemote && r.To.IsRemote:
-		r.run("push")
-	}
-}
-
-// @brief:
-//     run scp
-func (r *RunScp) run(mode string) {
-	finished := make(chan bool)
-
-	// create AuthMap
+	// Create AuthMap
 	slist := append(r.To.Server, r.From.Server...)
 	run := new(Run)
 	run.ServerList = slist
 	run.Conf = r.Config
 	run.createAuthMap()
 	authMap := run.AuthMap
+
+	switch {
+	// remote to remote
+	case r.From.IsRemote && r.To.IsRemote:
+		r.run("pull", authMap)
+		r.run("push", authMap)
+
+	// remote to local
+	case r.From.IsRemote && !r.To.IsRemote:
+		r.run("pull", authMap)
+
+	// local to remote
+	case !r.From.IsRemote && r.To.IsRemote:
+		r.run("push", authMap)
+	}
+}
+
+// Run execute scp according to mode.
+func (r *RunScp) run(mode string, authMap map[AuthKey][]ssh.Signer) {
+	finished := make(chan bool)
 
 	// set target list
 	targetList := []string{}
@@ -106,8 +105,7 @@ func (r *RunScp) run(mode string) {
 	}
 }
 
-// @brief:
-//    push scp
+// push file scp
 func (r *RunScp) push(target string, scp *scplib.SCPClient) {
 	var err error
 	if r.From.IsRemote && r.To.IsRemote {
@@ -123,8 +121,7 @@ func (r *RunScp) push(target string, scp *scplib.SCPClient) {
 	}
 }
 
-// @brief:
-//    pull scp
+// pull file scp
 func (r *RunScp) pull(target string, scp *scplib.SCPClient) {
 	var err error
 

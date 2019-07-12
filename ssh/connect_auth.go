@@ -8,13 +8,7 @@ import (
 	"golang.org/x/crypto/ssh"
 )
 
-// @brief:
-//     Create ssh session auth
-// @note:
-//     - public key auth
-//     - password auth
-//     - ssh-agent auth
-//     - pkcs11 auth
+// createSshAuth return the necessary ssh.AuthMethod from AuthMap and ssh-agent.
 func (c *Connect) createSshAuth(server string) (auth []ssh.AuthMethod, err error) {
 	conf := c.Conf.Server[server]
 
