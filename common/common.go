@@ -193,7 +193,7 @@ func NewSHA1Hash(n ...int) string {
 	hash.Write([]byte(randString))
 	bs := hash.Sum(nil)
 
-	return fmt.Sprintf("%x", bs)
+	return fmt.Sprintf("%02x", bs)
 }
 
 // RandomString generates a random string of n length
@@ -203,4 +203,12 @@ func RandomString(n int) string {
 		b[i] = characterRunes[rand.Intn(len(characterRunes))]
 	}
 	return string(b)
+}
+
+func GetAbsPath(path string) string {
+	// Replace home directory
+	usr, _ := user.Current()
+	path = strings.Replace(path, "~", usr.HomeDir, 1)
+
+	return filepath.Abs(path)
 }
