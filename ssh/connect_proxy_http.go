@@ -11,12 +11,6 @@ import (
 	"golang.org/x/net/proxy"
 )
 
-type direct struct{}
-
-func (direct) Dial(network, addr string) (net.Conn, error) {
-	return net.Dial(network, addr)
-}
-
 type httpProxy struct {
 	host     string
 	haveAuth bool
@@ -88,15 +82,13 @@ func createProxyDialerHttp(proxyConf conf.ProxyConfig) (proxyDialer proxy.Dialer
 	proxy.RegisterDialerType("http", newHTTPProxy)
 	proxy.RegisterDialerType("https", newHTTPProxy)
 
-	directProxy := direct{}
-
 	proxyURL := "http://" + proxyConf.Addr + ":" + proxyConf.Port
 	if proxyConf.User != "" && proxyConf.Pass != "" {
 		proxyURL = "http://" + proxyConf.User + ":" + proxyConf.Pass + "@" + proxyConf.Addr + ":" + proxyConf.Port
 	}
 
 	proxyURI, _ := url.Parse(proxyURL)
-	proxyDialer, err = proxy.FromURL(proxyURI, directProxy)
+	proxyDialer, err = proxy.FromURL(proxyURI, proxy.Direct)
 
 	return
 }

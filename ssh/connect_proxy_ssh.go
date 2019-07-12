@@ -72,6 +72,7 @@ func createClientViaProxyCommand(config conf.ServerConfig, sshConf *ssh.ClientCo
 
 	// Create net.Pipe(), and set proxyCommand
 	pipeClient, pipeServer := net.Pipe()
+
 	cmd := exec.Command("sh", "-c", proxyCommand)
 
 	// setup FD
