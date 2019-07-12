@@ -1,6 +1,7 @@
 package ssh
 
 import (
+	"encoding/binary"
 	"errors"
 	"fmt"
 	"io"
@@ -9,12 +10,99 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/blacknon/lssh/common"
 	"golang.org/x/crypto/ssh"
 )
 
 // TODO(blacknon):
 //     socket forwardについても実装する
+
+func readAuthority(hostname, display string) (
+	name string, data []byte, err error) {
+
+	// b is a scratch buffer to use and should be at least 256 bytes long
+	// (i.e. it should be able to hold a hostname).
+	b := make([]byte, 256)
+
+	// As per /usr/include/X11/Xauth.h.
+	const familyLocal = 256
+
+	if len(hostname) == 0 || hostname == "localhost" {
+		hostname, err = os.Hostname()
+		if err != nil {
+			return "", nil, err
+		}
+	}
+
+	fname := os.Getenv("XAUTHORITY")
+	if len(fname) == 0 {
+		home := os.Getenv("HOME")
+		if len(home) == 0 {
+			err = errors.New("Xauthority not found: $XAUTHORITY, $HOME not set")
+			return "", nil, err
+		}
+		fname = home + "/.Xauthority"
+	}
+
+	r, err := os.Open(fname)
+	if err != nil {
+		return "", nil, err
+	}
+	defer r.Close()
+
+	for {
+		var family uint16
+		if err := binary.Read(r, binary.BigEndian, &family); err != nil {
+			return "", nil, err
+		}
+
+		addr, err := getString(r, b)
+		if err != nil {
+			return "", nil, err
+		}
+
+		disp, err := getString(r, b)
+		if err != nil {
+			return "", nil, err
+		}
+
+		name0, err := getString(r, b)
+		if err != nil {
+			return "", nil, err
+		}
+
+		data0, err := getBytes(r, b)
+		if err != nil {
+			return "", nil, err
+		}
+
+		if family == familyLocal && addr == hostname && disp == display {
+			return name0, data0, nil
+		}
+	}
+	panic("unreachable")
+}
+
+func getBytes(r io.Reader, b []byte) ([]byte, error) {
+	var n uint16
+	if err := binary.Read(r, binary.BigEndian, &n); err != nil {
+		return nil, err
+	} else if n > uint16(len(b)) {
+		return nil, errors.New("bytes too long for buffer")
+	}
+
+	if _, err := io.ReadFull(r, b[0:n]); err != nil {
+		return nil, err
+	}
+	return b[0:n], nil
+}
+
+func getString(r io.Reader, b []byte) (string, error) {
+	b, err := getBytes(r, b)
+	if err != nil {
+		return "", err
+	}
+	return string(b), nil
+}
 
 type x11request struct {
 	SingleConnection bool
@@ -48,7 +136,6 @@ func x11ConnectDisplay() (conn net.Conn, err error) {
 
 func x11SocketForward(channel ssh.Channel) {
 	// TODO(blacknon): Socket通信しか考慮されていないので、TCP通信での指定もできるようにする
-	// TODO(blacknon): Cookieを登録する処理が必要になるので、その処理を追加する
 	conn, err := x11ConnectDisplay()
 
 	if err != nil {
@@ -77,14 +164,25 @@ func (c *Connect) X11Forwarder(session *ssh.Session) {
 	// xgbConn, err := xgb.NewConn()
 	// cookie := xgbConn.NewCookie(true, true)
 
-	// TODO(blacknon): xauth listで確認できる、自身のCOOKIEを取得することがまずは肝心な気がする
+	// TODO(blacknon): DISPLAY関数のパース処理用の関数を別途作成し、それを呼び出してDISPLAY番号を指定させる。
+	xAuthName, xAuthData, err := readAuthority("", "0")
+	if err != nil {
+		os.Exit(1)
+	}
+
+	var cookie string
+	fmt.Println(xAuthName)
+	for _, d := range xAuthData {
+		cookie = cookie + fmt.Sprintf("%02x", d)
+	}
 
 	// set x11-req Payload
 	payload := x11request{
 		SingleConnection: false,
 		AuthProtocol:     string("MIT-MAGIC-COOKIE-1"),
-		AuthCookie:       string(common.NewSHA1Hash()),
-		ScreenNumber:     uint32(0),
+		// AuthCookie:       string(common.NewSHA1Hash()),
+		AuthCookie:   string(cookie),
+		ScreenNumber: uint32(0),
 	}
 
 	// Send x11-req Request
