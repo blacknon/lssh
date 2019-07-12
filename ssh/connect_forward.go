@@ -112,6 +112,9 @@ type x11request struct {
 }
 
 func x11ConnectDisplay() (conn net.Conn, err error) {
+	// TODO(blacknon): Socket通信しか考慮されていないので、TCP通信での指定もできるようにする
+	// 【参考】
+	//     - https://godoc.org/golang.org/x/exp/shiny/vendor/github.com/BurntSushi/xgb#NewConn
 	display := os.Getenv("DISPLAY")
 	display0 := display
 	colonIdx := strings.LastIndex(display, ":")
@@ -135,7 +138,6 @@ func x11ConnectDisplay() (conn net.Conn, err error) {
 }
 
 func x11SocketForward(channel ssh.Channel) {
-	// TODO(blacknon): Socket通信しか考慮されていないので、TCP通信での指定もできるようにする
 	conn, err := x11ConnectDisplay()
 
 	if err != nil {
@@ -161,10 +163,9 @@ func x11SocketForward(channel ssh.Channel) {
 }
 
 func (c *Connect) X11Forwarder(session *ssh.Session) {
-	// xgbConn, err := xgb.NewConn()
-	// cookie := xgbConn.NewCookie(true, true)
-
-	// TODO(blacknon): DISPLAY関数のパース処理用の関数を別途作成し、それを呼び出してDISPLAY番号を指定させる。
+	// TODO(blacknon):
+	//     DISPLAY関数のパース処理用の関数を別途作成し、それを呼び出してDISPLAY番号を指定させる処理に変更が必要。
+	//     ※ 今は決め打ちになっている。
 	xAuthName, xAuthData, err := readAuthority("", "0")
 	if err != nil {
 		os.Exit(1)
