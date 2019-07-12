@@ -10,7 +10,7 @@ import (
 	"golang.org/x/crypto/ssh"
 )
 
-// Convert []*Connect to []*shellConn, and Connect ssh
+// CreateConn Convert []*Connect to []*shellConn, and Connect ssh
 func (s *shell) CreateConn(conns []*Connect) {
 	isExit := make(chan bool)
 	connectChan := make(chan *Connect)
@@ -58,8 +58,8 @@ func (s *shell) CreateConn(conns []*Connect) {
 	}
 }
 
-// @TODO: from run_shell.go send signal
-// func (s *shell) sendSignal() {}
+// TODO(blacknon): from run_shell.go send signal
+// 		func (s *shell) sendSignal() {}
 
 type shellConn struct {
 	*Connect
@@ -77,8 +77,7 @@ type ExecHistory struct {
 	StderrData *bytes.Buffer
 }
 
-// @TODO: 変数名その他いろいろと見直しをする！！
-//        ローカルのコマンドとパイプでつなげるような処理を実装する予定なので、Stdin、Stdout、Stderrの扱いを分離して扱いやすくする
+// SshShellCmdRun execute specified command from lssh-shell on remote machine
 func (c *shellConn) SshShellCmdRun(cmd string, isExit chan<- bool) (err error) {
 	// Request tty
 	c.Session, err = c.setIsTerm(c.Session)
@@ -189,6 +188,7 @@ loop:
 	sendExit <- true
 }
 
+// Kill process remote machine
 func (c *shellConn) Kill() (err error) {
 	time.Sleep(10 * time.Millisecond)
 	c.Session.Signal(ssh.SIGINT)

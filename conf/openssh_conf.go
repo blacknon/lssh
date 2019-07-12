@@ -8,6 +8,7 @@ import (
 	"github.com/kevinburke/ssh_config"
 )
 
+// openOpenSshConfig open the OpenSsh configuration file, return *ssh_config.Config.
 func openOpenSshConfig(path string) (cfg *ssh_config.Config, err error) {
 	// Read Openssh Config
 	sshConfigFile := common.GetFullPath(path)
@@ -20,6 +21,7 @@ func openOpenSshConfig(path string) (cfg *ssh_config.Config, err error) {
 	return
 }
 
+// getOpenSshConfig loads the specified OpenSsh configuration file and returns it in conf.ServerConfig format
 func getOpenSshConfig(path string) (config map[string]ServerConfig, err error) {
 	config = map[string]ServerConfig{}
 
@@ -52,9 +54,7 @@ func getOpenSshConfig(path string) (config map[string]ServerConfig, err error) {
 			Note:         "from :" + path,
 		}
 
-		// @TODO:
-		//     Certificateは複数指定可能なようだが、現状は複数のファイルを受け付けるように作っていない。
-		//     とりあえずそんなに使うことも無いだろうから、一旦単独ファイルとして渡させる。
+		// TODO(blacknon): OpenSshの設定ファイルだと、Certificateは複数指定可能な模様。ただ、あまり一般的な使い方ではないようなので、現状は複数のファイルを受け付けるように作っていない。
 		key := ssh_config.Get(host, "IdentityFile")
 		cert := ssh_config.Get(host, "Certificate")
 		if cert != "" {

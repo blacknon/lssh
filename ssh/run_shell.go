@@ -15,9 +15,10 @@ import (
 	"github.com/c-bata/go-prompt/completer"
 )
 
+// run lssh-shell
 func (r *Run) shell() {
 	// print header
-	fmt.Println("Start lssh shell...")
+	fmt.Println("Start lssh-shell...")
 	r.printSelectServer()
 
 	// print newline
@@ -57,6 +58,8 @@ func (r *Run) shell() {
 	// create ssh shell connects
 	conns := r.createConn()
 	s.CreateConn(conns)
+
+	// TODO(blacknon): keep aliveの送信処理を入れる
 
 	// if can connect host not found...
 	if len(s.Connects) == 0 {
@@ -121,10 +124,7 @@ var (
 	defaultOPrompt = "[${SERVER}][${COUNT}] > " // Default OPROMPT
 )
 
-// @TODO: KeepAlive用のリクエスト送信用の関数。後で記述する。多分channelで終わらせてあげないとだめかも？？(優先度 E)
-// func (s *shell) sendKeepAlive() {}
-
-// create shell prompt
+// CreatePrompt is create shell prompt. default value `[${COUNT}] <<< `
 func (s *shell) CreatePrompt() (p string, result bool) {
 	// set prompt templete (from conf)
 	p = s.PROMPT
@@ -146,8 +146,7 @@ func (s *shell) CreatePrompt() (p string, result bool) {
 	return p, true
 }
 
-// run ssh command
-// @TODO: 全体的に見直しが必須！
+// Executor run ssh command in lssh-shell
 func (s *shell) Executor(cmd string) {
 	// trim space
 	cmd = strings.TrimSpace(cmd)
@@ -213,7 +212,7 @@ func (s *shell) Executor(cmd string) {
 	// create writers
 	writers := []io.Writer{}
 	for _, c := range s.Connects {
-		// @TODO: エラーハンドリングする
+		// TODO(blacknon): エラーハンドリングする
 		session, _ := c.CreateSession()
 		c.Session = session
 

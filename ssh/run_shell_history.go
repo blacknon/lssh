@@ -9,17 +9,13 @@ import (
 	"time"
 )
 
-// @NOTE:
-//     [history file format]
-//         YYYY-mm-dd_HH:MM:SS command...
-//         YYYY-mm-dd_HH:MM:SS command...
-//         ...
-
+// History struct
 type History struct {
 	Timestamp string
 	Command   string
 }
 
+// GetHistory return []History
 func (s *shell) GetHistory() (data []History, err error) {
 	// user path
 	usr, _ := user.Current()
@@ -51,6 +47,7 @@ func (s *shell) GetHistory() (data []History, err error) {
 	return
 }
 
+// PutHistory put history to s.HistoryFile
 func (s *shell) PutHistory(cmd string) (err error) {
 	// user path
 	usr, _ := user.Current()
@@ -64,9 +61,13 @@ func (s *shell) PutHistory(cmd string) (err error) {
 	defer file.Close()
 
 	// Get Time
-	timestamp := time.Now().Format("2006/01/02_15:04:05 ") // "yyyy-mm-dd_HH:MM:SS "
+	timestamp := time.Now().Format("2006/01/02_15:04:05 ") // "yyyy/mm/dd_HH:MM:SS "
 
 	// write history
+	//     [history file format]
+	//         YYYY-mm-dd_HH:MM:SS command...
+	//         YYYY-mm-dd_HH:MM:SS command...
+	//         ...
 	fmt.Fprintln(file, timestamp+cmd)
 
 	return

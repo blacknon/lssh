@@ -12,9 +12,7 @@ import (
 	"golang.org/x/crypto/ssh"
 )
 
-// @brief:
-//     Create ssh.Signer into r.AuthMap.
-//     Passwords is not get this function.
+// Create ssh.Signer into r.AuthMap. Passwords is not get this function.
 func (r *Run) createAuthMap() {
 	r.AuthMap = map[AuthKey][]ssh.Signer{}
 
@@ -51,6 +49,7 @@ func (r *Run) createAuthMap() {
 	}
 }
 
+// registAuthMapCertificate regist publickey ssh.Signer to AuthMap
 func (r *Run) registAuthMapPublicKey(server, key, pass string) {
 	authKey := AuthKey{AUTHKEY_KEY, key}
 
@@ -63,11 +62,19 @@ func (r *Run) registAuthMapPublicKey(server, key, pass string) {
 	}
 }
 
+// registAuthMapCertificate regist cert ssh.Signer to AuthMap
+//
+// TODO(blacknon): keyで指定したPATHのファイル種別を識別し、pkcs11か秘密鍵ファイルかに応じて処理を切り替える
 func (r *Run) registAuthMapCertificate(server, cert, key, pass string) {
 	authKey := AuthKey{AUTHKEY_CERT, cert}
 
 	if _, ok := r.AuthMap[authKey]; !ok {
-		signer, err := createSshSignerCertificate(cert, key, pass)
+		keySigner, err := createSshSignerPublicKey(key, pass)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "%s's create certificate ssh.Signer err: %s\n", server, err)
+		}
+
+		signer, err := createSshSignerCertificate(cert, keySigner)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "%s's create certificate ssh.Signer err: %s\n", server, err)
 		}
@@ -101,8 +108,7 @@ func (r *Run) registAuthMapPKCS11(server string) {
 	return
 }
 
-// @brief:
-//     create ssh.Signer from Publickey
+// create ssh.Signer from Publickey
 func createSshSignerPublicKey(key, pass string) (signer ssh.Signer, err error) {
 	// repeat count
 	rep := 3
@@ -142,12 +148,10 @@ func createSshSignerPublicKey(key, pass string) (signer ssh.Signer, err error) {
 	return
 }
 
-// @brief:
-//     create ssh.Signer from Certificate
-func createSshSignerCertificate(cert, key, pass string) (signer ssh.Signer, err error) {
+// create ssh.Signer from Certificate
+func createSshSignerCertificate(cert string, keySigner ssh.Signer) (signer ssh.Signer, err error) {
 	usr, _ := user.Current()
 	cert = strings.Replace(cert, "~", usr.HomeDir, 1)
-	key = strings.Replace(key, "~", usr.HomeDir, 1)
 
 	// Read Cert file
 	certData, err := ioutil.ReadFile(cert)
@@ -165,13 +169,6 @@ func createSshSignerCertificate(cert, key, pass string) (signer ssh.Signer, err 
 	certificate, ok := pubkey.(*ssh.Certificate)
 	if !ok {
 		err = fmt.Errorf("%s\n", "Error: Not create certificate struct data")
-		return signer, err
-	}
-
-	// create key signer
-	var keySigner ssh.Signer
-	keySigner, err = createSshSignerPublicKey(key, pass)
-	if err != nil {
 		return signer, err
 	}
 

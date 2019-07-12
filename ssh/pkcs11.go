@@ -10,6 +10,7 @@ import (
 	"golang.org/x/crypto/ssh"
 )
 
+// P11 struct for pkcs11 processing.
 type P11 struct {
 	Pkcs11Provider string
 	Ctx            *pkcs11.Ctx
@@ -21,6 +22,7 @@ type P11 struct {
 	Signers        []ssh.Signer
 }
 
+// Get return []crypto.Signer, do a series of processing.
 func (p *P11) Get() (cryptoSigners []crypto.Signer, err error) {
 	// create pkcs11 ctx
 	err = p.CreateCtx(p.Pkcs11Provider)
@@ -57,8 +59,7 @@ func (p *P11) Get() (cryptoSigners []crypto.Signer, err error) {
 	return
 }
 
-// @brief:
-// @NOTE: pkcs11Provider == PATH
+// CreateCtx create and into P11.Ctx
 func (p *P11) CreateCtx(pkcs11Provider string) (err error) {
 	ctx := pkcs11.New(pkcs11Provider)
 	err = ctx.Initialize()
@@ -69,6 +70,8 @@ func (p *P11) CreateCtx(pkcs11Provider string) (err error) {
 	return
 }
 
+// GetTokenLabel get pkcs11 token label. and into P11.Label.
+// Only one token is supported.
 func (p *P11) GetTokenLabel() (err error) {
 	slots, err := p.Ctx.GetSlotList(false)
 	if err != nil {
@@ -96,6 +99,7 @@ func (p *P11) GetTokenLabel() (err error) {
 	return
 }
 
+// GetPin prompt for PIN if P11.Pin is blank
 func (p *P11) GetPIN() (err error) {
 	if p.PIN == "" {
 		p.PIN, err = common.GetPassPhase("PKCS11 PIN:")
@@ -104,6 +108,7 @@ func (p *P11) GetPIN() (err error) {
 	return
 }
 
+// RecreateCtx exchange PKCS11.Ctx with PIN accessible ctx
 func (p *P11) RecreateCtx(pkcs11Provider string) (err error) {
 	p.Ctx.Destroy()
 	config := &crypto11.PKCS11Config{
@@ -127,6 +132,7 @@ func (p *P11) RecreateCtx(pkcs11Provider string) (err error) {
 	return
 }
 
+// GetKeyID acquire KeyID via PKCS11 and store it in P11 structure.
 func (p *P11) GetKeyID() (err error) {
 	findTemplate := []*pkcs11.Attribute{
 		pkcs11.NewAttribute(pkcs11.CKA_ID, true), // KeyID
@@ -155,6 +161,7 @@ func (p *P11) GetKeyID() (err error) {
 	return
 }
 
+// GetCryptoSigner return []crypto.Signer
 func (p *P11) GetCryptoSigner() (signers []crypto.Signer, err error) {
 	c11Session := &crypto11.PKCS11Session{p.Ctx, p.SessionHandle}
 	for _, keyID := range p.KeyID {

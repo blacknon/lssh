@@ -1,3 +1,7 @@
+/*
+check is a package used mainly for check processing required by lssh, content check of configuration file.
+*/
+
 package check
 
 import (
@@ -7,7 +11,6 @@ import (
 )
 
 // ExistServer returns true if inputServer exists in nameList.
-// @brief
 func ExistServer(inputServer []string, nameList []string) bool {
 	for _, nv := range nameList {
 		for _, iv := range inputServer {
@@ -25,15 +28,13 @@ func ExistServer(inputServer []string, nameList []string) bool {
 // A scp location is `local (l)` or `remote (r)`.
 //
 // arg examples:
-//
-//   local:/tmp/a.txt
-//   l:/tmp/a.txt
-//
-//   remote:/tmp/a.txt
-//   r:/tmp/a.txt
-//
-// @brief:
-//    parse lscp args path
+//    Local path:
+//        local:/tmp/a.txt
+//        l:/tmp/a.txt
+//        /tmp/a.txt
+//    Remote path:
+//        remote:/tmp/a.txt
+//        r:/tmp/a.txt
 func ParseScpPath(arg string) (isRemote bool, path string) {
 	argArray := strings.SplitN(arg, ":", 2)
 
@@ -79,8 +80,6 @@ func EscapePath(str string) (escapeStr string) {
 }
 
 // CheckTypeError validates from-remote, from-local, to-remote and host-counts.
-// @brief
-//    check type.
 func CheckTypeError(isFromInRemote, isFromInLocal, isToRemote bool, countHosts int) {
 	// from in local and remote
 	if isFromInRemote && isFromInLocal {

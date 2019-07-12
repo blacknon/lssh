@@ -1,3 +1,6 @@
+/*
+list package creates a TUI list based on the contents specified in a structure, and returns the selected row.
+*/
 package list
 
 import (
@@ -10,6 +13,15 @@ import (
 	termbox "github.com/nsf/termbox-go"
 )
 
+// TODO(blacknon):
+//     - 外部のライブラリとして外出しする
+//     - tomlやjsonなどを渡して、出力項目を指定できるようにする
+//     - 指定した項目だけでの検索などができるようにする
+//     - 検索方法の充実化(regexでの検索など)
+//     - 内部でのウィンドウの実装
+//         - 項目について、更新や閲覧ができるようにする
+//     - キーバインドの設定変更
+
 // arrayContains returns that arr contains str.
 func arrayContains(arr []string, str string) bool {
 	for _, v := range arr {
@@ -20,7 +32,7 @@ func arrayContains(arr []string, str string) bool {
 	return false
 }
 
-// toggle select line (multi select)
+// Toggle the selected state of cursor line.
 func (l *ListInfo) toggle(newLine string) {
 	tmpList := []string{}
 
@@ -39,6 +51,7 @@ func (l *ListInfo) toggle(newLine string) {
 	l.SelectName = tmpList
 }
 
+// Toggle the selected state of the currently displayed list
 func (l *ListInfo) allToggle(allFlag bool) {
 	SelectedList := []string{}
 	allSelectedList := []string{} // WARN: is not used
@@ -74,7 +87,7 @@ func (l *ListInfo) getText() {
 	buffer := &bytes.Buffer{}
 	tabWriterBuffer := new(tabwriter.Writer)
 	tabWriterBuffer.Init(buffer, 0, 4, 8, ' ', 0)
-	fmt.Fprintln(tabWriterBuffer, "ServerName \tConnect Infomation \tNote \t")
+	fmt.Fprintln(tabWriterBuffer, "ServerName \tConnect Information \tNote \t")
 
 	// Create list table
 	for _, key := range l.NameList {
@@ -131,6 +144,7 @@ func (l *ListInfo) getFilterText() {
 	return
 }
 
+// View() display the list in TUI
 func (l *ListInfo) View() {
 	if err := termbox.Init(); err != nil {
 		panic(err)

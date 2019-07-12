@@ -12,9 +12,19 @@ import (
 	"golang.org/x/crypto/ssh/agent"
 )
 
+// CreateSshAgent create sshAgent and into Connecct.sshAgent
 func (c *Connect) CreateSshAgent() (err error) {
 	conf := c.Conf.Server[c.Server]
 	sshKeys := conf.SSHAgentKeyPath
+
+	// TODO(blacknon): Structureの項目をinterface化して分岐を統合する(v0.5.6)
+	//     // sample
+	//     switch sshAgent.(type) {
+	//     case agent.Agent :
+	//         hogehoge
+	//     case agent.ExtendedAgent :
+	//         fugafuga
+	//     }
 
 	// Get SSH_AUTH-SOCK
 	sock, err := net.Dial("unix", os.Getenv("SSH_AUTH_SOCK"))

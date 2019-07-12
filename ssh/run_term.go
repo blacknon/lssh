@@ -20,7 +20,7 @@ func (r *Run) term() (err error) {
 	c := new(Connect)
 	c.Server = server
 	c.Conf = r.Conf
-	c.AuthMap = r.AuthMap // @TODO: 特に問題ないだろうが、必要なSignerだけを渡すようにしたほうがいいかも？
+	c.AuthMap = r.AuthMap // TODO(blacknon): 特に問題ないだろうが、必要なSignerだけを渡すようにしたほうがいいかも？要検討。
 	serverConf := c.Conf.Server[c.Server]
 
 	// print header
@@ -32,6 +32,10 @@ func (r *Run) term() (err error) {
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "cannot connect %v, %v \n", c.Server, err)
 		return err
+	}
+
+	if r.IsX11 || c.X11 {
+		c.X11Forwarder(session)
 	}
 
 	// setup terminal log
@@ -53,7 +57,7 @@ func (r *Run) term() (err error) {
 	}
 
 	if c.IsLocalRc {
-		fmt.Fprintf(os.Stderr, "Infomation    :This connect use local bashrc. \n")
+		fmt.Fprintf(os.Stderr, "Information   :This connect use local bashrc. \n")
 		if len(serverConf.LocalRcPath) > 0 {
 			c.LocalRcData, err = common.GetFilesBase64(serverConf.LocalRcPath)
 			if err != nil {
@@ -101,7 +105,7 @@ func (r *Run) term() (err error) {
 
 	// ssh-agent
 	if serverConf.SSHAgentUse {
-		fmt.Fprintf(os.Stderr, "Infomation    :This connect use ssh agent. \n")
+		fmt.Fprintf(os.Stderr, "Information   :This connect use ssh agent. \n")
 
 		// forward agent
 		_, err := net.Dial("unix", os.Getenv("SSH_AUTH_SOCK"))

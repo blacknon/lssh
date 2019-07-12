@@ -1,4 +1,5 @@
-[![CircleCI](https://circleci.com/gh/blacknon/lssh.svg?style=svg)](https://circleci.com/gh/blacknon/lssh)
+[![TravisCI](https://travis-ci.org/blacknon/lssh.svg?branch=master)](https://travis-ci.org/blacknon/lssh)
+[![Go Report Card](https://goreportcard.com/badge/github.com/blacknon/lssh)](https://goreportcard.com/report/github.com/blacknon/lssh)
 
 lssh
 ====
@@ -7,21 +8,22 @@ TUI list select ssh/scp client.
 
 ## Description
 
-command to read a prepared list in advance and connect ssh/scp the selected host. List file is set in yaml format. When selecting a host, you can filter by keywords. Can execute commands concurrently to multiple hosts. Supported multiple ssh proxy, and supported http/socks5 proxy.
+command to read a prepared list in advance and connect ssh/scp the selected host. List file is set in yaml format. When selecting a host, you can filter by keywords. Can execute commands concurrently to multiple hosts. Supported multiple ssh proxy, http/socks5 proxy, x11 forward, and port forwarding.
 
 ## Features
 
 * List selection type ssh client.
 * Pure Go.
 * Commands can be executed by ssh connection in parallel.
-* Supported multiple proxy.
+* Supported ssh multiple proxy, http/socks5 proxy.
 * Supported ssh-agent.
+* Supported Port forward, x11 forward.
 * Can use bashrc of local machine at ssh connection destination.
 
 ## Demo
 
 <p align="center">
-<img src="./example/lssh.gif" />
+<img src="./images/lssh.gif" />
 </p>
 
 ## Requirement
@@ -37,20 +39,25 @@ compile gofile(tested go1.12.4).
     go get -u github.com/blacknon/lssh/cmd/lssh
     go get -u github.com/blacknon/lssh/cmd/lscp
 
+    # copy sample config. create `~/.lssh.conf`.
+    test -f ~/.lssh.conf||curl -s https://raw.githubusercontent.com/blacknon/lssh/master/example/config.tml -o ~/.lssh.conf
+
 or
 
+    git clone https://github.com/blacknon/lssh
+    cd lssh
     make && sudo make install
+
+    # copy sample config. create `~/.lssh.conf`.
+    test -f ~/.lssh.conf||curl -s https://raw.githubusercontent.com/blacknon/lssh/master/example/config.tml -o ~/.lssh.conf
 
 brew install(Mac OS X)
 
 	brew tap blacknon/lssh
 	brew install lssh
 
-	# generate .lssh.conf(not use ~/.ssh/config)
-	curl -s https://raw.githubusercontent.com/blacknon/lssh/master/example/config.tml | cp -n <(cat) ~/.lssh.conf # copy sample config file
-
-	# generate .lssh.conf(use ~/.ssh/config.not support proxy)
-	lssh --generate > ~/.lssh.conf
+	# copy sample config. create `~/.lssh.conf`.
+	test -f ~/.lssh.conf||curl -s https://raw.githubusercontent.com/blacknon/lssh/master/example/config.tml -o ~/.lssh.conf
 
 ## Config
 
@@ -73,14 +80,14 @@ option(lssh)
 	
 	OPTIONS:
 	    --host value, -H value      connect servernames
-	    --file value, -f value      config file path (default: "/Users/blacknon/.lssh.conf")
+	    --file value, -f value      config file path (default: "/Users/uesugi/.lssh.conf")
 	    --portforward-local value   port forwarding local port(ex. 127.0.0.1:8080)
 	    --portforward-remote value  port forwarding remote port(ex. 127.0.0.1:80)
 	    --list, -l                  print server list from config
 	    --term, -t                  run specified command at terminal
 	    --shell, -s                 use lssh shell (Beta)
 	    --parallel, -p              run command parallel node(tail -F etc...)
-	    --generate                  (beta) generate .lssh.conf from .ssh/config.(not support ProxyCommand)
+	    --x11, -X                   x11 forwarding(forward to ${DISPLAY})
 	    --help, -h                  print this help
 	    --version, -v               print the version
 	
@@ -88,7 +95,7 @@ option(lssh)
 	    blacknon(blacknon@orebibou.com)
 	
 	VERSION:
-	    0.5.5
+	    0.5.6
 	
 	USAGE:
 	    # connect ssh
@@ -98,7 +105,7 @@ option(lssh)
 	    lssh -p command...
 	
 	    # parallel run command in select server over ssh, do it interactively.
-	    lssh -s command...
+	    lssh -s
 
 
 option(lscp)
@@ -111,7 +118,7 @@ option(lscp)
 	OPTIONS:
 	    --host value, -H value  connect servernames
 	    --list, -l              print server list from config
-	    --file value, -f value  config file path (default: "/Users/blacknon/.lssh.conf")
+	    --file value, -f value  config file path (default: "/Users/uesugi/.lssh.conf")
 	    --permission, -p        copy file permission
 	    --help, -h              print this help
 	    --version, -v           print the version
@@ -120,7 +127,7 @@ option(lscp)
 	    blacknon(blacknon@orebibou.com)
 	
 	VERSION:
-	    0.5.5
+	    0.5.6
 	
 	USAGE:
 	    # local to remote scp
@@ -132,7 +139,7 @@ option(lscp)
 	    # remote to remote scp
 	    lscp remote:/path/to/remote... remote:/path/to/local
 
-If you specify a command as an argument, you can select multiple hosts. Select host 'Tab', select all displayed hosts 'Ctrl + A'.
+If you specify a command as an argument, you can select multiple hosts. Select host <kbd>Tab</kbd>, select all displayed hosts <kbd>Ctrl</kbd> + <kbd>a</kbd>.
 
 
 ### 1. [lssh] connect terminal
@@ -141,14 +148,14 @@ If you specify a command as an argument, you can select multiple hosts. Select h
 You can connect to the terminal like a normal ssh command (OpenSSH).
 
 <p align="center">
-<img src="./example/1-1.gif" />
+<img src="./images/1-1.gif" />
 </p>
 
 
 You can connect using a local bashrc file (if ssh login shell is bash).
 
 <p align="center">
-<img src="./example/1-2.gif" />
+<img src="./images/1-2.gif" />
 </p>
 
 `~/.lssh.conf` example.
@@ -170,10 +177,10 @@ You can connect using a local bashrc file (if ssh login shell is bash).
 You can execute commands before and after ssh connection.\
 You can also change the color of each host's terminal by combining it with the OSC escape sequence.
 
-if iTerm 2, you can also change the profile.
+if iTerm2, you can also change the profile.
 
 <p align="center">
-<img src="./example/1-3.gif" />
+<img src="./images/1-3.gif" />
 </p>
 
 
@@ -204,7 +211,7 @@ It is possible to execute by specifying command in argument.\
 Parallel execution can be performed by adding the `-p` option.
 
 <p align="center">
-<img src="./example/2-1.gif" />
+<img src="./images/2-1.gif" />
 </p>
 
 	# exec command over ssh.
@@ -217,14 +224,14 @@ Parallel execution can be performed by adding the `-p` option.
 In parallel connection mode (`-p` option), Stdin can be sent to each host.\
 
 <p align="center">
-<img src="./example/2-2.gif" />
+<img src="./images/2-2.gif" />
 </p>
 
 
 Can be piped to send Stdin.
 
 <p align="center">
-<img src="./example/2-3.gif" />
+<img src="./images/2-3.gif" />
 </p>
 
 	# You can pass values ​​in a pipe
@@ -239,7 +246,7 @@ Can be piped to send Stdin.
 You can send commands to multiple servers interactively.
 
 <p align="center">
-<img src="./example/3-1.gif" />
+<img src="./images/3-1.gif" />
 </p>
 
 	# lssh shell connect
@@ -279,6 +286,13 @@ You can select multiple connection destinations.
 
 Load and use `~/.ssh/config` by default.\
 `ProxyCommand` can also be used.
+
+Alternatively, you can specify and read the path as follows: In addition to the path, ServerConfig items can be specified and applied collectively.
+
+	[sshconfig.default]
+	path = "~/.ssh/config"
+	pre_cmd = 'printf "\033]50;SetProfile=local\a"'
+	post_cmd = 'printf "\033]50;SetProfile=Default\a"'
 
 </details>
 
