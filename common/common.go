@@ -205,10 +205,10 @@ func RandomString(n int) string {
 	return string(b)
 }
 
-func GetAbsPath(path string) string {
-	// Replace home directory
-	usr, _ := user.Current()
-	path = strings.Replace(path, "~", usr.HomeDir, 1)
+// func GetAbsPath(path string) string {
+// 	// Replace home directory
+// 	usr, _ := user.Current()
+// 	path = strings.Replace(path, "~", usr.HomeDir, 1)
 
-	return filepath.Abs(path)
-}
+// 	return filepath.Abs(path)
+// }
