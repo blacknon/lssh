@@ -31,6 +31,7 @@ func (c *Connect) CreateSshAgent() (err error) {
 	if err != nil {
 		// declare sshAgent(Agent)
 		sshAgent := agent.NewKeyring()
+
 		for _, keyPathData := range sshKeys {
 			key, err := parseKeyArray(keyPathData)
 			if err != nil {

@@ -153,15 +153,15 @@ func (r *Run) setTerminalLog(preSession *ssh.Session, server string) (session *s
 		// log enable/disable timestamp
 		if logConf.Timestamp {
 			r.OutputData = new(bytes.Buffer)
-			session.Stdout = io.MultiWriter(os.Stdout, r.OutputData)
-			session.Stderr = io.MultiWriter(os.Stderr, r.OutputData)
+			session.Stdout = io.MultiWriter(session.Stdout, r.OutputData)
+			session.Stderr = io.MultiWriter(session.Stderr, r.OutputData)
 
 			// log writer
 			go r.writeTimestampTerminalLog(logPath)
 		} else {
 			logWriter, _ := os.OpenFile(logPath, os.O_WRONLY|os.O_APPEND|os.O_CREATE, 0600)
-			session.Stdout = io.MultiWriter(os.Stdout, logWriter)
-			session.Stderr = io.MultiWriter(os.Stderr, logWriter)
+			session.Stdout = io.MultiWriter(session.Stdout, logWriter)
+			session.Stderr = io.MultiWriter(session.Stderr, logWriter)
 		}
 	}
 

@@ -7,6 +7,7 @@ import (
 	"net"
 	"os"
 	"os/signal"
+	"runtime"
 	"strings"
 	"syscall"
 	"time"
@@ -341,19 +342,21 @@ func (c *Connect) ConTerm(session *ssh.Session) (err error) {
 	}
 
 	// Terminal resize
-	signal_chan := make(chan os.Signal, 1)
-	signal.Notify(signal_chan, syscall.SIGWINCH)
-	go func() {
-		for {
-			s := <-signal_chan
-			switch s {
-			case syscall.SIGWINCH:
-				fd := int(os.Stdout.Fd())
-				width, height, _ = terminal.GetSize(fd)
-				session.WindowChange(height, width)
+	if runtime.GOOS != "windows" {
+		signal_chan := make(chan os.Signal, 1)
+		signal.Notify(signal_chan, syscall.Signal(0x1c))
+		go func() {
+			for {
+				s := <-signal_chan
+				switch s {
+				case syscall.Signal(0x1c):
+					fd := int(os.Stdout.Fd())
+					width, height, _ = terminal.GetSize(fd)
+					session.WindowChange(height, width)
+				}
 			}
-		}
-	}()
+		}()
+	}
 
 	// keep alive packet
 	go c.SendKeepAlive(session)
