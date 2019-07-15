@@ -8,8 +8,8 @@ import (
 	"io/ioutil"
 	"os"
 	"os/exec"
+	"runtime"
 	"strings"
-	"syscall"
 	"time"
 
 	"github.com/blacknon/lssh/conf"
@@ -27,7 +27,7 @@ type Run struct {
 	PortForwardLocal  string
 	PortForwardRemote string
 	ExecCmd           []string
-	StdinData         []byte
+	StdinData         []byte        // 使ってる
 	InputData         []byte        // @TODO: Delete???
 	OutputData        *bytes.Buffer // use terminal log
 	AuthMap           map[AuthKey][]ssh.Signer
@@ -61,8 +61,13 @@ const (
 // Start ssh connect
 func (r *Run) Start() {
 	// Get stdin data(pipe)
-	if !terminal.IsTerminal(syscall.Stdin) {
-		r.StdinData, _ = ioutil.ReadAll(os.Stdin)
+	if runtime.GOOS != "windows" {
+		// Windowsではまた別の動作になるかも？？
+		// ひとまず、Windowsの場合は無視させてみる
+		stdin := 0
+		if !terminal.IsTerminal(stdin) {
+			r.StdinData, _ = ioutil.ReadAll(os.Stdin)
+		}
 	}
 
 	// create AuthMap
