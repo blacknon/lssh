@@ -33,7 +33,6 @@ func (c *Connect) createSshAuth(server string) (auth []ssh.AuthMethod, err error
 				for _, signer := range c.AuthMap[authKey] {
 					if signer != nil {
 						authMethod := ssh.PublicKeys(signer)
-						ssh.PublicKeys(signers)
 						auth = append(auth, authMethod)
 					}
 				}
