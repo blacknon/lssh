@@ -6,6 +6,7 @@ import (
 	"os"
 	"runtime"
 
+	"github.com/blacknon/go-sshlib"
 	"github.com/blacknon/lssh/conf"
 	"golang.org/x/crypto/ssh"
 	"golang.org/x/crypto/ssh/terminal"
@@ -94,4 +95,22 @@ func (r *Run) Start() {
 	default:
 		return
 	}
+}
+
+func (r *Run) cmd() {
+	connect := &sshlib.Connect{}
+
+	if r.IsX11 {
+		connect.ForwardX11 = true
+	}
+
+}
+
+func (r *Run) shell() {
+	connect := &sshlib.Connect{}
+
+	if r.IsX11 {
+		connect.ForwardX11 = true
+	}
+
 }
