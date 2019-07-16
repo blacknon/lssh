@@ -10,7 +10,7 @@ import (
 
 // Create ssh.Signer into r.AuthMap. Passwords is not get this function.
 func (r *Run) createAuthMap() {
-	r.AuthMap = map[AuthKey][]ssh.Signer{}
+	r.AuthMap = map[AuthKey][]ssh.AuthMethod{}
 
 	for _, server := range r.ServerList {
 		// get server config
@@ -61,7 +61,26 @@ func (r *Run) createAuthMap() {
 
 		// Certificate
 		if config.Cert != "" {
+			keySigner, err := sshlib.CreateSignerPublicKeyPrompt(config.CertKey, config.CertKeyPass)
+			if err != nil {
+				fmt.Println(err)
+				continue
+			}
 
+			err = r.registAuthMapCertificate(config.Cert, keySigner)
+			if err != nil {
+				fmt.Println(err)
+				continue
+			}
+		}
+
+		// PKCS11
+		if config.PKCS11Use {
+			err = registAuthMapPKCS11(config.PKCS11Provider, config.PKCS11PIN)
+			if err != nil {
+				fmt.Println(err)
+				continue
+			}
 		}
 	}
 }
@@ -76,12 +95,16 @@ func (r *Run) registAuthMapPassword(password string) {
 
 //
 func (r *Run) registAuthMapPublicKey(key, password string) (err error) {
-	// TODO(blacknon): キー入力でのパスフレーズ取得を実装
-	authMethod, err := sshlib.CreateAuthMethodPublicKey(key, password)
+	// Create signer with key input
+	signer, err := sshlib.CreateSignerPublicKeyPrompt(key, password)
 	if err != nil {
 		return
 	}
 
+	// Create AuthMethod
+	authMethod := ssh.PublicKeys(signer)
+
+	// Regist AuthMethod to AuthMap
 	authKey := AuthKey{AUTHKEY_KEY, key}
 	r.AuthMap[authKey] = append(r.AuthMap[authKey], authMethod)
 }
@@ -96,4 +119,21 @@ func (r *Run) registAuthMapCertificate(cert string, signer ssh.Signer) (err erro
 
 	authKey := AuthKey{AUTHKEY_CERT, cert}
 	r.AuthMap[authKey] = append(r.AuthMap[authKey], authMethod)
+}
+
+func (r *Run) registAuthMapPKCS11(provider, pin string) (err error) {
+	// Create Signer with key input
+	signers, err := sshlib.CreateSignerPKCS11Prompt(provider, pin)
+	if err != nil {
+		return
+	}
+
+	authKey := AuthKey{AUTHKEY_PKCS11, provider}
+	for _, signer := range signers {
+		// Create AuthMethod
+		authMethod := ssh.PublicKeys(signer)
+
+		// Regist AuthMethod to AuthMap
+		r.AuthMap[authKey] = append(r.AuthMap[authKey], authMethod)
+	}
 }
