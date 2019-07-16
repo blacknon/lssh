@@ -54,7 +54,7 @@ USAGE:
 	app.Name = "lssh"
 	app.Usage = "TUI list select and parallel ssh client command."
 	app.Copyright = "blacknon(blacknon@orebibou.com)"
-	app.Version = "0.5.6"
+	app.Version = "0.6.0"
 
 	// TODO(blacknon): オプションの追加
 	//     -f      ... バックグラウンドでの接続(X11接続をバックグラウンドで実行する場合など)
@@ -71,7 +71,7 @@ USAGE:
 		cli.StringFlag{Name: "portforward-remote", Usage: "port forwarding remote port(ex. 127.0.0.1:80)"},
 		cli.BoolFlag{Name: "list,l", Usage: "print server list from config"},
 		cli.BoolFlag{Name: "term,t", Usage: "run specified command at terminal"},
-		cli.BoolFlag{Name: "shell,s", Usage: "use lssh shell (Beta)"},
+		cli.BoolFlag{Name: "parallel-shell,s", Usage: "use lssh shell (Beta)"},
 		cli.BoolFlag{Name: "parallel,p", Usage: "run command parallel node(tail -F etc...)"},
 		cli.BoolFlag{Name: "x11,X", Usage: "x11 forwarding(forward to ${DISPLAY})"},
 		cli.BoolFlag{Name: "help,h", Usage: "print this help"},
@@ -139,9 +139,9 @@ USAGE:
 		r := new(sshcmd.Run)
 		r.ServerList = selected
 		r.Conf = data
-		r.IsTerm = c.Bool("term")
+		r.IsShell = c.Bool("term")
 		r.IsParallel = c.Bool("parallel")
-		r.IsShell = c.Bool("shell")
+		r.IsParallelShell = c.Bool("shell")
 		r.ExecCmd = c.Args()
 		r.IsX11 = c.Bool("x11")
 
