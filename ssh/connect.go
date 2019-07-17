@@ -31,6 +31,7 @@ func (r *Run) createSshConnect(server string) (connect *sshlib.Connect, err erro
 		switch p.Type {
 		case "http", "https", "socks", "socks5":
 			c := config.Proxy[p.Name]
+
 			pxy := &sshlib.Proxy{
 				Type:      p.Type,
 				Forwarder: dialer,
@@ -130,6 +131,7 @@ proxyLoop:
 		p.Name = proxyName
 		switch proxyType {
 		case "http", "https", "socks", "socks5":
+			p.Type = proxyType
 		case "command":
 			p.Type = proxyType
 		default:
