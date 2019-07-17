@@ -5,12 +5,71 @@ import (
 
 	"github.com/blacknon/go-sshlib"
 	"github.com/blacknon/lssh/conf"
+	"golang.org/x/net/proxy"
 )
 
 // createSshConnect return *sshlib.Connect
 // this vaule in ssh.Client with proxy.
-func createSshConnect(server string, config conf.Config) (connect *sshlib.Connect, err error) {
-	serverConfig := config.Server[server]
+func (r *Run) createSshConnect(server string) (connect *sshlib.Connect, err error) {
+	proxyRoute, err := getProxyRoute(server, r.Conf)
+	if err != nil {
+		return
+	}
+
+	// Connect ssh-agent
+	r.agent = sshlib.ConnectSshAgent()
+
+	// setup dialer
+	var dialer proxy.Dialer
+	dialer = proxy.Direct
+
+	// Connect loop proxy server
+	for _, p := range proxyRoute {
+		config := r.Conf
+
+		switch p.Type {
+		case "http", "https", "socks", "socks5":
+			c := config.Proxy[p.Name]
+			pxy := &sshlib.Proxy{
+				Type:      p.Type,
+				Forwarder: dialer,
+				Addr:      c.Addr,
+				Port:      c.Port,
+				User:      c.User,
+				Password:  c.Pass,
+			}
+			dialer, err = pxy.CreateProxyDialer()
+		case "command":
+			pxy := &sshlib.Proxy{
+				Type:    p.Type,
+				Command: p.Name,
+			}
+			dialer, err = pxy.CreateProxyDialer()
+		default:
+			c := config.Server[p.Name]
+			pxy := &sshlib.Connect{
+				ProxyDialer: dialer,
+			}
+			err := pxy.CreateClient(c.Addr, c.Port, c.User, r.serverAuthMethodMap[p.Name])
+			if err != nil {
+				return connect, err
+			}
+
+			dialer = pxy.Client
+		}
+	}
+
+	// connect target server
+	s := r.Conf.Server[server]
+	connect = &sshlib.Connect{
+		ProxyDialer:  dialer,
+		ForwardAgent: s.SSHAgentUse,
+		Agent:        r.agent,
+		ForwardX11:   s.X11,
+	}
+
+	err = connect.CreateClient(s.Addr, s.Port, s.User, r.serverAuthMethodMap[server])
+	return
 }
 
 // proxy struct
@@ -22,73 +81,68 @@ type proxyRouteData struct {
 // getProxyList return []*pxy function.
 //
 func getProxyRoute(server string, config conf.Config) (proxyRoute []*proxyRouteData, err error) {
-	// conName ... connect server name in loop.
-	// conType ... connect server type in loop.
-	//             (ssh,http,https,socks,socks5)
-	// proxyName ... connect server's proxy name in loop.
-	// proxyType ... connect server's proxy type in loop.
 	var conName, conType string
 	var proxyName, proxyType string
+	var isOk bool
 
-	p := new(proxyRouteData)
-	p.Name = server
-	p.Type = "ssh"
+	conName = server
+	conType = "ssh"
 
-	proxyRoute = append(proxyRoute, p)
-
+proxyLoop:
 	for {
-		isOk := false
-
 		switch conType {
 		case "http", "https", "socks", "socks5":
 			var conConf conf.ProxyConfig
-			conConf, isOk := config.Proxy[conName]
+			conConf, isOk = config.Proxy[conName]
 			proxyName = conConf.Proxy
 			proxyType = conConf.ProxyType
-		case conType == "cmd":
-			break
+		case "command":
+			break proxyLoop
 		default:
 			var conConf conf.ServerConfig
-			conConf, isOk := config.Server[conName]
+			conConf, isOk = config.Server[conName]
 
-			if conConf.ProxyCommand != "" || conConf.ProxyCommand != "none" {
+			// If ProxyCommand is set, give priority to that
+			if conConf.ProxyCommand != "" && conConf.ProxyCommand != "none" {
+				// TODO(blacknon): %hなどの値を置き換えする処理を追加
 				proxyName = conConf.ProxyCommand
-				proxyType = "cmd"
+				proxyType = "command"
 			} else {
 				proxyName = conConf.Proxy
 				proxyType = conConf.ProxyType
 			}
 		}
 
-		// not use pre proxy
+		// not use proxy
 		if proxyName == "" {
 			break
 		}
 
+		//
 		if !isOk {
 			err = fmt.Errorf("Not Found proxy : %s", server)
-			return nil, nil, err
+			return nil, err
 		}
 
+		//
 		p := new(proxyRouteData)
 		p.Name = proxyName
 		switch proxyType {
 		case "http", "https", "socks", "socks5":
+		case "command":
 			p.Type = proxyType
 		default:
 			p.Type = "ssh"
 		}
 
-		proxyList = append(proxyList, p)
-		proxyType[proxy.Name] = proxy.Type
-
+		proxyRoute = append(proxyRoute, p)
 		conName = proxyName
 		conType = proxyType
 	}
 
-	// reverse proxyServers slice
-	for i, j := 0, len(proxyList)-1; i < j; i, j = i+1, j-1 {
-		proxyList[i], proxyList[j] = proxyList[j], proxyList[i]
+	// reverse proxy slice
+	for i, j := 0, len(proxyRoute)-1; i < j; i, j = i+1, j-1 {
+		proxyRoute[i], proxyRoute[j] = proxyRoute[j], proxyRoute[i]
 	}
 
 	return

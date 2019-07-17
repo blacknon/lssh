@@ -2,11 +2,11 @@ package ssh
 
 import (
 	"bytes"
+	"fmt"
 	"io/ioutil"
 	"os"
 	"runtime"
 
-	"github.com/blacknon/go-sshlib"
 	"github.com/blacknon/lssh/conf"
 	"golang.org/x/crypto/ssh"
 	"golang.org/x/crypto/ssh/terminal"
@@ -22,6 +22,15 @@ type Run struct {
 	//     - lsshshell
 	Mode string
 
+	// tty use
+	IsTerm bool
+
+	// parallel connect
+	IsParallel bool
+
+	// x11 forwarding
+	X11 bool
+
 	// PortForwarding
 	PortForwardLocal  string
 	PortForwardRemote string
@@ -31,7 +40,7 @@ type Run struct {
 
 	// Agent is ssh-agent.
 	// In agent.Agent or agent.ExtendedAgent.
-	agent interace
+	agent interface{}
 
 	// StdinData from pipe
 	stdinData []byte
@@ -78,11 +87,13 @@ const (
 
 // Start ssh connect
 func (r *Run) Start() {
+	var err error
+
 	// Get stdin data(pipe)
 	if runtime.GOOS != "windows" {
 		stdin := 0
 		if !terminal.IsTerminal(stdin) {
-			r.StdinData, _ = ioutil.ReadAll(os.Stdin)
+			r.stdinData, _ = ioutil.ReadAll(os.Stdin)
 		}
 	}
 
@@ -97,7 +108,7 @@ func (r *Run) Start() {
 
 	case r.Mode == "shell":
 		// connect remote shell
-		r.shell()
+		err = r.shell()
 
 	case r.Mode == "lsshshell":
 		// start lsshshell
@@ -106,13 +117,16 @@ func (r *Run) Start() {
 	default:
 		return
 	}
+
+	if err != nil {
+		fmt.Println(err)
+	}
 }
 
 func (r *Run) cmd() {
-	connect := &sshlib.Connect{}
+	fmt.Println("now working...")
+}
 
-	if r.IsX11 {
-		connect.ForwardX11 = true
-	}
-
+func (r *Run) lsshShell() {
+	fmt.Println("now working...")
 }
