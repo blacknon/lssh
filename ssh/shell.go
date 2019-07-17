@@ -2,23 +2,26 @@ package ssh
 
 import "fmt"
 
-func (r *Run) shell() {
+func (r *Run) shell() (err error) {
 	// server config
 	server := r.ServerList[0]
 	config := r.Conf.Server[server]
 
 	// Craete sshlib.Connect (Connect Proxy loop)
 	connect, err := r.createSshConnect(server)
+	if err != nil {
+		return
+	}
 
-	// x11 forwarding
-	if config.X11 {
-		connect.ForwardX11 = true
+	// Create session
+	session, err := connect.CreateSession()
+	if err != nil {
+		return
 	}
 
 	// ssh-agent
-	connect.ConnectSshAgent()
 	if config.SSHAgentUse {
-		connect.Agent = r.Agent
+		connect.Agent = r.agent
 		connect.ForwardSshAgent(session)
 	}
 
@@ -31,5 +34,7 @@ func (r *Run) shell() {
 	}
 
 	// Connect shell
-	connect.Shell()
+	connect.Shell(session)
+
+	return
 }

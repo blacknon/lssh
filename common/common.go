@@ -205,6 +205,19 @@ func RandomString(n int) string {
 	return string(b)
 }
 
+func GetUniqueSlice(data []string) (result []string) {
+	m := make(map[string]bool)
+
+	for _, ele := range data {
+		if !m[ele] {
+			m[ele] = true
+			result = append(result, ele)
+		}
+	}
+
+	return
+}
+
 // func GetAbsPath(path string) string {
 // 	// Replace home directory
 // 	usr, _ := user.Current()

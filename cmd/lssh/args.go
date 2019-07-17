@@ -139,11 +139,17 @@ USAGE:
 		r := new(sshcmd.Run)
 		r.ServerList = selected
 		r.Conf = data
-		r.IsShell = c.Bool("term")
-		r.IsParallel = c.Bool("parallel")
-		r.IsParallelShell = c.Bool("shell")
+		switch {
+		case c.Bool("shell") == true:
+			r.Mode = "lsshshell"
+		case len(c.Args()) > 0:
+			r.Mode = "cmd"
+		default:
+			r.Mode = "shell"
+		}
+
 		r.ExecCmd = c.Args()
-		r.IsX11 = c.Bool("x11")
+		r.X11 = c.Bool("x11")
 
 		r.PortForwardLocal = c.String("portforward-local")
 		r.PortForwardRemote = c.String("portforward-remote")
