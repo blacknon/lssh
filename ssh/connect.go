@@ -2,6 +2,7 @@ package ssh
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/blacknon/go-sshlib"
 	"github.com/blacknon/lssh/conf"
@@ -104,8 +105,8 @@ proxyLoop:
 
 			// If ProxyCommand is set, give priority to that
 			if conConf.ProxyCommand != "" && conConf.ProxyCommand != "none" {
-				// TODO(blacknon): %hなどの値を置き換えする処理を追加
-				proxyName = conConf.ProxyCommand
+
+				proxyName = expansionProxyCommand(conConf.ProxyCommand, conConf)
 				proxyType = "command"
 			} else {
 				proxyName = conConf.Proxy
@@ -146,4 +147,13 @@ proxyLoop:
 	}
 
 	return
+}
+
+func expansionProxyCommand(proxyCommand string, config conf.ServerConfig) string {
+	// replace variable
+	proxyCommand = strings.Replace(proxyCommand, "%h", config.Addr, -1)
+	proxyCommand = strings.Replace(proxyCommand, "%p", config.Port, -1)
+	proxyCommand = strings.Replace(proxyCommand, "%r", config.User, -1)
+
+	return proxyCommand
 }
