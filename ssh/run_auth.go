@@ -8,9 +8,13 @@ import (
 	"golang.org/x/crypto/ssh"
 )
 
-// Create ssh.Signer into r.AuthMap. Passwords is not get this function.
-func (r *Run) createAuthMap() {
-	r.AuthMap = map[AuthKey][]ssh.AuthMethod{}
+const SSH_AUTH_SOCK = "SSH_AUTH_SOCK"
+
+// createAuthMethodMap Create ssh.AuthMethod, into r.AuthMethodMap.
+func (r *Run) createAuthMethodMap() {
+	// Init r.AuthMethodMap
+	r.authMethodMap = map[AuthKey][]ssh.AuthMethod{}
+	r.serverAuthMethodMap = map[string][]ssh.AuthMethod{}
 
 	for _, server := range r.ServerList {
 		// get server config
@@ -18,19 +22,19 @@ func (r *Run) createAuthMap() {
 
 		// Password
 		if config.Pass != "" {
-			r.registAuthMapPassword(config.Pass)
+			r.registAuthMapPassword(server, config.Pass)
 		}
 
 		// Multiple Password
 		if len(config.Passes) > 0 {
 			for _, pass := range config.Passes {
-				r.registAuthMapPassword(pass)
+				r.registAuthMapPassword(server, pass)
 			}
 		}
 
 		// PublicKey
 		if config.Key != "" {
-			err := r.registAuthMapPublicKey(config.Key, config.KeyPass)
+			err := r.registAuthMapPublicKey(server, config.Key, config.KeyPass)
 			if err != nil {
 				fmt.Println(err)
 				continue
@@ -51,7 +55,7 @@ func (r *Run) createAuthMap() {
 				}
 
 				//
-				err := r.registAuthMapPublicKey(keyName, keyPass)
+				err := r.registAuthMapPublicKey(server, keyName, keyPass)
 				if err != nil {
 					fmt.Println(err)
 					continue
@@ -74,6 +78,10 @@ func (r *Run) createAuthMap() {
 			}
 		}
 
+		// ssh-agent
+		if config.AgentAuth {
+		}
+
 		// PKCS11
 		if config.PKCS11Use {
 			err = registAuthMapPKCS11(config.PKCS11Provider, config.PKCS11PIN)
@@ -86,54 +94,109 @@ func (r *Run) createAuthMap() {
 }
 
 //
-func (r *Run) registAuthMapPassword(password string) {
-	authMethod := sshlib.CreateAuthMethodPassword(password)
+func (r *Run) SetupSshAgent() {
+	// Connect ssh-agent
+	r.Agent = sshlib.ConnectSshAgent()
+}
 
+//
+func (r *Run) registAuthMapPassword(server, password string) {
 	authKey := AuthKey{AUTHKEY_PASSWORD, password}
-	r.AuthMap[authKey] = append(r.AuthMap[authKey], authMethod)
+	if _, ok := r.AuthMethodMap[authKey]; !ok {
+		authMethod := sshlib.CreateAuthMethodPassword(password)
+
+		// Regist AuthMethod to authMethodMap
+		r.authMethodMap[authKey] = append(r.authMethodMap[authKey], authMethod)
+	}
+
+	// Regist AuthMethod to serverAuthMethodMap from authMethodMap
+	r.serverAuthMethodMap[server] = append(r.serverAuthMethodMap[server], r.authMethodMap[authKey])
 }
 
 //
-func (r *Run) registAuthMapPublicKey(key, password string) (err error) {
-	// Create signer with key input
-	signer, err := sshlib.CreateSignerPublicKeyPrompt(key, password)
-	if err != nil {
-		return
-	}
-
-	// Create AuthMethod
-	authMethod := ssh.PublicKeys(signer)
-
-	// Regist AuthMethod to AuthMap
+func (r *Run) registAuthMapPublicKey(server, key, password string) (err error) {
 	authKey := AuthKey{AUTHKEY_KEY, key}
-	r.AuthMap[authKey] = append(r.AuthMap[authKey], authMethod)
-}
+	if _, ok := r.AuthMethodMap[authKey]; !ok {
+		// Create signer with key input
+		signer, err := sshlib.CreateSignerPublicKeyPrompt(key, password)
+		if err != nil {
+			return
+		}
 
-//
-func (r *Run) registAuthMapCertificate(cert string, signer ssh.Signer) (err error) {
-	// TODO(blacknon): キー入力でのパスフレーズ取得を実装
-	authMethod, err := sshlib.CreateAuthMethodCertificate(cert, keySigner)
-	if err != nil {
-		returnn
-	}
-
-	authKey := AuthKey{AUTHKEY_CERT, cert}
-	r.AuthMap[authKey] = append(r.AuthMap[authKey], authMethod)
-}
-
-func (r *Run) registAuthMapPKCS11(provider, pin string) (err error) {
-	// Create Signer with key input
-	signers, err := sshlib.CreateSignerPKCS11Prompt(provider, pin)
-	if err != nil {
-		return
-	}
-
-	authKey := AuthKey{AUTHKEY_PKCS11, provider}
-	for _, signer := range signers {
 		// Create AuthMethod
 		authMethod := ssh.PublicKeys(signer)
 
-		// Regist AuthMethod to AuthMap
-		r.AuthMap[authKey] = append(r.AuthMap[authKey], authMethod)
+		// Regist AuthMethod to authMethodMap
+		r.authMethodMap[authKey] = append(r.authMethodMap[authKey], authMethod)
 	}
+
+	// Regist AuthMethod to serverAuthMethodMap from authMethodMap
+	r.serverAuthMethodMap[server] = append(r.serverAuthMethodMap[server], r.authMethodMap[authKey])
+
+	return
+}
+
+//
+func (r *Run) registAuthMapCertificate(server, cert string, signer ssh.Signer) (err error) {
+	authKey := AuthKey{AUTHKEY_CERT, cert}
+	if _, ok := r.AuthMethodMap[authKey]; !ok {
+		authMethod, err := sshlib.CreateAuthMethodCertificate(cert, keySigner)
+		if err != nil {
+			returnn
+		}
+
+		// Regist AuthMethod to authMethodMap
+		r.authMethodMap[authKey] = append(r.authMethodMap[authKey], authMethod)
+	}
+
+	// Regist AuthMethod to serverAuthMethodMap from authMethodMap
+	r.serverAuthMethodMap[server] = append(r.serverAuthMethodMap[server], r.authMethodMap[authKey])
+
+	return
+}
+
+//
+func (r *Run) registAuthMapAgent() (err error) {
+	authKey := AuthKey{AUTHKEY_AGENT, SSH_AUTH_SOCK}
+	if _, ok := r.AuthMethodMap[authKey]; !ok {
+		signers, err := sshlib.CreateSignerAgent(r.Agent)
+		if err != nil {
+			return
+		}
+
+		for _, signer := range signers {
+			authMethod := ssh.PublicKeys(signer)
+			r.AuthMethodMap[authKey] = append(r.AuthMethodMap[authKey], authMethod)
+		}
+	}
+
+	// Regist AuthMethod to serverAuthMethodMap from authMethodMap
+	r.serverAuthMethodMap[server] = append(r.serverAuthMethodMap[server], r.authMethodMap[authKey])
+
+	return
+}
+
+//
+func (r *Run) registAuthMapPKCS11(provider, pin string) (err error) {
+	authKey := AuthKey{AUTHKEY_PKCS11, provider}
+	if _, ok := r.AuthMethodMap[authKey]; !ok {
+		// Create Signer with key input
+		signers, err := sshlib.CreateSignerPKCS11Prompt(provider, pin)
+		if err != nil {
+			return
+		}
+
+		for _, signer := range signers {
+			// Create AuthMethod
+			authMethod := ssh.PublicKeys(signer)
+
+			// Regist AuthMethod to AuthMethodMap
+			r.AuthMethodMap[authKey] = append(r.AuthMethodMap[authKey], authMethod)
+		}
+	}
+
+	// Regist AuthMethod to serverAuthMethodMap from authMethodMap
+	r.serverAuthMethodMap[server] = append(r.serverAuthMethodMap[server], r.authMethodMap[authKey])
+
+	return
 }
