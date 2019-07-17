@@ -2,6 +2,7 @@ package ssh
 
 import (
 	"fmt"
+	sshkeys "github.com/ScaleFT/sshkeys"
 	"io/ioutil"
 	"os"
 	"os/user"
@@ -123,7 +124,7 @@ func createSshSignerPublicKey(key, pass string) (signer ssh.Signer, err error) {
 	}
 
 	if pass != "" {
-		signer, err = ssh.ParsePrivateKeyWithPassphrase(keyData, []byte(pass))
+		signer, err = sshkeys.ParseEncryptedPrivateKey(keyData, []byte(pass))
 	} else {
 		rgx := regexp.MustCompile(`cannot decode`)
 		signer, err = ssh.ParsePrivateKey(keyData)
@@ -134,7 +135,7 @@ func createSshSignerPublicKey(key, pass string) (signer ssh.Signer, err error) {
 				for i := 0; i < rep; i++ {
 					pass, _ = common.GetPassPhase(msg)
 					pass = strings.TrimRight(pass, "\n")
-					sshSigner, err := ssh.ParsePrivateKeyWithPassphrase(keyData, []byte(pass))
+					sshSigner, err := sshkeys.ParseEncryptedPrivateKey(keyData, []byte(pass))
 					signer = sshSigner
 					if err == nil {
 						break

@@ -17,7 +17,7 @@ func createClientViaProxy(config conf.ServerConfig, sshConf *ssh.ClientConfig, p
 	switch {
 	// direct connect ssh proxy
 	case (proxyClient == nil) && (dialer == nil):
-		if config.ProxyCommand == "" { // not set ProxyCommand
+		if config.ProxyCommand == "" || config.ProxyCommand == "none" { // not set ProxyCommand
 			client, err = ssh.Dial("tcp", net.JoinHostPort(config.Addr, config.Port), sshConf)
 		} else { // set ProxyCommand
 			client, err = createClientViaProxyCommand(config, sshConf)
