@@ -2,6 +2,7 @@ package ssh
 
 import (
 	"fmt"
+	sshkeys "github.com/ScaleFT/sshkeys"
 	"io/ioutil"
 	"net"
 	"os"
@@ -95,7 +96,7 @@ func parseKeyArray(keyPathStr string) (key interface{}, err error) {
 
 	// parse key data
 	if len(keyArray) > 1 {
-		key, err = ssh.ParseRawPrivateKeyWithPassphrase(keyData, []byte(keyArray[1]))
+		key, err = sshkeys.ParseEncryptedPrivateKey(keyData, []byte(keyArray[1]))
 	} else {
 		key, err = ssh.ParseRawPrivateKey(keyData)
 	}
