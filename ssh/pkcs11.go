@@ -102,7 +102,7 @@ func (p *P11) GetTokenLabel() (err error) {
 // GetPin prompt for PIN if P11.Pin is blank
 func (p *P11) GetPIN() (err error) {
 	if p.PIN == "" {
-		p.PIN, err = common.GetPassPhase("PKCS11 PIN:")
+		p.PIN, err = common.GetPassPhrase("PKCS11 PIN:")
 	}
 
 	return

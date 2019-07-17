@@ -81,7 +81,7 @@ func (c *Connect) CreateSshAgent() (err error) {
 func parseKeyArray(keyPathStr string) (key interface{}, err error) {
 	// parse ssh key strings
 	//    * keyPathArray[0] ... KeyPath
-	//    * keyPathArray[1] ... KeyPassPhase
+	//    * keyPathArray[1] ... KeyPassPhrase
 	keyArray := strings.SplitN(keyPathStr, "::", 2)
 
 	// key path to fullpath

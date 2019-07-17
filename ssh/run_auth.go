@@ -130,10 +130,10 @@ func createSshSignerPublicKey(key, pass string) (signer ssh.Signer, err error) {
 		signer, err = ssh.ParsePrivateKey(keyData)
 		if err != nil {
 			if rgx.MatchString(err.Error()) {
-				msg := key + "'s passphase:"
+				msg := key + "'s passphrase:"
 
 				for i := 0; i < rep; i++ {
-					pass, _ = common.GetPassPhase(msg)
+					pass, _ = common.GetPassPhrase(msg)
 					pass = strings.TrimRight(pass, "\n")
 					sshSigner, err := sshkeys.ParseEncryptedPrivateKey(keyData, []byte(pass))
 					signer = sshSigner

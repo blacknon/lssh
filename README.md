@@ -439,8 +439,8 @@ Besides this, you can also specify ProxyCommand like OpenSSH.
 	addr = "password_auth.local"
 	user = "user"
 	key = "~/path/to/key"
-	keypass = "passphase"
-	note = "Public key auth server with passphase"
+	keypass = "passphrase"
+	note = "Public key auth server with passphrase"
 
 
 `cert` auth example.\
@@ -458,8 +458,8 @@ Besides this, you can also specify ProxyCommand like OpenSSH.
 	user = "user"
 	cert = "~/path/to/cert"
 	certkey = "~/path/to/certkey"
-	certkeypass = "passphase"
-	note = "Certificate auth server with passphase"
+	certkeypass = "passphrase"
+	note = "Certificate auth server with passphrase"
 
 
 `pkcs11` auth example.
