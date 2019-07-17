@@ -2,8 +2,6 @@ package ssh
 
 import (
 	"fmt"
-
-	"golang.org/x/crypto/ssh"
 )
 
 func (r *Run) shell() (err error) {
@@ -57,16 +55,17 @@ func (r *Run) shell() (err error) {
 }
 
 // runLocalRcShell connect to remote shell using local bashrc
-func shellLocalRC(session *ssh.Session, localrc string, decoder string) (err error) {
-	// command
-	cmd := fmt.Sprintf("bash --rcfile <(echo %s|((base64 --help | grep -q coreutils) && base64 -d <(cat) || base64 -D <(cat) ))", c.LocalRcData)
+// func shellLocalRC(session *ssh.Session, localrcPath string, decoder string) (err error) {
 
-	// decode command
-	if len(c.LocalRcDecodeCmd) > 0 {
-		cmd = fmt.Sprintf("bash --rcfile <(echo %s | %s)", c.LocalRcData, c.LocalRcDecodeCmd)
-	}
+// 	// command
+// 	cmd := fmt.Sprintf("bash --rcfile <(echo %s|((base64 --help | grep -q coreutils) && base64 -d <(cat) || base64 -D <(cat) ))", c.LocalRcData)
 
-	err = session.Start(cmd)
+// 	// decode command
+// 	if len(c.LocalRcDecodeCmd) > 0 {
+// 		cmd = fmt.Sprintf("bash --rcfile <(echo %s | %s)", c.LocalRcData, c.LocalRcDecodeCmd)
+// 	}
 
-	return session, err
-}
+// 	err = session.Start(cmd)
+
+// 	return session, err
+// }
