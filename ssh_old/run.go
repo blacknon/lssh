@@ -36,23 +36,24 @@ type Run struct {
 // Auth map key
 type AuthKey struct {
 	// auth type:
-	//   - key
-	//   - cert
-	//   - pkcs11
+	//     - agent
+	//     - key
+	//     - cert
+	//     - pkcs11
 	Type string
 
 	// auth type value:
-	//   - key(path)
-	//     ex.) ~/.ssh/id_rsa
-	//   - cert(path)
-	//     ex.) ~/.ssh/id_rsa.crt
-	//   - pkcs11(libpath)
-	//     ex.) /usr/local/lib/opensc-pkcs11.so
+	//     - key(path)
+	//       ex.) ~/.ssh/id_rsa
+	//     - cert(path)
+	//       ex.) ~/.ssh/id_rsa.crt
+	//     - pkcs11(libpath)
+	//       ex.) /usr/local/lib/opensc-pkcs11.so
 	Value string
 }
 
 const (
-	// AUTHKEY_AGENT  = "agent"
+	AUTHKEY_AGENT  = "agent"
 	AUTHKEY_KEY    = "key"
 	AUTHKEY_CERT   = "cert"
 	AUTHKEY_PKCS11 = "pkcs11"
@@ -69,6 +70,9 @@ func (r *Run) Start() {
 			r.StdinData, _ = ioutil.ReadAll(os.Stdin)
 		}
 	}
+
+	// init ssh-agent
+	r.SetupSshAgent()
 
 	// create AuthMap
 	r.createAuthMap()

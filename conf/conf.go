@@ -124,11 +124,13 @@ type ServerConfig struct {
 
 // Struct that stores Proxy server settings connected via http and socks5.
 type ProxyConfig struct {
-	Addr string `toml:"addr"`
-	Port string `toml:"port"`
-	User string `toml:"user"`
-	Pass string `toml:"pass"`
-	Note string `toml:"note"`
+	Addr      string `toml:"addr"`
+	Port      string `toml:"port"`
+	User      string `toml:"user"`
+	Pass      string `toml:"pass"`
+	Proxy     string `toml:"proxy"`
+	ProxyType string `toml:"proxy_type"`
+	Note      string `toml:"note"`
 }
 
 // Structure to read OpenSSH configuration file.
