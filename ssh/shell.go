@@ -13,6 +13,7 @@ import (
 	"golang.org/x/crypto/ssh"
 )
 
+// run shell
 func (r *Run) shell() (err error) {
 	// server config
 	server := r.ServerList[0]
@@ -80,7 +81,7 @@ func (r *Run) shell() (err error) {
 	return
 }
 
-//
+// getLogPath return log file path.
 func (r *Run) getLogPath(server string) (logPath string) {
 	// check regex
 	// if ~/.ssh/config, in ":"
@@ -98,7 +99,7 @@ func (r *Run) getLogPath(server string) (logPath string) {
 	return
 }
 
-//
+// getLogDirPath return log directory path
 func (r *Run) getLogDirPath(server string) (dir string) {
 	u, _ := user.Current()
 	logConf := r.Conf.Log
@@ -112,7 +113,6 @@ func (r *Run) getLogDirPath(server string) (dir string) {
 }
 
 // runLocalRcShell connect to remote shell using local bashrc
-//
 func localrcShell(connect *sshlib.Connect, session *ssh.Session, localrcPath []string, decoder string) (err error) {
 	// set default bashrc
 	if len(localrcPath) == 0 {
