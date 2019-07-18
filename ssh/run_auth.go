@@ -129,6 +129,7 @@ func (r *Run) registAuthMapPassword(server, password string) {
 //
 func (r *Run) registAuthMapPublicKey(server, key, password string) (err error) {
 	authKey := AuthKey{AUTHKEY_KEY, key}
+
 	if _, ok := r.authMethodMap[authKey]; !ok {
 		// Create signer with key input
 		signer, err := sshlib.CreateSignerPublicKeyPrompt(key, password)

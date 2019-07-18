@@ -2,6 +2,15 @@ package ssh
 
 import (
 	"fmt"
+	"os"
+	"os/user"
+	"regexp"
+	"strings"
+	"time"
+
+	"github.com/blacknon/go-sshlib"
+	"github.com/blacknon/lssh/common"
+	"golang.org/x/crypto/ssh"
 )
 
 func (r *Run) shell() (err error) {
@@ -10,9 +19,11 @@ func (r *Run) shell() (err error) {
 	config := r.Conf.Server[server]
 
 	// header
-	proxies, err := getProxyRoute(server, r.Conf)
-	for _, p := range proxies {
-		fmt.Println(p.Name)
+	r.printSelectServer()
+	r.printPortForward(r.PortForwardLocal, r.PortForwardRemote)
+	r.printProxy(server)
+	if config.LocalRcUse == "yes" {
+		fmt.Fprintf(os.Stderr, "Information   :This connect use local bashrc.\n")
 	}
 
 	// Craete sshlib.Connect (Connect Proxy loop)
@@ -41,31 +52,88 @@ func (r *Run) shell() (err error) {
 		}
 	}
 
-	// TODO(blacknon): local rc file add
-	// if config.LocalRcUse {
-	// } else {
-	// 	// Connect shell
-	// 	connect.Shell(session)
-	// }
+	// run pre local command
+	if config.PreCmd != "" {
+		runCmdLocal(config.PreCmd)
+	}
 
-	// Connect shell
-	connect.Shell(session)
+	// defer run post local command
+	if config.PostCmd != "" {
+		defer runCmdLocal(config.PostCmd)
+	}
+
+	// if terminal log enable
+	logConf := r.Conf.Log
+	if logConf.Enable {
+		logPath := r.getLogPath(server)
+		connect.SetLog(logPath, logConf.Timestamp)
+	}
+
+	// TODO(blacknon): local rc file add
+	if config.LocalRcUse == "yes" {
+		err = localrcShell(connect, session, config.LocalRcPath, config.LocalRcDecodeCmd)
+	} else {
+		// Connect shell
+		err = connect.Shell(session)
+	}
+
+	return
+}
+
+//
+func (r *Run) getLogPath(server string) (logPath string) {
+	// check regex
+	// if ~/.ssh/config, in ":"
+	reg := regexp.MustCompile(`:`)
+
+	if reg.MatchString(server) {
+		slice := strings.SplitN(server, ":", 2)
+		server = slice[1]
+	}
+
+	dir := r.getLogDirPath(server)
+	file := time.Now().Format("20060102_150405") + "_" + server + ".log"
+	logPath = dir + "/" + file
+
+	return
+}
+
+//
+func (r *Run) getLogDirPath(server string) (dir string) {
+	u, _ := user.Current()
+	logConf := r.Conf.Log
+
+	dir = logConf.Dir
+	dir = strings.Replace(dir, "~", u.HomeDir, 1)
+	dir = strings.Replace(dir, "<Date>", time.Now().Format("20060102"), 1)
+	dir = strings.Replace(dir, "<Hostname>", server, 1)
 
 	return
 }
 
 // runLocalRcShell connect to remote shell using local bashrc
-// func shellLocalRC(session *ssh.Session, localrcPath string, decoder string) (err error) {
+//
+func localrcShell(connect *sshlib.Connect, session *ssh.Session, localrcPath []string, decoder string) (err error) {
+	// set default bashrc
+	if len(localrcPath) == 0 {
+		localrcPath = []string{"~/.bashrc"}
+	}
 
-// 	// command
-// 	cmd := fmt.Sprintf("bash --rcfile <(echo %s|((base64 --help | grep -q coreutils) && base64 -d <(cat) || base64 -D <(cat) ))", c.LocalRcData)
+	// get bashrc base64 data
+	rcData, err := common.GetFilesBase64(localrcPath)
+	if err != nil {
+		return
+	}
 
-// 	// decode command
-// 	if len(c.LocalRcDecodeCmd) > 0 {
-// 		cmd = fmt.Sprintf("bash --rcfile <(echo %s | %s)", c.LocalRcData, c.LocalRcDecodeCmd)
-// 	}
+	// command
+	cmd := fmt.Sprintf("bash --rcfile <(echo %s|((base64 --help | grep -q coreutils) && base64 -d <(cat) || base64 -D <(cat) ))", rcData)
 
-// 	err = session.Start(cmd)
+	// decode command
+	if decoder != "" {
+		cmd = fmt.Sprintf("bash --rcfile <(echo %s | %s)", rcData, decoder)
+	}
 
-// 	return session, err
-// }
+	connect.CmdShell(session, cmd)
+
+	return
+}
