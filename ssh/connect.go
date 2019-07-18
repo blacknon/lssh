@@ -61,13 +61,21 @@ func (r *Run) createSshConnect(server string) (connect *sshlib.Connect, err erro
 		}
 	}
 
-	// connect target server
+	// server conf
 	s := r.Conf.Server[server]
+
+	// set x11
+	var x11 bool
+	if s.X11 || r.X11 {
+		x11 = true
+	}
+
+	// connect target server
 	connect = &sshlib.Connect{
 		ProxyDialer:  dialer,
 		ForwardAgent: s.SSHAgentUse,
 		Agent:        r.agent,
-		ForwardX11:   s.X11,
+		ForwardX11:   x11,
 	}
 
 	err = connect.CreateClient(s.Addr, s.Port, s.User, r.serverAuthMethodMap[server])

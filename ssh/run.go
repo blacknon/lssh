@@ -125,10 +125,6 @@ func (r *Run) Start() {
 	}
 }
 
-func (r *Run) cmd() {
-	fmt.Println("now working...")
-}
-
 func (r *Run) lsshShell() {
 	fmt.Println("now working...")
 }
