@@ -143,6 +143,7 @@ type OpenSshConfig struct {
 }
 
 // ReadConf load configuration file and return Config structure
+// TODO(blacknon): リファクタリング！
 func ReadConf(confPath string) (config Config) {
 	// user path
 	usr, _ := user.Current()
@@ -184,8 +185,8 @@ func ReadConf(confPath string) (config Config) {
 			if err == nil {
 				// append data
 				for key, value := range openSshServerConfig {
-					value := serverConfigReduct(config.Common, value)
-					value = serverConfigReduct(sshConfig.ServerConfig, value)
+					setCommon := serverConfigReduct(config.Common, sshConfig.ServerConfig)
+					value = serverConfigReduct(setCommon, value)
 					config.Server[key] = value
 				}
 			}

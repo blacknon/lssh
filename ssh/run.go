@@ -5,7 +5,9 @@ import (
 	"fmt"
 	"io/ioutil"
 	"os"
+	"os/exec"
 	"runtime"
+	"strings"
 
 	"github.com/blacknon/lssh/conf"
 	"golang.org/x/crypto/ssh"
@@ -129,4 +131,71 @@ func (r *Run) cmd() {
 
 func (r *Run) lsshShell() {
 	fmt.Println("now working...")
+}
+
+// printSelectServer is printout select server.
+// use ssh login header.
+func (r *Run) printSelectServer() {
+	serverListStr := strings.Join(r.ServerList, ",")
+	fmt.Fprintf(os.Stderr, "Select Server :%s\n", serverListStr)
+}
+
+// printRunCommand is printout run command.
+// use ssh command run header.
+func (r *Run) printRunCommand() {
+	runCmdStr := strings.Join(r.ExecCmd, " ")
+	fmt.Fprintf(os.Stderr, "Run Command   :%s\n", runCmdStr)
+}
+
+// printPortForward is printout port forwarding.
+// use ssh command run header. only use shell().
+func (r *Run) printPortForward(forwardLocal, forwardRemote string) {
+	if forwardLocal != "" && forwardRemote != "" {
+		fmt.Fprintf(os.Stderr, "Port Forward  :local[%s] <=> remote[%s]\n", forwardLocal, forwardRemote)
+	}
+}
+
+// printProxy is printout proxy route.
+// use ssh command run header. only use shell().
+func (r *Run) printProxy(server string) {
+	array := []string{}
+
+	proxyRoute, err := getProxyRoute(server, r.Conf)
+	if err != nil || len(proxyRoute) == 0 {
+		return
+	}
+
+	// set localhost
+	localhost := "localhost"
+
+	// set target host
+	targethost := server
+
+	// add localhost
+	array = append(array, localhost)
+
+	for _, pxy := range proxyRoute {
+		str := "[" + pxy.Type + "://" + pxy.Name
+		if pxy.Port != "" {
+			str = str + ":" + pxy.Port
+		}
+		str = str + "]"
+
+		array = append(array, str)
+	}
+
+	// add target
+	array = append(array, targethost)
+
+	// print header
+	header := strings.Join(array, " => ")
+	fmt.Fprintf(os.Stderr, "Proxy         :%s\n", header)
+
+}
+
+// runCmdLocal exec command local machine.
+// Mainly used in r.shell().
+func runCmdLocal(cmd string) {
+	out, _ := exec.Command("sh", "-c", cmd).CombinedOutput()
+	fmt.Printf(string(out))
 }

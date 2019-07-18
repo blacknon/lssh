@@ -78,13 +78,13 @@ func (r *Run) createSshConnect(server string) (connect *sshlib.Connect, err erro
 type proxyRouteData struct {
 	Name string
 	Type string
+	Port string
 }
 
 // getProxyList return []*pxy function.
-//
 func getProxyRoute(server string, config conf.Config) (proxyRoute []*proxyRouteData, err error) {
 	var conName, conType string
-	var proxyName, proxyType string
+	var proxyName, proxyType, proxyPort string
 	var isOk bool
 
 	conName = server
@@ -98,6 +98,7 @@ proxyLoop:
 			conConf, isOk = config.Proxy[conName]
 			proxyName = conConf.Proxy
 			proxyType = conConf.ProxyType
+			proxyPort = conConf.Port
 		case "command":
 			break proxyLoop
 		default:
@@ -109,9 +110,11 @@ proxyLoop:
 
 				proxyName = expansionProxyCommand(conConf.ProxyCommand, conConf)
 				proxyType = "command"
+				proxyPort = ""
 			} else {
 				proxyName = conConf.Proxy
 				proxyType = conConf.ProxyType
+				proxyPort = conConf.Port
 			}
 		}
 
@@ -137,6 +140,7 @@ proxyLoop:
 		default:
 			p.Type = "ssh"
 		}
+		p.Port = proxyPort
 
 		proxyRoute = append(proxyRoute, p)
 		conName = proxyName
