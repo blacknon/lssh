@@ -1,0 +1,67 @@
+2019/07/18 14:05:22 Welcome to Ubuntu 18.04.2 LTS (GNU/Linux 4.15.0-54-generic x86_64)
+2019/07/18 14:05:22 
+2019/07/18 14:05:22  * Documentation:  https://help.ubuntu.com
+2019/07/18 14:05:22  * Management:     https://landscape.canonical.com
+2019/07/18 14:05:22  * Support:        https://ubuntu.com/advantage
+2019/07/18 14:05:22 
+2019/07/18 14:05:22   System information as of Thu Jul 18 05:05:21 UTC 2019
+2019/07/18 14:05:22 
+2019/07/18 14:05:22   System load:  0.0                Processes:             87
+2019/07/18 14:05:22   Usage of /:   25.0%!o(MISSING)f 19.56GB   Users logged in:       0
+2019/07/18 14:05:22   Memory usage: 8%!I(MISSING)P address for enp0s3: 10.0.2.15
+2019/07/18 14:05:22   Swap usage:   0%!I(MISSING)P address for enp0s8: 192.168.56.105
+2019/07/18 14:05:22 
+2019/07/18 14:05:22  * MicroK8s 1.15 is out! Thanks to all 40 contributors, you get the latest
+2019/07/18 14:05:22    greatest upstream Kubernetes in a single package.
+2019/07/18 14:05:22 
+2019/07/18 14:05:22      https://github.com/ubuntu/microk8s
+2019/07/18 14:05:22 
+2019/07/18 14:05:22  * Canonical Livepatch is available for installation.
+2019/07/18 14:05:22    - Reduce system reboots and improve kernel security. Activate at:
+2019/07/18 14:05:22      https://ubuntu.com/livepatch
+2019/07/18 14:05:22 
+2019/07/18 14:05:22 51 packages can be updated.
+2019/07/18 14:05:22 0 updates are security updates.
+2019/07/18 14:05:22 
+2019/07/18 14:05:22 
+2019/07/18 14:05:22 Last login: Thu Jul 18 05:04:25 2019 from 192.168.56.1
+2019/07/18 14:05:23 ]0;uesugi@ubuntu2: ~[01;32muesugi@ubuntu2[00m:[01;34m~[00m$ 
+2019/07/18 14:05:24 ]0;uesugi@ubuntu2: ~[01;32muesugi@ubuntu2[00m:[01;34m~[00m$ 
+2019/07/18 14:05:24 ]0;uesugi@ubuntu2: ~[01;32muesugi@ubuntu2[00m:[01;34m~[00m$ 
+2019/07/18 14:05:24 ]0;uesugi@ubuntu2: ~[01;32muesugi@ubuntu2[00m:[01;34m~[00m$ 
+2019/07/18 14:05:25 ]0;uesugi@ubuntu2: ~[01;32muesugi@ubuntu2[00m:[01;34m~[00m$ ls- la
+2019/07/18 14:05:25 
+2019/07/18 14:05:25 Command 'ls-' not found, did you mean:
+2019/07/18 14:05:25 
+2019/07/18 14:05:25   command 'lsd' from snap lsd (0.15.1)
+2019/07/18 14:05:25   command 'ls' from deb coreutils
+2019/07/18 14:05:25   command 'lsc' from deb livescript
+2019/07/18 14:05:25   command 'lsw' from deb suckless-tools
+2019/07/18 14:05:25   command 'lsm' from deb lsm
+2019/07/18 14:05:25   command 'lsh' from deb lsh-client
+2019/07/18 14:05:25 
+2019/07/18 14:05:25 See 'snap info <snapname>' for additional versions.
+2019/07/18 14:05:25 
+2019/07/18 14:05:26 ]0;uesugi@ubuntu2: ~[01;32muesugi@ubuntu2[00m:[01;34m~[00m$ ls -la
+2019/07/18 14:05:26 total 128
+2019/07/18 14:05:26 drwxr-xr-x  10 uesugi uesugi  4096 Jul 17 01:37 [0m[01;34m.[0m
+2019/07/18 14:05:26 drwxr-xr-x   3 root   root    4096 May  9 05:32 [01;34m..[0m
+2019/07/18 14:05:26 -rw-------   1 uesugi uesugi 23840 Jul 18 03:25 .bash_history
+2019/07/18 14:05:26 -rw-r--r--   1 uesugi uesugi   220 Apr  4  2018 .bash_logout
+2019/07/18 14:05:26 -rw-r--r--   1 uesugi uesugi  3771 Apr  4  2018 .bashrc
+2019/07/18 14:05:26 drwx------   4 uesugi uesugi  4096 Jul 10 08:00 [01;34m.cache[0m
+2019/07/18 14:05:26 -rw-rw-r--   1 uesugi uesugi  1569 Jul 17 04:45 .cd_bash_history
+2019/07/18 14:05:26 drwx------   3 uesugi uesugi  4096 Jun  3 01:14 [01;34m.config[0m
+2019/07/18 14:05:26 drwxrwxr-x   3 uesugi uesugi  4096 Jul 17 01:37 [01;34mdb_view[0m
+2019/07/18 14:05:26 drwxrwxr-x   3 uesugi uesugi  4096 May 13 01:34 [01;34medc[0m
+2019/07/18 14:05:26 drwx------   3 uesugi uesugi  4096 May 13 01:16 [01;34m.gnupg[0m
+2019/07/18 14:05:26 -rw-------   1 uesugi uesugi    46 May 13 03:30 .lesshst
+2019/07/18 14:05:26 drwx------   3 uesugi uesugi  4096 Jul  9 07:56 [01;34m.local[0m
+2019/07/18 14:05:26 drwxr-xr-x 137 uesugi uesugi  4096 May 13 01:28 [01;34m.npm[0m
+2019/07/18 14:05:26 -rw-r--r--   1 uesugi uesugi   807 Apr  4  2018 .profile
+2019/07/18 14:05:26 drwx------   2 uesugi uesugi  4096 Jun  7 03:19 [01;34m.ssh[0m
+2019/07/18 14:05:26 -rw-r--r--   1 uesugi uesugi     0 May 13 01:19 .sudo_as_admin_successful
+2019/07/18 14:05:26 -rw-rw-r--   1 uesugi uesugi 11164 May 21 09:08 [01;31msuperunko.deb[0m
+2019/07/18 14:05:26 -rw-------   1 uesugi uesugi 20297 Jul  9 07:56 .viminfo
+2019/07/18 14:05:26 -rw-rw-r--   1 uesugi uesugi   211 May 21 09:08 .wget-hsts
+2019/07/18 14:05:26 -rw-------   1 uesugi uesugi    53 Jul 16 01:44 .Xauthority
