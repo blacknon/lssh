@@ -65,11 +65,21 @@ func getOpenSshConfig(path string) (config map[string]ServerConfig, err error) {
 			serverConfig.Key = key
 		}
 
+		// PKCS11 provider
 		pkcs11Provider := ssh_config.Get(host, "PKCS11Provider")
 		if pkcs11Provider != "" {
 			serverConfig.PKCS11Use = true
 			serverConfig.PKCS11Provider = pkcs11Provider
 		}
+
+		// x11 forwarding
+		x11 := ssh_config.Get(host, "ForwardX11")
+		if x11 == "yes" {
+			serverConfig.X11 = true
+		}
+
+		// port forwarding
+		// forward := ssh_config.Get(host, "LocalForward")
 
 		serverName := path + ":" + host
 		config[serverName] = serverConfig

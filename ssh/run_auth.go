@@ -51,7 +51,6 @@ func (r *Run) createAuthMethodMap() {
 			err := r.registAuthMapPublicKey(server, config.Key, config.KeyPass)
 			if err != nil {
 				fmt.Println(err)
-				continue
 			}
 		}
 
@@ -100,7 +99,6 @@ func (r *Run) createAuthMethodMap() {
 			err := r.registAuthMapPKCS11(server, config.PKCS11Provider, config.PKCS11PIN)
 			if err != nil {
 				fmt.Println(err)
-				continue
 			}
 		}
 	}
