@@ -150,6 +150,8 @@ USAGE:
 
 		r.ExecCmd = c.Args()
 		r.X11 = c.Bool("x11")
+		r.IsParallel = c.Bool("parallel")
+		r.IsTerm = c.Bool("term")
 
 		r.PortForwardLocal = c.String("portforward-local")
 		r.PortForwardRemote = c.String("portforward-remote")
