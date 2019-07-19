@@ -21,7 +21,7 @@ type Run struct {
 	// Mode value in
 	//     - shell
 	//     - cmd
-	//     - lsshshell
+	//     - pshell
 	Mode string
 
 	// tty use
@@ -112,9 +112,9 @@ func (r *Run) Start() {
 		// connect remote shell
 		err = r.shell()
 
-	case r.Mode == "lsshshell":
+	case r.Mode == "pshell":
 		// start lsshshell
-		r.lsshShell()
+		r.pshell()
 
 	default:
 		return
@@ -123,10 +123,6 @@ func (r *Run) Start() {
 	if err != nil {
 		fmt.Println(err)
 	}
-}
-
-func (r *Run) lsshShell() {
-	fmt.Println("now working...")
 }
 
 // printSelectServer is printout select server.
