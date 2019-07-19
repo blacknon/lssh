@@ -3,6 +3,7 @@ package conf
 import (
 	"os"
 	"regexp"
+	"strings"
 
 	"github.com/blacknon/lssh/common"
 	"github.com/kevinburke/ssh_config"
@@ -78,8 +79,19 @@ func getOpenSshConfig(path string) (config map[string]ServerConfig, err error) {
 			serverConfig.X11 = true
 		}
 
-		// port forwarding
-		// forward := ssh_config.Get(host, "LocalForward")
+		// Port forwarding (Local forward)
+		localForward := ssh_config.Get(host, "LocalForward")
+		if localForward != "" {
+			array := strings.SplitN(localForward, " ", 2)
+			if len(array) > 1 {
+				serverConfig.PortForwardLocal = "localhost:" + array[0]
+				serverConfig.PortForwardRemote = array[1]
+			}
+		}
+
+		// Port forwarding (Remote forward)
+
+		// Port forwarding (Dynamic forward)
 
 		serverName := path + ":" + host
 		config[serverName] = serverConfig

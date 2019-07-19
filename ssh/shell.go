@@ -2,6 +2,7 @@ package ssh
 
 import (
 	"fmt"
+	"log"
 	"os"
 	"os/user"
 	"regexp"
@@ -19,9 +20,15 @@ func (r *Run) shell() (err error) {
 	server := r.ServerList[0]
 	config := r.Conf.Server[server]
 
+	// OverWrite
+	if r.PortForwardLocal != "" && r.PortForwardRemote != "" {
+		config.PortForwardLocal = r.PortForwardLocal
+		config.PortForwardRemote = r.PortForwardRemote
+	}
+
 	// header
 	r.printSelectServer()
-	r.printPortForward(r.PortForwardLocal, r.PortForwardRemote)
+	r.printPortForward(config.PortForwardLocal, config.PortForwardRemote)
 	r.printProxy(server)
 	if config.LocalRcUse == "yes" {
 		fmt.Fprintf(os.Stderr, "Information   :This connect use local bashrc.\n")
@@ -46,8 +53,8 @@ func (r *Run) shell() (err error) {
 	}
 
 	// Port Forwarding
-	if r.PortForwardLocal != "" && r.PortForwardRemote != "" {
-		err := connect.TCPForward(r.PortForwardLocal, r.PortForwardRemote)
+	if config.PortForwardLocal != "" && config.PortForwardRemote != "" {
+		err := connect.TCPLocalForward(config.PortForwardLocal, config.PortForwardRemote)
 		if err != nil {
 			fmt.Println(err)
 		}
@@ -92,7 +99,11 @@ func (r *Run) getLogPath(server string) (logPath string) {
 		server = slice[1]
 	}
 
-	dir := r.getLogDirPath(server)
+	dir, err := r.getLogDirPath(server)
+	if err != nil {
+		log.Println(err)
+	}
+
 	file := time.Now().Format("20060102_150405") + "_" + server + ".log"
 	logPath = dir + "/" + file
 
@@ -100,14 +111,18 @@ func (r *Run) getLogPath(server string) (logPath string) {
 }
 
 // getLogDirPath return log directory path
-func (r *Run) getLogDirPath(server string) (dir string) {
+func (r *Run) getLogDirPath(server string) (dir string, err error) {
 	u, _ := user.Current()
 	logConf := r.Conf.Log
 
+	// expantion variable
 	dir = logConf.Dir
 	dir = strings.Replace(dir, "~", u.HomeDir, 1)
 	dir = strings.Replace(dir, "<Date>", time.Now().Format("20060102"), 1)
 	dir = strings.Replace(dir, "<Hostname>", server, 1)
+
+	// create directory
+	err = os.MkdirAll(dir, 0700)
 
 	return
 }
