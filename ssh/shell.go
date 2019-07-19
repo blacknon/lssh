@@ -1,6 +1,7 @@
 package ssh
 
 import (
+	"errors"
 	"fmt"
 	"log"
 	"os"
@@ -19,6 +20,13 @@ func (r *Run) shell() (err error) {
 	// server config
 	server := r.ServerList[0]
 	config := r.Conf.Server[server]
+
+	// check count AuthMethod
+	if len(r.serverAuthMethodMap[server]) == 0 {
+		msg := fmt.Sprintf("Error: %s is No AuthMethod.\n", server)
+		err = errors.New(msg)
+		return
+	}
 
 	// OverWrite
 	if r.PortForwardLocal != "" && r.PortForwardRemote != "" {

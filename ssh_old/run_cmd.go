@@ -89,7 +89,6 @@ func (r *Run) cmd() {
 	}
 
 	close(exitInput)
-
 	return
 }
 

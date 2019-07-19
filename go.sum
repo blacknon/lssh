@@ -4,6 +4,7 @@ github.com/ThalesIgnite/crypto11 v0.1.0 h1:wh3jljzD2GLFcWZQlT5RC2yHxt10gdxhZg/Tn
 github.com/ThalesIgnite/crypto11 v0.1.0/go.mod h1:DdvQlzHSrdXwhcXCWY6o1HquZycJyAwsXXpKlk1+rww=
 github.com/blacknon/go-scplib v0.0.0-20190214025421-eff8fdc20f75 h1:qLncV9WSHR9FUn8Ewz3zWC62rQ0/nd1up+qcBd/vLkY=
 github.com/blacknon/go-scplib v0.0.0-20190214025421-eff8fdc20f75/go.mod h1:Jg1cVjFuCmnfl3eHU/iz1yuc+R5ZiamqmiToD/tkINE=
+github.com/blacknon/go-scplib v0.1.0 h1:aqOisPQeweqnJ8Fj0shKeIAph0f2YeF78kHQqecQGLw=
 github.com/blacknon/go-scplib v0.1.0/go.mod h1:4C1mtfKx4LurNk74Q1m77WCgICatc8nCw3TI73lrLZc=
 github.com/blacknon/go-sshlib v0.1.0 h1:+WVOauAuig5ThexmNmQYqn2NhaDM2M9O37nmRAKpiUU=
 github.com/blacknon/go-sshlib v0.1.0/go.mod h1:4ykyYiHigKdce31Mxpq4XdZnYCngi7mO97XD9trpIZ4=
