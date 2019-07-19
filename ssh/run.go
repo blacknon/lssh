@@ -106,7 +106,7 @@ func (r *Run) Start() {
 	switch {
 	case len(r.ExecCmd) > 0 && r.Mode == "cmd":
 		// connect and run command
-		r.cmd()
+		err = r.cmd()
 
 	case r.Mode == "shell":
 		// connect remote shell
@@ -114,7 +114,7 @@ func (r *Run) Start() {
 
 	case r.Mode == "pshell":
 		// start lsshshell
-		r.pshell()
+		err = r.pshell()
 
 	default:
 		return
