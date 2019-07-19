@@ -76,6 +76,7 @@ func (r *Run) createSshConnect(server string) (connect *sshlib.Connect, err erro
 		ForwardAgent: s.SSHAgentUse,
 		Agent:        r.agent,
 		ForwardX11:   x11,
+		TTY:          r.IsTerm,
 	}
 
 	err = connect.CreateClient(s.Addr, s.Port, s.User, r.serverAuthMethodMap[server])
