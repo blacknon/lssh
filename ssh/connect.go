@@ -80,6 +80,7 @@ func (r *Run) createSshConnect(server string) (connect *sshlib.Connect, err erro
 	}
 
 	err = connect.CreateClient(s.Addr, s.Port, s.User, r.serverAuthMethodMap[server])
+
 	return
 }
 
