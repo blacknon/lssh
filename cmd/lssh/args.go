@@ -71,7 +71,7 @@ USAGE:
 		cli.StringFlag{Name: "portforward-remote", Usage: "port forwarding remote port(ex. 127.0.0.1:80)"},
 		cli.BoolFlag{Name: "list,l", Usage: "print server list from config"},
 		cli.BoolFlag{Name: "term,t", Usage: "run specified command at terminal"},
-		cli.BoolFlag{Name: "parallel-shell,s", Usage: "use lssh shell (Beta)"},
+		cli.BoolFlag{Name: "parallel-shell,s", Usage: "use parallel shell (Beta)"},
 		cli.BoolFlag{Name: "parallel,p", Usage: "run command parallel node(tail -F etc...)"},
 		cli.BoolFlag{Name: "x11,X", Usage: "x11 forwarding(forward to ${DISPLAY})"},
 		cli.BoolFlag{Name: "help,h", Usage: "print this help"},
@@ -95,7 +95,7 @@ USAGE:
 
 		// Set `exec command` or `shell` flag
 		isMulti := false
-		if len(c.Args()) > 0 || c.Bool("shell") {
+		if len(c.Args()) > 0 || c.Bool("parallel-shell") {
 			isMulti = true
 		}
 
@@ -140,8 +140,8 @@ USAGE:
 		r.ServerList = selected
 		r.Conf = data
 		switch {
-		case c.Bool("shell") == true:
-			r.Mode = "lsshshell"
+		case c.Bool("parallel-shell") == true:
+			r.Mode = "pshell"
 		case len(c.Args()) > 0:
 			r.Mode = "cmd"
 		default:
