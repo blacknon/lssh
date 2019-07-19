@@ -2,20 +2,23 @@ package ssh
 
 import (
 	"fmt"
+	"log"
 	"os"
 	"os/signal"
 	"syscall"
 
+	"github.com/blacknon/go-sshlib"
 	"github.com/c-bata/go-prompt"
 )
 
 // variable
 var (
-	defaultPrompt  = "[${COUNT}] <<< "          // Default PROMPT
-	defaultOPrompt = "[${SERVER}][${COUNT}] > " // Default OPROMPT
+	defaultPrompt      = "[${COUNT}] <<< "          // Default PROMPT
+	defaultOPrompt     = "[${SERVER}][${COUNT}] > " // Default OPROMPT
+	defaultHistoryFile = "~/.lssh_history"          // Default Parallel shell history file
 )
 
-func (r *Run) pshell() {
+func (r *Run) pshell() (err error) {
 	// print header
 	fmt.Println("Start lssh-shell...")
 	r.printSelectServer()
@@ -33,34 +36,62 @@ func (r *Run) pshell() {
 		config.OPrompt = defaultOPrompt
 	}
 
+	// overwrite default parallel shell history file
+	if config.HistoryFile == "" {
+		config.HistoryFile = defaultHistoryFile
+	}
+
 	// run pre cmd
 	runCmdLocal(config.PreCmd)
 	defer runCmdLocal(config.PostCmd)
 
+	// Connect
+	var cons []*sshlib.Connect
+	for _, server := range r.ServerList {
+		con, err := r.createSshConnect(server)
+		if err != nil {
+			log.Println(err)
+		}
+		cons = append(cons, con)
+	}
+
+	// count sshlib.Connect.
+	if len(cons) == 0 {
+		return
+	}
+
 	// create new shell struct
-	p := &pshell{
+	p := &PShell{
 		Signal:      make(chan os.Signal),
+		Count:       0,
 		ServerList:  r.ServerList,
+		Connects:    cons,
 		PROMPT:      config.Prompt,
 		OPROMPT:     config.OPrompt,
-		ExecHistory: map[int]string{},
+		History:     map[int]map[string]PShellHistory{},
+		HistoryFile: config.HistoryFile,
 	}
 
 	// set signal
-	signal.Notify(s.Signal, syscall.SIGTERM, syscall.SIGINT)
+	signal.Notify(p.Signal, syscall.SIGTERM, syscall.SIGINT)
 
-	fmt.Println("now not work...")
+	// Debug
+	fmt.Println(p)
+
+	return
 }
 
-// pshell strcut
-type pshell struct {
+// Pshell is Parallel-Shell struct
+type PShell struct {
 	Signal      chan os.Signal
+	Count       int
 	ServerList  []string
-	Connects    []*shellConn
+	Connects    []*sshlib.Connect
 	PROMPT      string
 	OPROMPT     string
+	History     map[int]map[string]PShellHistory
 	HistoryFile string
-	Count       int
-	ExecHistory map[int]string
 	Complete    []prompt.Suggest
 }
+
+type PShellHistory struct{}

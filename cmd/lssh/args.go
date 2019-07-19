@@ -95,7 +95,7 @@ USAGE:
 
 		// Set `exec command` or `shell` flag
 		isMulti := false
-		if len(c.Args()) > 0 || c.Bool("parallel-shell") {
+		if len(c.Args()) > 0 || c.Bool("pshell") {
 			isMulti = true
 		}
 
@@ -140,7 +140,7 @@ USAGE:
 		r.ServerList = selected
 		r.Conf = data
 		switch {
-		case c.Bool("parallel-shell") == true:
+		case c.Bool("pshell") == true:
 			r.Mode = "pshell"
 		case len(c.Args()) > 0:
 			r.Mode = "cmd"
