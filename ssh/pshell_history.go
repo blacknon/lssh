@@ -1,0 +1,77 @@
+package ssh
+
+import (
+	"bufio"
+	"bytes"
+	"fmt"
+	"os"
+	"os/user"
+	"strings"
+	"time"
+)
+
+type PShellHistory struct {
+	Timestamp  string
+	Command    string
+	OutputData *bytes.Buffer
+	StdoutData *bytes.Buffer // Delete?
+	StderrData *bytes.Buffer // Delete?
+}
+
+// GetHistory return []History
+func (ps *pShell) GetHistory() (data []History, err error) {
+	// user path
+	usr, _ := user.Current()
+	histfile := strings.Replace(ps.HistoryFile, "~", usr.HomeDir, 1)
+
+	// Open history file
+	file, err := os.OpenFile(histfile, os.O_RDONLY, 0600)
+	if err != nil {
+		return
+	}
+	defer file.Close()
+
+	sc := bufio.NewScanner(file)
+	for sc.Scan() {
+		line := sc.Text()
+		text := strings.SplitN(line, " ", 2)
+
+		if len(text) < 2 {
+			continue
+		}
+
+		d := History{
+			Timestamp: text[0],
+			Command:   text[1],
+		}
+
+		data = append(data, d)
+	}
+	return
+}
+
+// PutHistory put history to s.HistoryFile
+func (ps *pShell) PutHistory(cmd string) (err error) {
+	// user path
+	usr, _ := user.Current()
+	histfile := strings.Replace(ps.HistoryFile, "~", usr.HomeDir, 1)
+
+	// Open history file
+	file, err := os.OpenFile(histfile, os.O_WRONLY|os.O_CREATE|os.O_APPEND, 0600)
+	if err != nil {
+		return
+	}
+	defer file.Close()
+
+	// Get Time
+	timestamp := time.Now().Format("2006/01/02_15:04:05 ") // "yyyy/mm/dd_HH:MM:SS "
+
+	// write history
+	//     [history file format]
+	//         YYYY-mm-dd_HH:MM:SS command...
+	//         YYYY-mm-dd_HH:MM:SS command...
+	//         ...
+	fmt.Fprintln(file, timestamp+cmd)
+
+	return
+}
