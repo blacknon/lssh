@@ -112,7 +112,6 @@ func (r *Run) cmd() (err error) {
 				log.Println(err)
 			}
 
-			close(output)
 			finished <- true
 		}()
 

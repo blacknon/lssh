@@ -337,6 +337,7 @@ func (ps *pShell) Run(command string) {
 
 		// Get output data channel
 		output := make(chan []byte)
+		// defer close(output)
 
 		// Set count num
 		c.Output.Count = ps.Count
@@ -352,7 +353,6 @@ func (ps *pShell) Run(command string) {
 		// Run command
 		go func() {
 			c.CmdWriter(command, output, input)
-			close(output)
 			finished <- true
 		}()
 
@@ -397,15 +397,21 @@ func (ps *pShell) Run(command string) {
 
 // pushSignal is send kill signal to session.
 func (ps *pShell) pushKillSignal(exitSig chan bool, conns []*psConnect) (err error) {
-	select {
-	case <-ps.Signal:
-		time.Sleep(10 * time.Millisecond)
-		for _, c := range conns {
-			// send kill
-			c.Kill()
+	i := 0
+	for {
+		select {
+		case <-ps.Signal:
+			time.Sleep(10 * time.Millisecond)
+			if i == 0 {
+				for _, c := range conns {
+					// send kill
+					c.Kill()
+				}
+				i = 1
+			}
+		case <-exitSig:
+			return
 		}
-	case <-exitSig:
-		return
 	}
 	return
 }

@@ -49,15 +49,13 @@ func (c *Connect) CmdWriter(command string, output chan []byte, input chan io.Wr
 	// Run command
 	c.session.Start(command)
 
-	// check exit
-	go func() {
-		c.session.Wait()
-		c.session = nil
-		isExit <- true
-	}()
-
 	// Send output channel
-	sendCmdOutput(buf, output, isExit)
+	go sendCmdOutput(buf, output, isExit)
+
+	// Run command wait
+	c.session.Wait()
+	c.session = nil
+	isExit <- true
 
 	return
 }
@@ -150,72 +148,35 @@ func (c *Connect) Kill() {
 
 // sendCmdOutput send to output channel.
 func sendCmdOutput(buf *bytes.Buffer, output chan []byte, isExit <-chan bool) {
-	// 	// line
-	// 	var line []byte
+	exit := false
 
-	// 	// exit flag
-	// 	exit := false
-
-	// 	// Send output channel
-	// GetOutputLoop:
-	// 	for {
-	// 		// buffer
-	// 		b := make([]byte, 1024)
-
-	// 		// read buffer
-	// 		size, err := buf.Read(b)
-	// 		if size > 0 {
-	// 			line = append(line, b[:size]...)
-	// 		}
-
-	// 		// send output
-	// 		if err == io.EOF && len(line) > 0 {
-	// 			output <- line
-	// 			line = []byte{}
-	// 		} else {
-	// 			select {
-	// 			case <-isExit:
-	// 				exit = true
-	// 				continue
-	// 			case <-time.After(100 * time.Millisecond):
-	// 				if exit {
-	// 					break GetOutputLoop
-	// 				} else {
-	// 					continue GetOutputLoop
-	// 				}
-	// 			}
-	// 		}
-	// 	}
-
-	// Send output channel
 GetOutputLoop:
 	for {
 		if buf.Len() > 0 {
-			line, _ := buf.ReadBytes('\n')
-			output <- line
+			for {
+				line, err := buf.ReadBytes('\n')
+				if len(line) > 0 {
+					output <- line
+				}
+
+				// if err is io.EOF
+				if err == io.EOF {
+					break
+				}
+			}
 		} else {
 			select {
 			case <-isExit:
-				break GetOutputLoop
+				exit = true
 			case <-time.After(10 * time.Millisecond):
-				continue GetOutputLoop
+				if exit {
+					break GetOutputLoop
+				} else {
+					continue GetOutputLoop
+				}
 			}
 		}
 	}
 
-	// buffer
-	var line []byte
-	for {
-		b := make([]byte, 4096)
-		size, err := buf.Read(b)
-		if size > 0 {
-			line = append(line, b[:size]...)
-		}
-		if err == io.EOF {
-			if len(line) > 0 {
-				output <- line
-			}
-			break
-		}
-	}
+	close(output)
 }
