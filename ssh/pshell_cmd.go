@@ -26,7 +26,6 @@ func (ps *pShell) localCmd_out(num int) {
 	histories := ps.History[num]
 
 	for _, h := range histories {
-		fmt.Println(len(h.Result))
-		fmt.Println(h.Result)
+		fmt.Printf(h.Result)
 	}
 }

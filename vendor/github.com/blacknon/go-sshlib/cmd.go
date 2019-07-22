@@ -54,8 +54,9 @@ func (c *Connect) CmdWriter(command string, output chan []byte, input chan io.Wr
 
 	// Run command wait
 	c.session.Wait()
-	c.session = nil
 	isExit <- true
+
+	c.session = nil
 
 	return
 }

@@ -8,6 +8,7 @@ import (
 	"os"
 	"os/user"
 	"strings"
+	"sync"
 	"time"
 )
 
@@ -42,6 +43,7 @@ func (ps *pShell) GetHistoryFromFile() (data []pShellHistory, err error) {
 		d := pShellHistory{
 			Timestamp: text[0],
 			Command:   text[1],
+			Result:    "",
 		}
 
 		data = append(data, d)
@@ -77,20 +79,26 @@ func (ps *pShell) PutHistoryFile(cmd string) (err error) {
 
 // PutHistoryResult is append history to []History and HistoryFile
 func (ps *pShell) PutHistoryResult(server, command string, buf *bytes.Buffer, isExit chan bool) (err error) {
+	// count
+	count := ps.Count
+
 	// Get Time
 	timestamp := time.Now().Format("2006/01/02_15:04:05 ") // "yyyy/mm/dd_HH:MM:SS "
 
+	// init result
 	result := ""
 
-	// append result
-	l := 0
+	// struct mute
+	var mutex struct {
+		sync.Mutex
+	}
+
 loop:
 	for {
-		len := buf.Len()
-		if l != len {
+		if buf.Len() > 0 {
 			line, err := buf.ReadString('\n')
 			result = result + line
-			if err == io.EOF {
+			if err != io.EOF {
 				continue
 			}
 		}
@@ -103,12 +111,18 @@ loop:
 		}
 	}
 
+	// lock
+	mutex.Lock()
+
 	// Add History
-	ps.History[ps.Count][server] = pShellHistory{
+	ps.History[count][server] = &pShellHistory{
 		Timestamp: timestamp,
 		Command:   command,
 		Result:    result,
 	}
+
+	// lock
+	mutex.Unlock()
 
 	return
 }
