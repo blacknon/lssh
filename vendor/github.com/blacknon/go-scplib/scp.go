@@ -1,3 +1,10 @@
+// Copyright (c) 2019 Blacknon. All rights reserved.
+// Use of this source code is governed by an MIT license
+// that can be found in the LICENSE file.
+
+/*
+Package scplib is a library for exchanging data with scp in golang.
+*/
 package scplib
 
 import (
@@ -5,7 +12,7 @@ import (
 	"bytes"
 	"fmt"
 	"io"
-	// "io/ioutil"
+
 	"os"
 	"os/user"
 	"path/filepath"
@@ -16,6 +23,7 @@ import (
 	"golang.org/x/crypto/ssh"
 )
 
+// SCPClient save credentials and use scp from method.
 type SCPClient struct {
 	Connection *ssh.Client
 	Session    *ssh.Session
@@ -47,8 +55,7 @@ func walkDir(dir string) (files []string, err error) {
 	return
 }
 
-// @brief:
-//    Write directory data.
+// pushDirData is Write directory data to remote.
 func pushDirData(w io.WriteCloser, baseDir string, paths []string, toName string, perm bool) {
 	baseDirSlice := strings.Split(baseDir, "/")
 	baseDirSlice = unset(baseDirSlice, len(baseDirSlice)-1)
@@ -66,7 +73,7 @@ func pushDirData(w io.WriteCloser, baseDir string, paths []string, toName string
 				dInfo, _ := os.Lstat(dirpath)
 				dPerm := fmt.Sprintf("%04o", dInfo.Mode().Perm())
 
-				// push directory infomation
+				// push directory information
 				fmt.Fprintln(w, "D"+dPerm, 0, dirName)
 			}
 		}
@@ -84,15 +91,14 @@ func pushDirData(w io.WriteCloser, baseDir string, paths []string, toName string
 
 		if len(dir) > 0 && dir != "." {
 			dirList := strings.Split(dir, "/")
-			end_str := strings.Repeat("E\n", len(dirList))
-			fmt.Fprintf(w, end_str)
+			endStr := strings.Repeat("E\n", len(dirList))
+			fmt.Fprintf(w, endStr)
 		}
 	}
 	return
 }
 
-// @brief:
-//    Exchange local file data, to scp format
+// pushFileData is exchange local file data, to scp format
 func pushFileData(w io.WriteCloser, paths []string, toName string, perm bool) {
 	for _, path := range paths {
 		fInfo, _ := os.Lstat(path)
@@ -109,12 +115,13 @@ func pushFileData(w io.WriteCloser, paths []string, toName string, perm bool) {
 			continue
 		}
 
+		// default permission(0644)
 		fPerm := "0644"
 		if perm == true {
 			fPerm = fmt.Sprintf("%04o", fInfo.Mode())
 		}
 
-		// push file infomation
+		// push file information
 		fmt.Fprintln(w, "C"+fPerm, stat.Size(), toName)
 		io.Copy(w, content)
 		fmt.Fprint(w, "\x00")
@@ -122,13 +129,12 @@ func pushFileData(w io.WriteCloser, paths []string, toName string, perm bool) {
 	return
 }
 
-// @brief:
-//    Write to local file, from scp data.
+// writeData is write to local file, from scp data.
 func writeData(data *bufio.Reader, path string, perm bool) {
 	pwd := path
 checkloop:
 	for {
-		// Get file or dir infomation (1st line)
+		// Get file or dir information (1st line)
 		line, err := data.ReadString('\n')
 
 		if err == io.EOF {
@@ -139,21 +145,21 @@ checkloop:
 
 		line = strings.TrimRight(line, "\n")
 		if line == "E" {
-			pwd_array := strings.Split(pwd, "/")
-			if len(pwd_array) > 0 {
-				pwd_array = pwd_array[:len(pwd_array)-2]
+			pwdArray := strings.Split(pwd, "/")
+			if len(pwdArray) > 0 {
+				pwdArray = pwdArray[:len(pwdArray)-2]
 			}
-			pwd = strings.Join(pwd_array, "/") + "/"
+			pwd = strings.Join(pwdArray, "/") + "/"
 			continue
 		}
 
-		line_slice := strings.SplitN(line, " ", 3)
+		lineSlice := strings.SplitN(line, " ", 3)
 
-		scpType := line_slice[0][:1]
-		scpPerm := line_slice[0][1:]
+		scpType := lineSlice[0][:1]
+		scpPerm := lineSlice[0][1:]
 		scpPerm32, _ := strconv.ParseUint(scpPerm, 8, 32)
-		scpSize, _ := strconv.Atoi(line_slice[1])
-		scpObjName := line_slice[2]
+		scpSize, _ := strconv.Atoi(lineSlice[1])
+		scpObjName := lineSlice[2]
 
 		switch {
 		case scpType == "C":
@@ -240,8 +246,9 @@ checkloop:
 	return
 }
 
-// @brief:
-//    Remote to Local get file
+// GetFile get file data to file (remote to Local).
+//
+// example:
 //    scp.GetFile("/From/Remote/Path","/To/Local/Path")
 func (s *SCPClient) GetFile(fromPaths []string, toPath string) (err error) {
 	session := s.Session
@@ -258,7 +265,7 @@ func (s *SCPClient) GetFile(fromPaths []string, toPath string) (err error) {
 		w, _ := session.StdinPipe()
 		defer w.Close()
 
-		// Null Characters(100,000)
+		// Null Characters(10,000 char)
 		nc := strings.Repeat("\x00", 100000)
 		fmt.Fprintf(w, nc)
 	}()
@@ -277,6 +284,7 @@ func (s *SCPClient) GetFile(fromPaths []string, toPath string) (err error) {
 		fromPathList = append(fromPathList, fromPath)
 	}
 	fromPathString := strings.Join(fromPathList, " ")
+	// TODO(blacknon): scpしてる時点でセキュリティもクソもないのだが、OS Command Injectionへの対策を考える
 	scpCmd := "/usr/bin/scp -rf " + fromPathString
 
 	// Run scp
@@ -286,8 +294,9 @@ func (s *SCPClient) GetFile(fromPaths []string, toPath string) (err error) {
 	return
 }
 
-// @brief:
-//    Local to Remote put file
+// PutFile is put file to remote path.
+//
+// example:
 //    scp.PutFile("/From/Local/Path","/To/Remote/Path")
 func (s *SCPClient) PutFile(fromPaths []string, toPath string) (err error) {
 	session := s.Session
@@ -332,6 +341,7 @@ func (s *SCPClient) PutFile(fromPaths []string, toPath string) (err error) {
 	}()
 
 	// Create scp command
+	// TODO(blacknon): scpしてる時点でセキュリティもクソもないのだが、OS Command Injectionへの対策を考える
 	scpCmd := "/usr/bin/scp -tr '" + toPath + "'"
 	if s.Permission == true {
 		scpCmd = "/usr/bin/scp -ptr '" + toPath + "'"
@@ -343,11 +353,10 @@ func (s *SCPClient) PutFile(fromPaths []string, toPath string) (err error) {
 	return
 }
 
-// @brief:
-//    Remote to Local get data
+// GetData get and return scp format data(remote to local).
+//
+// example:
 //    scp.GetData("/path/remote/path")
-// @return:
-//    scp format data
 func (s *SCPClient) GetData(fromPaths []string) (data *bytes.Buffer, err error) {
 	session := s.Session
 	if s.Connection != nil {
@@ -363,7 +372,7 @@ func (s *SCPClient) GetData(fromPaths []string) (data *bytes.Buffer, err error) 
 		w, _ := session.StdinPipe()
 		defer w.Close()
 
-		// Null Characters(10,000)
+		// Null Characters(10,000 char)
 		nc := strings.Repeat("\x00", 100000)
 		fmt.Fprintf(w, nc)
 	}()
@@ -381,6 +390,7 @@ func (s *SCPClient) GetData(fromPaths []string) (data *bytes.Buffer, err error) 
 		fromPathList = append(fromPathList, fromPath)
 	}
 	fromPathString := strings.Join(fromPathList, " ")
+	// TODO(blacknon): scpしてる時点でセキュリティもクソもないのだが、OS Command Injectionへの対策を考える
 	scpCmd := "/usr/bin/scp -fr " + fromPathString
 
 	// Run scp
@@ -392,9 +402,10 @@ func (s *SCPClient) GetData(fromPaths []string) (data *bytes.Buffer, err error) 
 	return data, err
 }
 
-// @brief:
-//    Local to Remote put data
-//    scp.PutData("scp format data","/path/remote/path")
+// PutData put data of scp format as a file(local to remote).
+//
+// example:
+//    scp.PutData(buffer(scp format data),"/path/remote/path")
 func (s *SCPClient) PutData(fromData *bytes.Buffer, toPath string) (err error) {
 	session := s.Session
 	if s.Connection != nil {
@@ -414,6 +425,7 @@ func (s *SCPClient) PutData(fromData *bytes.Buffer, toPath string) (err error) {
 	}()
 
 	// Create scp command
+	// TODO(blacknon): scpしてる時点でセキュリティもクソもないのだが、OS Command Injectionへの対策を考える
 	scpCmd := "/usr/bin/scp -tr '" + toPath + "'"
 	if s.Permission == true {
 		scpCmd = "/usr/bin/scp -ptr '" + toPath + "'"

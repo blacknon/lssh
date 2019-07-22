@@ -31,12 +31,26 @@ type Output struct {
 	//     - ${SECOND} ... Second(SS)
 	Templete string
 
-	prompt     string
-	server     string
-	Count      int
+	// prompt is Output prompt.
+	prompt string
+
+	// target server name. ${SERVER}
+	server string
+
+	// Count value. ${COUNT}
+	Count int
+
+	//
 	ServerList []string
-	Conf       conf.ServerConfig
-	AutoColor  bool
+
+	//
+	Conf conf.ServerConfig
+
+	//
+	AutoColor bool
+
+	//
+	OutputWriter io.Writer
 }
 
 // Create template, set variable value.
@@ -74,14 +88,22 @@ func (o *Output) GetPrompt() (p string) {
 }
 
 func printOutput(o *Output, output chan []byte) {
+	// check o.OutputWriter.
+	// default is os.Stdout.
+	if o.OutputWriter == nil {
+		o.OutputWriter = os.Stdout
+	}
+
 	// print output
 	for data := range output {
 		str := strings.TrimRight(string(data), "\n")
-		if len(o.ServerList) > 1 {
-			oPrompt := o.GetPrompt()
-			fmt.Printf("%s %s\n", oPrompt, str)
-		} else {
-			fmt.Printf("%s\n", str)
+		for _, s := range strings.Split(str, "\n") {
+			if len(o.ServerList) > 1 {
+				oPrompt := o.GetPrompt()
+				fmt.Fprintf(o.OutputWriter, "%s %s\n", oPrompt, s)
+			} else {
+				fmt.Fprintf(o.OutputWriter, "%s\n", s)
+			}
 		}
 	}
 }

@@ -55,7 +55,11 @@ func (r *Run) cmd() (err error) {
 	}
 
 	// Run command and print loop
-	for s, c := range connmap {
+	for s, fc := range connmap {
+		// set variable c
+		// NOTE: Variables need to be assigned separately for processing by goroutine.
+		c := fc
+
 		// Get server config
 		config := r.Conf.Server[s]
 
@@ -97,11 +101,17 @@ func (r *Run) cmd() (err error) {
 		// if parallel flag true, and select server is not single,
 		// os.Stdin to multiple server.
 		go func() {
+			var err error
 			if r.IsParallel && len(r.ServerList) > 1 {
-				c.CmdWriter(command, output, input)
+				err = c.CmdWriter(command, output, input)
 			} else {
-				c.Cmd(command, output)
+				err = c.Cmd(command, output)
 			}
+
+			if err != nil {
+				log.Println(err)
+			}
+
 			close(output)
 			finished <- true
 		}()
