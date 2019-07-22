@@ -18,7 +18,9 @@ func (r *Run) createSshConnect(server string) (connect *sshlib.Connect, err erro
 	}
 
 	// Connect ssh-agent
-	r.agent = sshlib.ConnectSshAgent()
+	if r.agent == nil {
+		r.agent = sshlib.ConnectSshAgent()
+	}
 
 	// setup dialer
 	var dialer proxy.Dialer

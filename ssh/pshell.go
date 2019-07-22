@@ -20,16 +20,22 @@ import (
 )
 
 // Pshell is Parallel-Shell struct
-type PShell struct {
+type pShell struct {
 	Signal      chan os.Signal
 	Count       int
 	ServerList  []string
-	Connects    []*sshlib.Connect
+	Connects    []*psConnect
 	PROMPT      string
-	OPROMPT     string
-	History     map[int]map[string]PShellHistory
+	History     map[int]map[string]pShellHistory
 	HistoryFile string
 	Complete    []prompt.Suggest
+}
+
+// psConnect is pShell connect struct.
+type psConnect struct {
+	Name   string
+	Output *Output
+	*sshlib.Connect
 }
 
 // variable
@@ -67,13 +73,32 @@ func (r *Run) pshell() (err error) {
 	defer runCmdLocal(config.PostCmd)
 
 	// Connect
-	var cons []*sshlib.Connect
+	var cons []*psConnect
 	for _, server := range r.ServerList {
+		// Create *sshlib.Connect
 		con, err := r.createSshConnect(server)
 		if err != nil {
 			log.Println(err)
+			continue
 		}
-		cons = append(cons, con)
+
+		// Create Output
+		o := &Output{
+			Templete:   config.OPrompt,
+			ServerList: r.ServerList,
+			Conf:       r.Conf.Server[server],
+			AutoColor:  true,
+		}
+
+		// Create output prompt
+		o.Create(server)
+
+		psCon := &psConnect{
+			Name:    server,
+			Output:  o,
+			Connect: con,
+		}
+		cons = append(cons, psCon)
 	}
 
 	// count sshlib.Connect.
@@ -82,14 +107,12 @@ func (r *Run) pshell() (err error) {
 	}
 
 	// create new shell struct
-	ps := &PShell{
+	ps := &pShell{
 		Signal:      make(chan os.Signal),
-		Count:       0,
 		ServerList:  r.ServerList,
 		Connects:    cons,
 		PROMPT:      config.Prompt,
-		OPROMPT:     config.OPrompt,
-		History:     map[int]map[string]PShellHistory{},
+		History:     map[int]map[string]pShellHistory{},
 		HistoryFile: config.HistoryFile,
 	}
 
@@ -98,7 +121,7 @@ func (r *Run) pshell() (err error) {
 
 	// old history list
 	var historyCommand []string
-	oldHistory, err := ps.GetHistory()
+	oldHistory, err := ps.GetHistoryFromFile()
 	if err == nil {
 		for _, h := range oldHistory {
 			historyCommand = append(historyCommand, h.Command)
@@ -109,14 +132,14 @@ func (r *Run) pshell() (err error) {
 	ps.GetCompleteData()
 
 	// create prompt
-	pshellPrompt, _ := p.CreatePrompt()
+	pShellPrompt, _ := ps.CreatePrompt()
 
 	// create go-prompt
 	p := prompt.New(
 		ps.Executor,
 		ps.Completer,
 		prompt.OptionHistory(historyCommand),
-		prompt.OptionPrefix(pshellPrompt),
+		prompt.OptionPrefix(pShellPrompt),
 		prompt.OptionLivePrefix(ps.CreatePrompt),
 		prompt.OptionInputTextColor(prompt.Green),
 		prompt.OptionPrefixTextColor(prompt.Blue),
@@ -131,7 +154,7 @@ func (r *Run) pshell() (err error) {
 
 // CreatePrompt is create shell prompt.
 // default value is `[${COUNT}] <<< `
-func (ps *PShell) CreatePrompt() (p string, result bool) {
+func (ps *pShell) CreatePrompt() (p string, result bool) {
 	// set prompt templete (from conf)
 	p = ps.PROMPT
 	if p == "" {
@@ -144,7 +167,7 @@ func (ps *PShell) CreatePrompt() (p string, result bool) {
 	pwd := os.Getenv("PWD")
 
 	// replace variable value
-	p = strings.Replace(p, "${COUNT}", strconv.Itoa(s.Count), -1)
+	p = strings.Replace(p, "${COUNT}", strconv.Itoa(ps.Count), -1)
 	p = strings.Replace(p, "${HOSTNAME}", hostname, -1)
 	p = strings.Replace(p, "${USER}", username, -1)
 	p = strings.Replace(p, "${PWD}", pwd, -1)
@@ -154,49 +177,50 @@ func (ps *PShell) CreatePrompt() (p string, result bool) {
 
 // Executor run ssh command in parallel-shell.
 //
-func (ps *PShell) Executor(cmd string) {
+func (ps *pShell) Executor(command string) {
 	// trim space
-	cmd = strings.TrimSpace(cmd)
+	command = strings.TrimSpace(command)
 
 	// local command regex
-	localCmdRegex_out := regexp.MustCompile(`^%out [0-9]+$`)
+	localCmdRegex_out := regexp.MustCompile(`^%out.*$`)
 
 	// check local command
 	switch {
 	// only enter(Ctrl + M)
-	case cmd == "":
+	case command == "":
 		return
 
 	// exit or quit
-	case cmd == "exit", cmd == "quit":
-		// run post command
-		runCmdLocal(ps.PostCmd)
-
+	case command == "exit", command == "quit":
 		// put history and exit
-		ps.PutHistory(cmd)
+		ps.PutHistoryFile(command)
 		os.Exit(0)
 
 	// clear
-	case cmd == "clear":
+	case command == "clear":
 		fmt.Printf("\033[H\033[2J")
-		ps.PutHistory(cmd)
+		ps.PutHistoryFile(command)
 		return
 
 	// history
-	case cmd == "history":
+	case command == "history":
 		ps.localCmd_history()
 		return
 
 	// !out [num]
-	case localCmdRegex_out.MatchString(cmd):
-		cmdSlice := strings.SplitN(cmd, " ", 2)
-		num, err := strconv.Atoi(cmdSlice[1])
-		if err != nil {
-			return
-		}
+	case localCmdRegex_out.MatchString(command):
+		cmdSlice := strings.SplitN(command, " ", 2)
 
-		if num >= s.Count {
-			return
+		num := 0
+		if len(cmdSlice) > 1 {
+			num, err := strconv.Atoi(cmdSlice[1])
+			if err != nil {
+				return
+			}
+
+			if num >= ps.Count {
+				return
+			}
 		}
 
 		ps.localCmd_out(num)
@@ -205,80 +229,11 @@ func (ps *PShell) Executor(cmd string) {
 	}
 
 	// put history
-	ps.PutHistory(cmd)
-
-	// create chanel
-	isExit := make(chan bool)
-	isFinished := make(chan bool)
-	isInputExit := make(chan bool)
-	isSignalExit := make(chan bool)
-
-	// defer close channel
-	defer close(isExit)
-	defer close(isFinished)
-	defer close(isInputExit)
-	defer close(isSignalExit)
-
-	// create writers
-	writers := []io.Writer{}
-	for _, c := range ps.Connects {
-		// TODO(blacknon): エラーハンドリングする
-		session, _ := c.CreateSession()
-		c.Session = session
-
-		w, _ := c.Session.StdinPipe()
-		writers = append(writers, w)
-	}
-
-	// create MultiWriter
-	multiWriter := io.MultiWriter(writers...)
-
-	// Run input goroutine
-	go pushInput(isInputExit, multiWriter)
+	ps.PutHistoryFile(command)
 
 	// run command
-	for _, c := range ps.Connects {
-		c.Count = ps.Count
-		go c.SshShellCmdRun(cmd, isExit)
-	}
+	ps.Run(command)
 
-	// get command exit
-	go func() {
-		// get command exit
-		for i := 0; i < len(s.Connects); i++ {
-			<-isExit
-		}
-		isFinished <- true
-	}()
-
-	// get signal
-	go func(isSignal chan os.Signal, isSignalExit chan bool, connect []*shellConn) {
-		select {
-		case <-isSignal:
-			for _, con := range connect {
-				con.Kill()
-			}
-			return
-		case <-isSignalExit:
-			return
-		}
-	}(ps.Signal, isSignalExit, ps.Connects)
-
-wait:
-	for {
-		select {
-		case <-isFinished:
-			time.Sleep(10 * time.Millisecond)
-			break wait
-		case <-time.After(100 * time.Millisecond):
-			continue
-		}
-	}
-
-	fmt.Fprintf(os.Stderr, "\n---\n%s\n", "Command exit. Please input Enter.")
-	isInputExit <- true
-	ps.ExecHistory[s.Count] = cmd
-	ps.Count += 1
 	return
 }
 
@@ -317,15 +272,16 @@ func (ps *pShell) Completer(t prompt.Document) []prompt.Suggest {
 
 	// get complete data
 	c := ps.Complete
-	c = append(ps, localCmdSuggest...)
+	c = append(c, localCmdSuggest...)
 
 	return prompt.FilterHasPrefix(c, t.GetWordBeforeCursor(), false)
 }
 
 // GetCompleteData get command list remote machine.
 func (ps *pShell) GetCompleteData() {
-	// bash complete command
+	// bash complete command. use `compgen`.
 	compCmd := []string{"compgen", "-c"}
+	command := strings.Join(compCmd, " ")
 
 	// TODO(blacknon):
 	// - 重複データの排除
@@ -336,15 +292,22 @@ func (ps *pShell) GetCompleteData() {
 	//   - ashの補完ってどうしてるんだ？？
 
 	for _, c := range ps.Connects {
+		// Create buffer
 		buf := new(bytes.Buffer)
+
+		// Create session, and output to buffer
 		session, _ := c.CreateSession()
 		session.Stdout = buf
-		c.RunCmd(session, compCmd)
+
+		// Run get complete command
+		session.Run(command)
+
+		// Scan and put completed command to ps.Complete
 		sc := bufio.NewScanner(buf)
 		for sc.Scan() {
 			suggest := prompt.Suggest{
 				Text:        sc.Text(),
-				Description: "Command. from:" + c.Server,
+				Description: "Command. from:" + c.Name,
 			}
 			ps.Complete = append(ps.Complete, suggest)
 		}
@@ -353,5 +316,96 @@ func (ps *pShell) GetCompleteData() {
 
 // Run is exec command.
 func (ps *pShell) Run(command string) {
+	// Create History
+	ps.History[ps.Count] = map[string]pShellHistory{}
 
+	// create chanel
+	finished := make(chan bool)    // Run Command finish channel
+	input := make(chan io.Writer)  // Get io.Writer at input channel
+	exitInput := make(chan bool)   // Input finish channel
+	exitSignal := make(chan bool)  // Send kill signal finish channel
+	exitHistory := make(chan bool) // Put History finish channel
+
+	// create []io.Writer after in MultiWriter
+	var writers []io.Writer
+
+	// for connect and run
+	for _, fc := range ps.Connects {
+		// set variable c
+		// NOTE: Variables need to be assigned separately for processing by goroutine.
+		c := fc
+
+		// Get output data channel
+		output := make(chan []byte)
+
+		// Set count num
+		c.Output.Count = ps.Count
+
+		// Create output buffer, and MultiWriter
+		buf := new(bytes.Buffer)
+		mw := io.MultiWriter(os.Stdout, buf)
+		c.Output.OutputWriter = mw
+
+		// put result
+		go ps.PutHistoryResult(c.Name, command, buf, exitHistory)
+
+		// Run command
+		go func() {
+			c.CmdWriter(command, output, input)
+			close(output)
+			finished <- true
+		}()
+
+		// Get input(io.Writer), add MultiWriter
+		w := <-input
+		writers = append(writers, w)
+
+		// run print Output
+		go func() {
+			printOutput(c.Output, output)
+		}()
+	}
+
+	// create and run input writer
+	mw := io.MultiWriter(writers...)
+	go pushInput(exitInput, mw)
+
+	// send kill signal function
+	go ps.pushKillSignal(exitSignal, ps.Connects)
+
+	// wait finished channel
+	for i := 0; i < len(ps.Connects); i++ {
+		<-finished
+	}
+
+	// Exit check signal
+	exitSignal <- true
+
+	// wait time (1sec)
+	time.Sleep(300 * time.Millisecond)
+
+	// Exit Messages
+	// Because it is Blocking.IO, you can not finish Input without input from the user.
+	fmt.Fprintf(os.Stderr, "\n---\n%s\n", "Command exit. Please input Enter.")
+
+	// Exit input
+	exitInput <- true
+
+	// Add count
+	ps.Count += 1
+}
+
+// pushSignal is send kill signal to session.
+func (ps *pShell) pushKillSignal(exitSig chan bool, conns []*psConnect) (err error) {
+	select {
+	case <-ps.Signal:
+		time.Sleep(10 * time.Millisecond)
+		for _, c := range conns {
+			// send kill
+			c.Kill()
+		}
+	case <-exitSig:
+		return
+	}
+	return
 }

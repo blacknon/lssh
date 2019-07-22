@@ -2,8 +2,10 @@
 github.com/BurntSushi/toml
 # github.com/ThalesIgnite/crypto11 v0.1.0
 github.com/ThalesIgnite/crypto11
-# github.com/blacknon/go-scplib v0.0.0-20190214025421-eff8fdc20f75
+# github.com/blacknon/go-scplib v0.1.0
 github.com/blacknon/go-scplib
+# github.com/blacknon/go-sshlib v0.1.1 => ../go-sshlib
+github.com/blacknon/go-sshlib
 # github.com/c-bata/go-prompt v0.2.3
 github.com/c-bata/go-prompt
 github.com/c-bata/go-prompt/completer
@@ -13,9 +15,9 @@ github.com/davecgh/go-spew/spew
 github.com/golang/glog
 # github.com/kevinburke/ssh_config v0.0.0-20180830205328-81db2a75821e
 github.com/kevinburke/ssh_config
-# github.com/mattn/go-colorable v0.1.1
+# github.com/mattn/go-colorable v0.1.2
 github.com/mattn/go-colorable
-# github.com/mattn/go-isatty v0.0.5
+# github.com/mattn/go-isatty v0.0.8
 github.com/mattn/go-isatty
 # github.com/mattn/go-runewidth v0.0.4
 github.com/mattn/go-runewidth
@@ -40,7 +42,7 @@ github.com/youtube/vitess/go/pools
 github.com/youtube/vitess/go/sync2
 github.com/youtube/vitess/go/acl
 github.com/youtube/vitess/go/cache
-# golang.org/x/crypto v0.0.0-20190418165655-df01cb2cc480
+# golang.org/x/crypto v0.0.0-20190701094942-4def268fd1a4
 golang.org/x/crypto/ssh/terminal
 golang.org/x/crypto/ssh
 golang.org/x/crypto/ssh/agent

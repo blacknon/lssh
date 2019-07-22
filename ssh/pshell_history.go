@@ -4,22 +4,21 @@ import (
 	"bufio"
 	"bytes"
 	"fmt"
+	"io"
 	"os"
 	"os/user"
 	"strings"
 	"time"
 )
 
-type PShellHistory struct {
-	Timestamp  string
-	Command    string
-	OutputData *bytes.Buffer
-	StdoutData *bytes.Buffer // Delete?
-	StderrData *bytes.Buffer // Delete?
+type pShellHistory struct {
+	Timestamp string
+	Command   string
+	Result    string
 }
 
-// GetHistory return []History
-func (ps *pShell) GetHistory() (data []History, err error) {
+// GetHistoryFromFile return []History from historyfile
+func (ps *pShell) GetHistoryFromFile() (data []pShellHistory, err error) {
 	// user path
 	usr, _ := user.Current()
 	histfile := strings.Replace(ps.HistoryFile, "~", usr.HomeDir, 1)
@@ -40,7 +39,7 @@ func (ps *pShell) GetHistory() (data []History, err error) {
 			continue
 		}
 
-		d := History{
+		d := pShellHistory{
 			Timestamp: text[0],
 			Command:   text[1],
 		}
@@ -50,8 +49,8 @@ func (ps *pShell) GetHistory() (data []History, err error) {
 	return
 }
 
-// PutHistory put history to s.HistoryFile
-func (ps *pShell) PutHistory(cmd string) (err error) {
+// PutHistoryFile put history to s.HistoryFile
+func (ps *pShell) PutHistoryFile(cmd string) (err error) {
 	// user path
 	usr, _ := user.Current()
 	histfile := strings.Replace(ps.HistoryFile, "~", usr.HomeDir, 1)
@@ -67,11 +66,49 @@ func (ps *pShell) PutHistory(cmd string) (err error) {
 	timestamp := time.Now().Format("2006/01/02_15:04:05 ") // "yyyy/mm/dd_HH:MM:SS "
 
 	// write history
-	//     [history file format]
-	//         YYYY-mm-dd_HH:MM:SS command...
-	//         YYYY-mm-dd_HH:MM:SS command...
-	//         ...
+	// history file format
+	//     YYYY-mm-dd_HH:MM:SS command...
+	//     YYYY-mm-dd_HH:MM:SS command...
+	//     ...
 	fmt.Fprintln(file, timestamp+cmd)
+
+	return
+}
+
+// PutHistoryResult is append history to []History and HistoryFile
+func (ps *pShell) PutHistoryResult(server, command string, buf *bytes.Buffer, isExit chan bool) (err error) {
+	// Get Time
+	timestamp := time.Now().Format("2006/01/02_15:04:05 ") // "yyyy/mm/dd_HH:MM:SS "
+
+	result := ""
+
+	// append result
+	l := 0
+loop:
+	for {
+		len := buf.Len()
+		if l != len {
+			line, err := buf.ReadString('\n')
+			result = result + line
+			if err == io.EOF {
+				continue
+			}
+		}
+
+		select {
+		case <-isExit:
+			break loop
+		case <-time.After(10 * time.Millisecond):
+			continue loop
+		}
+	}
+
+	// Add History
+	ps.History[ps.Count][server] = pShellHistory{
+		Timestamp: timestamp,
+		Command:   command,
+		Result:    result,
+	}
 
 	return
 }
