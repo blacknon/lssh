@@ -26,7 +26,7 @@ type pShell struct {
 	ServerList  []string
 	Connects    []*psConnect
 	PROMPT      string
-	History     map[int]map[string]pShellHistory
+	History     map[int]map[string]*pShellHistory
 	HistoryFile string
 	Complete    []prompt.Suggest
 }
@@ -112,7 +112,7 @@ func (r *Run) pshell() (err error) {
 		ServerList:  r.ServerList,
 		Connects:    cons,
 		PROMPT:      config.Prompt,
-		History:     map[int]map[string]pShellHistory{},
+		History:     map[int]map[string]*pShellHistory{},
 		HistoryFile: config.HistoryFile,
 	}
 
@@ -211,16 +211,24 @@ func (ps *pShell) Executor(command string) {
 	case localCmdRegex_out.MatchString(command):
 		cmdSlice := strings.SplitN(command, " ", 2)
 
+		// set default num
 		num := 0
+		if ps.Count > 0 {
+			num = ps.Count - 1
+		}
+
+		// get args
 		if len(cmdSlice) > 1 {
-			num, err := strconv.Atoi(cmdSlice[1])
+			inum, err := strconv.Atoi(cmdSlice[1])
 			if err != nil {
 				return
 			}
 
-			if num >= ps.Count {
+			if inum >= ps.Count {
 				return
 			}
+
+			num = inum
 		}
 
 		ps.localCmd_out(num)
@@ -317,7 +325,7 @@ func (ps *pShell) GetCompleteData() {
 // Run is exec command.
 func (ps *pShell) Run(command string) {
 	// Create History
-	ps.History[ps.Count] = map[string]pShellHistory{}
+	ps.History[ps.Count] = map[string]*pShellHistory{}
 
 	// create chanel
 	finished := make(chan bool)    // Run Command finish channel
@@ -344,8 +352,8 @@ func (ps *pShell) Run(command string) {
 
 		// Create output buffer, and MultiWriter
 		buf := new(bytes.Buffer)
-		mw := io.MultiWriter(os.Stdout, buf)
-		c.Output.OutputWriter = mw
+		omw := io.MultiWriter(os.Stdout, buf)
+		c.Output.OutputWriter = omw
 
 		// put result
 		go ps.PutHistoryResult(c.Name, command, buf, exitHistory)
@@ -381,8 +389,8 @@ func (ps *pShell) Run(command string) {
 	// Exit check signal
 	exitSignal <- true
 
-	// wait time (1sec)
-	time.Sleep(300 * time.Millisecond)
+	// wait time (0.500 sec)
+	time.Sleep(500 * time.Millisecond)
 
 	// Exit Messages
 	// Because it is Blocking.IO, you can not finish Input without input from the user.
@@ -390,6 +398,11 @@ func (ps *pShell) Run(command string) {
 
 	// Exit input
 	exitInput <- true
+
+	// Exit history
+	for i := 0; i < len(ps.Connects); i++ {
+		exitHistory <- true
+	}
 
 	// Add count
 	ps.Count += 1
@@ -401,7 +414,6 @@ func (ps *pShell) pushKillSignal(exitSig chan bool, conns []*psConnect) (err err
 	for {
 		select {
 		case <-ps.Signal:
-			time.Sleep(10 * time.Millisecond)
 			if i == 0 {
 				for _, c := range conns {
 					// send kill
