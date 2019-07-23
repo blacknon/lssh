@@ -18,7 +18,7 @@ import (
 )
 
 // x11 request data struct
-type x11request struct {
+type x11Request struct {
 	SingleConnection bool
 	AuthProtocol     string
 	AuthCookie       string
@@ -44,7 +44,7 @@ func (c *Connect) X11Forward(session *ssh.Session) (err error) {
 	}
 
 	// set x11-req Payload
-	payload := x11request{
+	payload := x11Request{
 		SingleConnection: false,
 		AuthProtocol:     string("MIT-MAGIC-COOKIE-1"),
 		AuthCookie:       string(cookie),
@@ -238,20 +238,26 @@ func getString(r io.Reader, b []byte) (string, error) {
 //
 // example) "127.0.0.1:22", "abc.com:9977"
 func (c *Connect) TCPLocalForward(localAddr, remoteAddr string) (err error) {
+	// create listner
 	listner, err := net.Listen("tcp", localAddr)
 	if err != nil {
 		return
 	}
 
+	// forwarding
 	go func() {
 		for {
-			//  (type net.Conn)
-			conn, err := listner.Accept()
+			// local (type net.Conn)
+			local, err := listner.Accept()
 			if err != nil {
 				return
 			}
 
-			go c.forwarder(conn, "tcp", remoteAddr)
+			// remote (type net.Conn)
+			remote, err := c.Client.Dial("tcp", remoteAddr)
+
+			// forward
+			c.forwarder(local, remote)
 		}
 	}()
 
@@ -260,21 +266,38 @@ func (c *Connect) TCPLocalForward(localAddr, remoteAddr string) (err error) {
 
 // TCPReverseForward forwarding tcp data. Like Reverse port forward (ssh -R).
 //
-// func (c *Connect) TCPReverseForward(localAddr, remoteAddr string) (err error) {}
-
-// TCPDynamicForward forwarding tcp data. Like Dynamic port forward (ssh -D).
-//
-// func (c *Connect) TCPDynamicForward() (err error) {}
-
-// forwarder tcp/udp port forward. dialType in `tcp` or `udp`.
-// addr is remote port forward address (`localhost:80`, `192.168.10.100:443` etc...).
-func (c *Connect) forwarder(local net.Conn, dialType string, addr string) (err error) {
-	// Create ssh connect
-	remote, err := c.Client.Dial(dialType, addr)
+func (c *Connect) TCPReverseForward(localAddr, remoteAddr string) (err error) {
+	// create listner
+	listner, err := c.Client.Listen("tcp", remoteAddr)
 	if err != nil {
 		return
 	}
 
+	// forwarding
+	go func() {
+		for {
+			// local (type net.Conn)
+			local, err := net.Dial("tcp", localAddr)
+			if err != nil {
+				return
+			}
+
+			// remote (type net.Conn)
+			remote, err := listner.Accept()
+			if err != nil {
+				return
+			}
+
+			go c.forwarder(local, remote)
+		}
+	}()
+
+	return
+}
+
+// forwarder tcp/udp port forward. dialType in `tcp` or `udp`.
+// addr is remote port forward address (`localhost:80`, `192.168.10.100:443` etc...).
+func (c *Connect) forwarder(local net.Conn, remote net.Conn) {
 	var wg sync.WaitGroup
 	wg.Add(2)
 
@@ -293,6 +316,8 @@ func (c *Connect) forwarder(local net.Conn, dialType string, addr string) (err e
 	wg.Wait()
 	remote.Close()
 	local.Close()
-
-	return
 }
+
+// TCPDynamicForward forwarding tcp data. Like Dynamic port forward (ssh -D).
+//
+// func (c *Connect) TCPDynamicForward() (err error) {}
