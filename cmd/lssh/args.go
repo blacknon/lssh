@@ -70,9 +70,9 @@ USAGE:
 		cli.StringFlag{Name: "file,F", Value: defConf, Usage: "config `filepath`."},
 
 		// port forward option
-		cli.BoolFlag{Name: "local-forward,L", Usage: "Local port forward mode."},                         // TODO(blacknon): create (default mode.)
-		cli.BoolFlag{Name: "reverse-forward,R", Usage: "Reverse port forward mode."},                     // TODO(blacknon): create
-		cli.StringFlag{Name: "dynamic-forward,D", Usage: "Dynamic port forward mode. Specify a `port`."}, // TODO(blacknon): create
+		cli.BoolFlag{Name: "local-forward,L", Usage: "Local port forward mode."},                                 // TODO(blacknon): create (default mode.)
+		cli.BoolFlag{Name: "reverse-forward,R", Usage: "Reverse port forward mode."},                             // TODO(blacknon): create
+		cli.StringFlag{Name: "dynamic-forward,D", Usage: "Dynamic port forward mode(Socks5). Specify a `port`."}, // TODO(blacknon): create
 		cli.StringFlag{Name: "portforward-local", Usage: "port forwarding parameter, `address:port`. use local-forward or reverse-forward. (local port(ex. 127.0.0.1:8080))."},
 		cli.StringFlag{Name: "portforward-remote", Usage: "port forwarding parameter, `address:port`. use local-forward or reverse-forward. (remote port(ex. 127.0.0.1:80))."},
 
