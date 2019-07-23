@@ -11,6 +11,7 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+	"sync"
 	"syscall"
 	"time"
 
@@ -390,7 +391,7 @@ func (ps *pShell) Run(command string) {
 	exitSignal <- true
 
 	// wait time (0.500 sec)
-	time.Sleep(500 * time.Millisecond)
+	time.Sleep(100 * time.Millisecond)
 
 	// Exit Messages
 	// Because it is Blocking.IO, you can not finish Input without input from the user.
@@ -400,8 +401,11 @@ func (ps *pShell) Run(command string) {
 	exitInput <- true
 
 	// Exit history
+	m := new(sync.Mutex)
 	for i := 0; i < len(ps.Connects); i++ {
+		m.Lock()
 		exitHistory <- true
+		m.Unlock()
 	}
 
 	// Add count
