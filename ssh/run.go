@@ -33,6 +33,11 @@ type Run struct {
 	// x11 forwarding
 	X11 bool
 
+	// use or not-use local bashrc.
+	// IsNotBashrc takes precedence.
+	IsBashrc    bool
+	IsNotBashrc bool
+
 	// PortForwarding
 	PortForwardLocal  string
 	PortForwardRemote string

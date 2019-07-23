@@ -74,6 +74,8 @@ USAGE:
 		cli.BoolFlag{Name: "pshell,s", Usage: "use parallel-shell(pshell) (alpha)"},
 		cli.BoolFlag{Name: "parallel,p", Usage: "run command parallel node(tail -F etc...)"},
 		cli.BoolFlag{Name: "x11,X", Usage: "x11 forwarding(forward to ${DISPLAY})"},
+		cli.BoolFlag{Name: "localrc", Usage: "use local bashrc shell"},
+		cli.BoolFlag{Name: "not-localrc", Usage: "not use local bashrc shell"},
 		cli.BoolFlag{Name: "help,h", Usage: "print this help"},
 	}
 	app.EnableBashCompletion = true
@@ -152,6 +154,8 @@ USAGE:
 		r.X11 = c.Bool("x11")
 		r.IsParallel = c.Bool("parallel")
 		r.IsTerm = c.Bool("term")
+		r.IsBashrc = c.Bool("localrc")
+		r.IsNotBashrc = c.Bool("not-localrc")
 
 		r.PortForwardLocal = c.String("portforward-local")
 		r.PortForwardRemote = c.String("portforward-remote")

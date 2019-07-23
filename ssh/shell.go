@@ -28,10 +28,20 @@ func (r *Run) shell() (err error) {
 		return
 	}
 
-	// OverWrite
+	// OverWrite port forwarding
 	if r.PortForwardLocal != "" && r.PortForwardRemote != "" {
 		config.PortForwardLocal = r.PortForwardLocal
 		config.PortForwardRemote = r.PortForwardRemote
+	}
+
+	// OverWrite local bashrc use
+	if r.IsBashrc {
+		config.LocalRcUse = "yes"
+	}
+
+	// OverWrite local bashrc not use
+	if r.IsNotBashrc {
+		config.LocalRcUse = "no"
 	}
 
 	// header

@@ -65,45 +65,47 @@ func (c *Connect) CmdWriter(command string, output chan []byte, input chan io.Wr
 // Output data is processed by channel because it is executed in parallel. If specification is troublesome, it is good to generate and process session from ssh package.
 func (c *Connect) Cmd(command string, output chan []byte) (err error) {
 	// create session
-	session, err := c.CreateSession()
-	if err != nil {
-		close(output)
-		return
+	if c.session == nil {
+		c.session, err = c.CreateSession()
+		if err != nil {
+			close(output)
+			return
+		}
 	}
 
 	// setup
-	err = c.setupCmd(session)
+	err = c.setupCmd(c.session)
 	if err != nil {
 		return
 	}
 
 	// if set Stdin,
 	if len(c.Stdin) > 0 {
-		session.Stdin = bytes.NewReader(c.Stdin)
+		c.session.Stdin = bytes.NewReader(c.Stdin)
 	} else {
-		session.Stdin = os.Stdin
+		c.session.Stdin = os.Stdin
 	}
 
 	// Set output buffer
 	buf := new(bytes.Buffer)
 
 	// set output
-	session.Stdout = io.MultiWriter(buf)
-	session.Stderr = io.MultiWriter(buf)
+	c.session.Stdout = io.MultiWriter(buf)
+	c.session.Stderr = io.MultiWriter(buf)
 	if c.ForceStd {
 		// Input terminal Make raw
 		fd := int(os.Stdin.Fd())
 		state, _ := terminal.MakeRaw(fd)
 		defer terminal.Restore(fd, state)
 
-		session.Stdout = os.Stdout
-		session.Stderr = os.Stderr
+		c.session.Stdout = os.Stdout
+		c.session.Stderr = os.Stderr
 	}
 
 	// Run Command
 	isExit := make(chan bool)
 	go func() {
-		session.Run(command)
+		c.session.Run(command)
 		isExit <- true
 	}()
 
