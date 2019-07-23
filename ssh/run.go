@@ -14,6 +14,10 @@ import (
 	"golang.org/x/crypto/ssh/terminal"
 )
 
+// TODO(blacknon): 自動再接続機能の追加
+//     autosshのように、接続が切れた際に自動的に再接続を試みる動作をさせたい
+//     パラメータでの有効・無効指定が必要になる。
+
 type Run struct {
 	ServerList []string
 	Conf       conf.Config
