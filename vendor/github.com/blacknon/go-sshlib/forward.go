@@ -233,7 +233,7 @@ func getString(r io.Reader, b []byte) (string, error) {
 	return string(b), nil
 }
 
-// TCPLocalForward forwarding tcp data. Like Local port forward.
+// TCPLocalForward forwarding tcp data. Like Local port forward (ssh -L).
 // localAddr, remoteAddr is write as "address:port".
 //
 // example) "127.0.0.1:22", "abc.com:9977"
@@ -257,6 +257,14 @@ func (c *Connect) TCPLocalForward(localAddr, remoteAddr string) (err error) {
 
 	return
 }
+
+// TCPReverseForward forwarding tcp data. Like Reverse port forward (ssh -R).
+//
+// func (c *Connect) TCPReverseForward(localAddr, remoteAddr string) (err error) {}
+
+// TCPDynamicForward forwarding tcp data. Like Dynamic port forward (ssh -D).
+//
+// func (c *Connect) TCPDynamicForward() (err error) {}
 
 // forwarder tcp/udp port forward. dialType in `tcp` or `udp`.
 // addr is remote port forward address (`localhost:80`, `192.168.10.100:443` etc...).
