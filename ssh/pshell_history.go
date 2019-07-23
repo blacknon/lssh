@@ -8,7 +8,6 @@ import (
 	"os"
 	"os/user"
 	"strings"
-	"sync"
 	"time"
 )
 
@@ -88,11 +87,6 @@ func (ps *pShell) PutHistoryResult(server, command string, buf *bytes.Buffer, is
 	// init result
 	result := ""
 
-	// struct mute
-	var mutex struct {
-		sync.Mutex
-	}
-
 loop:
 	for {
 		if buf.Len() > 0 {
@@ -111,18 +105,12 @@ loop:
 		}
 	}
 
-	// lock
-	mutex.Lock()
-
 	// Add History
 	ps.History[count][server] = &pShellHistory{
 		Timestamp: timestamp,
 		Command:   command,
 		Result:    result,
 	}
-
-	// lock
-	mutex.Unlock()
 
 	return
 }
