@@ -65,17 +65,26 @@ USAGE:
 
 	// Set options
 	app.Flags = []cli.Flag{
-		cli.StringSliceFlag{Name: "host,H", Usage: "connect servernames"},
-		cli.StringFlag{Name: "file,f", Value: defConf, Usage: "config file path"},
-		cli.StringFlag{Name: "portforward-local", Usage: "local port forwarding parameter (local port(ex. 127.0.0.1:8080))"},
-		cli.StringFlag{Name: "portforward-remote", Usage: "local port forwarding parameter (remote port(ex. 127.0.0.1:80))"},
-		cli.BoolFlag{Name: "list,l", Usage: "print server list from config"},
-		cli.BoolFlag{Name: "term,t", Usage: "run specified command at terminal"},
-		cli.BoolFlag{Name: "pshell,s", Usage: "use parallel-shell(pshell) (alpha)"},
-		cli.BoolFlag{Name: "parallel,p", Usage: "run command parallel node(tail -F etc...)"},
-		cli.BoolFlag{Name: "x11,X", Usage: "x11 forwarding(forward to ${DISPLAY})"},
-		cli.BoolFlag{Name: "localrc", Usage: "use local bashrc shell"},
-		cli.BoolFlag{Name: "not-localrc", Usage: "not use local bashrc shell"},
+		// common option
+		cli.StringSliceFlag{Name: "host,H", Usage: "connect `servername`."},
+		cli.StringFlag{Name: "file,F", Value: defConf, Usage: "config `filepath`."},
+
+		// port forward option
+		cli.BoolFlag{Name: "local-forward,L", Usage: "Local port forward mode."},                         // TODO(blacknon): create (default mode.)
+		cli.BoolFlag{Name: "reverse-forward,R", Usage: "Reverse port forward mode."},                     // TODO(blacknon): create
+		cli.StringFlag{Name: "dynamic-forward,D", Usage: "Dynamic port forward mode. Specify a `port`."}, // TODO(blacknon): create
+		cli.StringFlag{Name: "portforward-local", Usage: "port forwarding parameter, `address:port`. use local-forward or reverse-forward. (local port(ex. 127.0.0.1:8080))."},
+		cli.StringFlag{Name: "portforward-remote", Usage: "port forwarding parameter, `address:port`. use local-forward or reverse-forward. (remote port(ex. 127.0.0.1:80))."},
+
+		// Other bool
+		cli.BoolFlag{Name: "background,f", Usage: "run background."}, // TODO(blacknon): create
+		cli.BoolFlag{Name: "x11,X", Usage: "x11 forwarding(forward to ${DISPLAY})."},
+		cli.BoolFlag{Name: "term,t", Usage: "run specified command at terminal."},
+		cli.BoolFlag{Name: "parallel,p", Usage: "run command parallel node(tail -F etc...)."},
+		cli.BoolFlag{Name: "localrc", Usage: "use local bashrc shell."},
+		cli.BoolFlag{Name: "not-localrc", Usage: "not use local bashrc shell."},
+		cli.BoolFlag{Name: "pshell,s", Usage: "use parallel-shell(pshell) (alpha)."},
+		cli.BoolFlag{Name: "list,l", Usage: "print server list from config."},
 		cli.BoolFlag{Name: "help,h", Usage: "print this help"},
 	}
 	app.EnableBashCompletion = true
