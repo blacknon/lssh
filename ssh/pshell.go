@@ -177,7 +177,6 @@ func (ps *pShell) CreatePrompt() (p string, result bool) {
 }
 
 // Executor run ssh command in parallel-shell.
-//
 func (ps *pShell) Executor(command string) {
 	// trim space
 	command = strings.TrimSpace(command)
@@ -208,7 +207,7 @@ func (ps *pShell) Executor(command string) {
 		ps.localCmd_history()
 		return
 
-	// !out [num]
+	// %out [num]
 	case localCmdRegex_out.MatchString(command):
 		cmdSlice := strings.SplitN(command, " ", 2)
 
@@ -225,6 +224,7 @@ func (ps *pShell) Executor(command string) {
 				return
 			}
 
+			// if num > count
 			if inum >= ps.Count {
 				return
 			}
@@ -264,9 +264,7 @@ func (ps *pShell) Completer(t prompt.Document) []prompt.Suggest {
 		{Text: "clear", Description: "clear screen"},
 		{Text: "history", Description: "show history"},
 		{Text: "%out", Description: "%out [num], show history result."},
-
-		// outのリストを出力ためのローカルコマンド
-		// {Text: "%outlist", Description: "%outlist, show history result list."},
+		// {Text: "%outlist", Description: "%outlist, show history result list."}, // outのリストを出力ためのローカルコマンド
 
 		// outの出力でdiffをするためのローカルコマンド。すべての出力と比較するのはあまりに辛いと思われるため、最初の出力との比較、といった方式で対応するのが良いか？？
 		// {Text: "%diff", Description: "%diff [num], show history result list."},
@@ -276,7 +274,6 @@ func (ps *pShell) Completer(t prompt.Document) []prompt.Suggest {
 
 		// outの出力で重複している出力だけを表示するコマンド
 		// {Text: "%duplicate", Description: "%duplicate [num], show history result list."},
-
 	}
 
 	// get complete data
@@ -288,18 +285,20 @@ func (ps *pShell) Completer(t prompt.Document) []prompt.Suggest {
 
 // GetCompleteData get command list remote machine.
 func (ps *pShell) GetCompleteData() {
+	// TODO(blacknon):
+	//   - 構文解析して、ファイルの補完処理も行わせる
+	//     - 引数にコマンドorファイルの種別を渡すようにする
+	//   - 補完コマンドをconfigでオプションとして指定できるようにする
+	//     - あまり無いだろうけど、bash以外をリモートで使ってる場合など(ashとかzsh(レア)など)
+
 	// bash complete command. use `compgen`.
 	compCmd := []string{"compgen", "-c"}
 	command := strings.Join(compCmd, " ")
 
-	// TODO(blacknon):
-	// - 重複データの排除
-	// - 構文解析して、ファイルの補完処理も行わせる
-	//   - 引数にコマンドorファイルの種別を渡すようにする
-	// - 補完コマンドをconfigでオプションとして指定できるようにする
-	//   - あまり無いだろうけど、zshをリモートで使ってる場合なんかには指定(zshとかはデフォルトでcompgen使えないし)
-	//   - ashの補完ってどうしてるんだ？？
+	// command map
+	cmdMap := map[string][]string{}
 
+	// append command to cmdMap
 	for _, c := range ps.Connects {
 		// Create buffer
 		buf := new(bytes.Buffer)
@@ -311,15 +310,26 @@ func (ps *pShell) GetCompleteData() {
 		// Run get complete command
 		session.Run(command)
 
-		// Scan and put completed command to ps.Complete
+		// Scan and put completed command to map.
 		sc := bufio.NewScanner(buf)
 		for sc.Scan() {
-			suggest := prompt.Suggest{
-				Text:        sc.Text(),
-				Description: "Command. from:" + c.Name,
-			}
-			ps.Complete = append(ps.Complete, suggest)
+			cmdMap[sc.Text()] = append(cmdMap[sc.Text()], c.Name)
 		}
+	}
+
+	// cmdMap to suggest
+	for cmd, hosts := range cmdMap {
+		// join hosts
+		h := strings.Join(hosts, ",")
+
+		// create suggest
+		suggest := prompt.Suggest{
+			Text:        cmd,
+			Description: "Command. from:" + h,
+		}
+
+		// append ps.Complete
+		ps.Complete = append(ps.Complete, suggest)
 	}
 }
 
