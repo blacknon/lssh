@@ -84,7 +84,12 @@ func (r *Run) cmd() (err error) {
 			//     session.Stderr = os.Stderr
 			c.ForceStd = true
 
-			// overwrite port forward address
+			// OverWrite port forward mode
+			if r.PortForwardMode != "" {
+				config.PortForwardMode = r.PortForwardMode
+			}
+
+			// Overwrite port forward address
 			if r.PortForwardLocal != "" && r.PortForwardRemote != "" {
 				config.PortForwardLocal = r.PortForwardLocal
 				config.PortForwardRemote = r.PortForwardRemote
@@ -94,11 +99,11 @@ func (r *Run) cmd() (err error) {
 			r.printPortForward(config.PortForwardLocal, config.PortForwardRemote)
 
 			// port forwarding
-			switch {
-			case r.PortForwardMode == "L":
+			switch config.PortForwardMode {
+			case "L", "":
 				c.TCPLocalForward(config.PortForwardLocal, config.PortForwardRemote)
-			case r.PortForwardMode == "R":
-				c.TCPReverseForward(config.PortForwardLocal, config.PortForwardRemote)
+			case "R":
+				c.TCPRemoteForward(config.PortForwardLocal, config.PortForwardRemote)
 			}
 		}
 
