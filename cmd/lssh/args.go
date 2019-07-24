@@ -165,6 +165,14 @@ USAGE:
 		r.IsBashrc = c.Bool("localrc")
 		r.IsNotBashrc = c.Bool("not-localrc")
 
+		// port forward mode
+		switch {
+		case c.Bool("reverse-forward"):
+			r.PortForwardMode = "R"
+		default:
+			r.PortForwardMode = "L"
+		}
+
 		r.PortForwardLocal = c.String("portforward-local")
 		r.PortForwardRemote = c.String("portforward-remote")
 

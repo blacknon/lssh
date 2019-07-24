@@ -265,7 +265,9 @@ func (c *Connect) TCPLocalForward(localAddr, remoteAddr string) (err error) {
 }
 
 // TCPReverseForward forwarding tcp data. Like Reverse port forward (ssh -R).
+// localAddr, remoteAddr is write as "address:port".
 //
+// example) "127.0.0.1:22", "abc.com:9977"
 func (c *Connect) TCPReverseForward(localAddr, remoteAddr string) (err error) {
 	// create listner
 	listner, err := c.Client.Listen("tcp", remoteAddr)
@@ -318,6 +320,15 @@ func (c *Connect) forwarder(local net.Conn, remote net.Conn) {
 	local.Close()
 }
 
-// TCPDynamicForward forwarding tcp data. Like Dynamic port forward (ssh -D).
+// TCPSocks5DynamicForward forwarding tcp data. Like Dynamic port forward (ssh -D).
 //
-// func (c *Connect) TCPDynamicForward() (err error) {}
+// func (c *Connect) TCPSocks5DynamicForward() (err error) {}
+// NOTE: 参考
+//     - https://github.com/ring04h/s5.go
+//     - https://github.com/davecheney/socksie
+//     - https://github.com/justmao945/mallory
+
+// TCPHttpDynamicForward forwarding tcp data. Like Dynamic port forward (ssh -D),
+// but http proxy.
+//
+// func (c *Connect) TCPHttpDynamicForward() (err error) {}

@@ -72,7 +72,14 @@ func (r *Run) shell() (err error) {
 
 	// Port Forwarding
 	if config.PortForwardLocal != "" && config.PortForwardRemote != "" {
-		err := connect.TCPLocalForward(config.PortForwardLocal, config.PortForwardRemote)
+		// port forwarding
+		switch {
+		case r.PortForwardMode == "L":
+			err = connect.TCPLocalForward(config.PortForwardLocal, config.PortForwardRemote)
+		case r.PortForwardMode == "R":
+			err = connect.TCPReverseForward(config.PortForwardLocal, config.PortForwardRemote)
+		}
+
 		if err != nil {
 			fmt.Println(err)
 		}
