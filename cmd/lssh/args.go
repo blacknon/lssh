@@ -158,14 +158,21 @@ USAGE:
 			r.Mode = "shell"
 		}
 
+		// exec command
 		r.ExecCmd = c.Args()
-		r.X11 = c.Bool("x11")
 		r.IsParallel = c.Bool("parallel")
+
+		// x11 forwarding
+		r.X11 = c.Bool("x11")
+
+		// is tty
 		r.IsTerm = c.Bool("term")
+
+		// local bashrc use
 		r.IsBashrc = c.Bool("localrc")
 		r.IsNotBashrc = c.Bool("not-localrc")
 
-		// port forward mode
+		// local/remote port forwarding mode
 		switch {
 		case c.Bool("local-forward"):
 			r.PortForwardMode = "L"
@@ -177,8 +184,12 @@ USAGE:
 			r.PortForwardMode = ""
 		}
 
+		// local/remote port forwarding address
 		r.PortForwardLocal = c.String("portforward-local")
 		r.PortForwardRemote = c.String("portforward-remote")
+
+		// Dynamic port forwarding port
+		r.DynamicPortForward = c.String("dynamic-forward")
 
 		r.Start()
 		return nil
