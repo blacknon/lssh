@@ -57,10 +57,12 @@ USAGE:
 	app.Version = "0.6.0"
 
 	// TODO(blacknon): オプションの追加
-	//     -f      ... バックグラウンドでの接続(X11接続をバックグラウンドで実行する場合など)
-	//                 (https://github.com/sevlyar/go-daemon)
-	//     -w      ... コマンド実行時にサーバ名ヘッダの表示をする
-	//     -W      ... コマンド実行時にサーバ名ヘッダの表示をしない
+	//     -f       ... バックグラウンドでの接続(X11接続やport forwardingをバックグラウンドで実行する場合など。-f -Nと同じ状態にする？(コマンドが指定されててもバックグラウンド実行させない))
+	//                  (https://github.com/sevlyar/go-daemon)
+	//     -a       ... 自動接続モード(接続が切れてしまった場合、自動的に再接続を試みる)
+	//     -A <num> ... 自動接続モード(接続が切れてしまった場合、自動的に再接続を試みる)。再試行の回数指定。
+	//     -w       ... コマンド実行時にサーバ名ヘッダの表示をする
+	//     -W       ... コマンド実行時にサーバ名ヘッダの表示をしない
 
 	// Set options
 	app.Flags = []cli.Flag{
@@ -69,9 +71,9 @@ USAGE:
 		cli.StringFlag{Name: "file,F", Value: defConf, Usage: "config `filepath`."},
 
 		// port forward option
-		cli.BoolFlag{Name: "local-forward,L", Usage: "Local port forward mode."},                                 // TODO(blacknon): create (default mode.)
-		cli.BoolFlag{Name: "remote-forward,R", Usage: "Remote port forward mode."},                               // TODO(blacknon): create
-		cli.StringFlag{Name: "dynamic-forward,D", Usage: "Dynamic port forward mode(Socks5). Specify a `port`."}, // TODO(blacknon): create
+		cli.BoolFlag{Name: "local-forward,L", Usage: "Local port forward mode."},
+		cli.BoolFlag{Name: "remote-forward,R", Usage: "Remote port forward mode."},
+		cli.StringFlag{Name: "dynamic-forward,D", Usage: "Dynamic port forward mode(Socks5). Specify a `port`."},
 		cli.StringFlag{Name: "portforward-local", Usage: "port forwarding parameter, `address:port`. use local-forward or reverse-forward. (local port(ex. 127.0.0.1:8080))."},
 		cli.StringFlag{Name: "portforward-remote", Usage: "port forwarding parameter, `address:port`. use local-forward or reverse-forward. (remote port(ex. 127.0.0.1:80))."},
 
