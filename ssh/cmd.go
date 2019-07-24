@@ -82,7 +82,9 @@ func (r *Run) cmd() (err error) {
 			// if select server is single, Force a value such as.
 			//     session.Stdout = os.Stdout
 			//     session.Stderr = os.Stderr
-			c.ForceStd = true
+			if r.IsTerm {
+				c.ForceStd = true
+			}
 
 			// OverWrite port forward mode
 			if r.PortForwardMode != "" {
@@ -96,14 +98,20 @@ func (r *Run) cmd() (err error) {
 			}
 
 			// print header
-			r.printPortForward(config.PortForwardLocal, config.PortForwardRemote)
+			r.printPortForward(config.PortForwardMode, config.PortForwardLocal, config.PortForwardRemote)
 
-			// port forwarding
+			// Port Forwarding
 			switch config.PortForwardMode {
 			case "L", "":
 				c.TCPLocalForward(config.PortForwardLocal, config.PortForwardRemote)
 			case "R":
 				c.TCPRemoteForward(config.PortForwardLocal, config.PortForwardRemote)
+			}
+
+			// Dynamic Port Forwarding
+			if config.DynamicPortForward != "" {
+				r.printDynamicPortForward(config.DynamicPortForward)
+				go c.TCPDynamicForward("localhost", config.DynamicPortForward)
 			}
 		}
 

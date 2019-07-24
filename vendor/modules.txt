@@ -2,6 +2,8 @@
 github.com/BurntSushi/toml
 # github.com/ThalesIgnite/crypto11 v0.1.0
 github.com/ThalesIgnite/crypto11
+# github.com/armon/go-socks5 v0.0.0-20160902184237-e75332964ef5
+github.com/armon/go-socks5
 # github.com/blacknon/go-scplib v0.1.0
 github.com/blacknon/go-scplib
 # github.com/blacknon/go-sshlib v0.1.1 => ../go-sshlib

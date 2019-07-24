@@ -52,10 +52,14 @@ type Run struct {
 	IsBashrc    bool
 	IsNotBashrc bool
 
-	// PortForwarding
+	// local/remote Port Forwarding
 	PortForwardMode   string // L or R
 	PortForwardLocal  string
 	PortForwardRemote string
+
+	// Dynamic Port Forwarding
+	// set localhost port num (ex. 11080).
+	DynamicPortForward string
 
 	// Exec command
 	ExecCmd []string
@@ -161,9 +165,29 @@ func (r *Run) printRunCommand() {
 
 // printPortForward is printout port forwarding.
 // use ssh command run header. only use shell().
-func (r *Run) printPortForward(forwardLocal, forwardRemote string) {
+func (r *Run) printPortForward(m, forwardLocal, forwardRemote string) {
 	if forwardLocal != "" && forwardRemote != "" {
-		fmt.Fprintf(os.Stderr, "Port Forward  :local[%s] <=> remote[%s]\n", forwardLocal, forwardRemote)
+		var mode, arrow string
+		switch m {
+		case "L", "":
+			mode = "LOCAL "
+			arrow = " =>"
+		case "R":
+			mode = "REMOTE"
+			arrow = "<= "
+		}
+
+		fmt.Fprintf(os.Stderr, "Port Forward  :%s\n", mode)
+		fmt.Fprintf(os.Stderr, "               local[%s] %s remote[%s]\n", forwardLocal, arrow, forwardRemote)
+	}
+}
+
+// printPortForward is printout port forwarding.
+// use ssh command run header. only use shell().
+func (r *Run) printDynamicPortForward(port string) {
+	if port != "" {
+		fmt.Fprintf(os.Stderr, "DynamicForward:%s\n", port)
+		fmt.Fprintf(os.Stderr, "               %s\n", "connect Socks5.")
 	}
 }
 

@@ -39,6 +39,11 @@ func (r *Run) shell() (err error) {
 		config.PortForwardRemote = r.PortForwardRemote
 	}
 
+	// OverWrite dynamic port forwarding
+	if r.DynamicPortForward != "" {
+		config.DynamicPortForward = r.DynamicPortForward
+	}
+
 	// OverWrite local bashrc use
 	if r.IsBashrc {
 		config.LocalRcUse = "yes"
@@ -51,7 +56,8 @@ func (r *Run) shell() (err error) {
 
 	// header
 	r.printSelectServer()
-	r.printPortForward(config.PortForwardLocal, config.PortForwardRemote)
+	r.printPortForward(config.PortForwardMode, config.PortForwardLocal, config.PortForwardRemote)
+	r.printDynamicPortForward(config.DynamicPortForward)
 	r.printProxy(server)
 	if config.LocalRcUse == "yes" {
 		fmt.Fprintf(os.Stderr, "Information   :This connect use local bashrc.\n")
@@ -75,7 +81,7 @@ func (r *Run) shell() (err error) {
 		connect.ForwardSshAgent(session)
 	}
 
-	// Port Forwarding
+	// Local/Remote Port Forwarding
 	if config.PortForwardLocal != "" && config.PortForwardRemote != "" {
 		// port forwarding
 		switch config.PortForwardMode {
@@ -88,6 +94,11 @@ func (r *Run) shell() (err error) {
 		if err != nil {
 			fmt.Println(err)
 		}
+	}
+
+	// Dynamic Port Forwarding
+	if config.DynamicPortForward != "" {
+		go connect.TCPDynamicForward("localhost", config.DynamicPortForward)
 	}
 
 	// run pre local command
