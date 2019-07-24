@@ -26,6 +26,7 @@ import (
 //     【参考】
 //         - https://github.com/rom1v/rsshfs
 //         - https://github.com/hanwen/go-fuse
+//         - https://gitlab.com/dns2utf8/revfs/
 
 type Run struct {
 	ServerList []string
