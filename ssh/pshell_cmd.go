@@ -19,9 +19,8 @@ func (ps *pShell) localCmd_history() {
 
 // localCmd_out is print exec history at number
 // example:
-//     %out 3
-//
-// TODO(blacknon): 引数がない場合、直前の処理の出力を表示させる
+//     - %out
+//     - %out <num>
 func (ps *pShell) localCmd_out(num int) {
 	histories := ps.History[num]
 

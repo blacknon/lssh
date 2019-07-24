@@ -141,8 +141,11 @@ type ProxyConfig struct {
 //
 // WARN: This struct is not use...
 type OpenSshConfig struct {
-	// TODO(blacknon): Implement with v0.5.6
 	Path string `toml:"path"`
+
+	// TODO(blacknon): AWS等のクラウドで使えるよう、OpenSSHConfigの生成コマンドを指定して、そこから読み取る処理を追加する。
+	//                 pathとの優先をどうするかを検討しないといけないので要考慮。
+	// Cmd string `toml:"cmd"`
 	ServerConfig
 }
 
