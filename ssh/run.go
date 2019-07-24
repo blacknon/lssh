@@ -43,6 +43,7 @@ type Run struct {
 	IsNotBashrc bool
 
 	// PortForwarding
+	PortForwardMode   string // L or R
 	PortForwardLocal  string
 	PortForwardRemote string
 

@@ -93,8 +93,13 @@ func (r *Run) cmd() (err error) {
 			// print header
 			r.printPortForward(config.PortForwardLocal, config.PortForwardRemote)
 
-			// local port forwarding
-			c.TCPLocalForward(config.PortForwardLocal, config.PortForwardRemote)
+			// port forwarding
+			switch {
+			case r.PortForwardMode == "L":
+				c.TCPLocalForward(config.PortForwardLocal, config.PortForwardRemote)
+			case r.PortForwardMode == "R":
+				c.TCPReverseForward(config.PortForwardLocal, config.PortForwardRemote)
+			}
 		}
 
 		// run command
