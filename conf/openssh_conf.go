@@ -100,7 +100,10 @@ func getOpenSshConfig(path string) (config map[string]ServerConfig, err error) {
 		}
 
 		// Port forwarding (Dynamic forward)
-		// TODO(blacknon): add
+		dynamicForward := ssh_config.Get(host, "DynamicForward")
+		if dynamicForward != "" {
+			serverConfig.DynamicPortForward = dynamicForward
+		}
 
 		serverName := path + ":" + host
 		config[serverName] = serverConfig
