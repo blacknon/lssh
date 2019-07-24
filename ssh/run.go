@@ -18,6 +18,15 @@ import (
 //     autosshのように、接続が切れた際に自動的に再接続を試みる動作をさせたい
 //     パラメータでの有効・無効指定が必要になる。
 
+// TODO(blacknon): リバースでのsshfsの追加
+//     lsshfs実装後になるか？ssh接続時に、指定したフォルダにローカルの内容をマウントさせて読み取らせる。
+//     うまくやれれば、ローカルのスクリプトなどをそのままマウントさせて実行させたりできるかもしれない。
+//     Socketかなにかでトンネルさせて、あとは指定したディレクトリ配下をそのままFUSEでファイルシステムとして利用できるように書けばいける…？
+//
+//     【参考】
+//         - https://github.com/rom1v/rsshfs
+//         - https://github.com/hanwen/go-fuse
+
 type Run struct {
 	ServerList []string
 	Conf       conf.Config
