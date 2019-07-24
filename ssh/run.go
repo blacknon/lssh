@@ -109,9 +109,6 @@ func (r *Run) Start() {
 		}
 	}
 
-	// Set portforward mode
-	// TODO(blacknon): 追加。基本はLocalで、Remoteが指定されてる場合は上書き(順番は←の順でチェックすれば上書きされるはず)。
-
 	// create AuthMap
 	r.createAuthMethodMap()
 

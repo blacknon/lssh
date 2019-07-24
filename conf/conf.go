@@ -113,6 +113,7 @@ type ServerConfig struct {
 	LocalRcDecodeCmd string   `toml:"local_rc_decode_cmd"`
 
 	// port forwarding setting
+	PortForwardMode   string `toml:"port_forward"`        // `L`|`R`
 	PortForwardLocal  string `toml:"port_forward_local"`  // port forward (local). "host:port"
 	PortForwardRemote string `toml:"port_forward_remote"` // port forward (remote). "host:port"
 

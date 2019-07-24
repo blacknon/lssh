@@ -70,7 +70,7 @@ USAGE:
 
 		// port forward option
 		cli.BoolFlag{Name: "local-forward,L", Usage: "Local port forward mode."},                                 // TODO(blacknon): create (default mode.)
-		cli.BoolFlag{Name: "reverse-forward,R", Usage: "Reverse port forward mode."},                             // TODO(blacknon): create
+		cli.BoolFlag{Name: "remote-forward,R", Usage: "Remote port forward mode."},                               // TODO(blacknon): create
 		cli.StringFlag{Name: "dynamic-forward,D", Usage: "Dynamic port forward mode(Socks5). Specify a `port`."}, // TODO(blacknon): create
 		cli.StringFlag{Name: "portforward-local", Usage: "port forwarding parameter, `address:port`. use local-forward or reverse-forward. (local port(ex. 127.0.0.1:8080))."},
 		cli.StringFlag{Name: "portforward-remote", Usage: "port forwarding parameter, `address:port`. use local-forward or reverse-forward. (remote port(ex. 127.0.0.1:80))."},
@@ -167,10 +167,14 @@ USAGE:
 
 		// port forward mode
 		switch {
-		case c.Bool("reverse-forward"):
+		case c.Bool("local-forward"):
+			r.PortForwardMode = "L"
+		case c.Bool("remote-forward"):
+			r.PortForwardMode = "R"
+		case c.Bool("local-forward") && c.Bool("remote-forward"):
 			r.PortForwardMode = "R"
 		default:
-			r.PortForwardMode = "L"
+			r.PortForwardMode = ""
 		}
 
 		r.PortForwardLocal = c.String("portforward-local")
