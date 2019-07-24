@@ -112,10 +112,13 @@ type ServerConfig struct {
 	LocalRcPath      []string `toml:"local_rc_file"`
 	LocalRcDecodeCmd string   `toml:"local_rc_decode_cmd"`
 
-	// port forwarding setting
+	// local/remote port forwarding setting
 	PortForwardMode   string `toml:"port_forward"`        // `L`|`R`
 	PortForwardLocal  string `toml:"port_forward_local"`  // port forward (local). "host:port"
 	PortForwardRemote string `toml:"port_forward_remote"` // port forward (remote). "host:port"
+
+	// Dynamic Port Forwarding setting
+	DynamicPortForward string `toml:"dynamic_port_forward"` // "11080"
 
 	// x11 forwarding setting
 	X11 bool `toml:"x11"`
