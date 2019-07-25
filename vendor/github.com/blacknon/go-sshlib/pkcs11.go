@@ -141,7 +141,7 @@ func (p *PKCS11) GetCryptoSigner() (signers []crypto.Signer, err error) {
 // Only Support UNIX-like OS.
 func (p *PKCS11) GetPIN() (err error) {
 	if p.PIN == "" {
-		p.PIN, err = getPassPhase("PKCS11 PIN:")
+		p.PIN, err = getPassphrase("PKCS11 PIN:")
 	}
 
 	return

@@ -53,7 +53,7 @@ func CreateSignerPublicKey(key, password string) (signer ssh.Signer, err error) 
 }
 
 // CreateSignerPublicKeyPrompt rapper CreateSignerPKCS11.
-// Output a passphase input prompt if the passphase is not entered or incorrect.
+// Output a passphrase input prompt if the passphrase is not entered or incorrect.
 //
 // Only Support UNIX-like OS.
 func CreateSignerPublicKeyPrompt(key, password string) (signer ssh.Signer, err error) {
@@ -77,10 +77,10 @@ func CreateSignerPublicKeyPrompt(key, password string) (signer ssh.Signer, err e
 		rgx := regexp.MustCompile(`cannot decode`)
 		if err != nil {
 			if rgx.MatchString(err.Error()) {
-				msg := key + "'s passphase:"
+				msg := key + "'s passphrase:"
 
 				for i := 0; i < rep; i++ {
-					password, _ = getPassPhase(msg)
+					password, _ = getPassphrase(msg)
 					password = strings.TrimRight(password, "\n")
 					signer, err = ssh.ParsePrivateKeyWithPassphrase(keyData, []byte(password))
 					if err == nil {

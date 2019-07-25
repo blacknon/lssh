@@ -26,8 +26,8 @@ func getAbsPath(path string) string {
 	return path
 }
 
-// getPassPhase gets the passphrase from virtual terminal input and returns the result. Works only on UNIX-based OS.
-func getPassPhase(msg string) (input string, err error) {
+// getPassphrase gets the passphrase from virtual terminal input and returns the result. Works only on UNIX-based OS.
+func getPassphrase(msg string) (input string, err error) {
 	fmt.Printf(msg)
 
 	// Open /dev/tty
