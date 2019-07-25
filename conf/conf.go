@@ -87,13 +87,13 @@ type ServerConfig struct {
 	Passes          []string `toml:"passes"`
 	Key             string   `toml:"key"`
 	KeyPass         string   `toml:"keypass"`
-	Keys            []string `toml:"keys"` // "keypath::passphase"
+	Keys            []string `toml:"keys"` // "keypath::passphrase"
 	Cert            string   `toml:"cert"`
 	CertKey         string   `toml:"certkey"`
 	CertKeyPass     string   `toml:"certkeypass"`
 	AgentAuth       bool     `toml:"agentauth"`
 	SSHAgentUse     bool     `toml:"ssh_agent"`
-	SSHAgentKeyPath []string `toml:"ssh_agent_key"` // "keypath::passphase"
+	SSHAgentKeyPath []string `toml:"ssh_agent_key"` // "keypath::passphrase"
 	PKCS11Use       bool     `toml:"pkcs11"`
 	PKCS11Provider  string   `toml:"pkcs11provider"` // PKCS11 Provider PATH
 	PKCS11PIN       string   `toml:"pkcs11pin"`      // PKCS11 PIN code
