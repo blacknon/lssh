@@ -4,12 +4,14 @@ import (
 	"bytes"
 	"fmt"
 	"io/ioutil"
+	"log"
 	"os"
 	"os/exec"
 	"runtime"
 	"strings"
 
 	"github.com/blacknon/lssh/conf"
+	"github.com/sevlyar/go-daemon"
 	"golang.org/x/crypto/ssh"
 	"golang.org/x/crypto/ssh/terminal"
 )
@@ -43,9 +45,6 @@ type Run struct {
 
 	// parallel connect (-p option)
 	IsParallel bool
-
-	// background (-f option)
-	IsBackground bool
 
 	// not run (-N option)
 	IsNone bool
@@ -132,7 +131,7 @@ func (r *Run) Start() {
 	// create AuthMap
 	r.createAuthMethodMap()
 
-	// connect shell
+	// connect
 	switch {
 	case len(r.ExecCmd) > 0 && r.Mode == "cmd":
 		// connect and run command
@@ -248,4 +247,26 @@ func (r *Run) printProxy(server string) {
 func runCmdLocal(cmd string) {
 	out, _ := exec.Command("sh", "-c", cmd).CombinedOutput()
 	fmt.Printf(string(out))
+}
+
+// startBackgroundMode run deamon mode
+// not working... how this do ...?
+func startBackgroundMode() {
+	cntxt := &daemon.Context{}
+	d, err := cntxt.Reborn()
+	if err != nil {
+		log.Fatalln(err)
+	}
+
+	if d != nil {
+		return true
+	}
+
+	defer func() {
+		if err := cntxt.Release(); err != nil {
+			log.Printf("error encountered while killing daemon: %v", err)
+		}
+	}()
+
+	return
 }

@@ -101,29 +101,37 @@ func (r *Run) shell() (err error) {
 		go connect.TCPDynamicForward("localhost", config.DynamicPortForward)
 	}
 
-	// run pre local command
-	if config.PreCmd != "" {
-		runCmdLocal(config.PreCmd)
-	}
+	// switch check Not-execute flag
+	// TODO(blacknon): Backgroundフラグを実装したら追加
+	switch {
+	case r.IsNone:
+		r.noneExecute()
 
-	// defer run post local command
-	if config.PostCmd != "" {
-		defer runCmdLocal(config.PostCmd)
-	}
+	default:
+		// run pre local command
+		if config.PreCmd != "" {
+			runCmdLocal(config.PreCmd)
+		}
 
-	// if terminal log enable
-	logConf := r.Conf.Log
-	if logConf.Enable {
-		logPath := r.getLogPath(server)
-		connect.SetLog(logPath, logConf.Timestamp)
-	}
+		// defer run post local command
+		if config.PostCmd != "" {
+			defer runCmdLocal(config.PostCmd)
+		}
 
-	// TODO(blacknon): local rc file add
-	if config.LocalRcUse == "yes" {
-		err = localrcShell(connect, session, config.LocalRcPath, config.LocalRcDecodeCmd)
-	} else {
-		// Connect shell
-		err = connect.Shell(session)
+		// if terminal log enable
+		logConf := r.Conf.Log
+		if logConf.Enable {
+			logPath := r.getLogPath(server)
+			connect.SetLog(logPath, logConf.Timestamp)
+		}
+
+		// TODO(blacknon): local rc file add
+		if config.LocalRcUse == "yes" {
+			err = localrcShell(connect, session, config.LocalRcPath, config.LocalRcDecodeCmd)
+		} else {
+			// Connect shell
+			err = connect.Shell(session)
+		}
 	}
 
 	return
@@ -192,4 +200,15 @@ func localrcShell(connect *sshlib.Connect, session *ssh.Session, localrcPath []s
 	connect.CmdShell(session, cmd)
 
 	return
+}
+
+// noneExecute is not execute command and shell.
+func (r *Run) noneExecute() (err error) {
+loop:
+	for {
+		select {
+		case <-time.After(500 * time.Millisecond):
+			continue loop
+		}
+	}
 }
