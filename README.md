@@ -240,7 +240,7 @@ Can be piped to send Stdin.
 
 </details>
 
-### 3. [lssh] Execute commands interactively (lssh shell)
+### 3. [lssh] Execute commands interactively (parallel shell)
 <details>
 
 You can send commands to multiple servers interactively.
@@ -249,7 +249,7 @@ You can send commands to multiple servers interactively.
 <img src="./images/3-1.gif" />
 </p>
 
-	# lssh shell connect
+	# parallel shell connect
 	lssh -s
 
 
@@ -281,7 +281,7 @@ You can select multiple connection destinations.
 
 </details>
 
-### 5. use ~/.ssh/config
+### 5. include ~/.ssh/config file.
 <details>
 
 Load and use `~/.ssh/config` by default.\
@@ -296,7 +296,7 @@ Alternatively, you can specify and read the path as follows: In addition to the 
 
 </details>
 
-### 6. include ServerConfig file.
+### 6. include other ServerConfig file.
 <details>
 
 You can include server settings in another file.\
