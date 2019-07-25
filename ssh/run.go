@@ -38,13 +38,19 @@ type Run struct {
 	//     - pshell
 	Mode string
 
-	// tty use
+	// tty use (-t option)
 	IsTerm bool
 
-	// parallel connect
+	// parallel connect (-p option)
 	IsParallel bool
 
-	// x11 forwarding
+	// background (-f option)
+	IsBackground bool
+
+	// not run (-N option)
+	IsNone bool
+
+	// x11 forwarding (-X option)
 	X11 bool
 
 	// use or not-use local bashrc.
@@ -210,9 +216,17 @@ func (r *Run) printProxy(server string) {
 	// add localhost
 	array = append(array, localhost)
 
-	// TODO(blacknon): commandのときは「//」いらない
 	for _, pxy := range proxyRoute {
-		str := "[" + pxy.Type + "://" + pxy.Name
+		// seprator
+		var sep string
+		if pxy.Type == "command" {
+			sep = ":"
+		} else {
+			sep = "://"
+		}
+
+		// setup string
+		str := "[" + pxy.Type + sep + pxy.Name
 		if pxy.Port != "" {
 			str = str + ":" + pxy.Port
 		}
@@ -227,7 +241,6 @@ func (r *Run) printProxy(server string) {
 	// print header
 	header := strings.Join(array, " => ")
 	fmt.Fprintf(os.Stderr, "Proxy         :%s\n", header)
-
 }
 
 // runCmdLocal exec command local machine.
