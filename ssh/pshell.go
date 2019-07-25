@@ -349,7 +349,9 @@ func (ps *pShell) Run(command string) {
 	var writers []io.Writer
 
 	// for connect and run
+	m := new(sync.Mutex)
 	for _, fc := range ps.Connects {
+
 		// set variable c
 		// NOTE: Variables need to be assigned separately for processing by goroutine.
 		c := fc
@@ -367,7 +369,11 @@ func (ps *pShell) Run(command string) {
 		c.Output.OutputWriter = omw
 
 		// put result
-		go ps.PutHistoryResult(c.Name, command, buf, exitHistory)
+		go func() {
+			m.Lock()
+			ps.PutHistoryResult(c.Name, command, buf, exitHistory)
+			m.Unlock()
+		}()
 
 		// Run command
 		go func() {
@@ -411,11 +417,8 @@ func (ps *pShell) Run(command string) {
 	exitInput <- true
 
 	// Exit history
-	m := new(sync.Mutex)
 	for i := 0; i < len(ps.Connects); i++ {
-		m.Lock()
 		exitHistory <- true
-		m.Unlock()
 	}
 
 	// Add count
