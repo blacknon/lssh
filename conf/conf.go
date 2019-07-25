@@ -83,14 +83,16 @@ type ServerConfig struct {
 	User string `toml:"user"`
 
 	// Connect auth Setting
-	Pass            string   `toml:"pass"`
-	Passes          []string `toml:"passes"`
-	Key             string   `toml:"key"`
-	KeyPass         string   `toml:"keypass"`
-	Keys            []string `toml:"keys"` // "keypath::passphrase"
-	Cert            string   `toml:"cert"`
-	CertKey         string   `toml:"certkey"`
-	CertKeyPass     string   `toml:"certkeypass"`
+	Pass   string   `toml:"pass"`
+	Passes []string `toml:"passes"`
+	Key    string   `toml:"key"`
+	// KeyCommand      string   `toml:"keycmd"` // TODO(blacknon): create
+	KeyPass     string   `toml:"keypass"`
+	Keys        []string `toml:"keys"` // "keypath::passphrase"
+	Cert        string   `toml:"cert"`
+	CertKey     string   `toml:"certkey"`
+	CertKeyPass string   `toml:"certkeypass"`
+	// CertPKCS11      bool     `toml:"certpkcs11"` // TODO(blacknon): create
 	AgentAuth       bool     `toml:"agentauth"`
 	SSHAgentUse     bool     `toml:"ssh_agent"`
 	SSHAgentKeyPath []string `toml:"ssh_agent_key"` // "keypath::passphrase"
