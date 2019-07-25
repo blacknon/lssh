@@ -60,7 +60,6 @@ USAGE:
 	//     -f       ... バックグラウンドでの接続(X11接続やport forwardingをバックグラウンドで実行する場合など)。
 	//                  「ssh -f」と同じ。
 	//                  (https://github.com/sevlyar/go-daemon)
-	//     -D       ... 何も実行しない(-fと組み合わせて利用するためのオプション)
 	//     -a       ... 自動接続モード(接続が切れてしまった場合、自動的に再接続を試みる)。autossh的なoptionとして追加。
 	//     -A <num> ... 自動接続モード(接続が切れてしまった場合、自動的に再接続を試みる)。再試行の回数指定。
 	//     -w       ... コマンド実行時にサーバ名ヘッダの表示をする
@@ -80,7 +79,7 @@ USAGE:
 		cli.StringFlag{Name: "portforward-remote", Usage: "port forwarding parameter, `address:port`. use local-forward or reverse-forward. (remote port(ex. 127.0.0.1:80))."},
 
 		// Other bool
-		cli.BoolFlag{Name: "background,f", Usage: "run background."}, // TODO(blacknon): create
+		cli.BoolFlag{Name: "not-execute,N", Usage: "not execute remote command and shell."},
 		cli.BoolFlag{Name: "x11,X", Usage: "x11 forwarding(forward to ${DISPLAY})."},
 		cli.BoolFlag{Name: "term,t", Usage: "run specified command at terminal."},
 		cli.BoolFlag{Name: "parallel,p", Usage: "run command parallel node(tail -F etc...)."},
@@ -109,7 +108,7 @@ USAGE:
 
 		// Set `exec command` or `shell` flag
 		isMulti := false
-		if len(c.Args()) > 0 || c.Bool("pshell") {
+		if (len(c.Args()) > 0 || c.Bool("pshell")) && !c.Bool("not-execute") {
 			isMulti = true
 		}
 
@@ -154,9 +153,10 @@ USAGE:
 		r.ServerList = selected
 		r.Conf = data
 		switch {
-		case c.Bool("pshell") == true:
+		case c.Bool("pshell") == true && !c.Bool("not-execute"):
 			r.Mode = "pshell"
-		case len(c.Args()) > 0:
+		case len(c.Args()) > 0 && !c.Bool("not-execute"):
+			// Becomes a shell when not-execute is given.
 			r.Mode = "cmd"
 		default:
 			r.Mode = "shell"
@@ -187,6 +187,9 @@ USAGE:
 		default:
 			r.PortForwardMode = ""
 		}
+
+		// is not execute
+		r.IsNone = c.Bool("not-execute")
 
 		// local/remote port forwarding address
 		r.PortForwardLocal = c.String("portforward-local")
