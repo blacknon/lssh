@@ -210,6 +210,7 @@ func (r *Run) printProxy(server string) {
 	// add localhost
 	array = append(array, localhost)
 
+	// TODO(blacknon): commandのときは「//」いらない
 	for _, pxy := range proxyRoute {
 		str := "[" + pxy.Type + "://" + pxy.Name
 		if pxy.Port != "" {

@@ -15,7 +15,7 @@ github.com/c-bata/go-prompt/completer
 github.com/davecgh/go-spew/spew
 # github.com/golang/glog v0.0.0-20160126235308-23def4e6c14b
 github.com/golang/glog
-# github.com/kevinburke/ssh_config v0.0.0-20180830205328-81db2a75821e
+# github.com/kevinburke/ssh_config v0.0.0-20190724205821-6cfae18c12b8
 github.com/kevinburke/ssh_config
 # github.com/mattn/go-colorable v0.1.2
 github.com/mattn/go-colorable
@@ -29,8 +29,6 @@ github.com/mattn/go-tty
 github.com/miekg/pkcs11
 # github.com/nsf/termbox-go v0.0.0-20190325093121-288510b9734e
 github.com/nsf/termbox-go
-# github.com/pelletier/go-buffruneio v0.2.0
-github.com/pelletier/go-buffruneio
 # github.com/pkg/term v0.0.0-20190109203006-aa71e9d9e942
 github.com/pkg/term/termios
 # github.com/pmezard/go-difflib v1.0.0
