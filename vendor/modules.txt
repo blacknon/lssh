@@ -15,6 +15,8 @@ github.com/c-bata/go-prompt/completer
 github.com/davecgh/go-spew/spew
 # github.com/golang/glog v0.0.0-20160126235308-23def4e6c14b
 github.com/golang/glog
+# github.com/kardianos/osext v0.0.0-20190222173326-2bc1f35cddc0
+github.com/kardianos/osext
 # github.com/kevinburke/ssh_config v0.0.0-20190724205821-6cfae18c12b8
 github.com/kevinburke/ssh_config
 # github.com/mattn/go-colorable v0.1.2
@@ -33,6 +35,8 @@ github.com/nsf/termbox-go
 github.com/pkg/term/termios
 # github.com/pmezard/go-difflib v1.0.0
 github.com/pmezard/go-difflib/difflib
+# github.com/sevlyar/go-daemon v0.1.5
+github.com/sevlyar/go-daemon
 # github.com/stretchr/testify v1.3.0
 github.com/stretchr/testify/assert
 # github.com/urfave/cli v1.20.0
