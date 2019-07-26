@@ -85,12 +85,12 @@ USAGE:
 		}
 
 		// Set args path
-		fromsArgs := c.Args()[:c.NArg()-1]
+		fromArgs := c.Args()[:c.NArg()-1]
 		toArg := c.Args()[c.NArg()-1]
 
 		isFromInRemote := false
 		isFromInLocal := false
-		for _, from := range fromsArgs {
+		for _, from := range fromArgs {
 			// parse args
 			isFromRemote, _ := check.ParseScpPath(from)
 
@@ -181,7 +181,7 @@ USAGE:
 		runScp := new(ssh.RunScp)
 
 		// set from info
-		for _, from := range fromsArgs {
+		for _, from := range fromArgs {
 			// parse args
 			isFromRemote, fromPath := check.ParseScpPath(from)
 

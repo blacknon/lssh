@@ -83,6 +83,9 @@ func (r *Run) pshell() (err error) {
 			continue
 		}
 
+		// TTY enable
+		con.TTY = true
+
 		// Create Output
 		o := &Output{
 			Templete:   config.OPrompt,
@@ -203,7 +206,7 @@ func (ps *pShell) Executor(command string) {
 		return
 
 	// history
-	case command == "history":
+	case command == "%history":
 		ps.localCmd_history()
 		return
 
@@ -262,7 +265,7 @@ func (ps *pShell) Completer(t prompt.Document) []prompt.Suggest {
 		{Text: "exit", Description: "exit lssh shell"},
 		{Text: "quit", Description: "exit lssh shell"},
 		{Text: "clear", Description: "clear screen"},
-		{Text: "history", Description: "show history"},
+		{Text: "%history", Description: "show history"},
 		{Text: "%out", Description: "%out [num], show history result."},
 		// {Text: "%outlist", Description: "%outlist, show history result list."}, // outのリストを出力ためのローカルコマンド
 
@@ -400,7 +403,9 @@ func (ps *pShell) Run(command string) {
 
 	// wait finished channel
 	for i := 0; i < len(ps.Connects); i++ {
-		<-finished
+		select {
+		case <-finished:
+		}
 	}
 
 	// Exit check signal
@@ -426,6 +431,7 @@ func (ps *pShell) Run(command string) {
 }
 
 // pushSignal is send kill signal to session.
+// TODO(blacknon): 強制終了は前のコードの方がうまく動作していたので、原因を調査して対処する。
 func (ps *pShell) pushKillSignal(exitSig chan bool, conns []*psConnect) (err error) {
 	i := 0
 	for {
