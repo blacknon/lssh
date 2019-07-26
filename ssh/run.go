@@ -250,7 +250,7 @@ func runCmdLocal(cmd string) {
 }
 
 // startBackgroundMode run deamon mode
-// not working... how this do ...?
+// not working... and not use... how this do ...?
 func startBackgroundMode() {
 	cntxt := &daemon.Context{}
 	d, err := cntxt.Reborn()
@@ -259,7 +259,7 @@ func startBackgroundMode() {
 	}
 
 	if d != nil {
-		return true
+		return
 	}
 
 	defer func() {
