@@ -8,7 +8,6 @@ import (
 	"log"
 	"os"
 	"os/signal"
-	"regexp"
 	"strconv"
 	"strings"
 	"sync"
@@ -184,69 +183,44 @@ func (ps *pShell) Executor(command string) {
 	// trim space
 	command = strings.TrimSpace(command)
 
-	// local command regex
-	localCmdRegex_out := regexp.MustCompile(`^%out.*$`)
-
-	// check local command
-	switch {
-	// only enter(Ctrl + M)
-	case command == "":
-		return
-
-	// exit or quit
-	case command == "exit", command == "quit":
-		// put history and exit
-		ps.PutHistoryFile(command)
-		os.Exit(0)
-
-	// clear
-	case command == "clear":
-		fmt.Printf("\033[H\033[2J")
-		ps.PutHistoryFile(command)
-		return
-
-	// history
-	case command == "%history":
-		ps.localCmd_history()
-		return
-
-	// %out [num]
-	case localCmdRegex_out.MatchString(command):
-		cmdSlice := strings.SplitN(command, " ", 2)
-
-		// set default num
-		num := 0
-		if ps.Count > 0 {
-			num = ps.Count - 1
-		}
-
-		// get args
-		if len(cmdSlice) > 1 {
-			inum, err := strconv.Atoi(cmdSlice[1])
-			if err != nil {
-				return
-			}
-
-			// if num > count
-			if inum >= ps.Count {
-				return
-			}
-
-			num = inum
-		}
-
-		ps.localCmd_out(num)
-		fmt.Println()
+	// parse command
+	parseCmd, _ := ps.parsePipeLine(command)
+	if len(parseCmd) == 0 {
 		return
 	}
 
-	// put history
+	// regist history
 	ps.PutHistoryFile(command)
 
-	// run command
-	ps.Run(command)
+	// Check `build in` or `local machine` command.
+	// If there are no built-in commands or local machine commands, pass the pipeline to the remote machine.
+	switch {
+	case !ps.checkBuildInCommand(parseCmd): // Execute the command as it is on the remote machine.
+		ps.remoteRun(command)
+
+	default: // if with build in or local machine command.
+
+	}
 
 	return
+}
+
+// parseExecuter assemble and execute the parsed command line.
+func (ps *pShell) parseExecuter(pmap map[int][]pipeLine) {
+	// for pmap
+	for _, plines := range pmap {
+		// pipe stdin, stdout, stderr
+		// TODO(blacknon):
+		//   ローカル⇔リモート間で処理をする場合、stdinやstdout,stderrをMultiWriter,MultiReaderとしてforでつなげていき、stdinwriterやstdoutreaderとしてくっつけていくことで対処する。
+		//   多分めんどくさいけどそれが確実。
+		//   …というか、それをやる前にローカル⇔リモートで分離となるようにパースしてやるほうが良さそう？
+		var stdin io.Reader
+		var stdout, stderr io.Writer
+
+		for _, pl := range plines {
+
+		}
+	}
 }
 
 // Completer lssh-shell complete function
@@ -260,7 +234,12 @@ func (ps *pShell) Completer(t prompt.Document) []prompt.Suggest {
 	//        - ファイルやコマンドなど、状況に応じて補完対象を変えるにはやはり構文解析が必要になってくる。Parserを実装するまではコマンドのみ対応。
 	//        	参考: https://github.com/c-bata/kube-prompt/blob/2276d167e2e693164c5980427a6809058a235c95/kube/completer.go
 
-	// local command suggest
+	// TODO(blacknon):
+	//        - t.GetWordBeforeCursor() などで前の文字までは取得できるので、その文字列に応じて補完を返すかどうかを対応する。
+	//        - パイプラインを区切る際、複数のセパレータで区切れるか調査が必要(|や;の他、' 'や||、&&など)。
+	//          (多分、位置情報と組み合わせてコマンドラインを取得して、位置より前の情報からセパレートして処理してやればどうにかなりそう。)
+
+	// build in command suggest
 	localCmdSuggest := []prompt.Suggest{
 		{Text: "exit", Description: "exit lssh shell"},
 		{Text: "quit", Description: "exit lssh shell"},
@@ -336,8 +315,11 @@ func (ps *pShell) GetCompleteData() {
 	}
 }
 
-// Run is exec command.
-func (ps *pShell) Run(command string) {
+// Run is exec command at remote machine.
+// TODO(blacknon):
+//     - 標準入出力をパイプ経由でやり取りできるよう、汎用性を考慮する
+//     - 入出力の指定とoutputへのデータの送信処理を分離する必要がある？？
+func (ps *pShell) remoteRun(command string) {
 	// Create History
 	ps.History[ps.Count] = map[string]*pShellHistory{}
 
@@ -354,7 +336,6 @@ func (ps *pShell) Run(command string) {
 	// for connect and run
 	m := new(sync.Mutex)
 	for _, fc := range ps.Connects {
-
 		// set variable c
 		// NOTE: Variables need to be assigned separately for processing by goroutine.
 		c := fc
@@ -431,7 +412,6 @@ func (ps *pShell) Run(command string) {
 }
 
 // pushSignal is send kill signal to session.
-// TODO(blacknon): 強制終了は前のコードの方がうまく動作していたので、原因を調査して対処する。
 func (ps *pShell) pushKillSignal(exitSig chan bool, conns []*psConnect) (err error) {
 	i := 0
 	for {

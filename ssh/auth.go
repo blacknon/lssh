@@ -212,3 +212,9 @@ func (r *Run) registAuthMapPKCS11(server, provider, pin string) (err error) {
 
 	return
 }
+
+// registAuthMapKeyCmd is exec keycmd, and regist kyecmd result publickey to AuthMap.
+// func registAuthMapKeyCmd() () {}
+
+// execKeyCommand
+// func execKeyCmd() {}

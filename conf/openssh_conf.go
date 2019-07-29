@@ -9,6 +9,19 @@ import (
 	"github.com/kevinburke/ssh_config"
 )
 
+// generateOpenSshConfig generate the OpenSsh configuration file from command, return *ssh_config.Config.
+// func generateOpenSshConfig(cmd string) (cfg *ssh_config.Config, err error) {
+// 	// Generate Openssh Config
+// 	sshConfigFile := common.GetFullPath(path)
+// 	f, err := os.Open(sshConfigFile)
+// 	if err != nil {
+// 		return
+// 	}
+
+// 	cfg, err = ssh_config.Decode(f)
+// 	return
+// }
+
 // openOpenSshConfig open the OpenSsh configuration file, return *ssh_config.Config.
 func openOpenSshConfig(path string) (cfg *ssh_config.Config, err error) {
 	// Read Openssh Config
