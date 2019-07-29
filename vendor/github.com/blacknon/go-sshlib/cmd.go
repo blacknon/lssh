@@ -143,7 +143,7 @@ func (c *Connect) setupCmd(session *ssh.Session) (err error) {
 // Kill c.session close.
 // Only work c.CmdWriter().
 func (c *Connect) Kill() {
-	c.session.Signal(ssh.SIGKILL)
+	c.session.Signal(ssh.SIGINT)
 	c.session.Close()
 }
 
