@@ -18,10 +18,14 @@ func (ps *pShell) checkBuildInCommand(pmap map[int][]pipeLine) (isInLocalCmd boo
 			c := p.Args[0]
 
 			// check command
-			switch {
-			case c == "exit", c == "quit", c == "clear":
+			switch c {
+			case "exit", "quit", "clear":
 				isInLocalCmd = true
+				continue
+			}
 
+			// check regix
+			switch {
 			case buildinRegex.MatchString(c):
 				isInLocalCmd = true
 			}

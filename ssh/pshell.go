@@ -206,6 +206,9 @@ func (ps *pShell) Executor(command string) {
 }
 
 // parseExecuter assemble and execute the parsed command line.
+// TODO(blacknon): ↓を参考にしてみる
+//     - http://syohex.hatenablog.com/entry/20131016/1381935100
+//     - https://stackoverflow.com/questions/10781516/how-to-pipe-several-commands-in-go
 func (ps *pShell) parseExecuter(pmap map[int][]pipeLine) {
 	// for pmap
 	for _, plines := range pmap {

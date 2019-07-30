@@ -259,7 +259,7 @@ func (c *Connect) TCPLocalForward(localAddr, remoteAddr string) (err error) {
 			remote, err := c.Client.Dial("tcp", remoteAddr)
 
 			// forward
-			c.forwarder(local, remote)
+			go c.forwarder(local, remote)
 		}
 	}()
 
@@ -292,7 +292,7 @@ func (c *Connect) TCPRemoteForward(localAddr, remoteAddr string) (err error) {
 				return
 			}
 
-			c.forwarder(local, remote)
+			go c.forwarder(local, remote)
 		}
 	}()
 
