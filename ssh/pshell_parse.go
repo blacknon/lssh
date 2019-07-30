@@ -12,7 +12,7 @@ type pipeLine struct {
 	Oprator string
 }
 
-// parseCmdPipeLine
+// parseCmdPipeLine return map[int][]pipeLine.
 func (ps *pShell) parsePipeLine(command string) (pmap map[int][]pipeLine, err error) {
 	// Create result map
 	pmap = map[int][]pipeLine{}
