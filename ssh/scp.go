@@ -13,7 +13,7 @@ import (
 )
 
 // TODO(blacknon): Bufferに出力するのではなく、io.Pipeなどを使って直接渡すようにする。
-//                 パラレルで渡す場合やRemote => Remoteについては、io.MultiWriterを使ったりしてやる。
+//                 パラレルで渡す場合やRemote => Remoteについては、io.MultiWriterを使ったりして
 //                 可能な限りBufferの利用を減らしていく！
 
 type CopyConInfo struct {
