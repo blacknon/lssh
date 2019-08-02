@@ -40,9 +40,14 @@ type psConnect struct {
 
 // variable
 var (
-	defaultPrompt      = "[${COUNT}] <<< "          // Default PROMPT
-	defaultOPrompt     = "[${SERVER}][${COUNT}] > " // Default OPROMPT
-	defaultHistoryFile = "~/.lssh_history"          // Default Parallel shell history file
+	// Default PROMPT
+	defaultPrompt = "[${COUNT}] <<< "
+
+	// Default OPROMPT
+	defaultOPrompt = "[${SERVER}][${COUNT}] > "
+
+	// Default Parallel shell history file
+	defaultHistoryFile = "~/.lssh_history"
 )
 
 func (r *Run) pshell() (err error) {
@@ -178,54 +183,6 @@ func (ps *pShell) CreatePrompt() (p string, result bool) {
 	return p, true
 }
 
-// Executor run ssh command in parallel-shell.
-func (ps *pShell) Executor(command string) {
-	// trim space
-	command = strings.TrimSpace(command)
-
-	// parse command
-	parseCmd, _ := ps.parsePipeLine(command)
-	if len(parseCmd) == 0 {
-		return
-	}
-
-	// regist history
-	ps.PutHistoryFile(command)
-
-	// Check `build in` or `local machine` command.
-	// If there are no built-in commands or local machine commands, pass the pipeline to the remote machine.
-	switch {
-	case !ps.checkBuildInCommand(parseCmd): // Execute the command as it is on the remote machine.
-		ps.remoteRun(command)
-
-	default: // if with build in or local machine command.
-
-	}
-
-	return
-}
-
-// parseExecuter assemble and execute the parsed command line.
-// TODO(blacknon): ↓を参考にしてみる
-//     - http://syohex.hatenablog.com/entry/20131016/1381935100
-//     - https://stackoverflow.com/questions/10781516/how-to-pipe-several-commands-in-go
-func (ps *pShell) parseExecuter(pmap map[int][]pipeLine) {
-	// for pmap
-	for _, plines := range pmap {
-		// pipe stdin, stdout, stderr
-		// TODO(blacknon):
-		//   ローカル⇔リモート間で処理をする場合、stdinやstdout,stderrをMultiWriter,MultiReaderとしてforでつなげていき、stdinwriterやstdoutreaderとしてくっつけていくことで対処する。
-		//   多分めんどくさいけどそれが確実。
-		//   …というか、それをやる前にローカル⇔リモートで分離となるようにパースしてやるほうが良さそう？
-		var stdin io.Reader
-		var stdout, stderr io.Writer
-
-		for _, pl := range plines {
-
-		}
-	}
-}
-
 // Completer lssh-shell complete function
 func (ps *pShell) Completer(t prompt.Document) []prompt.Suggest {
 	// TODO(blacknon): とりあえず値を仮置き。後で以下の処理を追加する(優先度A)
@@ -322,6 +279,9 @@ func (ps *pShell) GetCompleteData() {
 // TODO(blacknon):
 //     - 標準入出力をパイプ経由でやり取りできるよう、汎用性を考慮する
 //     - 入出力の指定とoutputへのデータの送信処理を分離する必要がある？？
+//     - 残すにしても名前変えないとわかりにくいし辛いことになりそう。
+//         - `ExecuteRemoteCmd`とかかな
+//         - 入出力含め、リファクタが必要
 func (ps *pShell) remoteRun(command string) {
 	// Create History
 	ps.History[ps.Count] = map[string]*pShellHistory{}
