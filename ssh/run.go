@@ -244,7 +244,7 @@ func (r *Run) printProxy(server string) {
 
 // runCmdLocal exec command local machine.
 // Mainly used in r.shell().
-func runCmdLocal(cmd string) {
+func execLocalCommand(cmd string) {
 	out, _ := exec.Command("sh", "-c", cmd).CombinedOutput()
 	fmt.Printf(string(out))
 }
