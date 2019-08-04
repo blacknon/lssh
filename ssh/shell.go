@@ -110,12 +110,12 @@ func (r *Run) shell() (err error) {
 	default:
 		// run pre local command
 		if config.PreCmd != "" {
-			runCmdLocal(config.PreCmd)
+			execLocalCommand(config.PreCmd)
 		}
 
 		// defer run post local command
 		if config.PostCmd != "" {
-			defer runCmdLocal(config.PostCmd)
+			defer execLocalCommand(config.PostCmd)
 		}
 
 		// if terminal log enable
