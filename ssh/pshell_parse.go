@@ -12,10 +12,17 @@ type pipeLine struct {
 	Oprator string
 }
 
-// parseCmdPipeLine return map[int][]pipeLine.
-func (ps *pShell) parsePipeLine(command string) (pmap map[int][]pipeLine, err error) {
-	// Create result map
-	pmap = map[int][]pipeLine{}
+// joinPipeLine is concatenates a pipe without a built-in command or
+// local command as a command to be executed on a remote machine as a string.
+// TODO(blacknon): 作成する。
+//
+// func joinPipeLine(pslice [][]pipeline) ([][]pipeLine, error) {
+// }
+
+// parseCmdPipeLine return [][]pipeLine.
+func parsePipeLine(command string) (pslice [][]pipeLine, err error) {
+	// Create result pipeLineSlice
+	pslice = [][]pipeLine{}
 
 	// Create parser
 	in := strings.NewReader(command)
@@ -29,11 +36,11 @@ func (ps *pShell) parsePipeLine(command string) (pmap map[int][]pipeLine, err er
 		// create slice
 		var cmdLine []pipeLine
 
-		// パースするコマンドを変数につっこむ
+		// create stmtCmd
 		var stmtCmd syntax.Command
 		stmtCmd = stmt.Cmd
 
-		// ひとまず、ワンライナーのパイプラインの識別はできそう？？
+		// parse stmt loop
 	stmtCmdLoop:
 		for {
 			switch c := stmtCmd.(type) {
@@ -55,7 +62,7 @@ func (ps *pShell) parsePipeLine(command string) (pmap map[int][]pipeLine, err er
 			}
 		}
 
-		pmap[i] = cmdLine
+		pslice = append(pslice, cmdLine)
 	}
 
 	return
