@@ -25,23 +25,19 @@ func (ps *pShell) Executor(command string) {
 	command = strings.TrimSpace(command)
 
 	// parse command
-	parseCmd, _ := ps.parsePipeLine(command)
-	if len(parseCmd) == 0 {
+	pslice, _ := parsePipeLine(command)
+	if len(pslice) == 0 {
 		return
 	}
 
 	// regist history
 	ps.PutHistoryFile(command)
 
-	// Check `build in` or `local machine` command.
-	// If there are no built-in commands or local machine commands, pass the pipeline to the remote machine.
-	switch {
-	case !ps.checkBuildInCommandInSlice(parseCmd): // Execute the command as it is on the remote machine.
-		ps.remoteRun(command)
+	// TODO(blacknon):
+	//     パース処理したplineを、リモートマシンでの実行処理が連続している箇所はjoinしてまとめる(pipeを数える前に処理)。
 
-	default: // if with build in or local machine command.
-
-	}
+	// exec pipeline
+	parseExecuter(pslice)
 
 	return
 }
@@ -59,9 +55,6 @@ func (ps *pShell) parseExecuter(pslice [][]pipeLine) {
 		//   多分めんどくさいけどそれが確実。
 		//   …というか、それをやる前にローカル⇔リモートで分離となるようにパースしてやるほうが良さそう？
 
-		// TODO(blacknon):
-		//     パース処理したplineを、リモートマシンでの実行処理だけjoinしてまとめる(pipeを数える前に処理)。
-
 		// count pipe num
 		pnum := countPipeSet(pline, "|")
 
@@ -70,7 +63,10 @@ func (ps *pShell) parseExecuter(pslice [][]pipeLine) {
 
 		// declare nextPipeLine
 		var nextPipeLine pipeLine
-		var n int
+		var n int // pipe counter
+
+		// create channel
+		ch := make(chan bool)
 
 		for i, p := range pline {
 			// set command
@@ -86,14 +82,16 @@ func (ps *pShell) parseExecuter(pslice [][]pipeLine) {
 			}
 
 			// set stdin
-			// If the delimiter is a pipe, set the stdin input source to PipeReader and add 1 to the PipeSet counter.
+			// If the delimiter is a pipe, set the stdin input source to
+			// io.PipeReader and add 1 to the PipeSet counter.
 			if p.Oprator == "|" {
 				in = pipes[n].in
 				n += 1
 			}
 
 			// set stdout
-			// If the next delimiter is a pipe, make the output of stdout a pipe writer
+			// If the next delimiter is a pipe, make the output of stdout
+			// a io.PipeWriter.
 			if nextPipeLine.Oprator == "|" {
 				out = pipes[n].out
 			}
@@ -101,6 +99,9 @@ func (ps *pShell) parseExecuter(pslice [][]pipeLine) {
 			// exec pipeline
 			ps.run(p, in, out)
 		}
+
+		// wait channel
+		ps.wait(len(pline), ch)
 	}
 }
 
