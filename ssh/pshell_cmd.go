@@ -8,9 +8,11 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+	"sync"
 )
 
-//
+// checkBuildInCommand return bool, check is pshell build-in command or
+// local machine command(%%command).
 func checkBuildInCommand(cmd string) (isLocalCmd bool) {
 	// check local command regex
 	buildinRegex := regexp.MustCompile(`^%%.*`)
@@ -33,7 +35,7 @@ func checkBuildInCommand(cmd string) (isLocalCmd bool) {
 	return
 }
 
-// checkLocalCommand return bool  if each pipeline contains built-in commands or local machine commands.
+// checkLocalCommand return bool if each pipeline contains built-in commands or local machine commands.
 func checkBuildInCommandInSlice(pslice [][]pipeLine) (isInLocalCmd bool) {
 	for _, pipelines := range pslice {
 		for _, p := range pipelines {
@@ -138,51 +140,31 @@ func (ps *pShell) buildin_out(num int, out *io.Writer) {
 
 // executePipeLineRemote is exec command in remote machine.
 func (ps *pShell) executePipeLineRemote(pline pipeLine, in io.Reader, out io.Writer, ch chan<- bool) {
+	// set stdin/stdout
+	stdin := setInput(in)
+	stdout := setOutput(out)
+
+	// create channels
 	exitInput := make(chan bool)  // Input finish channel
 	exitSignal := make(chan bool) // Send kill signal finish channel
 
-	// create []io.Writer, this after in MultiWriter.
+	// create []io.Writer, this slice after in MultiWriter.
 	var writers []io.Writer
 
-	// set stdin
-	// TODO(blacknon): io.MultiWriterで書き込ませる必要がある(io.Copyで処理？)
-	var stdin io.Reader
-	if in != nil {
-		stdin = in
-	} else {
-		stdin = os.Stdin
-	}
-
-	// set stdout
-	var stdout io.Writer
-	if out != nil {
-		// こっちはそのままpipeに渡せば対処できそう？
-		stdout = out
-	} else {
-		// TODO(blacknon):
-		//     出力をOutput経由にさせて、headerを出させるようにしないといけない。
-		//     どうしたら良いかは不明。bufio.Writerでうまいこと対処できると嬉しいが…？
-		stdout = os.Stdout
+	// ssh connect
+	m := new(sync.Mutex)
+	for _, fc := range ps.Connects {
+		// set variable c
+		// NOTE: Variables need to be assigned separately for processing by goroutine.
+		c := fc
 	}
 }
 
 // executePipeLineLocal is exec command in local machine.
 func (ps *pShell) executePipeLineLocal(pline pipeLine, in io.Reader, out io.Writer, ch chan<- bool) (err error) {
-	// set stdin
-	var stdin io.Reader
-	if in != nil {
-		stdin = in
-	} else {
-		stdin = os.Stdin
-	}
-
-	// set stdout
-	var stdout io.Writer
-	if out != nil {
-		stdout = out
-	} else {
-		stdout = os.Stdout
-	}
+	// set stdin/stdout
+	stdin := setInput(in)
+	stdout := setOutput(out)
 
 	// delete command prefix(`%%`)
 	rep := regexp.MustCompile(`^%%`)
@@ -204,6 +186,34 @@ func (ps *pShell) executePipeLineLocal(pline pipeLine, in io.Reader, out io.Writ
 
 	// send exit
 	ch <- true
+
+	return
+}
+
+func (ps *pShell) wait(num int, ch <-chan bool) {
+	for i := 0; i < num; i++ {
+		<-ch
+	}
+}
+
+//
+func setInput(in io.Reader) (stdin io.Reader) {
+	if in != nil {
+		stdin = in
+	} else {
+		stdin = os.Stdin
+	}
+
+	return
+}
+
+//
+func setOutput(out io.Writer) (stdout io.Writer) {
+	if in != nil {
+		stdout = out
+	} else {
+		stdout = os.Stdout
+	}
 
 	return
 }
