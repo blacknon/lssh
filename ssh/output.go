@@ -116,7 +116,54 @@ func outColorStrings(num int, inStrings string) (str string) {
 	return
 }
 
+// multiPipeReadWriter is PipeReader to []io.WriteCloser.
+func multiPipeReadWriter(isExit <-chan bool, output []io.WriteCloser, input io.ReadCloser) {
+	rd := bufio.NewReader(input)
+
+loop:
+	for {
+		buf := make([]byte, 1024)
+		size, err := rd.Read(buf)
+
+		if size > 0 {
+			d := buf[:size]
+
+			// write
+			for _, w := range output {
+				w.Write(d)
+			}
+		}
+
+		switch err {
+		case io.EOF, nil:
+			continue
+		case io.ErrClosedPipe:
+			fmt.Printf("io.ErrClosedPipe: %s \n", err) // debug
+			break loop
+		default:
+			fmt.Printf("default: %s \n", err) // debug
+		}
+
+		select {
+		case <-isExit:
+			break loop
+		case <-time.After(10 * time.Millisecond):
+			continue
+		}
+	}
+
+	fmt.Println("break loop")
+
+	// close output
+	for _, w := range output {
+		w.Close()
+	}
+
+	fmt.Println("exit []output{} close")
+}
+
 // send input to ssh Session Stdin
+// TODO(blacknon): multiStdinWriterにして記述する
 func pushInput(isExit <-chan bool, writer io.Writer) {
 	rd := bufio.NewReader(os.Stdin)
 loop:
