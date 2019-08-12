@@ -121,6 +121,9 @@ func (r *Run) Start() {
 	var err error
 
 	// Get stdin data(pipe)
+	// TODO(blacknon): os.StdinをReadAllで全部読み込んでから処理する方式だと、ストリームで処理出来ない
+	//                 (全部読み込み終わるまで待ってしまう)ので、対処を考える。(io.Pipeを利用して転送してやれば大丈夫か？)
+	//                 ※ sshlibも修正する必要があるので要注意？(io.Writerをstructに入れて、そちらで対処させる必要がありそう)
 	if runtime.GOOS != "windows" {
 		stdin := 0
 		if !terminal.IsTerminal(stdin) {

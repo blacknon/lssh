@@ -32,7 +32,7 @@ func parsePipeLine(command string) (pslice [][]pipeLine, err error) {
 	}
 
 	// parse stmt
-	for i, stmt := range f.Stmts {
+	for _, stmt := range f.Stmts {
 		// create slice
 		var cmdLine []pipeLine
 
