@@ -37,7 +37,7 @@ func (ps *pShell) Executor(command string) {
 	//     パース処理したplineを、リモートマシンでの実行処理が連続している箇所はjoinしてまとめる(pipeを数える前に処理)。
 
 	// exec pipeline
-	parseExecuter(pslice)
+	ps.parseExecuter(pslice)
 
 	return
 }
@@ -47,6 +47,8 @@ func (ps *pShell) Executor(command string) {
 //     - http://syohex.hatenablog.com/entry/20131016/1381935100
 //     - https://stackoverflow.com/questions/10781516/how-to-pipe-several-commands-in-go
 func (ps *pShell) parseExecuter(pslice [][]pipeLine) {
+	// TODO(blacknon): Add HistoryResult
+
 	// for pslice
 	for _, pline := range pslice {
 		// pipe stdin, stdout, stderr
@@ -61,23 +63,25 @@ func (ps *pShell) parseExecuter(pslice [][]pipeLine) {
 		// create pipe set
 		pipes := createPipeSet(pnum)
 
-		// declare nextPipeLine
-		var nextPipeLine pipeLine
 		var n int // pipe counter
 
 		// create channel
 		ch := make(chan bool)
 
 		for i, p := range pline {
-			// set command
-			command := p.Args[0]
+			// declare nextPipeLine
+			var nextPipeLine pipeLine
+
+			// @TODO(blacknon): Delete?
+			// // set command
+			// command := p.Args[0]
 
 			// declare in,out
 			var in *io.PipeReader
 			var out *io.PipeWriter
 
 			// get next pipe line
-			if len(pline) > i {
+			if len(pline) > i+1 {
 				nextPipeLine = pline[i+1]
 			}
 
@@ -85,8 +89,7 @@ func (ps *pShell) parseExecuter(pslice [][]pipeLine) {
 			// If the delimiter is a pipe, set the stdin input source to
 			// io.PipeReader and add 1 to the PipeSet counter.
 			if p.Oprator == "|" {
-				in = pipes[n].in
-				n += 1
+				in = pipes[n-1].in
 			}
 
 			// set stdout
@@ -97,10 +100,14 @@ func (ps *pShell) parseExecuter(pslice [][]pipeLine) {
 			}
 
 			// exec pipeline
-			ps.run(p, in, out)
+			go ps.run(p, in, out, ch)
+
+			// add pipe num
+			n += 1
 		}
 
 		// wait channel
+		fmt.Println(len(pline))
 		ps.wait(len(pline), ch)
 	}
 }
@@ -139,6 +146,7 @@ func createPipeSet(count int) (pipes []*PipeSet) {
 //     - 残すにしても名前変えないとわかりにくいし辛いことになりそう。
 //         - `ExecuteRemoteCmd`とかかな
 //         - 入出力含め、リファクタが必要
+// TODO(blacknon): ちゃんと関数を移行したら削除する！！！
 func (ps *pShell) executeRemoteCommand(command string, in io.Reader, out io.Writer) {
 	// Create History
 	ps.History[ps.Count] = map[string]*pShellHistory{}
