@@ -16,7 +16,8 @@ type pipeLine struct {
 // local command as a command to be executed on a remote machine as a string.
 // TODO(blacknon): 作成する。
 //
-// func joinPipeLine(pslice [][]pipeline) ([][]pipeLine, error) {
+// func joinPipeLine(pslice []pipeline) ([]pipeLine, error) {
+
 // }
 
 // parseCmdPipeLine return [][]pipeLine.

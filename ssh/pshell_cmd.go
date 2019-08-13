@@ -19,7 +19,7 @@ import (
 // local machine command(%%command).
 func checkBuildInCommand(cmd string) (isLocalCmd bool) {
 	// check local command regex
-	buildinRegex := regexp.MustCompile(`^%%.*`)
+	buildinRegex := regexp.MustCompile(`^!.*`)
 
 	// check build-in command
 	switch cmd {
@@ -74,7 +74,7 @@ func (ps *pShell) run(pline pipeLine, in *io.PipeReader, out *io.PipeWriter, ch 
 
 	// %history
 	case "%history":
-		ps.buildin_history(out)
+		ps.buildin_history(out, ch)
 		return
 
 	// %out [num]
@@ -95,7 +95,7 @@ func (ps *pShell) run(pline pipeLine, in *io.PipeReader, out *io.PipeWriter, ch 
 	ps.History[ps.Count] = map[string]*pShellHistory{}
 
 	// check and exec local command
-	buildinRegex := regexp.MustCompile(`^%%.*`)
+	buildinRegex := regexp.MustCompile(`^!.*`)
 	switch {
 	case buildinRegex.MatchString(command):
 		// exec local machine
@@ -109,16 +109,28 @@ func (ps *pShell) run(pline pipeLine, in *io.PipeReader, out *io.PipeWriter, ch 
 }
 
 // localCmd_history is printout history (shell history)
-// TODO(blacknon): 通番をつけて、bash等のように `!<N>` で実行できるようにする
-func (ps *pShell) buildin_history(out io.Writer) {
+func (ps *pShell) buildin_history(out *io.PipeWriter, ch chan<- bool) {
+	stdout := setOutput(out)
+
+	// read history file
 	data, err := ps.GetHistoryFromFile()
 	if err != nil {
 		return
 	}
 
+	// print out history
 	for _, h := range data {
-		fmt.Fprintf(out, "%s: %s\n", h.Timestamp, h.Command)
+		fmt.Fprintf(stdout, "%s: %s\n", h.Timestamp, h.Command)
 	}
+
+	// close out
+	switch stdout.(type) {
+	case *io.PipeWriter:
+		out.CloseWithError(io.ErrClosedPipe)
+	}
+
+	// send exit
+	ch <- true
 }
 
 // localCmd_out is print exec history at number
@@ -161,14 +173,10 @@ func (ps *pShell) executeRemotePipeLine(pline pipeLine, in *io.PipeReader, out *
 
 	// create []io.WriteCloser
 	var writers []io.WriteCloser
+	var readers []io.Reader
 
 	// create []ssh.Session
 	var sessions []*ssh.Session
-
-	// TODO(blacknon): HistoryResultの書き込みをパラレルで行うため、mutexを使用する必要がある(今は使わない)
-	// m := new(sync.Mutex)
-
-	// TODO(blacknon): MultiReaderにしないとpanicになるので、stdoutに直接書き込むのではなくMultiReaderからio.Copyに変更する
 
 	// create session and writers
 	for _, c := range ps.Connects {
@@ -184,7 +192,12 @@ func (ps *pShell) executeRemotePipeLine(pline pipeLine, in *io.PipeReader, out *
 		}
 
 		// set stdouts
-		s.Stdout = stdout
+		r, _ := s.StdoutPipe()
+		readers = append(readers, r)
+
+		// TODO(blacknon): 作業中！
+		//     outputにうまいことbufのWriterとReaderを作って、それを出力先として利用させる
+		//     stdoutの扱いが面倒になるので、そのあたりで調整が必要！
 
 		// get and append stdin writer
 		w, _ := s.StdinPipe()
@@ -193,6 +206,8 @@ func (ps *pShell) executeRemotePipeLine(pline pipeLine, in *io.PipeReader, out *
 		// append sessions
 		sessions = append(sessions, s)
 	}
+
+	go pushStdoutPipe(readers, stdout)
 
 	// multi input-writer
 	switch stdin.(type) {
@@ -205,7 +220,6 @@ func (ps *pShell) executeRemotePipeLine(pline pipeLine, in *io.PipeReader, out *
 		go pushPipeWriter(exitInput, writers, stdin)
 	}
 
-	fmt.Printf("run remote: %s\n", pline)
 	for _, s := range sessions {
 		session := s
 		go func() {
@@ -240,8 +254,6 @@ func (ps *pShell) executeRemotePipeLine(pline pipeLine, in *io.PipeReader, out *
 		out.CloseWithError(io.ErrClosedPipe)
 	}
 
-	fmt.Printf("exit remote: %s\n", pline)
-
 	return
 }
 
@@ -252,7 +264,7 @@ func (ps *pShell) executeLocalPipeLine(pline pipeLine, in *io.PipeReader, out *i
 	stdout := setOutput(out)
 
 	// delete command prefix(`%%`)
-	rep := regexp.MustCompile(`^%%`)
+	rep := regexp.MustCompile(`^!`)
 	pline.Args[0] = rep.ReplaceAllString(pline.Args[0], "")
 
 	// join command
@@ -267,7 +279,6 @@ func (ps *pShell) executeLocalPipeLine(pline pipeLine, in *io.PipeReader, out *i
 	cmd.Stderr = os.Stderr
 
 	// run command
-	fmt.Printf("run local: %s\n", pline)
 	err = cmd.Run()
 
 	// close out
@@ -278,8 +289,6 @@ func (ps *pShell) executeLocalPipeLine(pline pipeLine, in *io.PipeReader, out *i
 
 	// send exit
 	ch <- true
-
-	fmt.Printf("exit local: %s\n", pline)
 
 	return
 }

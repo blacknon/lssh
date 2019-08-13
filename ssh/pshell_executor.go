@@ -63,7 +63,11 @@ func (ps *pShell) parseExecuter(pslice [][]pipeLine) {
 		// create pipe set
 		pipes := createPipeSet(pnum)
 
-		var n int // pipe counter
+		// join pipe set
+		// pline = joinPipeLine(pline)
+
+		// pipe counter
+		var n int
 
 		// create channel
 		ch := make(chan bool)
@@ -81,23 +85,23 @@ func (ps *pShell) parseExecuter(pslice [][]pipeLine) {
 				bp = pline[i-1]
 			}
 
-			// set stdout
-			// If the delimiter is a pipe, set the stdout output a io.PipeWriter.
-			if p.Oprator == "|" {
-				out = pipes[n].out
-			}
-
 			// set stdin
 			// If the before delimiter is a pipe, set the stdin before io.PipeReader.
 			if bp.Oprator == "|" {
 				in = pipes[n-1].in
 			}
 
+			// set stdout
+			// If the delimiter is a pipe, set the stdout output a io.PipeWriter.
+			if p.Oprator == "|" {
+				out = pipes[n].out
+
+				// add pipe num
+				n += 1
+			}
+
 			// exec pipeline
 			go ps.run(p, in, out, ch)
-
-			// add pipe num
-			n += 1
 		}
 
 		// wait channel
@@ -171,7 +175,7 @@ func (ps *pShell) executeRemoteCommand(command string, in io.Reader, out io.Writ
 		// Create output buffer, and MultiWriter
 		buf := new(bytes.Buffer)
 		omw := io.MultiWriter(os.Stdout, buf)
-		c.Output.OutputWriter = omw
+		c.Output.Writer = omw
 
 		// put result
 		go func() {
