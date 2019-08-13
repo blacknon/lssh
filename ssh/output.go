@@ -2,6 +2,7 @@ package ssh
 
 import (
 	"bufio"
+	"bytes"
 	"fmt"
 	"io"
 	"os"
@@ -49,9 +50,11 @@ type Output struct {
 	// Auto Colorize flag
 	AutoColor bool
 
+	// buffer
+	Buffer *bytes.Buffer
+
 	//
-	// TODO(blacknon): 名前を見直し(短くする)
-	OutputWriter io.Writer
+	Writer io.Writer
 }
 
 // Create template, set variable value.
@@ -90,10 +93,9 @@ func (o *Output) GetPrompt() (p string) {
 
 // TODO(blacknon): (o *Output) Printout実装後に削除
 func printOutput(o *Output, output chan []byte) {
-	// check o.OutputWriter.
-	// default is os.Stdout.
-	if o.OutputWriter == nil {
-		o.OutputWriter = os.Stdout
+	// check o.OutputWriter. default is os.Stdout.
+	if o.Writer == nil {
+		o.Writer = os.Stdout
 	}
 
 	// print output
@@ -102,9 +104,9 @@ func printOutput(o *Output, output chan []byte) {
 		for _, s := range strings.Split(str, "\n") {
 			if len(o.ServerList) > 1 {
 				oPrompt := o.GetPrompt()
-				fmt.Fprintf(o.OutputWriter, "%s %s\n", oPrompt, s)
+				fmt.Fprintf(o.Writer, "%s %s\n", oPrompt, s)
 			} else {
-				fmt.Fprintf(o.OutputWriter, "%s\n", s)
+				fmt.Fprintf(o.Writer, "%s\n", s)
 			}
 		}
 	}
@@ -116,6 +118,55 @@ func outColorStrings(num int, inStrings string) (str string) {
 
 	str = fmt.Sprintf("\x1b[%dm%s\x1b[0m", color, inStrings)
 	return
+}
+
+// pushMultiReader
+func pushStdoutPipe(input []io.Reader, output io.WriteCloser) {
+	// reader
+	readers := []*bufio.Reader{}
+
+	// append readers
+	for _, r := range input {
+		rd := bufio.NewReader(r)
+		readers = append(readers, rd)
+	}
+
+	// for read and write
+loop:
+	for {
+		if len(readers) == 0 {
+			break loop
+		}
+
+		// read and write loop
+		for i, r := range readers {
+			buf := make([]byte, 1024)
+			size, err := r.Read(buf)
+
+			if size > 0 {
+				d := buf[:size]
+				output.Write(d)
+
+				// if bufio.Writer
+				switch w := output.(type) {
+				case *bufio.Writer:
+					w.Flush()
+				}
+			}
+
+			switch err {
+			case io.EOF, nil:
+				continue
+			case io.ErrClosedPipe:
+				readers = unsetReader(readers, i)
+			}
+		}
+
+		select {
+		case <-time.After(10 * time.Millisecond):
+			continue
+		}
+	}
 }
 
 // multiPipeReadWriter is PipeReader to []io.WriteCloser.
@@ -139,7 +190,6 @@ loop:
 		case io.EOF, nil:
 			continue
 		case io.ErrClosedPipe:
-			fmt.Println("io.ErrClosedPipe")
 			break loop
 		}
 
@@ -182,4 +232,12 @@ loop:
 	for _, w := range output {
 		w.Close()
 	}
+}
+
+// unsetReader is Exclude specified element from []*bufio.Reader slice.
+func unsetReader(s []*bufio.Reader, i int) []*bufio.Reader {
+	if i >= len(s) {
+		return s
+	}
+	return append(s[:i], s[i+1:]...)
 }
