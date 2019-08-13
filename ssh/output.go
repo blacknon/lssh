@@ -8,6 +8,7 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/blacknon/lssh/common"
@@ -91,6 +92,36 @@ func (o *Output) GetPrompt() (p string) {
 	return
 }
 
+// TODO(blacknon): writerでやるのは無理そう。一旦、手前側で処理を切り替えるしかない。
+//                 とりあえずこれは削除して、手前でinterface.(type)を利用しての関数切り替えの方式で実装。
+//                 これは削除！
+func (o *Output) Print(isExit chan bool) {
+	sc := bufio.NewScanner(o.Buffer)
+loop:
+	for {
+		fmt.Println("output.Print out loop")
+		for sc.Scan() {
+			fmt.Println("output.Print in loop")
+			text := sc.Text()
+			if len(o.ServerList) > 1 {
+				oPrompt := o.GetPrompt()
+				fmt.Printf("%s %s\n", oPrompt, text)
+			} else {
+				fmt.Printf("%s\n", text)
+			}
+		}
+
+		select {
+		case <-isExit:
+			break loop
+		case <-time.After(100 * time.Millisecond):
+			continue
+		}
+	}
+
+	fmt.Println("exit output.Print ")
+}
+
 // TODO(blacknon): (o *Output) Printout実装後に削除
 func printOutput(o *Output, output chan []byte) {
 	// check o.OutputWriter. default is os.Stdout.
@@ -121,45 +152,35 @@ func outColorStrings(num int, inStrings string) (str string) {
 }
 
 // pushMultiReader
-func pushStdoutPipe(input []io.Reader, output io.WriteCloser) {
+func pushStdoutPipe(input io.Reader, output io.Writer, m *sync.Mutex) {
 	// reader
-	readers := []*bufio.Reader{}
-
-	// append readers
-	for _, r := range input {
-		rd := bufio.NewReader(r)
-		readers = append(readers, rd)
-	}
+	r := bufio.NewReader(input)
 
 	// for read and write
 loop:
 	for {
-		if len(readers) == 0 {
-			break loop
+		// read and write loop
+		buf := make([]byte, 1024)
+		size, err := r.Read(buf)
+
+		if size > 0 {
+			m.Lock()
+			d := buf[:size]
+			output.Write(d)
+
+			// if bufio.Writer
+			switch w := output.(type) {
+			case *bufio.Writer:
+				w.Flush()
+			}
+			m.Unlock()
 		}
 
-		// read and write loop
-		for i, r := range readers {
-			buf := make([]byte, 1024)
-			size, err := r.Read(buf)
-
-			if size > 0 {
-				d := buf[:size]
-				output.Write(d)
-
-				// if bufio.Writer
-				switch w := output.(type) {
-				case *bufio.Writer:
-					w.Flush()
-				}
-			}
-
-			switch err {
-			case io.EOF, nil:
-				continue
-			case io.ErrClosedPipe:
-				readers = unsetReader(readers, i)
-			}
+		switch err {
+		case io.EOF, nil:
+			continue
+		case io.ErrClosedPipe:
+			break loop
 		}
 
 		select {
