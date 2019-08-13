@@ -40,16 +40,17 @@ type Output struct {
 	// Count value. ${COUNT}
 	Count int
 
-	//
+	// Selected Server list
 	ServerList []string
 
-	//
+	// ServerConfig
 	Conf conf.ServerConfig
 
-	//
+	// Auto Colorize flag
 	AutoColor bool
 
 	//
+	// TODO(blacknon): 名前を見直し(短くする)
 	OutputWriter io.Writer
 }
 
@@ -87,6 +88,7 @@ func (o *Output) GetPrompt() (p string) {
 	return
 }
 
+// TODO(blacknon): (o *Output) Printout実装後に削除
 func printOutput(o *Output, output chan []byte) {
 	// check o.OutputWriter.
 	// default is os.Stdout.
@@ -117,9 +119,8 @@ func outColorStrings(num int, inStrings string) (str string) {
 }
 
 // multiPipeReadWriter is PipeReader to []io.WriteCloser.
-func multiPipeReadWriter(isExit <-chan bool, output []io.WriteCloser, input io.ReadCloser) {
+func pushPipeWriter(isExit <-chan bool, output []io.WriteCloser, input io.ReadCloser) {
 	rd := bufio.NewReader(input)
-
 loop:
 	for {
 		buf := make([]byte, 1024)
@@ -138,6 +139,7 @@ loop:
 		case io.EOF, nil:
 			continue
 		case io.ErrClosedPipe:
+			fmt.Println("io.ErrClosedPipe")
 			break loop
 		}
 
@@ -157,13 +159,15 @@ loop:
 
 // send input to ssh Session Stdin
 // TODO(blacknon): multiStdinWriterにして記述する
-func pushInput(isExit <-chan bool, writer io.Writer) {
+func pushInput(isExit <-chan bool, output []io.WriteCloser) {
 	rd := bufio.NewReader(os.Stdin)
 loop:
 	for {
 		data, _ := rd.ReadBytes('\n')
 		if len(data) > 0 {
-			writer.Write(data)
+			for _, w := range output {
+				w.Write(data)
+			}
 		}
 
 		select {
@@ -172,5 +176,10 @@ loop:
 		case <-time.After(10 * time.Millisecond):
 			continue
 		}
+	}
+
+	// close output
+	for _, w := range output {
+		w.Close()
 	}
 }
