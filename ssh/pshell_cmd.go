@@ -1,6 +1,8 @@
 package ssh
 
 import (
+	"bufio"
+	"bytes"
 	"fmt"
 	"io"
 	"os"
@@ -9,6 +11,7 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/blacknon/go-sshlib"
@@ -170,13 +173,16 @@ func (ps *pShell) executeRemotePipeLine(pline pipeLine, in *io.PipeReader, out *
 	// create channels
 	exit := make(chan bool)
 	exitInput := make(chan bool) // Input finish channel
+	exitOutput := make(chan bool)
 
 	// create []io.WriteCloser
 	var writers []io.WriteCloser
-	var readers []io.Reader
+	// var readers []io.Reader
 
 	// create []ssh.Session
 	var sessions []*ssh.Session
+
+	m := new(sync.Mutex)
 
 	// create session and writers
 	for _, c := range ps.Connects {
@@ -186,19 +192,31 @@ func (ps *pShell) executeRemotePipeLine(pline pipeLine, in *io.PipeReader, out *
 			continue
 		}
 
+		var ow io.Writer
+
 		// Request tty (Only when input is os.Stdin and output is os.Stdout).
 		if stdin == os.Stdin && stdout == os.Stdout {
 			sshlib.RequestTty(s)
 		}
 
-		// set stdouts
+		// set stdout
 		r, _ := s.StdoutPipe()
-		readers = append(readers, r)
+		// readers = append(readers, r)
 
 		// TODO(blacknon): 作業中！
 		//     outputにうまいことbufのWriterとReaderを作って、それを出力先として利用させる
 		//     stdoutの扱いが面倒になるので、そのあたりで調整が必要！
 		//     https://stackoverflow.com/questions/23454940/getting-bytes-buffer-does-not-implement-io-writer-error-message
+		ow = stdout
+		if ow == os.Stdout {
+			c.Output.Buffer = new(bytes.Buffer)
+			ow = bufio.NewWriter(c.Output.Buffer)
+			go c.Output.Print(exitOutput)
+		}
+
+		go func() {
+			pushStdoutPipe(r, ow, m)
+		}()
 
 		// get and append stdin writer
 		w, _ := s.StdinPipe()
@@ -207,8 +225,6 @@ func (ps *pShell) executeRemotePipeLine(pline pipeLine, in *io.PipeReader, out *
 		// append sessions
 		sessions = append(sessions, s)
 	}
-
-	go pushStdoutPipe(readers, stdout)
 
 	// multi input-writer
 	switch stdin.(type) {
@@ -227,6 +243,9 @@ func (ps *pShell) executeRemotePipeLine(pline pipeLine, in *io.PipeReader, out *
 			session.Run(command)
 			session.Close()
 			exit <- true
+			if stdout == os.Stdout {
+				exitOutput <- true
+			}
 		}()
 	}
 
