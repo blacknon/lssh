@@ -16,7 +16,7 @@ require (
 	github.com/urfave/cli v1.20.0
 	golang.org/x/crypto v0.0.0-20190701094942-4def268fd1a4
 	golang.org/x/net v0.0.0-20190420063019-afa5a82059c6
-	mvdan.cc/sh v2.6.4+incompatible
+	mvdan.cc/sh v2.6.3+incompatible
 )
 
 replace github.com/blacknon/go-sshlib v0.1.1 => ../go-sshlib

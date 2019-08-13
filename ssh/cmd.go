@@ -21,7 +21,7 @@ func (r *Run) cmd() (err error) {
 
 	// make channel
 	finished := make(chan bool)
-	input := make(chan io.Writer)
+	input := make(chan io.WriteCloser)
 	exitInput := make(chan bool)
 
 	// print header
@@ -144,13 +144,13 @@ func (r *Run) cmd() (err error) {
 	// if parallel flag true, and select server is not single,
 	// create io.MultiWriter and send input.
 	if r.IsParallel && len(r.ServerList) > 1 {
-		writers := []io.Writer{}
+		writers := []io.WriteCloser{}
 		for i := 0; i < len(r.ServerList); i++ {
 			w := <-input
 			writers = append(writers, w)
 		}
-		writer := io.MultiWriter(writers...)
-		go pushInput(exitInput, writer)
+		// writer := io.MultiWriter(writers...)
+		go pushInput(exitInput, writers)
 	}
 
 	for i := 0; i < len(connmap); i++ {

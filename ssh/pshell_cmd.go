@@ -99,10 +99,10 @@ func (ps *pShell) run(pline pipeLine, in *io.PipeReader, out *io.PipeWriter, ch 
 	switch {
 	case buildinRegex.MatchString(command):
 		// exec local machine
-		ps.executePipeLineLocal(pline, in, out, ch)
+		ps.executeLocalPipeLine(pline, in, out, ch)
 	default:
 		// exec remote machine
-		ps.executePipeLineRemote(pline, in, out, ch)
+		ps.executeRemotePipeLine(pline, in, out, ch)
 	}
 
 	return
@@ -147,7 +147,7 @@ func (ps *pShell) buildin_out(num int, out io.Writer) {
 //     - Outputへの出力の引き渡しは後回しに(Writerに作り変える必要がありそう)
 //     - HistoryResultについても同様とする
 //     - Killの仕組みについても後回しにする
-func (ps *pShell) executePipeLineRemote(pline pipeLine, in *io.PipeReader, out *io.PipeWriter, ch chan<- bool) {
+func (ps *pShell) executeRemotePipeLine(pline pipeLine, in *io.PipeReader, out *io.PipeWriter, ch chan<- bool) {
 	// join command
 	command := strings.Join(pline.Args, " ")
 
@@ -156,13 +156,10 @@ func (ps *pShell) executePipeLineRemote(pline pipeLine, in *io.PipeReader, out *
 	stdout := setOutput(out)
 
 	// create channels
-	// exit := make(chan bool)
+	exit := make(chan bool)
 	exitInput := make(chan bool) // Input finish channel
-	// checkExitInput := make(chan bool)
-	// receiveExitInput := make(chan bool)
-	// exitSignal := make(chan bool) // Send kill signal finish channel
 
-	// create []io.PipeWriter, this slice after in MultiWriter.
+	// create []io.WriteCloser
 	var writers []io.WriteCloser
 
 	// create []ssh.Session
@@ -173,8 +170,6 @@ func (ps *pShell) executePipeLineRemote(pline pipeLine, in *io.PipeReader, out *
 
 	// TODO(blacknon): MultiReaderにしないとpanicになるので、stdoutに直接書き込むのではなくMultiReaderからio.Copyに変更する
 
-	// go multiInput(exitInput, mw, stdin)
-
 	// create session and writers
 	for _, c := range ps.Connects {
 		// create session
@@ -183,8 +178,10 @@ func (ps *pShell) executePipeLineRemote(pline pipeLine, in *io.PipeReader, out *
 			continue
 		}
 
-		// Request tty
-		sshlib.RequestTty(s)
+		// Request tty (Only when input is os.Stdin and output is os.Stdout).
+		if stdin == os.Stdin && stdout == os.Stdout {
+			sshlib.RequestTty(s)
+		}
 
 		// set stdouts
 		s.Stdout = stdout
@@ -200,35 +197,33 @@ func (ps *pShell) executePipeLineRemote(pline pipeLine, in *io.PipeReader, out *
 	// multi input-writer
 	switch stdin.(type) {
 	case *os.File:
-		// TODO(blacknon): 仮置きの値。後でwritersをまとめられるか検証する
-		var ws []io.Writer
-		for _, wc := range writers {
-			ws = append(ws, wc)
+		// push input to pararell session (Only when input is os.Stdin and output is os.Stdout).
+		if stdout == os.Stdout {
+			go pushInput(exitInput, writers)
 		}
-		mw := io.MultiWriter(ws...)
-		go pushInput(exitInput, mw)
 	case *io.PipeReader:
-		go multiPipeReadWriter(exitInput, writers, stdin)
+		go pushPipeWriter(exitInput, writers, stdin)
 	}
 
+	fmt.Printf("run remote: %s\n", pline)
 	for _, s := range sessions {
 		session := s
 		go func() {
-			session.Start(command)
+			session.Run(command)
+			session.Close()
+			exit <- true
 		}()
 	}
 
 	// wait
-	for _, s := range sessions {
-		s.Wait()
-	}
+	ps.wait(len(sessions), exit)
 
 	// wait time (0.500 sec)
 	time.Sleep(500 * time.Millisecond)
 
-	//
-	switch stdin.(type) {
-	case *os.File:
+	// Print message `Please input enter` (Only when input is os.Stdin and output is os.Stdout).
+	// Note: This necessary for using Blocking.IO.
+	if stdin == os.Stdin && stdout == os.Stdout {
 		fmt.Fprintf(os.Stderr, "\n---\n%s\n", "Command exit. Please input Enter.")
 		exitInput <- true
 	}
@@ -239,21 +234,19 @@ func (ps *pShell) executePipeLineRemote(pline pipeLine, in *io.PipeReader, out *
 	// send exit
 	ch <- true
 
-	// close in
-	if !reflect.ValueOf(in).IsNil() {
-		in.CloseWithError(io.ErrClosedPipe)
-	} else
-
 	// close out
-	if !reflect.ValueOf(out).IsNil() {
+	switch stdout.(type) {
+	case *io.PipeWriter:
 		out.CloseWithError(io.ErrClosedPipe)
 	}
+
+	fmt.Printf("exit remote: %s\n", pline)
 
 	return
 }
 
 // executePipeLineLocal is exec command in local machine.
-func (ps *pShell) executePipeLineLocal(pline pipeLine, in *io.PipeReader, out *io.PipeWriter, ch chan<- bool) (err error) {
+func (ps *pShell) executeLocalPipeLine(pline pipeLine, in *io.PipeReader, out *io.PipeWriter, ch chan<- bool) (err error) {
 	// set stdin/stdout
 	stdin := setInput(in)
 	stdout := setOutput(out)
@@ -274,20 +267,19 @@ func (ps *pShell) executePipeLineLocal(pline pipeLine, in *io.PipeReader, out *i
 	cmd.Stderr = os.Stderr
 
 	// run command
+	fmt.Printf("run local: %s\n", pline)
 	err = cmd.Run()
 
-	// close in
-	if !reflect.ValueOf(in).IsNil() {
-		in.CloseWithError(io.ErrClosedPipe)
-	}
-
 	// close out
-	if !reflect.ValueOf(out).IsNil() {
+	switch stdout.(type) {
+	case *io.PipeWriter:
 		out.CloseWithError(io.ErrClosedPipe)
 	}
 
 	// send exit
 	ch <- true
+
+	fmt.Printf("exit local: %s\n", pline)
 
 	return
 }

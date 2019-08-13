@@ -70,33 +70,27 @@ func (ps *pShell) parseExecuter(pslice [][]pipeLine) {
 
 		for i, p := range pline {
 			// declare nextPipeLine
-			var nextPipeLine pipeLine
-
-			// @TODO(blacknon): Delete?
-			// // set command
-			// command := p.Args[0]
+			var bp pipeLine
 
 			// declare in,out
 			var in *io.PipeReader
 			var out *io.PipeWriter
 
 			// get next pipe line
-			if len(pline) > i+1 {
-				nextPipeLine = pline[i+1]
-			}
-
-			// set stdin
-			// If the delimiter is a pipe, set the stdin input source to
-			// io.PipeReader and add 1 to the PipeSet counter.
-			if p.Oprator == "|" {
-				in = pipes[n-1].in
+			if i > 0 {
+				bp = pline[i-1]
 			}
 
 			// set stdout
-			// If the next delimiter is a pipe, make the output of stdout
-			// a io.PipeWriter.
-			if nextPipeLine.Oprator == "|" {
+			// If the delimiter is a pipe, set the stdout output a io.PipeWriter.
+			if p.Oprator == "|" {
 				out = pipes[n].out
+			}
+
+			// set stdin
+			// If the before delimiter is a pipe, set the stdin before io.PipeReader.
+			if bp.Oprator == "|" {
+				in = pipes[n-1].in
 			}
 
 			// exec pipeline
@@ -151,14 +145,14 @@ func (ps *pShell) executeRemoteCommand(command string, in io.Reader, out io.Writ
 	ps.History[ps.Count] = map[string]*pShellHistory{}
 
 	// create chanel
-	finished := make(chan bool)    // Run Command finish channel
-	input := make(chan io.Writer)  // Get io.Writer at input channel
-	exitInput := make(chan bool)   // Input finish channel
-	exitSignal := make(chan bool)  // Send kill signal finish channel
-	exitHistory := make(chan bool) // Put History finish channel
+	finished := make(chan bool)        // Run Command finish channel
+	input := make(chan io.WriteCloser) // Get io.Writer at input channel
+	exitInput := make(chan bool)       // Input finish channel
+	exitSignal := make(chan bool)      // Send kill signal finish channel
+	exitHistory := make(chan bool)     // Put History finish channel
 
 	// create []io.Writer after in MultiWriter
-	var writers []io.Writer
+	var writers []io.WriteCloser
 
 	// for connect and run
 	m := new(sync.Mutex)
@@ -203,8 +197,8 @@ func (ps *pShell) executeRemoteCommand(command string, in io.Reader, out io.Writ
 	}
 
 	// create and run input writer
-	mw := io.MultiWriter(writers...)
-	go pushInput(exitInput, mw)
+	// mw := io.MultiWriter(writers...)
+	go pushInput(exitInput, writers)
 
 	// send kill signal function
 	go ps.pushKillSignal(exitSignal, ps.Connects)
