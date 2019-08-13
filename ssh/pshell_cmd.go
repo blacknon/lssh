@@ -158,6 +158,7 @@ func (ps *pShell) executePipeLineRemote(pline pipeLine, in *io.PipeReader, out *
 	// create channels
 	// exit := make(chan bool)
 	exitInput := make(chan bool) // Input finish channel
+	// checkExitInput := make(chan bool)
 	// receiveExitInput := make(chan bool)
 	// exitSignal := make(chan bool) // Send kill signal finish channel
 
@@ -185,7 +186,7 @@ func (ps *pShell) executePipeLineRemote(pline pipeLine, in *io.PipeReader, out *
 		// Request tty
 		sshlib.RequestTty(s)
 
-		// set stdout
+		// set stdouts
 		s.Stdout = stdout
 
 		// get and append stdin writer
@@ -217,13 +218,13 @@ func (ps *pShell) executePipeLineRemote(pline pipeLine, in *io.PipeReader, out *
 		}()
 	}
 
-	fmt.Println("wait remote exit")
-
 	// wait
-	// ps.wait(len(sessions), exit)
 	for _, s := range sessions {
 		s.Wait()
 	}
+
+	// wait time (0.500 sec)
+	time.Sleep(500 * time.Millisecond)
 
 	//
 	switch stdin.(type) {
@@ -232,18 +233,11 @@ func (ps *pShell) executePipeLineRemote(pline pipeLine, in *io.PipeReader, out *
 		exitInput <- true
 	}
 
-	// wait time (0.500 sec)
-	time.Sleep(500 * time.Millisecond)
-
-	fmt.Println("remote exited")
-
 	// TODO(blacknon): killのときだけ使う
 	// exitInput <- true
 
 	// send exit
 	ch <- true
-
-	// get input exit
 
 	// close in
 	if !reflect.ValueOf(in).IsNil() {
@@ -260,7 +254,6 @@ func (ps *pShell) executePipeLineRemote(pline pipeLine, in *io.PipeReader, out *
 
 // executePipeLineLocal is exec command in local machine.
 func (ps *pShell) executePipeLineLocal(pline pipeLine, in *io.PipeReader, out *io.PipeWriter, ch chan<- bool) (err error) {
-	// 一時的にコメントアウト。もしかしたらin/outは別にcloseしてるからこのままいけるかも？？
 	// set stdin/stdout
 	stdin := setInput(in)
 	stdout := setOutput(out)
@@ -275,19 +268,9 @@ func (ps *pShell) executePipeLineLocal(pline pipeLine, in *io.PipeReader, out *i
 	// execute command
 	cmd := exec.Command("sh", "-c", command)
 
-	// set stdin
+	// set stdin, stdout, stderr
 	cmd.Stdin = stdin
-	// if in == nil {
-	// 	cmd.Stdin = os.Stdin
-	// }
-
-	// set stdout
 	cmd.Stdout = stdout
-	// if out == nil {
-	// 	cmd.Stdout = os.Stdout
-	// }
-
-	// set stderr
 	cmd.Stderr = os.Stderr
 
 	// run command
@@ -302,8 +285,6 @@ func (ps *pShell) executePipeLineLocal(pline pipeLine, in *io.PipeReader, out *i
 	if !reflect.ValueOf(out).IsNil() {
 		out.CloseWithError(io.ErrClosedPipe)
 	}
-
-	fmt.Println("exit local")
 
 	// send exit
 	ch <- true
