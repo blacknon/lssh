@@ -138,10 +138,7 @@ loop:
 		case io.EOF, nil:
 			continue
 		case io.ErrClosedPipe:
-			fmt.Printf("io.ErrClosedPipe: %s \n", err) // debug
 			break loop
-		default:
-			fmt.Printf("default: %s \n", err) // debug
 		}
 
 		select {
@@ -152,14 +149,10 @@ loop:
 		}
 	}
 
-	fmt.Println("break loop")
-
 	// close output
 	for _, w := range output {
 		w.Close()
 	}
-
-	fmt.Println("exit []output{} close")
 }
 
 // send input to ssh Session Stdin

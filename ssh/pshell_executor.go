@@ -107,7 +107,6 @@ func (ps *pShell) parseExecuter(pslice [][]pipeLine) {
 		}
 
 		// wait channel
-		fmt.Println(len(pline))
 		ps.wait(len(pline), ch)
 	}
 }
