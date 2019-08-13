@@ -198,6 +198,7 @@ func (ps *pShell) executeRemotePipeLine(pline pipeLine, in *io.PipeReader, out *
 		// TODO(blacknon): 作業中！
 		//     outputにうまいことbufのWriterとReaderを作って、それを出力先として利用させる
 		//     stdoutの扱いが面倒になるので、そのあたりで調整が必要！
+		//     https://stackoverflow.com/questions/23454940/getting-bytes-buffer-does-not-implement-io-writer-error-message
 
 		// get and append stdin writer
 		w, _ := s.StdinPipe()
