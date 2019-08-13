@@ -48,17 +48,18 @@ func parsePipeLine(command string) (pslice [][]pipeLine, err error) {
 				pLine := pipeLine{
 					Args: parseCallExpr(c),
 				}
-				cmdLine = append([]pipeLine{pLine}, cmdLine...)
+				cmdLine = append(cmdLine, pLine)
 
 				break stmtCmdLoop
 			case *syntax.BinaryCmd:
+				cx := c.X.Cmd.(*syntax.CallExpr)
 				pLine := pipeLine{
-					Args:    parseCallExpr(c.Y.Cmd.(*syntax.CallExpr)),
+					Args:    parseCallExpr(cx),
 					Oprator: c.Op.String(),
 				}
-				cmdLine = append([]pipeLine{pLine}, cmdLine...)
+				cmdLine = append(cmdLine, pLine)
 
-				stmtCmd = c.X.Cmd
+				stmtCmd = c.Y.Cmd
 			}
 		}
 
