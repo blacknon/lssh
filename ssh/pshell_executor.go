@@ -23,6 +23,9 @@ func (ps *pShell) Executor(command string) {
 		return
 	}
 
+	// set latest command
+	ps.latestCommand = command
+
 	// regist history
 	ps.PutHistoryFile(command)
 
@@ -34,7 +37,6 @@ func (ps *pShell) Executor(command string) {
 
 // parseExecuter assemble and execute the parsed command line.
 func (ps *pShell) parseExecuter(pslice [][]pipeLine) {
-	// TODO(blacknon): Add HistoryResult
 	// Create History
 	ps.History[ps.Count] = map[string]*pShellHistory{}
 

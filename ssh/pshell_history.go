@@ -17,6 +17,22 @@ type pShellHistory struct {
 	Result    string
 }
 
+//
+func (p *pShellHistory) NewWriter() io.PipeWriter {
+	// create io.PipeReader, io.PipeWriter
+	r, w := io.Pipe()
+
+	// output Struct
+	p.Print(r)
+
+	// return io.PipeWriter
+	return w
+}
+
+func (p *pShellHistory) Print(r io.PipeReader) {
+
+}
+
 // GetHistoryFromFile return []History from historyfile
 func (ps *pShell) GetHistoryFromFile() (data []pShellHistory, err error) {
 	// user path
@@ -50,7 +66,11 @@ func (ps *pShell) GetHistoryFromFile() (data []pShellHistory, err error) {
 	return
 }
 
-// PutHistoryFile put history to s.HistoryFile
+// PutHistoryFile put history text to s.HistoryFile
+// ex.) write history(history file format)
+//     YYYY-mm-dd_HH:MM:SS command...
+//     YYYY-mm-dd_HH:MM:SS command...
+//     ...
 func (ps *pShell) PutHistoryFile(cmd string) (err error) {
 	// user path
 	usr, _ := user.Current()
@@ -66,17 +86,14 @@ func (ps *pShell) PutHistoryFile(cmd string) (err error) {
 	// Get Time
 	timestamp := time.Now().Format("2006/01/02_15:04:05 ") // "yyyy/mm/dd_HH:MM:SS "
 
-	// write history
-	// history file format
-	//     YYYY-mm-dd_HH:MM:SS command...
-	//     YYYY-mm-dd_HH:MM:SS command...
-	//     ...
 	fmt.Fprintln(file, timestamp+cmd)
 
 	return
 }
 
 // PutHistoryResult is append history to []History and HistoryFile
+// TODO(blacknon): Writerでやる場合にうまく動かないようなので、io.PipeWriterを利用した処理をすることで対処する。
+//                 終わったらこれは削除！
 func (ps *pShell) PutHistoryResult(server, command string, buf *bytes.Buffer, isExit chan bool) (err error) {
 	// count
 	count := ps.Count
@@ -111,6 +128,12 @@ loop:
 		Command:   command,
 		Result:    result,
 	}
+
+	fmt.Println("write history")
+
+	fmt.Printf("Command   %s \n", ps.History[count][server].Command)
+	fmt.Printf("Timestamp %s \n", ps.History[count][server].Timestamp)
+	fmt.Printf("Result    %s \n", ps.History[count][server].Result)
 
 	return
 }

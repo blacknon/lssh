@@ -127,6 +127,8 @@ func (ps *pShell) buildin_history(out *io.PipeWriter, ch chan<- bool) {
 func (ps *pShell) buildin_out(num int, out io.Writer) {
 	histories := ps.History[num]
 
+	fmt.Println(histories) //debug
+
 	i := 0
 	for _, h := range histories {
 		// if first, print out command
@@ -177,7 +179,7 @@ func (ps *pShell) executeRemotePipeLine(pline pipeLine, in *io.PipeReader, out *
 		}
 
 		// set stdout
-		var ow io.WriteCloser
+		var ow io.Writer
 		ow = stdout
 		if ow == os.Stdout {
 			c.Output.Count = ps.Count
@@ -264,6 +266,19 @@ func (ps *pShell) executeLocalPipeLine(pline pipeLine, in *io.PipeReader, out *i
 	stdin := setInput(in)
 	stdout := setOutput(out)
 
+	// set HistoryResult
+	var stdoutw io.Writer
+	stdoutw = stdout
+	// TODO(blacknon): historyの出力処理を追加する(多分io.Pipeを利用した処理を使えばいける)
+	// exitHistory := make(chan bool)
+	// defer close(exitHistory)
+	// if stdout == os.Stdout {
+	// 	stdoutw = io.MultiWriter(stdout, hbuf)
+	// 	go ps.PutHistoryResult("localhost", ps.latestCommand, hbuf, exitHistory)
+	// } else {
+	// 	stdoutw = stdout
+	// }
+
 	// delete command prefix(`%%`)
 	rep := regexp.MustCompile(`^!`)
 	pline.Args[0] = rep.ReplaceAllString(pline.Args[0], "")
@@ -276,7 +291,7 @@ func (ps *pShell) executeLocalPipeLine(pline pipeLine, in *io.PipeReader, out *i
 
 	// set stdin, stdout, stderr
 	cmd.Stdin = stdin
-	cmd.Stdout = stdout
+	cmd.Stdout = stdoutw
 	cmd.Stderr = os.Stderr
 
 	// run command
@@ -294,10 +309,12 @@ func (ps *pShell) executeLocalPipeLine(pline pipeLine, in *io.PipeReader, out *i
 	// wait command
 	cmd.Wait()
 
-	// close out
+	// close out, or write pShellHistory
 	switch stdout.(type) {
 	case *io.PipeWriter:
 		out.CloseWithError(io.ErrClosedPipe)
+	case *os.File:
+		exitHistory <- true
 	}
 
 	// send exit
@@ -314,7 +331,7 @@ func (ps *pShell) wait(num int, ch <-chan bool) {
 }
 
 // setInput
-func setInput(in io.ReadCloser) (stdin io.ReadCloser) {
+func setInput(in io.ReadCloser) (stdin io.Reader) {
 	if reflect.ValueOf(in).IsNil() {
 		stdin = os.Stdin
 	} else {
@@ -325,7 +342,7 @@ func setInput(in io.ReadCloser) (stdin io.ReadCloser) {
 }
 
 // setOutput
-func setOutput(out io.WriteCloser) (stdout io.WriteCloser) {
+func setOutput(out io.WriteCloser) (stdout io.Writer) {
 	if reflect.ValueOf(out).IsNil() {
 		stdout = os.Stdout
 	} else {
