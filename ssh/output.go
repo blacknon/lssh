@@ -2,7 +2,6 @@ package ssh
 
 import (
 	"bufio"
-	"bytes"
 	"fmt"
 	"io"
 	"os"
@@ -51,9 +50,6 @@ type Output struct {
 	// Auto Colorize flag
 	AutoColor bool
 
-	// buffer
-	Buffer *bytes.Buffer
-
 	//
 	Writer io.Writer
 }
@@ -95,13 +91,22 @@ func (o *Output) GetPrompt() (p string) {
 // TODO(blacknon): writerでやるのは無理そう。一旦、手前側で処理を切り替えるしかない。
 //                 とりあえずこれは削除して、手前でinterface.(type)を利用しての関数切り替えの方式で実装。
 //                 これは削除！
-func (o *Output) Print(isExit chan bool) {
-	sc := bufio.NewScanner(o.Buffer)
+func (o *Output) NewWriter() (writer io.Writer) {
+	// create io.PipeReader, io.PipeWriter
+	r, w := io.Pipe()
+
+	// run output.Printer()
+	go o.Printer(r)
+
+	// return writer
+	return w
+}
+
+func (o *Output) Printer(reader io.ReadCloser) {
+	sc := bufio.NewScanner(reader)
 loop:
 	for {
-		fmt.Println("output.Print out loop")
 		for sc.Scan() {
-			fmt.Println("output.Print in loop")
 			text := sc.Text()
 			if len(o.ServerList) > 1 {
 				oPrompt := o.GetPrompt()
@@ -111,16 +116,38 @@ loop:
 			}
 		}
 
-		select {
-		case <-isExit:
+		if sc.Err() == io.ErrClosedPipe {
 			break loop
-		case <-time.After(100 * time.Millisecond):
-			continue
 		}
 	}
-
-	fmt.Println("exit output.Print ")
 }
+
+// func (o *Output) Print(isExit chan bool) {
+// 	sc := bufio.NewScanner(o.Buffer)
+// loop:
+// 	for {
+// 		fmt.Println("output.Print out loop")
+// 		for sc.Scan() {
+// 			fmt.Println("output.Print in loop")
+// 			text := sc.Text()
+// 			if len(o.ServerList) > 1 {
+// 				oPrompt := o.GetPrompt()
+// 				fmt.Printf("%s %s\n", oPrompt, text)
+// 			} else {
+// 				fmt.Printf("%s\n", text)
+// 			}
+// 		}
+
+// 		select {
+// 		case <-isExit:
+// 			break loop
+// 		case <-time.After(100 * time.Millisecond):
+// 			continue
+// 		}
+// 	}
+
+// 	fmt.Println("exit output.Print ")
+// }
 
 // TODO(blacknon): (o *Output) Printout実装後に削除
 func printOutput(o *Output, output chan []byte) {
