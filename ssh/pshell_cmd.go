@@ -46,23 +46,6 @@ func checkLocalCommand(cmd string) (isLocalCmd bool) {
 	return
 }
 
-// checkLocalCommand return bool if each pipeline contains built-in commands or local machine commands.
-// func checkLocalCommandInSlice(pslice [][]pipeLine) (isInLocalCmd bool) {
-// 	for _, pipelines := range pslice {
-// 		for _, p := range pipelines {
-// 			// get pipeline command
-// 			c := p.Args[0]
-
-// 			if checkLocalCommand(c) {
-// 				isInLocalCmd = true
-// 				return
-// 			}
-// 		}
-// 	}
-
-// 	return
-// }
-
 // runBuildInCommand is run buildin or local machine command.
 func (ps *pShell) run(pline pipeLine, in *io.PipeReader, out *io.PipeWriter, ch chan<- bool, kill chan bool) (err error) {
 	// get 1st element
