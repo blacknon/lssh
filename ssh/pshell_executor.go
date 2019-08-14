@@ -53,11 +53,7 @@ func (ps *pShell) parseExecuter(pslice [][]pipeLine) {
 		pline = joinPipeLine(pline)
 
 		// printout run command
-		// TODO(blacknon):
-		//     パース後のコマンドラインを表示。念の為にどこのホストでどのパイプラインが実行されるかをわかりやすく書けないかを検討。
-		//     オプションで出力するかどうかを指定できるようにする。
-		//     ※ 結合用の関数が必要かもしれない…
-		fmt.Println(pline)
+		fmt.Printf("[Command:%s ]\n", joinPipeLineSlice(pline))
 
 		// pipe counter
 		var n int

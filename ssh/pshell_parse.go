@@ -12,6 +12,24 @@ type pipeLine struct {
 	Oprator string
 }
 
+// pipeLine return string of join
+func (p *pipeLine) String() string {
+	result := strings.Join(p.Args, " ")
+	result = result + " " + p.Oprator
+
+	return result
+}
+
+//
+func joinPipeLineSlice(pslice []pipeLine) string {
+	var result string
+	for _, pline := range pslice {
+		result = result + pline.String()
+	}
+
+	return result
+}
+
 // joinPipeLine is concatenates a pipe without a built-in command or
 // local command as a command to be executed on a remote machine as a string.
 func joinPipeLine(pslice []pipeLine) []pipeLine {
