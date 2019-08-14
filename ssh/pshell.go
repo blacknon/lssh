@@ -16,14 +16,15 @@ import (
 
 // Pshell is Parallel-Shell struct
 type pShell struct {
-	Signal      chan os.Signal
-	Count       int
-	ServerList  []string
-	Connects    []*psConnect
-	PROMPT      string
-	History     map[int]map[string]*pShellHistory
-	HistoryFile string
-	Complete    []prompt.Suggest
+	Signal        chan os.Signal
+	Count         int
+	ServerList    []string
+	Connects      []*psConnect
+	PROMPT        string
+	History       map[int]map[string]*pShellHistory
+	HistoryFile   string
+	latestCommand string
+	Complete      []prompt.Suggest
 }
 
 // psConnect is pShell connect struct.
