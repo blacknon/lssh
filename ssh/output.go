@@ -7,7 +7,6 @@ import (
 	"os"
 	"strconv"
 	"strings"
-	"sync"
 	"time"
 
 	"github.com/blacknon/lssh/common"
@@ -50,7 +49,7 @@ type Output struct {
 	// Auto Colorize flag
 	AutoColor bool
 
-	//
+	// TODO(blacknon): いらない？確認して削除
 	Writer io.Writer
 }
 
@@ -156,48 +155,8 @@ func outColorStrings(num int, inStrings string) (str string) {
 	return
 }
 
-// pushMultiReader
-// TODO(blacknon): 使ってないので削除する
-func pushStdoutPipe(input io.Reader, output io.Writer, m *sync.Mutex) {
-	// reader
-	r := bufio.NewReader(input)
-
-	// for read and write
-loop:
-	for {
-		// read and write loop
-		buf := make([]byte, 1024)
-		size, err := r.Read(buf)
-
-		if size > 0 {
-			m.Lock()
-			d := buf[:size]
-			output.Write(d)
-
-			// if bufio.Writer
-			switch w := output.(type) {
-			case *bufio.Writer:
-				w.Flush()
-			}
-			m.Unlock()
-		}
-
-		switch err {
-		case io.EOF, nil:
-			continue
-		case io.ErrClosedPipe:
-			break loop
-		}
-
-		select {
-		case <-time.After(50 * time.Millisecond):
-			continue
-		}
-	}
-}
-
 // multiPipeReadWriter is PipeReader to []io.WriteCloser.
-func pushPipeWriter(isExit <-chan bool, output []io.WriteCloser, input io.ReadCloser) {
+func pushPipeWriter(isExit <-chan bool, output []io.WriteCloser, input io.Reader) {
 	rd := bufio.NewReader(input)
 loop:
 	for {
