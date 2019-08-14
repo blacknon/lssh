@@ -113,7 +113,24 @@ func (ps *pShell) parseExecuter(pslice [][]pipeLine) {
 	}
 
 	// add ps.Count
-	ps.Count += 1
+	// (Does not count if only the built-in command is executed)
+	// TODO(blacknon): ビルドインコマンドのみの場合はカウントしないよう修正
+	isBuildInOnly := true
+	for _, pline := range pslice {
+		if len(pline) > 1 {
+			isBuildInOnly = false
+			break
+		}
+
+		if !checkBuildInCommand(pline[0].Args[0]) {
+			isBuildInOnly = false
+			break
+		}
+	}
+
+	if !isBuildInOnly {
+		ps.Count += 1
+	}
 }
 
 // countPipeSet count delimiter in pslice.
