@@ -12,6 +12,9 @@ import (
 
 var cmdOPROMPT = "${SERVER} :: "
 
+// cmd
+// TODO(blacknon): Outputの出力処理について、Writerを用いた処理方法に切り替える
+// TODO(blacknon): コマンドの実行処理を、sshlibをからの実行ではなく直接行わせる
 func (r *Run) cmd() (err error) {
 	// command
 	command := strings.Join(r.ExecCmd, " ")
@@ -80,8 +83,8 @@ func (r *Run) cmd() (err error) {
 		// Valid only when one server is specified
 		if len(r.ServerList) == 1 {
 			// if select server is single, Force a value such as.
-			//     session.Stdout = os.Stdout
-			//     session.Stderr = os.Stderr
+			//     - session.Stdout = os.Stdout
+			//     - session.Stderr = os.Stderr
 			if r.IsTerm {
 				c.ForceStd = true
 			}

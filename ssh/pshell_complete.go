@@ -31,7 +31,7 @@ func (ps *pShell) Completer(t prompt.Document) []prompt.Suggest {
 		{Text: "clear", Description: "clear screen"},
 		{Text: "%history", Description: "show history"},
 		{Text: "%out", Description: "%out [num], show history result."},
-		// {Text: "%outlist", Description: "%outlist, show history result list."}, // outのリストを出力ためのローカルコマンド
+		// {Text: "%outlist", Description: "%outlist, show history result list."}, // outのリストを出力するためのローカルコマンド
 
 		// outの出力でdiffをするためのローカルコマンド。すべての出力と比較するのはあまりに辛いと思われるため、最初の出力との比較、といった方式で対応するのが良いか？？
 		// {Text: "%diff", Description: "%diff [num], show history result list."},

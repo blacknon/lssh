@@ -14,11 +14,42 @@ type pipeLine struct {
 
 // joinPipeLine is concatenates a pipe without a built-in command or
 // local command as a command to be executed on a remote machine as a string.
-// TODO(blacknon): 作成する。
-//
-// func joinPipeLine(pslice []pipeline) ([]pipeLine, error) {
+func joinPipeLine(pslice []pipeLine) []pipeLine {
+	beforeLocal := false
+	var bpline pipeLine // before pipeLine
+	result := []pipeLine{}
 
-// }
+	for _, pline := range pslice {
+		// get command
+		cmd := pline.Args[0]
+
+		// check in local command
+		isLocal := checkBuildInCommand(cmd)
+		switch {
+		case isLocal:
+			if len(bpline.Args) > 0 {
+				result = append(result, bpline)
+			}
+			bpline = pline
+			beforeLocal = true
+		case !isLocal && beforeLocal: // RemoteCommand で前がLocalの場合
+			if len(bpline.Args) > 0 {
+				result = append(result, bpline)
+			}
+			bpline = pline
+			beforeLocal = false
+		case !isLocal && !beforeLocal: // RemoteCommandで前がRemoteの場合
+			// append bpline
+			bpline.Args = append(bpline.Args, bpline.Oprator)
+			bpline.Args = append(bpline.Args, pline.Args...)
+			bpline.Oprator = pline.Oprator
+			beforeLocal = false
+		}
+	}
+
+	result = append(result, bpline)
+	return result
+}
 
 // parseCmdPipeLine return [][]pipeLine.
 func parsePipeLine(command string) (pslice [][]pipeLine, err error) {
@@ -37,30 +68,41 @@ func parsePipeLine(command string) (pslice [][]pipeLine, err error) {
 		// create slice
 		var cmdLine []pipeLine
 
-		// create stmtCmd
+		// create stmtCmd, stmtRedirs
 		var stmtCmd syntax.Command
+		var stmtRedirs []*syntax.Redirect
 		stmtCmd = stmt.Cmd
+		stmtRedirs = stmt.Redirs
 
 		// parse stmt loop
 	stmtCmdLoop:
 		for {
 			switch c := stmtCmd.(type) {
 			case *syntax.CallExpr:
+				args := parseCallExpr(c)
+
+				args = append(args, parseRedirect(stmtRedirs)...)
 				pLine := pipeLine{
-					Args: parseCallExpr(c),
+					Args: args,
 				}
 				cmdLine = append(cmdLine, pLine)
 
 				break stmtCmdLoop
 			case *syntax.BinaryCmd:
 				cx := c.X.Cmd.(*syntax.CallExpr)
+				cxr := c.X.Redirs
+
+				args := parseCallExpr(cx)
+				args = append(args, parseRedirect(cxr)...)
+
 				pLine := pipeLine{
-					Args:    parseCallExpr(cx),
+					Args:    args,
 					Oprator: c.Op.String(),
 				}
 				cmdLine = append(cmdLine, pLine)
 
 				stmtCmd = c.Y.Cmd
+				stmtRedirs = c.Y.Redirs
 			}
 		}
 
@@ -82,5 +124,24 @@ func parseCallExpr(cmd *syntax.CallExpr) (pLine []string) {
 
 		}
 	}
+	return
+}
+
+// parseRedirect return pipeline redirect element ([]string)
+func parseRedirect(redir []*syntax.Redirect) (rs []string) {
+	printer := syntax.NewPrinter()
+
+	for _, r := range redir {
+		if r.N != nil {
+			rs = append(rs, r.N.Value)
+		}
+		rs = append(rs, r.Op.String())
+		for _, part := range r.Word.Parts {
+			buf := new(bytes.Buffer)
+			printer.Print(buf, part)
+			rs = append(rs, buf.String())
+		}
+	}
+
 	return
 }

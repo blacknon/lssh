@@ -125,8 +125,6 @@ loop:
 			continue
 		}
 	}
-
-	fmt.Println("close Output.Printer") // debug
 }
 
 // TODO(blacknon): cmdの処理で、Output.Printerに移行したら削除する
@@ -196,8 +194,6 @@ loop:
 			continue
 		}
 	}
-
-	fmt.Println("close pushStdoutPipe") // debug
 }
 
 // multiPipeReadWriter is PipeReader to []io.WriteCloser.
@@ -236,8 +232,6 @@ loop:
 	for _, w := range output {
 		w.Close()
 	}
-
-	fmt.Println("close pushPipeWriter") // debug
 }
 
 // send input to ssh Session Stdin
@@ -265,14 +259,4 @@ loop:
 	for _, w := range output {
 		w.Close()
 	}
-
-	fmt.Println("close pushInput") // debug
-}
-
-// unsetReader is Exclude specified element from []*bufio.Reader slice.
-func unsetReader(s []*bufio.Reader, i int) []*bufio.Reader {
-	if i >= len(s) {
-		return s
-	}
-	return append(s[:i], s[i+1:]...)
 }
