@@ -89,7 +89,7 @@ func (o *Output) GetPrompt() (p string) {
 }
 
 // NewWriter return io.WriteCloser at Output printer.
-func (o *Output) NewWriter() (writer io.WriteCloser) {
+func (o *Output) NewWriter() (writer *io.PipeWriter) {
 	// create io.PipeReader, io.PipeWriter
 	r, w := io.Pipe()
 
@@ -100,8 +100,7 @@ func (o *Output) NewWriter() (writer io.WriteCloser) {
 	return w
 }
 
-// TODO(blacknon) : うまく動作してるか確認し、問題なさそうだったらこれに統一。
-//                  cmd側についてもリファクタをする。
+// TODO(blacknon) : cmd側をこちらで出力するようにコードを変更する
 // ※ ちゃんとエラーをキャッチできるかどうかがポイントになるので、それについても検証が必要。
 func (o *Output) Printer(reader io.ReadCloser) {
 	sc := bufio.NewScanner(reader)
@@ -120,10 +119,17 @@ loop:
 		if sc.Err() == io.ErrClosedPipe {
 			break loop
 		}
+
+		select {
+		case <-time.After(50 * time.Millisecond):
+			continue
+		}
 	}
+
+	fmt.Println("close Output.Printer") // debug
 }
 
-// TODO(blacknon): *Output.Printの実装動作確認後、問題なさそうだったら削除。
+// TODO(blacknon): cmdの処理で、Output.Printerに移行したら削除する
 func printOutput(o *Output, output chan []byte) {
 	// check o.OutputWriter. default is os.Stdout.
 	if o.Writer == nil {
@@ -153,6 +159,7 @@ func outColorStrings(num int, inStrings string) (str string) {
 }
 
 // pushMultiReader
+// TODO(blacknon): 使ってないので削除する
 func pushStdoutPipe(input io.Reader, output io.Writer, m *sync.Mutex) {
 	// reader
 	r := bufio.NewReader(input)
@@ -185,10 +192,12 @@ loop:
 		}
 
 		select {
-		case <-time.After(10 * time.Millisecond):
+		case <-time.After(50 * time.Millisecond):
 			continue
 		}
 	}
+
+	fmt.Println("close pushStdoutPipe") // debug
 }
 
 // multiPipeReadWriter is PipeReader to []io.WriteCloser.
@@ -227,6 +236,8 @@ loop:
 	for _, w := range output {
 		w.Close()
 	}
+
+	fmt.Println("close pushPipeWriter") // debug
 }
 
 // send input to ssh Session Stdin
@@ -254,6 +265,8 @@ loop:
 	for _, w := range output {
 		w.Close()
 	}
+
+	fmt.Println("close pushInput") // debug
 }
 
 // unsetReader is Exclude specified element from []*bufio.Reader slice.
