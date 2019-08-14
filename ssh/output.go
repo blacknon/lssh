@@ -88,7 +88,7 @@ func (o *Output) GetPrompt() (p string) {
 	return
 }
 
-//
+// NewWriter return io.WriteCloser at Output printer.
 func (o *Output) NewWriter() (writer io.WriteCloser) {
 	// create io.PipeReader, io.PipeWriter
 	r, w := io.Pipe()
