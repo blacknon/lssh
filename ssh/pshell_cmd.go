@@ -15,20 +15,27 @@ import (
 	"golang.org/x/crypto/ssh"
 )
 
-// checkBuildInCommand return bool, check is pshell build-in command or
-// local machine command(%%command).
-func checkBuildInCommand(cmd string) (isLocalCmd bool) {
-	// check local command regex
-	buildinRegex := regexp.MustCompile(`^!.*`)
-
+func checkBuildInCommand(cmd string) (isBuildInCmd bool) {
 	// check build-in command
 	switch cmd {
 	case "exit", "quit", "clear": // build-in command
-		isLocalCmd = true
+		isBuildInCmd = true
 
 	case "%history", "%out": // parsent build-in command.
-		isLocalCmd = true
+		isBuildInCmd = true
 	}
+
+	return
+}
+
+// checkLocalCommand return bool, check is pshell build-in command or
+// local machine command(%%command).
+func checkLocalCommand(cmd string) (isLocalCmd bool) {
+	// check build-in command
+	isLocalCmd = checkBuildInCommand(cmd)
+
+	// check local command regex
+	buildinRegex := regexp.MustCompile(`^!.*`)
 
 	// local command
 	switch {
@@ -40,21 +47,21 @@ func checkBuildInCommand(cmd string) (isLocalCmd bool) {
 }
 
 // checkLocalCommand return bool if each pipeline contains built-in commands or local machine commands.
-func checkBuildInCommandInSlice(pslice [][]pipeLine) (isInLocalCmd bool) {
-	for _, pipelines := range pslice {
-		for _, p := range pipelines {
-			// get pipeline command
-			c := p.Args[0]
+// func checkLocalCommandInSlice(pslice [][]pipeLine) (isInLocalCmd bool) {
+// 	for _, pipelines := range pslice {
+// 		for _, p := range pipelines {
+// 			// get pipeline command
+// 			c := p.Args[0]
 
-			if checkBuildInCommand(c) {
-				isInLocalCmd = true
-				return
-			}
-		}
-	}
+// 			if checkLocalCommand(c) {
+// 				isInLocalCmd = true
+// 				return
+// 			}
+// 		}
+// 	}
 
-	return
-}
+// 	return
+// }
 
 // runBuildInCommand is run buildin or local machine command.
 func (ps *pShell) run(pline pipeLine, in *io.PipeReader, out *io.PipeWriter, ch chan<- bool, kill chan bool) (err error) {

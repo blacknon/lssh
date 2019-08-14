@@ -42,7 +42,7 @@ func joinPipeLine(pslice []pipeLine) []pipeLine {
 		cmd := pline.Args[0]
 
 		// check in local command
-		isLocal := checkBuildInCommand(cmd)
+		isLocal := checkLocalCommand(cmd)
 		switch {
 		case isLocal:
 			if len(bpline.Args) > 0 {
