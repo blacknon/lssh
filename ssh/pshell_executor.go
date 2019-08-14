@@ -48,6 +48,8 @@ func (ps *pShell) Executor(command string) {
 //     - https://stackoverflow.com/questions/10781516/how-to-pipe-several-commands-in-go
 func (ps *pShell) parseExecuter(pslice [][]pipeLine) {
 	// TODO(blacknon): Add HistoryResult
+	// Create History
+	// ps.History[ps.Count] = map[string]*pShellHistory{}
 
 	// for pslice
 	for _, pline := range pslice {

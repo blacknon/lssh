@@ -9,7 +9,6 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
-	"sync"
 	"time"
 
 	"github.com/blacknon/go-sshlib"
@@ -91,9 +90,6 @@ func (ps *pShell) run(pline pipeLine, in *io.PipeReader, out *io.PipeWriter, ch 
 		ps.buildin_out(num, out)
 		return
 	}
-
-	// Create History
-	ps.History[ps.Count] = map[string]*pShellHistory{}
 
 	// check and exec local command
 	buildinRegex := regexp.MustCompile(`^!.*`)
@@ -180,8 +176,6 @@ func (ps *pShell) executeRemotePipeLine(pline pipeLine, in *io.PipeReader, out *
 	// create []ssh.Session
 	var sessions []*ssh.Session
 
-	m := new(sync.Mutex)
-
 	// create session and writers
 	for _, c := range ps.Connects {
 		// create session
@@ -198,21 +192,13 @@ func (ps *pShell) executeRemotePipeLine(pline pipeLine, in *io.PipeReader, out *
 		}
 
 		// set stdout
-		r, _ := s.StdoutPipe()
-
-		// TODO(blacknon): 作業中！
-		//     outputにうまいことbufのWriterとReaderを作って、それを出力先として利用させる
-		//     stdoutの扱いが面倒になるので、そのあたりで調整が必要！
-		//     https://stackoverflow.com/questions/23454940/getting-bytes-buffer-does-not-implement-io-writer-error-message
 		ow = stdout
 		if ow == os.Stdout {
-			ow = c.Output.NewWriter()
+			w := c.Output.NewWriter()
+			defer w.CloseWithError(io.ErrClosedPipe)
+			ow = w
 		}
-
-		go func() {
-			pushStdoutPipe(r, ow, m)
-			ow.Close()
-		}()
+		s.Stdout = ow
 
 		// get and append stdin writer
 		w, _ := s.StdinPipe()
@@ -225,7 +211,8 @@ func (ps *pShell) executeRemotePipeLine(pline pipeLine, in *io.PipeReader, out *
 	// multi input-writer
 	switch stdin.(type) {
 	case *os.File:
-		// push input to pararell session (Only when input is os.Stdin and output is os.Stdout).
+		// push input to pararell session
+		// (Only when input is os.Stdin and output is os.Stdout).
 		if stdout == os.Stdout {
 			go pushInput(exitInput, writers)
 		}
