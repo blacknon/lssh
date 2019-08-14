@@ -33,13 +33,10 @@ func (ps *pShell) Executor(command string) {
 }
 
 // parseExecuter assemble and execute the parsed command line.
-// TODO(blacknon): ↓を参考にしてみる
-//     - http://syohex.hatenablog.com/entry/20131016/1381935100
-//     - https://stackoverflow.com/questions/10781516/how-to-pipe-several-commands-in-go
 func (ps *pShell) parseExecuter(pslice [][]pipeLine) {
 	// TODO(blacknon): Add HistoryResult
 	// Create History
-	// ps.History[ps.Count] = map[string]*pShellHistory{}
+	ps.History[ps.Count] = map[string]*pShellHistory{}
 
 	// for pslice
 	for _, pline := range pslice {
@@ -60,6 +57,10 @@ func (ps *pShell) parseExecuter(pslice [][]pipeLine) {
 
 		// create channel
 		ch := make(chan bool)
+		defer close(ch)
+
+		kill := make(chan bool)
+		defer close(kill)
 
 		for i, p := range pline {
 			// declare nextPipeLine
@@ -90,12 +91,29 @@ func (ps *pShell) parseExecuter(pslice [][]pipeLine) {
 			}
 
 			// exec pipeline
-			go ps.run(p, in, out, ch)
+			go ps.run(p, in, out, ch, kill)
 		}
+
+		// get and send kill
+		killExit := make(chan bool)
+		defer close(killExit)
+		go func() {
+			select {
+			case <-ps.Signal:
+				for i := 0; i < len(pline); i++ {
+					kill <- true
+				}
+			case <-killExit:
+				return
+			}
+		}()
 
 		// wait channel
 		ps.wait(len(pline), ch)
 	}
+
+	// add ps.Count
+	ps.Count += 1
 }
 
 // countPipeSet count delimiter in pslice.
@@ -226,21 +244,23 @@ func createPipeSet(count int) (pipes []*PipeSet) {
 // }
 
 // pushSignal is send kill signal to session.
-func (ps *pShell) pushKillSignal(exitSig chan bool, conns []*psConnect) (err error) {
-	i := 0
-	for {
-		select {
-		case <-ps.Signal:
-			if i == 0 {
-				for _, c := range conns {
-					// send kill
-					c.Kill()
-				}
-				i = 1
-			}
-		case <-exitSig:
-			return
-		}
-	}
-	return
-}
+// TODO(blacknon): ローカルのコマンドも途中で終了できるよう、やり方を考える
+// TODO(blacknon): cmd側で使ってる
+// func (ps *pShell) pushKillSignal(exitSig chan bool, conns []*psConnect) (err error) {
+// 	i := 0
+// 	for {
+// 		select {
+// 		case <-ps.Signal:
+// 			if i == 0 {
+// 				for _, c := range conns {
+// 					// send kill
+// 					c.Kill()
+// 				}
+// 				i = 1
+// 			}
+// 		case <-exitSig:
+// 			return
+// 		}
+// 	}
+// 	return
+// }
