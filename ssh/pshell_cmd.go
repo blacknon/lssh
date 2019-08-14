@@ -1,8 +1,6 @@
 package ssh
 
 import (
-	"bufio"
-	"bytes"
 	"fmt"
 	"io"
 	"os"
@@ -157,6 +155,7 @@ func (ps *pShell) buildin_out(num int, out io.Writer) {
 }
 
 // executePipeLineRemote is exec command in remote machine.
+// Didn't know how to send data from Writer to Channel, so switch the function if * io.PipeWriter is Nil.
 // TODO(blacknon):
 //     - ひとまず動く状態にする
 //     - Outputへの出力の引き渡しは後回しに(Writerに作り変える必要がありそう)
@@ -177,7 +176,6 @@ func (ps *pShell) executeRemotePipeLine(pline pipeLine, in *io.PipeReader, out *
 
 	// create []io.WriteCloser
 	var writers []io.WriteCloser
-	// var readers []io.Reader
 
 	// create []ssh.Session
 	var sessions []*ssh.Session
@@ -201,7 +199,6 @@ func (ps *pShell) executeRemotePipeLine(pline pipeLine, in *io.PipeReader, out *
 
 		// set stdout
 		r, _ := s.StdoutPipe()
-		// readers = append(readers, r)
 
 		// TODO(blacknon): 作業中！
 		//     outputにうまいことbufのWriterとReaderを作って、それを出力先として利用させる
@@ -209,9 +206,7 @@ func (ps *pShell) executeRemotePipeLine(pline pipeLine, in *io.PipeReader, out *
 		//     https://stackoverflow.com/questions/23454940/getting-bytes-buffer-does-not-implement-io-writer-error-message
 		ow = stdout
 		if ow == os.Stdout {
-			c.Output.Buffer = new(bytes.Buffer)
-			ow = bufio.NewWriter(c.Output.Buffer)
-			go c.Output.Print(exitOutput)
+			ow = c.Output.NewWriter()
 		}
 
 		go func() {
