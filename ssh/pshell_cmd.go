@@ -57,7 +57,7 @@ func checkBuildInCommandInSlice(pslice [][]pipeLine) (isInLocalCmd bool) {
 }
 
 // runBuildInCommand is run buildin or local machine command.
-func (ps *pShell) run(pline pipeLine, in *io.PipeReader, out *io.PipeWriter, ch chan<- bool) (err error) {
+func (ps *pShell) run(pline pipeLine, in *io.PipeReader, out *io.PipeWriter, ch chan<- bool, kill chan bool) (err error) {
 	// get 1st element
 	command := pline.Args[0]
 
@@ -96,10 +96,10 @@ func (ps *pShell) run(pline pipeLine, in *io.PipeReader, out *io.PipeWriter, ch 
 	switch {
 	case buildinRegex.MatchString(command):
 		// exec local machine
-		ps.executeLocalPipeLine(pline, in, out, ch)
+		ps.executeLocalPipeLine(pline, in, out, ch, kill)
 	default:
 		// exec remote machine
-		ps.executeRemotePipeLine(pline, in, out, ch)
+		ps.executeRemotePipeLine(pline, in, out, ch, kill)
 	}
 
 	return
@@ -154,8 +154,7 @@ func (ps *pShell) buildin_out(num int, out io.Writer) {
 // Didn't know how to send data from Writer to Channel, so switch the function if * io.PipeWriter is Nil.
 // TODO(blacknon):
 //     - HistoryResultへの書き込みの実装(writerを受け付ける？)
-//     - Killの仕組みの実装
-func (ps *pShell) executeRemotePipeLine(pline pipeLine, in *io.PipeReader, out *io.PipeWriter, ch chan<- bool) {
+func (ps *pShell) executeRemotePipeLine(pline pipeLine, in *io.PipeReader, out *io.PipeWriter, ch chan<- bool, kill chan bool) {
 	// join command
 	command := strings.Join(pline.Args, " ")
 
@@ -182,16 +181,16 @@ func (ps *pShell) executeRemotePipeLine(pline pipeLine, in *io.PipeReader, out *
 			continue
 		}
 
-		var ow io.WriteCloser
-
 		// Request tty (Only when input is os.Stdin and output is os.Stdout).
 		if stdin == os.Stdin && stdout == os.Stdout {
 			sshlib.RequestTty(s)
 		}
 
 		// set stdout
+		var ow io.WriteCloser
 		ow = stdout
 		if ow == os.Stdout {
+			c.Output.Count = ps.Count
 			w := c.Output.NewWriter()
 			defer w.CloseWithError(io.ErrClosedPipe)
 			ow = w
@@ -218,6 +217,7 @@ func (ps *pShell) executeRemotePipeLine(pline pipeLine, in *io.PipeReader, out *
 		go pushPipeWriter(exitInput, writers, stdin)
 	}
 
+	// run command
 	for _, s := range sessions {
 		session := s
 		go func() {
@@ -229,6 +229,17 @@ func (ps *pShell) executeRemotePipeLine(pline pipeLine, in *io.PipeReader, out *
 			}
 		}()
 	}
+
+	// kill
+	go func() {
+		select {
+		case <-kill:
+			for _, s := range sessions {
+				s.Signal(ssh.SIGINT)
+				s.Close()
+			}
+		}
+	}()
 
 	// wait
 	ps.wait(len(sessions), exit)
@@ -242,9 +253,6 @@ func (ps *pShell) executeRemotePipeLine(pline pipeLine, in *io.PipeReader, out *
 		fmt.Fprintf(os.Stderr, "\n---\n%s\n", "Command exit. Please input Enter.")
 		exitInput <- true
 	}
-
-	// TODO(blacknon): killのときだけ使う
-	// exitInput <- true
 
 	// send exit
 	ch <- true
@@ -261,8 +269,7 @@ func (ps *pShell) executeRemotePipeLine(pline pipeLine, in *io.PipeReader, out *
 // executePipeLineLocal is exec command in local machine.
 // TODO(blacknon):
 //     - HistoryResultへの書き込みの実装(writerを受け付ける？)
-//     - Killの仕組みの実装
-func (ps *pShell) executeLocalPipeLine(pline pipeLine, in *io.PipeReader, out *io.PipeWriter, ch chan<- bool) (err error) {
+func (ps *pShell) executeLocalPipeLine(pline pipeLine, in *io.PipeReader, out *io.PipeWriter, ch chan<- bool, kill chan bool) (err error) {
 	// set stdin/stdout
 	stdin := setInput(in)
 	stdout := setOutput(out)
@@ -283,7 +290,19 @@ func (ps *pShell) executeLocalPipeLine(pline pipeLine, in *io.PipeReader, out *i
 	cmd.Stderr = os.Stderr
 
 	// run command
-	err = cmd.Run()
+	err = cmd.Start()
+
+	// get signal and kill
+	p := cmd.Process
+	go func() {
+		select {
+		case <-kill:
+			p.Kill()
+		}
+	}()
+
+	// wait command
+	cmd.Wait()
 
 	// close out
 	switch stdout.(type) {
