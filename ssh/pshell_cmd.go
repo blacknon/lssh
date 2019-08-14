@@ -190,7 +190,7 @@ func (ps *pShell) executeRemotePipeLine(pline pipeLine, in *io.PipeReader, out *
 			continue
 		}
 
-		var ow io.Writer
+		var ow io.WriteCloser
 
 		// Request tty (Only when input is os.Stdin and output is os.Stdout).
 		if stdin == os.Stdin && stdout == os.Stdout {
@@ -211,6 +211,7 @@ func (ps *pShell) executeRemotePipeLine(pline pipeLine, in *io.PipeReader, out *
 
 		go func() {
 			pushStdoutPipe(r, ow, m)
+			ow.Close()
 		}()
 
 		// get and append stdin writer

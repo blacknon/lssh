@@ -88,10 +88,8 @@ func (o *Output) GetPrompt() (p string) {
 	return
 }
 
-// TODO(blacknon): writerでやるのは無理そう。一旦、手前側で処理を切り替えるしかない。
-//                 とりあえずこれは削除して、手前でinterface.(type)を利用しての関数切り替えの方式で実装。
-//                 これは削除！
-func (o *Output) NewWriter() (writer io.Writer) {
+//
+func (o *Output) NewWriter() (writer io.WriteCloser) {
 	// create io.PipeReader, io.PipeWriter
 	r, w := io.Pipe()
 
@@ -102,6 +100,9 @@ func (o *Output) NewWriter() (writer io.Writer) {
 	return w
 }
 
+// TODO(blacknon) : うまく動作してるか確認し、問題なさそうだったらこれに統一。
+//                  cmd側についてもリファクタをする。
+// ※ ちゃんとエラーをキャッチできるかどうかがポイントになるので、それについても検証が必要。
 func (o *Output) Printer(reader io.ReadCloser) {
 	sc := bufio.NewScanner(reader)
 loop:
@@ -122,34 +123,7 @@ loop:
 	}
 }
 
-// func (o *Output) Print(isExit chan bool) {
-// 	sc := bufio.NewScanner(o.Buffer)
-// loop:
-// 	for {
-// 		fmt.Println("output.Print out loop")
-// 		for sc.Scan() {
-// 			fmt.Println("output.Print in loop")
-// 			text := sc.Text()
-// 			if len(o.ServerList) > 1 {
-// 				oPrompt := o.GetPrompt()
-// 				fmt.Printf("%s %s\n", oPrompt, text)
-// 			} else {
-// 				fmt.Printf("%s\n", text)
-// 			}
-// 		}
-
-// 		select {
-// 		case <-isExit:
-// 			break loop
-// 		case <-time.After(100 * time.Millisecond):
-// 			continue
-// 		}
-// 	}
-
-// 	fmt.Println("exit output.Print ")
-// }
-
-// TODO(blacknon): (o *Output) Printout実装後に削除
+// TODO(blacknon): *Output.Printの実装動作確認後、問題なさそうだったら削除。
 func printOutput(o *Output, output chan []byte) {
 	// check o.OutputWriter. default is os.Stdout.
 	if o.Writer == nil {
