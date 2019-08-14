@@ -153,10 +153,8 @@ func (ps *pShell) buildin_out(num int, out io.Writer) {
 // executePipeLineRemote is exec command in remote machine.
 // Didn't know how to send data from Writer to Channel, so switch the function if * io.PipeWriter is Nil.
 // TODO(blacknon):
-//     - ひとまず動く状態にする
-//     - Outputへの出力の引き渡しは後回しに(Writerに作り変える必要がありそう)
-//     - HistoryResultについても同様とする
-//     - Killの仕組みについても後回しにする
+//     - HistoryResultへの書き込みの実装(writerを受け付ける？)
+//     - Killの仕組みの実装
 func (ps *pShell) executeRemotePipeLine(pline pipeLine, in *io.PipeReader, out *io.PipeWriter, ch chan<- bool) {
 	// join command
 	command := strings.Join(pline.Args, " ")
@@ -261,6 +259,9 @@ func (ps *pShell) executeRemotePipeLine(pline pipeLine, in *io.PipeReader, out *
 }
 
 // executePipeLineLocal is exec command in local machine.
+// TODO(blacknon):
+//     - HistoryResultへの書き込みの実装(writerを受け付ける？)
+//     - Killの仕組みの実装
 func (ps *pShell) executeLocalPipeLine(pline pipeLine, in *io.PipeReader, out *io.PipeWriter, ch chan<- bool) (err error) {
 	// set stdin/stdout
 	stdin := setInput(in)
@@ -314,9 +315,7 @@ func setInput(in io.ReadCloser) (stdin io.ReadCloser) {
 	return
 }
 
-// TODO(blacknon):
-//     - pShellのMethodにして、ホスト名等を付与可能なWriterを返すように作り変える
-//     - local or remote の指定をさせるよう、引数を追加する必要がある
+// setOutput
 func setOutput(out io.WriteCloser) (stdout io.WriteCloser) {
 	if reflect.ValueOf(out).IsNil() {
 		stdout = os.Stdout
