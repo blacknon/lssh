@@ -8,6 +8,7 @@ import (
 	"os"
 	"os/user"
 	"strings"
+	"sync"
 	"time"
 )
 
@@ -18,19 +19,52 @@ type pShellHistory struct {
 }
 
 //
-func (p *pShellHistory) NewWriter() io.PipeWriter {
+func (ps *pShell) NewHistoryWriter(cmd, server string, m *sync.Mutex) *io.PipeWriter {
+	// craete pShellHistory struct
+	psh := &pShellHistory{
+		Command:   cmd,
+		Timestamp: time.Now().Format("2006/01/02_15:04:05 "), // "yyyy/mm/dd_HH:MM:SS "
+	}
+
 	// create io.PipeReader, io.PipeWriter
 	r, w := io.Pipe()
 
 	// output Struct
-	p.Print(r)
+	go ps.Print(psh, server, r, m)
 
 	// return io.PipeWriter
 	return w
 }
 
-func (p *pShellHistory) Print(r io.PipeReader) {
+func (ps *pShell) Print(psh *pShellHistory, server string, r *io.PipeReader, m *sync.Mutex) {
+	// TODO(blacknon): outputと同じように、io.Pipeを経由しての処理を記述する。
+	var result string
+	sc := bufio.NewScanner(r)
+loop:
+	for {
+		for sc.Scan() {
+			text := sc.Text()
+			result = result + text
+		}
 
+		if sc.Err() == io.ErrClosedPipe {
+			break loop
+		}
+
+		select {
+		case <-time.After(50 * time.Millisecond):
+			continue
+		}
+	}
+
+	// Add Result
+	psh.Result = result
+
+	// Add History
+	count := ps.Count
+	m.Lock()
+	ps.History[count][server] = psh
+	m.Unlock()
 }
 
 // GetHistoryFromFile return []History from historyfile
