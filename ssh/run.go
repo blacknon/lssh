@@ -3,6 +3,7 @@ package ssh
 import (
 	"bytes"
 	"fmt"
+	"io"
 	"io/ioutil"
 	"log"
 	"os"
@@ -74,7 +75,11 @@ type Run struct {
 	agent interface{}
 
 	// StdinData from pipe
+	// TODO(blacknon): Readerを置くようにして削除する
 	stdinData []byte
+
+	// stdin pipe reader
+	stdinPipe *io.PipeReader
 
 	// use terminal log
 	outputData *bytes.Buffer

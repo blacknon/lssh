@@ -15,7 +15,7 @@ import (
 
 // Output struct. command execute and lssh-shell mode output data.
 type Output struct {
-	// Template variable value.
+	// Template variable value (in unimplemented).
 	//     - ${COUNT}  ... Count value(int)
 	//     - ${SERVER} ... Server Name
 	//     - ${ADDR}   ... Address
@@ -99,8 +99,7 @@ func (o *Output) NewWriter() (writer *io.PipeWriter) {
 	return w
 }
 
-// TODO(blacknon) : cmd側をこちらで出力するようにコードを変更する
-// ※ ちゃんとエラーをキャッチできるかどうかがポイントになるので、それについても検証が必要。
+// Printer output stdout from reader.
 func (o *Output) Printer(reader io.ReadCloser) {
 	sc := bufio.NewScanner(reader)
 loop:
@@ -122,27 +121,6 @@ loop:
 		select {
 		case <-time.After(50 * time.Millisecond):
 			continue
-		}
-	}
-}
-
-// TODO(blacknon): cmdの処理で、Output.Printerに移行したら削除する
-func printOutput(o *Output, output chan []byte) {
-	// check o.OutputWriter. default is os.Stdout.
-	if o.Writer == nil {
-		o.Writer = os.Stdout
-	}
-
-	// print output
-	for data := range output {
-		str := strings.TrimRight(string(data), "\n")
-		for _, s := range strings.Split(str, "\n") {
-			if len(o.ServerList) > 1 {
-				oPrompt := o.GetPrompt()
-				fmt.Fprintf(o.Writer, "%s %s\n", oPrompt, s)
-			} else {
-				fmt.Fprintf(o.Writer, "%s\n", s)
-			}
 		}
 	}
 }

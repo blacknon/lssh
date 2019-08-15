@@ -14,8 +14,6 @@ import (
 var cmdOPROMPT = "${SERVER} :: "
 
 // cmd
-// TODO(blacknon): Outputの出力処理について、Writerを用いた処理方法に切り替える
-// TODO(blacknon): コマンドの実行処理を、sshlibをからの実行ではなく直接行わせる
 func (r *Run) cmd() (err error) {
 	// command
 	command := strings.Join(r.ExecCmd, " ")
@@ -25,7 +23,6 @@ func (r *Run) cmd() (err error) {
 
 	// make channel
 	finished := make(chan bool)
-	// input := make(chan io.WriteCloser)
 	exitInput := make(chan bool)
 
 	// print header
@@ -51,9 +48,9 @@ func (r *Run) cmd() (err error) {
 		}
 
 		// stdin data check
-		if len(r.stdinData) > 0 {
-			conn.Stdin = r.stdinData
-		}
+		// if len(r.stdinData) > 0 {
+		// 	conn.Stdin = r.stdinData
+		// }
 
 		connmap[server] = conn
 	}
@@ -76,7 +73,7 @@ func (r *Run) cmd() (err error) {
 		}
 		o.Create(s)
 
-		// Overwrite port forwarding.
+		// if single server
 		if len(r.ServerList) == 1 {
 			session.Stdout = os.Stdout
 			switch {
@@ -124,16 +121,10 @@ func (r *Run) cmd() (err error) {
 			session.Run(command)
 			finished <- true
 		}()
-
-		// if r.IsParallel {
-		// 	go printOutput(o, output)
-		// } else {
-		// 	printOutput(o, output)
-		// }
 	}
 
 	// if parallel flag true, and select server is not single,
-	// create io.MultiWriter and send input.
+	// set send stdin.
 	if r.IsParallel && len(r.ServerList) > 1 {
 		if len(r.stdinData) > 0 {
 			ws := []io.Writer{}
@@ -153,11 +144,6 @@ func (r *Run) cmd() (err error) {
 		} else {
 			go pushInput(exitInput, writers)
 		}
-		// writers := []io.WriteCloser{}
-		// for i := 0; i < len(r.ServerList); i++ {
-		// 	writers = append(writers, w)
-		// }
-		// writer := io.MultiWriter(writers...)
 	}
 
 	for i := 0; i < len(connmap); i++ {
