@@ -1,6 +1,7 @@
 package ssh
 
 import (
+	"bufio"
 	"fmt"
 	"io"
 	"os"
@@ -70,7 +71,7 @@ func (ps *pShell) run(pline pipeLine, in *io.PipeReader, out *io.PipeWriter, ch 
 
 	// %out [num]
 	case "%out":
-		num := 0
+		num := ps.Count - 1
 		if len(pline.Args) > 1 {
 			num, err = strconv.Atoi(pline.Args[1])
 			if err != nil {
@@ -78,7 +79,7 @@ func (ps *pShell) run(pline pipeLine, in *io.PipeReader, out *io.PipeWriter, ch 
 			}
 		}
 
-		ps.buildin_out(num, out)
+		ps.buildin_out(num, out, ch)
 		return
 	}
 
@@ -125,22 +126,46 @@ func (ps *pShell) buildin_history(out *io.PipeWriter, ch chan<- bool) {
 // example:
 //     - %out
 //     - %out <num>
-func (ps *pShell) buildin_out(num int, out io.Writer) {
+func (ps *pShell) buildin_out(num int, out *io.PipeWriter, ch chan<- bool) {
+	stdout := setOutput(out)
 	histories := ps.History[num]
-
-	fmt.Println(histories) //debug
 
 	i := 0
 	for _, h := range histories {
 		// if first, print out command
 		if i == 0 {
-			fmt.Fprintf(out, "Command: %s\n", h.Command)
+			fmt.Fprintf(os.Stderr, "[History:%s ]\n", h.Command)
 		}
 		i += 1
 
 		// print out result
-		fmt.Fprintf(out, h.Result)
+		if len(histories) > 1 && stdout == os.Stdout && h.Output != nil {
+			// set Output.Count
+			bc := h.Output.Count
+			h.Output.Count = num
+			op := h.Output.GetPrompt()
+
+			// TODO(blacknon): Outputを利用させてOPROMPTを生成
+			sc := bufio.NewScanner(strings.NewReader(h.Result))
+			for sc.Scan() {
+				fmt.Fprintf(stdout, "%s %s\n", op, sc.Text())
+			}
+
+			// reset Output.Count
+			h.Output.Count = bc
+		} else {
+			fmt.Fprintf(stdout, h.Result)
+		}
 	}
+
+	// close out
+	switch stdout.(type) {
+	case *io.PipeWriter:
+		out.CloseWithError(io.ErrClosedPipe)
+	}
+
+	// send exit
+	ch <- true
 }
 
 // executePipeLineRemote is exec command in remote machine.
@@ -167,6 +192,7 @@ func (ps *pShell) executeRemotePipeLine(pline pipeLine, in *io.PipeReader, out *
 	var sessions []*ssh.Session
 
 	// create session and writers
+	m := new(sync.Mutex)
 	for _, c := range ps.Connects {
 		// create session
 		s, err := c.CreateSession()
@@ -183,10 +209,16 @@ func (ps *pShell) executeRemotePipeLine(pline pipeLine, in *io.PipeReader, out *
 		var ow io.Writer
 		ow = stdout
 		if ow == os.Stdout {
+			// create Output Writer
 			c.Output.Count = ps.Count
 			w := c.Output.NewWriter()
 			defer w.CloseWithError(io.ErrClosedPipe)
-			ow = w
+
+			// create pShellHistory Writer
+			hw := ps.NewHistoryWriter(c.Output.server, c.Output, m)
+			defer hw.CloseWithError(io.ErrClosedPipe)
+
+			ow = io.MultiWriter(w, hw)
 		}
 		s.Stdout = ow
 
@@ -267,21 +299,17 @@ func (ps *pShell) executeLocalPipeLine(pline pipeLine, in *io.PipeReader, out *i
 	stdin := setInput(in)
 	stdout := setOutput(out)
 
-	fmt.Println("create history writer")
-
 	// set HistoryResult
 	var stdoutw io.Writer
-	var pw *io.PipeWriter
 	stdoutw = stdout
 	m := new(sync.Mutex)
 	if stdout == os.Stdout {
-		pw := ps.NewHistoryWriter(ps.latestCommand, "localhost", m)
+		pw := ps.NewHistoryWriter("localhost", nil, m)
 		stdoutw = io.MultiWriter(stdout, pw)
+		defer pw.CloseWithError(io.ErrClosedPipe)
 	} else {
 		stdoutw = stdout
 	}
-
-	fmt.Println("create history writer exit")
 
 	// delete command prefix(`%%`)
 	rep := regexp.MustCompile(`^!`)
@@ -298,8 +326,6 @@ func (ps *pShell) executeLocalPipeLine(pline pipeLine, in *io.PipeReader, out *i
 	cmd.Stdout = stdoutw
 	cmd.Stderr = os.Stderr
 
-	fmt.Println("run local command") //debug
-
 	// run command
 	err = cmd.Start()
 
@@ -312,19 +338,13 @@ func (ps *pShell) executeLocalPipeLine(pline pipeLine, in *io.PipeReader, out *i
 		}
 	}()
 
-	fmt.Println("wait run local command") //debug
-
 	// wait command
 	cmd.Wait()
-
-	fmt.Println("exit run local command") //debug
 
 	// close out, or write pShellHistory
 	switch stdout.(type) {
 	case *io.PipeWriter:
 		out.CloseWithError(io.ErrClosedPipe)
-	case *os.File:
-		pw.CloseWithError(io.ErrClosedPipe)
 	}
 
 	// send exit
