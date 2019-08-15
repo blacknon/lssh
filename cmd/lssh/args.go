@@ -67,6 +67,8 @@ USAGE:
 	//     --read_profile
 	//              ... デフォルトではlocalrc読み込みでのshellではsshサーバ上のprofileは読み込まないが、このオプションを指定することで読み込まれるようになる
 
+	// TODO(blacknon): コマンドオプションの指定方法(特にポートフォワーディング)をOpenSSHに合わせる
+
 	// Set options
 	app.Flags = []cli.Flag{
 		// common option

@@ -18,6 +18,7 @@ import (
 )
 
 // TODO(blacknon): 以下のBuild-in Commandを追加する
+//     - %outlist           ... outの番号とコマンドを一覧で出力する(historyに組み込んだほうがいいのか？？)
 //     - %save <num> <PATH> ... 指定したnumの履歴をPATHに記録する
 //     - %set <args..>      ... 指定されたオプションを設定する(Optionsにて管理)
 //     - %diff <num>        ... 指定されたnumの履歴をdiffする(multi diff)。できるかどうか要検討。
