@@ -16,27 +16,31 @@ type pShellHistory struct {
 	Timestamp string
 	Command   string
 	Result    string
+	Output    *Output
 }
 
 //
-func (ps *pShell) NewHistoryWriter(cmd, server string, m *sync.Mutex) *io.PipeWriter {
+func (ps *pShell) NewHistoryWriter(server string, output *Output, m *sync.Mutex) *io.PipeWriter {
 	// craete pShellHistory struct
 	psh := &pShellHistory{
-		Command:   cmd,
+		Command:   ps.latestCommand,
 		Timestamp: time.Now().Format("2006/01/02_15:04:05 "), // "yyyy/mm/dd_HH:MM:SS "
+		Output:    output,
 	}
 
 	// create io.PipeReader, io.PipeWriter
 	r, w := io.Pipe()
 
 	// output Struct
-	go ps.Print(psh, server, r, m)
+	go ps.pShellHistoryPrint(psh, server, r, m)
 
 	// return io.PipeWriter
 	return w
 }
 
-func (ps *pShell) Print(psh *pShellHistory, server string, r *io.PipeReader, m *sync.Mutex) {
+func (ps *pShell) pShellHistoryPrint(psh *pShellHistory, server string, r *io.PipeReader, m *sync.Mutex) {
+	count := ps.Count
+
 	// TODO(blacknon): outputと同じように、io.Pipeを経由しての処理を記述する。
 	var result string
 	sc := bufio.NewScanner(r)
@@ -44,7 +48,7 @@ loop:
 	for {
 		for sc.Scan() {
 			text := sc.Text()
-			result = result + text
+			result = result + text + "\n"
 		}
 
 		if sc.Err() == io.ErrClosedPipe {
@@ -61,7 +65,6 @@ loop:
 	psh.Result = result
 
 	// Add History
-	count := ps.Count
 	m.Lock()
 	ps.History[count][server] = psh
 	m.Unlock()
