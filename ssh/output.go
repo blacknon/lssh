@@ -194,7 +194,6 @@ loop:
 }
 
 // send input to ssh Session Stdin
-// TODO(blacknon): multiStdinWriterにして記述する
 func pushInput(isExit <-chan bool, output []io.WriteCloser) {
 	rd := bufio.NewReader(os.Stdin)
 loop:

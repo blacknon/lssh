@@ -150,15 +150,18 @@ func parseRedirect(redir []*syntax.Redirect) (rs []string) {
 	printer := syntax.NewPrinter()
 
 	for _, r := range redir {
+		var rr string
 		if r.N != nil {
-			rs = append(rs, r.N.Value)
+			rr = rr + r.N.Value
 		}
-		rs = append(rs, r.Op.String())
+		rr = rr + r.Op.String()
 		for _, part := range r.Word.Parts {
 			buf := new(bytes.Buffer)
 			printer.Print(buf, part)
-			rs = append(rs, buf.String())
+			rr = rr + buf.String()
 		}
+
+		rs = append(rs, rr)
 	}
 
 	return

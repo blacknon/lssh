@@ -14,6 +14,8 @@ import (
 	"github.com/c-bata/go-prompt/completer"
 )
 
+// TODO(blacknon): pShellのログ(実行コマンド及び出力結果)をログとしてファイルに記録する機能の追加
+
 // Pshell is Parallel-Shell struct
 type pShell struct {
 	Signal        chan os.Signal
@@ -25,6 +27,20 @@ type pShell struct {
 	HistoryFile   string
 	latestCommand string
 	Complete      []prompt.Suggest
+	Options       pShellOption
+}
+
+// pShellOption is optitons pshell.
+// TODO(blacknon): つくる。
+type pShellOption struct {
+	// local command実行時の結果をHistoryResultに記録しない(os.Stdoutに直接出す)
+	LocalCommandNotRecordResult bool
+
+	// trueの場合、リモートマシンでパイプライン処理をする際にパイプ経由でもOPROMPTを付与して出力する
+	// RemoteHeaderWithPipe bool
+
+	// trueの場合、リモートマシンにキーインプットを送信しない
+	// hogehoge
 }
 
 // psConnect is pShell connect struct.

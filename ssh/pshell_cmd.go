@@ -17,6 +17,12 @@ import (
 	"golang.org/x/crypto/ssh"
 )
 
+// TODO(blacknon): 以下のBuild-in Commandを追加する
+//     - %save <num> <PATH> ... 指定したnumの履歴をPATHに記録する
+//     - %set <args..>      ... 指定されたオプションを設定する(Optionsにて管理)
+//     - %diff <num>        ... 指定されたnumの履歴をdiffする(multi diff)。できるかどうか要検討。
+
+// checkBuildInCommand return true if cmd is build-in command.
 func checkBuildInCommand(cmd string) (isBuildInCmd bool) {
 	// check build-in command
 	switch cmd {
@@ -97,6 +103,17 @@ func (ps *pShell) run(pline pipeLine, in *io.PipeReader, out *io.PipeWriter, ch 
 	return
 }
 
+// localCmd_set is set pshll option.
+// TODO(blacknon): Optionsの値などについて、あとから変更できるようにする。
+// func (ps *pShell) buildin_set(args []string, out *io.PipeWriter, ch chan<- bool) {
+// }
+
+// localCmd_save is save HistoryResult results as a file local.
+//     %save num PATH(独自の環境変数を利用して個別に保存できるようにする)
+// TODO(blacknon): Optionsの値などについて、あとから変更できるようにする。
+// func (ps *pShell) buildin_save(args []string, out *io.PipeWriter, ch chan<- bool) {
+// }
+
 // localCmd_history is printout history (shell history)
 func (ps *pShell) buildin_history(out *io.PipeWriter, ch chan<- bool) {
 	stdout := setOutput(out)
@@ -170,8 +187,6 @@ func (ps *pShell) buildin_out(num int, out *io.PipeWriter, ch chan<- bool) {
 
 // executePipeLineRemote is exec command in remote machine.
 // Didn't know how to send data from Writer to Channel, so switch the function if * io.PipeWriter is Nil.
-// TODO(blacknon):
-//     - HistoryResultへの書き込みの実装(writerを受け付ける？)
 func (ps *pShell) executeRemotePipeLine(pline pipeLine, in *io.PipeReader, out *io.PipeWriter, ch chan<- bool, kill chan bool) {
 	// join command
 	command := strings.Join(pline.Args, " ")
@@ -292,8 +307,7 @@ func (ps *pShell) executeRemotePipeLine(pline pipeLine, in *io.PipeReader, out *
 }
 
 // executePipeLineLocal is exec command in local machine.
-// TODO(blacknon):
-//     - HistoryResultへの書き込みの実装(writerを受け付ける？)
+// TODO(blacknon): 利用中のShellでの実行+functionや環境変数、aliasの引き継ぎを行えるように実装
 func (ps *pShell) executeLocalPipeLine(pline pipeLine, in *io.PipeReader, out *io.PipeWriter, ch chan<- bool, kill chan bool) (err error) {
 	// set stdin/stdout
 	stdin := setInput(in)
@@ -305,8 +319,8 @@ func (ps *pShell) executeLocalPipeLine(pline pipeLine, in *io.PipeReader, out *i
 	m := new(sync.Mutex)
 	if stdout == os.Stdout {
 		pw := ps.NewHistoryWriter("localhost", nil, m)
-		stdoutw = io.MultiWriter(stdout, pw)
 		defer pw.CloseWithError(io.ErrClosedPipe)
+		stdoutw = io.MultiWriter(pw, stdout)
 	} else {
 		stdoutw = stdout
 	}
@@ -323,7 +337,11 @@ func (ps *pShell) executeLocalPipeLine(pline pipeLine, in *io.PipeReader, out *i
 
 	// set stdin, stdout, stderr
 	cmd.Stdin = stdin
-	cmd.Stdout = stdoutw
+	if ps.Options.LocalCommandNotRecordResult {
+		cmd.Stdout = stdout
+	} else { // default
+		cmd.Stdout = stdoutw
+	}
 	cmd.Stderr = os.Stderr
 
 	// run command
