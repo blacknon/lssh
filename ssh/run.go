@@ -1,3 +1,7 @@
+// Copyright (c) 2019 Blacknon. All rights reserved.
+// Use of this source code is governed by an MIT license
+// that can be found in the LICENSE file.
+
 package ssh
 
 import (
@@ -17,11 +21,11 @@ import (
 	"golang.org/x/crypto/ssh/terminal"
 )
 
-// TODO(blacknon): 自動再接続機能の追加
+// TODO(blacknon): 自動再接続機能の追加(v0.6.1)
 //     autosshのように、接続が切れた際に自動的に再接続を試みる動作をさせたい
 //     パラメータでの有効・無効指定が必要になる。
 
-// TODO(blacknon): リバースでのsshfsの追加
+// TODO(blacknon): リバースでのsshfsの追加(v0.6.1以降？)
 //     lsshfs実装後になるか？ssh接続時に、指定したフォルダにローカルの内容をマウントさせて読み取らせる。
 //     うまくやれれば、ローカルのスクリプトなどをそのままマウントさせて実行させたりできるかもしれない。
 //     Socketかなにかでトンネルさせて、あとは指定したディレクトリ配下をそのままFUSEでファイルシステムとして利用できるように書けばいける…？
@@ -127,8 +131,7 @@ func (r *Run) Start() {
 
 	// Get stdin data(pipe)
 	// TODO(blacknon): os.StdinをReadAllで全部読み込んでから処理する方式だと、ストリームで処理出来ない
-	//                 (全部読み込み終わるまで待ってしまう)ので、対処を考える。(io.Pipeを利用して転送してやれば大丈夫か？)
-	//                 io.Pipe()を2段回で利用することで対応する？
+	//                 (全部読み込み終わるまで待ってしまう)ので、Reader/Writerによるストリーム処理に切り替える(v0.6.0)
 	if runtime.GOOS != "windows" {
 		stdin := 0
 		if !terminal.IsTerminal(stdin) {

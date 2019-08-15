@@ -1,3 +1,7 @@
+// Copyright (c) 2019 Blacknon. All rights reserved.
+// Use of this source code is governed by an MIT license
+// that can be found in the LICENSE file.
+
 package ssh
 
 import (
@@ -18,10 +22,10 @@ import (
 )
 
 // TODO(blacknon): 以下のBuild-in Commandを追加する
-//     - %outlist           ... outの番号とコマンドを一覧で出力する(historyに組み込んだほうがいいのか？？)
-//     - %save <num> <PATH> ... 指定したnumの履歴をPATHに記録する
-//     - %set <args..>      ... 指定されたオプションを設定する(Optionsにて管理)
-//     - %diff <num>        ... 指定されたnumの履歴をdiffする(multi diff)。できるかどうか要検討。
+//     - %outlist           ... outの番号とコマンドを一覧で出力する(historyに組み込んだほうがいいのか？？) (v0.6.1)
+//     - %save <num> <PATH> ... 指定したnumの履歴をPATHに記録する (v0.6.1)
+//     - %set <args..>      ... 指定されたオプションを設定する(Optionsにて管理) (v0.6.1)
+//     - %diff <num>        ... 指定されたnumの履歴をdiffする(multi diff)。できるかどうか要検討。 (v0.6.1以降)
 
 // checkBuildInCommand return true if cmd is build-in command.
 func checkBuildInCommand(cmd string) (isBuildInCmd bool) {
@@ -40,19 +44,30 @@ func checkBuildInCommand(cmd string) (isBuildInCmd bool) {
 // checkLocalCommand return bool, check is pshell build-in command or
 // local machine command(%%command).
 func checkLocalCommand(cmd string) (isLocalCmd bool) {
-	// check build-in command
-	isLocalCmd = checkBuildInCommand(cmd)
-
 	// check local command regex
-	buildinRegex := regexp.MustCompile(`^!.*`)
+	regex := regexp.MustCompile(`^!.*`)
 
 	// local command
 	switch {
-	case buildinRegex.MatchString(cmd):
+	case regex.MatchString(cmd):
 		isLocalCmd = true
 	}
 
 	return
+}
+
+// check local or build-in command
+func checkLocalBuildInCommand(cmd string) (result bool) {
+	// check build-in command
+	result = checkBuildInCommand(cmd)
+	if result {
+		return result
+	}
+
+	// check local command
+	result = checkLocalCommand(cmd)
+
+	return result
 }
 
 // runBuildInCommand is run buildin or local machine command.
