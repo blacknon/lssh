@@ -1,3 +1,7 @@
+// Copyright (c) 2019 Blacknon. All rights reserved.
+// Use of this source code is governed by an MIT license
+// that can be found in the LICENSE file.
+
 package ssh
 
 import (
@@ -48,9 +52,6 @@ type Output struct {
 
 	// Auto Colorize flag
 	AutoColor bool
-
-	// TODO(blacknon): いらない？確認して削除
-	Writer io.Writer
 }
 
 // Create template, set variable value.

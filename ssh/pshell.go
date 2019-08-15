@@ -1,3 +1,7 @@
+// Copyright (c) 2019 Blacknon. All rights reserved.
+// Use of this source code is governed by an MIT license
+// that can be found in the LICENSE file.
+
 package ssh
 
 import (
@@ -14,7 +18,7 @@ import (
 	"github.com/c-bata/go-prompt/completer"
 )
 
-// TODO(blacknon): pShellのログ(実行コマンド及び出力結果)をログとしてファイルに記録する機能の追加
+// TODO(blacknon): pShellのログ(実行コマンド及び出力結果)をログとしてファイルに記録する機能の追加(v0.6.1)
 
 // Pshell is Parallel-Shell struct
 type pShell struct {
@@ -26,7 +30,7 @@ type pShell struct {
 	History       map[int]map[string]*pShellHistory
 	HistoryFile   string
 	latestCommand string
-	Complete      []prompt.Suggest
+	CmdComplete   []prompt.Suggest
 	Options       pShellOption
 }
 
@@ -149,7 +153,7 @@ func (r *Run) pshell() (err error) {
 	}
 
 	// create complete data
-	ps.GetCompleteData()
+	ps.GetCommandComplete()
 
 	// create prompt
 	pShellPrompt, _ := ps.CreatePrompt()

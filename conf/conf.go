@@ -1,3 +1,7 @@
+// Copyright (c) 2019 Blacknon. All rights reserved.
+// Use of this source code is governed by an MIT license
+// that can be found in the LICENSE file.
+
 /*
 conf is a package used to read configuration file (~/.lssh.conf).
 */
@@ -152,7 +156,7 @@ type OpenSshConfig struct {
 }
 
 // ReadConf load configuration file and return Config structure
-// TODO(blacknon): リファクタリング！
+// TODO(blacknon): リファクタリング！(v0.6.1)
 func ReadConf(confPath string) (config Config) {
 	// user path
 	usr, _ := user.Current()
