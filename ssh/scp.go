@@ -1,3 +1,7 @@
+// Copyright (c) 2019 Blacknon. All rights reserved.
+// Use of this source code is governed by an MIT license
+// that can be found in the LICENSE file.
+
 package ssh
 
 import (
@@ -14,7 +18,7 @@ import (
 
 // TODO(blacknon): Bufferに出力するのではなく、io.Pipeなどを使って直接渡すようにする。
 //                 パラレルで渡す場合やRemote => Remoteについては、io.MultiWriterを使ったりして
-//                 可能な限りBufferの利用を減らしていく！
+//                 可能な限りBufferの利用を減らしていく！(v0.6.0)
 
 type CopyConInfo struct {
 	IsRemote bool

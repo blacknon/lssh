@@ -1,3 +1,7 @@
+// Copyright (c) 2019 Blacknon. All rights reserved.
+// Use of this source code is governed by an MIT license
+// that can be found in the LICENSE file.
+
 package ssh
 
 import (
@@ -14,6 +18,7 @@ import (
 var cmdOPROMPT = "${SERVER} :: "
 
 // cmd
+// TODO(blacknon): リファクタリング(v0.6.0)
 func (r *Run) cmd() (err error) {
 	// command
 	command := strings.Join(r.ExecCmd, " ")
@@ -46,11 +51,6 @@ func (r *Run) cmd() (err error) {
 			log.Printf("Error: %s:%s\n", server, err)
 			continue
 		}
-
-		// stdin data check
-		// if len(r.stdinData) > 0 {
-		// 	conn.Stdin = r.stdinData
-		// }
 
 		connmap[server] = conn
 	}

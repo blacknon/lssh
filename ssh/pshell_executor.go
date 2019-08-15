@@ -1,3 +1,7 @@
+// Copyright (c) 2019 Blacknon. All rights reserved.
+// Use of this source code is governed by an MIT license
+// that can be found in the LICENSE file.
+
 package ssh
 
 import (
@@ -36,6 +40,7 @@ func (ps *pShell) Executor(command string) {
 }
 
 // parseExecuter assemble and execute the parsed command line.
+// TODO(blacknon): 現状はパイプにしか対応していないので、`&&`や`||`にも対応できるよう変更する(v0.6.1)
 func (ps *pShell) parseExecuter(pslice [][]pipeLine) {
 	// Create History
 	ps.History[ps.Count] = map[string]*pShellHistory{}

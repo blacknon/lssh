@@ -1,3 +1,7 @@
+// Copyright (c) 2019 Blacknon. All rights reserved.
+// Use of this source code is governed by an MIT license
+// that can be found in the LICENSE file.
+
 package ssh
 
 import (
@@ -40,7 +44,6 @@ func (ps *pShell) NewHistoryWriter(server string, output *Output, m *sync.Mutex)
 func (ps *pShell) pShellHistoryPrint(psh *pShellHistory, server string, r *io.PipeReader, m *sync.Mutex) {
 	count := ps.Count
 
-	// TODO(blacknon): outputと同じように、io.Pipeを経由しての処理を記述する。
 	var result string
 	sc := bufio.NewScanner(r)
 loop:

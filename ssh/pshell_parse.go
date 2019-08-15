@@ -1,3 +1,7 @@
+// Copyright (c) 2019 Blacknon. All rights reserved.
+// Use of this source code is governed by an MIT license
+// that can be found in the LICENSE file.
+
 package ssh
 
 import (
@@ -20,7 +24,7 @@ func (p *pipeLine) String() string {
 	return result
 }
 
-//
+// joinPipeLineSlice
 func joinPipeLineSlice(pslice []pipeLine) string {
 	var result string
 	for _, pline := range pslice {
@@ -41,8 +45,8 @@ func joinPipeLine(pslice []pipeLine) []pipeLine {
 		// get command
 		cmd := pline.Args[0]
 
-		// check in local command
-		isLocal := checkLocalCommand(cmd)
+		// check in local or build-in command
+		isLocal := checkLocalBuildInCommand(cmd)
 		switch {
 		case isLocal:
 			if len(bpline.Args) > 0 {
