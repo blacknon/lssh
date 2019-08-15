@@ -5,4 +5,7 @@
 # Binary programs
 /lssh
 /lscp
+/lsftp
+/lsshfs
+/lssync
 *.exe

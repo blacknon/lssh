@@ -4,7 +4,7 @@
 lssh
 ====
 
-TUI list select ssh/scp client.
+TUI list select ssh/scp client tools.
 
 ## Description
 
