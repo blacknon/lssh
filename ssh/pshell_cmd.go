@@ -9,6 +9,7 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/blacknon/go-sshlib"
@@ -266,18 +267,21 @@ func (ps *pShell) executeLocalPipeLine(pline pipeLine, in *io.PipeReader, out *i
 	stdin := setInput(in)
 	stdout := setOutput(out)
 
+	fmt.Println("create history writer")
+
 	// set HistoryResult
 	var stdoutw io.Writer
+	var pw *io.PipeWriter
 	stdoutw = stdout
-	// TODO(blacknon): historyの出力処理を追加する(多分io.Pipeを利用した処理を使えばいける)
-	// exitHistory := make(chan bool)
-	// defer close(exitHistory)
-	// if stdout == os.Stdout {
-	// 	stdoutw = io.MultiWriter(stdout, hbuf)
-	// 	go ps.PutHistoryResult("localhost", ps.latestCommand, hbuf, exitHistory)
-	// } else {
-	// 	stdoutw = stdout
-	// }
+	m := new(sync.Mutex)
+	if stdout == os.Stdout {
+		pw := ps.NewHistoryWriter(ps.latestCommand, "localhost", m)
+		stdoutw = io.MultiWriter(stdout, pw)
+	} else {
+		stdoutw = stdout
+	}
+
+	fmt.Println("create history writer exit")
 
 	// delete command prefix(`%%`)
 	rep := regexp.MustCompile(`^!`)
@@ -294,6 +298,8 @@ func (ps *pShell) executeLocalPipeLine(pline pipeLine, in *io.PipeReader, out *i
 	cmd.Stdout = stdoutw
 	cmd.Stderr = os.Stderr
 
+	fmt.Println("run local command") //debug
+
 	// run command
 	err = cmd.Start()
 
@@ -306,15 +312,19 @@ func (ps *pShell) executeLocalPipeLine(pline pipeLine, in *io.PipeReader, out *i
 		}
 	}()
 
+	fmt.Println("wait run local command") //debug
+
 	// wait command
 	cmd.Wait()
+
+	fmt.Println("exit run local command") //debug
 
 	// close out, or write pShellHistory
 	switch stdout.(type) {
 	case *io.PipeWriter:
 		out.CloseWithError(io.ErrClosedPipe)
 	case *os.File:
-		exitHistory <- true
+		pw.CloseWithError(io.ErrClosedPipe)
 	}
 
 	// send exit
