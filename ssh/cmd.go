@@ -1,6 +1,7 @@
 package ssh
 
 import (
+	"bytes"
 	"fmt"
 	"io"
 	"log"
@@ -24,7 +25,7 @@ func (r *Run) cmd() (err error) {
 
 	// make channel
 	finished := make(chan bool)
-	input := make(chan io.WriteCloser)
+	// input := make(chan io.WriteCloser)
 	exitInput := make(chan bool)
 
 	// print header
@@ -58,10 +59,9 @@ func (r *Run) cmd() (err error) {
 	}
 
 	// Run command and print loop
-	for s, fc := range connmap {
-		// set variable c
-		// NOTE: Variables need to be assigned separately for processing by goroutine.
-		c := fc
+	writers := []io.WriteCloser{}
+	for s, c := range connmap {
+		session, _ := c.CreateSession()
 
 		// Get server config
 		config := r.Conf.Server[s]
@@ -76,17 +76,14 @@ func (r *Run) cmd() (err error) {
 		}
 		o.Create(s)
 
-		// create channel
-		output := make(chan []byte)
-
 		// Overwrite port forwarding.
-		// Valid only when one server is specified
 		if len(r.ServerList) == 1 {
-			// if select server is single, Force a value such as.
-			//     - session.Stdout = os.Stdout
-			//     - session.Stderr = os.Stderr
-			if r.IsTerm {
-				c.ForceStd = true
+			session.Stdout = os.Stdout
+			switch {
+			case r.IsTerm && len(r.stdinData) == 0:
+				session.Stdin = os.Stdin
+			case len(r.stdinData) > 0:
+				session.Stdin = bytes.NewReader(r.stdinData)
 			}
 
 			// OverWrite port forward mode
@@ -116,44 +113,51 @@ func (r *Run) cmd() (err error) {
 				r.printDynamicPortForward(config.DynamicPortForward)
 				go c.TCPDynamicForward("localhost", config.DynamicPortForward)
 			}
+		} else {
+			session.Stdout = o.NewWriter()
+			w, _ := session.StdinPipe()
+			writers = append(writers, w)
 		}
 
 		// run command
-		// if parallel flag true, and select server is not single,
-		// os.Stdin to multiple server.
 		go func() {
-			var err error
-			if r.IsParallel && len(r.ServerList) > 1 {
-				err = c.CmdWriter(command, output, input)
-			} else {
-				err = c.Cmd(command, output)
-			}
-
-			if err != nil {
-				log.Println(err)
-			}
-
+			session.Run(command)
 			finished <- true
 		}()
 
-		if r.IsParallel {
-			go printOutput(o, output)
-		} else {
-			printOutput(o, output)
-		}
-
+		// if r.IsParallel {
+		// 	go printOutput(o, output)
+		// } else {
+		// 	printOutput(o, output)
+		// }
 	}
 
 	// if parallel flag true, and select server is not single,
 	// create io.MultiWriter and send input.
 	if r.IsParallel && len(r.ServerList) > 1 {
-		writers := []io.WriteCloser{}
-		for i := 0; i < len(r.ServerList); i++ {
-			w := <-input
-			writers = append(writers, w)
+		if len(r.stdinData) > 0 {
+			ws := []io.Writer{}
+			for _, w := range writers {
+				var ww io.Writer
+				ww = w
+				ws = append(ws, ww)
+			}
+
+			writer := io.MultiWriter(ws...)
+			go func() {
+				io.Copy(writer, bytes.NewReader(r.stdinData))
+				for _, w := range writers {
+					w.Close()
+				}
+			}()
+		} else {
+			go pushInput(exitInput, writers)
 		}
+		// writers := []io.WriteCloser{}
+		// for i := 0; i < len(r.ServerList); i++ {
+		// 	writers = append(writers, w)
+		// }
 		// writer := io.MultiWriter(writers...)
-		go pushInput(exitInput, writers)
 	}
 
 	for i := 0; i < len(connmap); i++ {
@@ -161,5 +165,6 @@ func (r *Run) cmd() (err error) {
 	}
 
 	close(exitInput)
+
 	return
 }
