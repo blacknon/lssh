@@ -15,52 +15,9 @@ import (
 	"golang.org/x/crypto/ssh/terminal"
 )
 
-// CmdWriter connect and run command over ssh.
-// In order to be able to send in parallel from io.MultiWriter, it is made to receive Writer by channel.
-func (c *Connect) CmdWriter(command string, output chan []byte, input chan io.Writer) (err error) {
-	// create session
-	if c.session == nil {
-		c.session, err = c.CreateSession()
-		if err != nil {
-			close(output)
-			return
-		}
-	}
-
-	// setup
-	err = c.setupCmd(c.session)
-	if err != nil {
-		return
-	}
-
-	// if set Stdin,
-	writer, _ := c.session.StdinPipe()
-	input <- writer
-	defer writer.Close()
-
-	// Set output buffer
-	buf := new(bytes.Buffer)
-	c.session.Stdout = io.MultiWriter(buf)
-	c.session.Stderr = io.MultiWriter(buf)
-
-	// make exit channel
-	isExit := make(chan bool)
-
-	// Send output channel
-	go sendCmdOutput(buf, output, isExit)
-
-	// Run command
-	c.session.Start(command)
-	c.session.Wait()
-	isExit <- true
-
-	c.session = nil
-
-	return
-}
-
 // Cmd connect and run command over ssh.
 // Output data is processed by channel because it is executed in parallel. If specification is troublesome, it is good to generate and process session from ssh package.
+// TODO(blacknon): writer/readerによる入出力に書き換える(stdinは特に)。 (対応: v0.1.1)。
 func (c *Connect) Cmd(command string, output chan []byte) (err error) {
 	// create session
 	if c.session == nil {
@@ -88,6 +45,7 @@ func (c *Connect) Cmd(command string, output chan []byte) (err error) {
 	buf := new(bytes.Buffer)
 
 	// set output
+	// TODO(blacknon): bufferは可能な限り使わず、Readerを渡すようにしたい
 	c.session.Stdout = io.MultiWriter(buf)
 	c.session.Stderr = io.MultiWriter(buf)
 	if c.ForceStd {
@@ -140,15 +98,10 @@ func (c *Connect) setupCmd(session *ssh.Session) (err error) {
 	return
 }
 
-// Kill c.session close.
-// Only work c.CmdWriter().
-func (c *Connect) Kill() {
-	c.session.Signal(ssh.SIGINT)
-	c.session.Close()
-}
-
 // sendCmdOutput send to output channel.
+// TODO(blacknon): Writer/Readerでの入出力に切り替えたら削除。(対応: v0.1.1)
 func sendCmdOutput(buf *bytes.Buffer, output chan []byte, isExit <-chan bool) {
+	// TODO(blacknon): bufferは使わず、Readerを渡すようにしたい
 	exit := false
 
 GetOutputLoop:

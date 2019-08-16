@@ -5,7 +5,6 @@
 package ssh
 
 import (
-	"bytes"
 	"fmt"
 	"io"
 	"log"
@@ -13,12 +12,14 @@ import (
 	"strings"
 
 	"github.com/blacknon/go-sshlib"
+	"golang.org/x/crypto/ssh"
 )
 
 var cmdOPROMPT = "${SERVER} :: "
 
 // cmd
 // TODO(blacknon): リファクタリング(v0.6.0)
+// TODO(blacknon): ダブルクォーテーションなどで囲った文字列を渡した際、単純に結合するだけだとうまく行かないので、ちゃんと囲み直してあげる必要がある
 func (r *Run) cmd() (err error) {
 	// command
 	command := strings.Join(r.ExecCmd, " ")
@@ -57,6 +58,7 @@ func (r *Run) cmd() (err error) {
 
 	// Run command and print loop
 	writers := []io.WriteCloser{}
+	sessions := []*ssh.Session{}
 	for s, c := range connmap {
 		session, _ := c.CreateSession()
 
@@ -76,12 +78,14 @@ func (r *Run) cmd() (err error) {
 		// if single server
 		if len(r.ServerList) == 1 {
 			session.Stdout = os.Stdout
-			switch {
-			case r.IsTerm && len(r.stdinData) == 0:
-				session.Stdin = os.Stdin
-			case len(r.stdinData) > 0:
-				session.Stdin = bytes.NewReader(r.stdinData)
-			}
+			session.Stderr = os.Stderr
+			session.Stdin = os.Stdin
+			// switch {
+			// case r.IsTerm && len(r.stdinData) == 0:
+
+			// case len(r.stdinData) > 0:
+			// 	session.Stdin = bytes.NewReader(r.stdinData)
+			// }
 
 			// OverWrite port forward mode
 			if r.PortForwardMode != "" {
@@ -112,37 +116,35 @@ func (r *Run) cmd() (err error) {
 			}
 		} else {
 			session.Stdout = o.NewWriter()
+			session.Stderr = o.NewWriter()
 			w, _ := session.StdinPipe()
 			writers = append(writers, w)
 		}
-
-		// run command
-		go func() {
-			session.Run(command)
-			finished <- true
-		}()
+		sessions = append(sessions, session)
 	}
 
 	// if parallel flag true, and select server is not single,
 	// set send stdin.
-	if r.IsParallel && len(r.ServerList) > 1 {
-		if len(r.stdinData) > 0 {
-			ws := []io.Writer{}
-			for _, w := range writers {
-				var ww io.Writer
-				ww = w
-				ws = append(ws, ww)
-			}
-
-			writer := io.MultiWriter(ws...)
-			go func() {
-				io.Copy(writer, bytes.NewReader(r.stdinData))
-				for _, w := range writers {
-					w.Close()
-				}
-			}()
+	switch {
+	case r.IsParallel && len(r.ServerList) > 1:
+		if r.isStdinPipe {
+			go pushPipeWriter(exitInput, writers, os.Stdin)
 		} else {
 			go pushInput(exitInput, writers)
+		}
+	}
+
+	// run command
+	for _, s := range sessions {
+		session := s
+		if r.IsParallel {
+			go func() {
+				session.Run(command)
+				finished <- true
+			}()
+		} else {
+			session.Run(command)
+			go func() { finished <- true }()
 		}
 	}
 

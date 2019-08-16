@@ -199,9 +199,7 @@ func Walk(node Node, f func(Node) bool) {
 		if x.Index != nil {
 			Walk(x.Index, f)
 		}
-		if x.Value != nil {
-			Walk(x.Value, f)
-		}
+		Walk(x.Value, f)
 	case *ExtGlob:
 		Walk(x.Pattern, f)
 	case *ProcSubst:
