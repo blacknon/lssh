@@ -60,9 +60,9 @@ golang.org/x/crypto/internal/subtle
 golang.org/x/net/proxy
 golang.org/x/net/internal/socks
 golang.org/x/net/context
-# golang.org/x/sys v0.0.0-20190419153524-e8e3143a4f4a
+# golang.org/x/sys v0.0.0-20190412213103-97732733099d
 golang.org/x/sys/unix
 golang.org/x/sys/windows
 golang.org/x/sys/cpu
-# mvdan.cc/sh v2.6.4+incompatible
+# mvdan.cc/sh v2.6.3+incompatible
 mvdan.cc/sh/syntax

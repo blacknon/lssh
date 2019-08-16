@@ -152,9 +152,9 @@ loop:
 		}
 
 		switch err {
-		case io.EOF, nil:
+		case nil:
 			continue
-		case io.ErrClosedPipe:
+		case io.ErrClosedPipe, io.EOF:
 			break loop
 		}
 

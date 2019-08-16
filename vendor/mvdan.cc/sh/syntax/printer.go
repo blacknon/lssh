@@ -620,7 +620,7 @@ func (p *Printer) loop(loop Loop) {
 	switch x := loop.(type) {
 	case *WordIter:
 		p.WriteString(x.Name.Value)
-		if x.InPos.IsValid() {
+		if len(x.Items) > 0 {
 			p.spacedString(" in", Pos{})
 			p.wordJoin(x.Items)
 		}
@@ -788,9 +788,7 @@ func (p *Printer) elemJoin(elems []*ArrayElem, last []Comment) {
 		if p.wroteIndex(el.Index) {
 			p.WriteByte('=')
 		}
-		if el.Value != nil {
-			p.word(el.Value)
-		}
+		p.word(el.Value)
 		p.comments(left...)
 	}
 	if len(last) > 0 {
