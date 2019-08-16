@@ -16,9 +16,6 @@ import (
 
 // Completer parallel-shell complete function
 func (ps *pShell) Completer(t prompt.Document) []prompt.Suggest {
-
-	return prompt.FilterHasPrefix(nil, t.GetWordBeforeCursor(), false) // debugf
-
 	// if currente line data is none.
 	if len(t.CurrentLine()) == 0 {
 		return prompt.FilterHasPrefix(nil, t.GetWordBeforeCursor(), false)
