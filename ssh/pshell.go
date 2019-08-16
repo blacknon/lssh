@@ -45,6 +45,9 @@ type pShellOption struct {
 
 	// trueの場合、リモートマシンにキーインプットを送信しない
 	// hogehoge
+
+	// trueの場合、補完処理を向こうにする
+	// DisableComplete bool
 }
 
 // psConnect is pShell connect struct.

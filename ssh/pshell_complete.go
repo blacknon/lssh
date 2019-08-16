@@ -8,6 +8,7 @@ import (
 	"bufio"
 	"bytes"
 	"os/exec"
+	"strconv"
 	"strings"
 
 	"github.com/c-bata/go-prompt"
@@ -15,6 +16,9 @@ import (
 
 // Completer parallel-shell complete function
 func (ps *pShell) Completer(t prompt.Document) []prompt.Suggest {
+
+	return prompt.FilterHasPrefix(nil, t.GetWordBeforeCursor(), false) // debugf
+
 	// if currente line data is none.
 	if len(t.CurrentLine()) == 0 {
 		return prompt.FilterHasPrefix(nil, t.GetWordBeforeCursor(), false)
@@ -42,6 +46,8 @@ func (ps *pShell) Completer(t prompt.Document) []prompt.Suggest {
 	}
 
 	if sl >= 1 && ll >= 1 {
+		c := pslice[sl-1][ll-1].Args[0]
+
 		// switch suggest
 		switch {
 		case num <= 1 && !contains([]string{" ", "|"}, char): // if command
@@ -68,29 +74,31 @@ func (ps *pShell) Completer(t prompt.Document) []prompt.Suggest {
 			// return
 			return prompt.FilterHasPrefix(c, t.GetWordBeforeCursor(), false)
 
-		case checkBuildInCommand(pslice[sl-1][ll-1].Args[0]): // if build-in command.
+		case checkBuildInCommand(c): // if build-in command.
 			var a []prompt.Suggest
-			x := []prompt.Suggest{
-				{Text: "buildin", Description: "it's build-in (test suggest)"},
+			switch c {
+			case "%out":
+				for i, h := range ps.History {
+					var cmd string
+					for _, hh := range h {
+						cmd = hh.Command
+					}
+
+					suggest := prompt.Suggest{
+						Text:        strconv.Itoa(i),
+						Description: cmd,
+					}
+					a = append(a, suggest)
+				}
 			}
-			a = append(a, x...)
+
 			return prompt.FilterHasPrefix(a, t.GetWordBeforeCursor(), false)
 
-		case checkLocalCommand(pslice[sl-1][ll-1].Args[0]): // if local command(!command...). return local path.
-			var a []prompt.Suggest
-			x := []prompt.Suggest{
-				{Text: "local", Description: "it's local (test suggest)"},
-			}
-			a = append(a, x...)
-			return prompt.FilterHasPrefix(a, t.GetWordBeforeCursor(), false)
+		case checkLocalCommand(c): // if local command(!command...). return local path.
+			return prompt.FilterHasPrefix(nil, t.GetWordBeforeCursor(), false)
 
-		default: // if remote command(command...). return remote path.
-			var a []prompt.Suggest
-			x := []prompt.Suggest{
-				{Text: "remote", Description: "it's remote (test suggest)"},
-			}
-			a = append(a, x...)
-			return prompt.FilterHasPrefix(a, t.GetWordBeforeCursor(), false)
+		case !checkLocalCommand(c): // if remote command(command...). return remote path.
+			return prompt.FilterHasPrefix(nil, t.GetWordBeforeCursor(), false)
 		}
 	}
 
@@ -100,11 +108,6 @@ func (ps *pShell) Completer(t prompt.Document) []prompt.Suggest {
 	//        - ファイルについても対応させたい
 	//        - ファイルやコマンドなど、状況に応じて補完対象を変えるにはやはり構文解析が必要になってくる。Parserを実装するまではコマンドのみ対応。
 	//        	参考: https://github.com/c-bata/kube-prompt/blob/2276d167e2e693164c5980427a6809058a235c95/kube/completer.go
-
-	// TODO(blacknon):
-	//        - t.GetWordBeforeCursor() などで前の文字までは取得できるので、その文字列に応じて補完を返すかどうかを対応する。
-	//        - パイプラインを区切る際、複数のセパレータで区切れるか調査が必要(|や;の他、' 'や||、&&など)。
-	//          (多分、位置情報と組み合わせてコマンドラインを取得して、位置より前の情報からセパレートして処理してやればどうにかなりそう。)
 
 	return prompt.FilterHasPrefix(nil, t.GetWordBeforeCursor(), false)
 }
@@ -124,7 +127,7 @@ func (ps *pShell) GetCommandComplete() {
 	command := strings.Join(compCmd, " ")
 
 	// get local machine command complete
-	local, _ := exec.Command("bash", "-c", strings.Join(compCmd, " ")).Output()
+	local, _ := exec.Command("bash", "-c", command).Output()
 	rd := strings.NewReader(string(local))
 	sc := bufio.NewScanner(rd)
 	for sc.Scan() {
@@ -174,10 +177,68 @@ func (ps *pShell) GetCommandComplete() {
 	}
 }
 
-// GetPathComplete
-// func (ps *pShell) GetPathComplete() {
-// compCmd := []string{"compgen", "-fd",}
-// }
+// GetPathComplete return complete path from local or remote machine.
+func (ps *pShell) GetPathComplete(remote bool, word string) (p []prompt.Suggest) {
+	// NOTE: 処理がどうしても重くなるため、現在は使用していない。どのように対処していくか要検討。
+	//       そもそも、補完処理の値の取得をどのタイミングで行わせるべきなのかは考える必要がある。
+	//       ※ おそらく、定期的にPATHを取得してどこかのStructに配置しておくとかが良さそう？？
+	//         `/`とか`/etc/`のディレクトリ名だけを取得して、それがあるかを事前にmapでチェックするような方式だろうか？
+	//         あとはそのDirPathで定期的にチェックする。(`/et`=>`/`, `/etc/ss`=>`/etc/`)
+
+	compCmd := []string{"compgen", "-f", word}
+	command := strings.Join(compCmd, " ")
+
+	switch {
+	case remote: // is remote machine
+		m := map[string][]string{}
+		// append path to m
+		for _, c := range ps.Connects {
+			// Create buffer
+			buf := new(bytes.Buffer)
+
+			// Create session, and output to buffer
+			session, _ := c.CreateSession()
+			session.Stdout = buf
+
+			// Run get complete command
+			session.Run(command)
+
+			// Scan and put completed command to map.
+			sc := bufio.NewScanner(buf)
+			for sc.Scan() {
+				m[sc.Text()] = append(m[sc.Text()], c.Name)
+			}
+		}
+
+		// m to suggest
+		for path, hosts := range m {
+			// join hosts
+			h := strings.Join(hosts, ",")
+
+			// create suggest
+			suggest := prompt.Suggest{
+				Text:        path,
+				Description: "remote path. from:" + h,
+			}
+
+			// append ps.Complete
+			p = append(p, suggest)
+		}
+
+	case !remote: // is local machine
+		sgt, _ := exec.Command("bash", "-c", command).Output()
+		rd := strings.NewReader(string(sgt))
+		sc := bufio.NewScanner(rd)
+		for sc.Scan() {
+			suggest := prompt.Suggest{
+				Text:        sc.Text(),
+				Description: "local path.",
+			}
+			p = append(p, suggest)
+		}
+	}
+	return
+}
 
 func contains(s []string, e string) bool {
 	for _, v := range s {
