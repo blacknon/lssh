@@ -209,6 +209,7 @@ func RandomString(n int) string {
 	return string(b)
 }
 
+// GetUniqueSlice return slice, removes duplicate values ​​from data(slice).
 func GetUniqueSlice(data []string) (result []string) {
 	m := make(map[string]bool)
 
@@ -221,44 +222,3 @@ func GetUniqueSlice(data []string) (result []string) {
 
 	return
 }
-
-// type multiWriteCloser struct {
-// 	writers []io.WriteCloser
-// }
-
-// func (t *multiWriteCloser) Write(p []byte) (n int, err error) {
-// 	for _, w := range t.writers {
-// 		n, err = w.Write(p)
-// 		if err != nil {
-// 			return
-// 		}
-// 		if n != len(p) {
-// 			err = io.ErrShortWrite
-// 			return
-// 		}
-// 	}
-// 	return len(p), nil
-// }
-
-// func (t *multiWriteCloser) Close() error {
-// 	errors := []error{}
-// 	for _, w := range t.writers {
-// 		errors = append(errors, w.Close())
-// 	}
-
-// 	return errors[0]
-// }
-
-// func MultiWriteCloser(writers ...io.WriteCloser) io.WriteCloser {
-// 	w := make([]io.WriteCloser, len(writers))
-// 	copy(w, writers)
-// 	return &multiWriteCloser{w}
-// }
-
-// func GetAbsPath(path string) string {
-// 	// Replace home directory
-// 	usr, _ := user.Current()
-// 	path = strings.Replace(path, "~", usr.HomeDir, 1)
-
-// 	return filepath.Abs(path)
-// }

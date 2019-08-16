@@ -341,7 +341,7 @@ func (ps *pShell) executeLocalPipeLine(pline pipeLine, in *io.PipeReader, out *i
 		stdoutw = stdout
 	}
 
-	// delete command prefix(`%%`)
+	// delete command prefix(`!`)
 	rep := regexp.MustCompile(`^!`)
 	pline.Args[0] = rep.ReplaceAllString(pline.Args[0], "")
 

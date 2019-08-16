@@ -111,20 +111,26 @@ func parsePipeLine(command string) (pslice [][]pipeLine, err error) {
 
 				break stmtCmdLoop
 			case *syntax.BinaryCmd:
-				cx := c.X.Cmd.(*syntax.CallExpr)
-				cxr := c.X.Redirs
+				switch c.X.Cmd.(type) {
+				case *syntax.CallExpr:
+					cx := c.X.Cmd.(*syntax.CallExpr)
+					cxr := c.X.Redirs
 
-				args := parseCallExpr(cx)
-				args = append(args, parseRedirect(cxr)...)
+					args := parseCallExpr(cx)
+					args = append(args, parseRedirect(cxr)...)
 
-				pLine := pipeLine{
-					Args:    args,
-					Oprator: c.Op.String(),
+					pLine := pipeLine{
+						Args:    args,
+						Oprator: c.Op.String(),
+					}
+					cmdLine = append(cmdLine, pLine)
+					stmtCmd = c.Y.Cmd
+					stmtRedirs = c.Y.Redirs
+
+				case *syntax.BinaryCmd: // TODO(blacknon): &&や||に対応させる(対処方法がわからん…)
+					stmtCmd = c.X.Cmd
+					stmtRedirs = c.X.Redirs
 				}
-				cmdLine = append(cmdLine, pLine)
-
-				stmtCmd = c.Y.Cmd
-				stmtRedirs = c.Y.Redirs
 			}
 		}
 
