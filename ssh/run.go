@@ -8,7 +8,6 @@ import (
 	"bytes"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"log"
 	"os"
 	"os/exec"
@@ -80,7 +79,7 @@ type Run struct {
 
 	// StdinData from pipe
 	// TODO(blacknon): Readerを置くようにして削除する
-	stdinData []byte
+	isStdinPipe bool
 
 	// stdin pipe reader
 	stdinPipe *io.PipeReader
@@ -136,7 +135,7 @@ func (r *Run) Start() {
 	if runtime.GOOS != "windows" {
 		stdin := 0
 		if !terminal.IsTerminal(stdin) {
-			r.stdinData, _ = ioutil.ReadAll(os.Stdin)
+			r.isStdinPipe = true
 		}
 	}
 

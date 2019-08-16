@@ -27,11 +27,15 @@ type Connect struct {
 	// ProxyDialer
 	ProxyDialer proxy.Dialer
 
+	// Connect timeout second.
+	Timeout int
+
 	// Session use tty flag.
 	TTY bool
 
 	// Stdin to be passed to ssh connection destination.
 	// If the value is set here, it is treated as passed from the pipe.
+	// TODO(blacknon): Readerに切り替え
 	Stdin []byte
 
 	// Forward ssh agent flag.
@@ -103,6 +107,7 @@ func (c *Connect) CreateSession() (session *ssh.Session, err error) {
 }
 
 // SendKeepAlive send packet to session.
+// TODO(blacknon): Interval及びMaxを設定できるようにする(v0.1.1)
 func (c *Connect) SendKeepAlive(session *ssh.Session) {
 	for {
 		_, _ = session.SendRequest("keepalive", true, nil)
