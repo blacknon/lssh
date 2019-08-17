@@ -10,7 +10,6 @@ import (
 	"os"
 
 	"golang.org/x/crypto/ssh"
-	"golang.org/x/crypto/ssh/terminal"
 )
 
 // Cmd connect and run command over ssh.
@@ -52,13 +51,6 @@ func (c *Connect) Command(command string) (err error) {
 		go io.Copy(c.Stderr, er)
 	} else {
 		c.Session.Stderr = os.Stderr
-	}
-
-	if c.Stdin == os.Stdin {
-		// Input terminal Make raw
-		fd := int(os.Stdin.Fd())
-		state, _ := terminal.MakeRaw(fd)
-		defer terminal.Restore(fd, state)
 	}
 
 	// Run Command

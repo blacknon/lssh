@@ -87,16 +87,16 @@ type ServerConfig struct {
 	User string `toml:"user"`
 
 	// Connect auth Setting
-	Pass   string   `toml:"pass"`
-	Passes []string `toml:"passes"`
-	Key    string   `toml:"key"`
-	// KeyCommand      string   `toml:"keycmd"` // TODO(blacknon): create
-	KeyPass     string   `toml:"keypass"`
-	Keys        []string `toml:"keys"` // "keypath::passphrase"
-	Cert        string   `toml:"cert"`
-	CertKey     string   `toml:"certkey"`
-	CertKeyPass string   `toml:"certkeypass"`
-	// CertPKCS11      bool     `toml:"certpkcs11"` // TODO(blacknon): create
+	Pass            string   `toml:"pass"`
+	Passes          []string `toml:"passes"`
+	Key             string   `toml:"key"`
+	KeyCommand      string   `toml:"keycmd"`
+	KeyPass         string   `toml:"keypass"`
+	Keys            []string `toml:"keys"` // "keypath::passphrase"
+	Cert            string   `toml:"cert"`
+	CertKey         string   `toml:"certkey"`
+	CertKeyPass     string   `toml:"certkeypass"`
+	CertPKCS11      bool     `toml:"certpkcs11"`
 	AgentAuth       bool     `toml:"agentauth"`
 	SSHAgentUse     bool     `toml:"ssh_agent"`
 	SSHAgentKeyPath []string `toml:"ssh_agent_key"` // "keypath::passphrase"
@@ -124,11 +124,19 @@ type ServerConfig struct {
 	PortForwardRemote string `toml:"port_forward_remote"` // port forward (remote). "host:port"
 
 	// Dynamic Port Forwarding setting
-	DynamicPortForward string `toml:"dynamic_port_forward"` // "11080"
+	DynamicPortForward string `toml:"dynamic_port_forward"` // ex.) "11080"
 
 	// x11 forwarding setting
 	X11 bool `toml:"x11"`
 
+	// Connection Timeout second
+	ConnectTimeout int `toml:"connect_timeout"`
+
+	// Server Alive
+	ServerAliveCountMax      int `toml:"alive_max"`
+	ServerAliveCountInterval int `toml:"alive_interval"`
+
+	// note
 	Note string `toml:"note"`
 }
 
@@ -156,7 +164,7 @@ type OpenSshConfig struct {
 }
 
 // ReadConf load configuration file and return Config structure
-// TODO(blacknon): リファクタリング！(v0.6.1)
+// TODO(blacknon): リファクタリング！(v0.6.1) 外出しや処理のまとめなど
 func ReadConf(confPath string) (config Config) {
 	// user path
 	usr, _ := user.Current()

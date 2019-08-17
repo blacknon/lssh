@@ -16,6 +16,7 @@ import (
 // createSshConnect return *sshlib.Connect
 // this vaule in ssh.Client with proxy.
 func (r *Run) createSshConnect(server string) (connect *sshlib.Connect, err error) {
+	// create proxyRoute
 	proxyRoute, err := getProxyRoute(server, r.Conf)
 	if err != nil {
 		return
@@ -78,11 +79,14 @@ func (r *Run) createSshConnect(server string) (connect *sshlib.Connect, err erro
 
 	// connect target server
 	connect = &sshlib.Connect{
-		ProxyDialer:  dialer,
-		ForwardAgent: s.SSHAgentUse,
-		Agent:        r.agent,
-		ForwardX11:   x11,
-		TTY:          r.IsTerm,
+		ProxyDialer:           dialer,
+		ForwardAgent:          s.SSHAgentUse,
+		Agent:                 r.agent,
+		ForwardX11:            x11,
+		TTY:                   r.IsTerm,
+		ConnectTimeout:        s.ConnectTimeout,
+		SendKeepAliveMax:      s.ServerAliveCountMax,
+		SendKeepAliveInterval: s.ServerAliveCountInterval,
 	}
 
 	err = connect.CreateClient(s.Addr, s.Port, s.User, r.serverAuthMethodMap[server])
