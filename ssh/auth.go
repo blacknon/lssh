@@ -6,6 +6,7 @@ package ssh
 
 import (
 	"fmt"
+	"os/exec"
 	"strings"
 
 	"github.com/blacknon/go-sshlib"
@@ -77,6 +78,15 @@ func (r *Run) createAuthMethodMap() {
 					fmt.Println(err)
 					continue
 				}
+			}
+		}
+
+		// Public Key Command
+		if config.KeyCommand != "" {
+			// TODO(blacknon): keyCommandの追加
+			err := r.registAuthMapPublicKeyCommand(server, config.KeyCommand, config.KeyCommandPass)
+			if err != nil {
+				fmt.Println(err)
 			}
 		}
 
@@ -153,8 +163,40 @@ func (r *Run) registAuthMapPublicKey(server, key, password string) (err error) {
 }
 
 //
+func (r *Run) registAuthMapPublicKeyCommand(server, command, password string) (err error) {
+	authKey := AuthKey{AUTHKEY_KEY, command}
+
+	if _, ok := r.authMethodMap[authKey]; !ok {
+		// Run key command
+		cmd := exec.Command("sh", "-c", command)
+		keyData, err := cmd.Output()
+		if err != nil {
+			return err
+		}
+
+		// Create signer
+		signer, err := sshlib.CreateSignerPublicKeyData(keyData, password)
+		if err != nil {
+			return err
+		}
+
+		// Create AuthMethod
+		authMethod := ssh.PublicKeys(signer)
+
+		// Regist AuthMethod to authMethodMap
+		r.authMethodMap[authKey] = append(r.authMethodMap[authKey], authMethod)
+	}
+
+	// Regist AuthMethod to serverAuthMethodMap from authMethodMap
+	r.serverAuthMethodMap[server] = append(r.serverAuthMethodMap[server], r.authMethodMap[authKey]...)
+
+	return
+}
+
+//
 func (r *Run) registAuthMapCertificate(server, cert string, signer ssh.Signer) (err error) {
 	authKey := AuthKey{AUTHKEY_CERT, cert}
+
 	if _, ok := r.authMethodMap[authKey]; !ok {
 		authMethod, err := sshlib.CreateAuthMethodCertificate(cert, signer)
 		if err != nil {
