@@ -160,7 +160,7 @@ type OpenSshConfig struct {
 
 	// TODO(blacknon): AWS等のクラウドで使えるよう、OpenSSHConfigの生成コマンドを指定して、そこから読み取る処理を追加する。
 	//                 pathとの優先をどうするかを検討しないといけないので要考慮。
-	// Cmd string `toml:"cmd"`
+	Command string `toml:"command"`
 	ServerConfig
 }
 
@@ -177,6 +177,7 @@ func ReadConf(confPath string) (config Config) {
 	}
 
 	config.Server = map[string]ServerConfig{}
+	config.SshConfig = map[string]OpenSshConfig{}
 
 	// Read config file
 	_, err := toml.DecodeFile(confPath, &config)
@@ -193,7 +194,7 @@ func ReadConf(confPath string) (config Config) {
 
 	// Read Openssh configs
 	if len(config.SshConfig) == 0 {
-		openSshServerConfig, err := getOpenSshConfig("~/.ssh/config")
+		openSshServerConfig, err := getOpenSshConfig("~/.ssh/config", "")
 		if err == nil {
 			// append data
 			for key, value := range openSshServerConfig {
@@ -203,7 +204,7 @@ func ReadConf(confPath string) (config Config) {
 		}
 	} else {
 		for _, sshConfig := range config.SshConfig {
-			openSshServerConfig, err := getOpenSshConfig(sshConfig.Path)
+			openSshServerConfig, err := getOpenSshConfig(sshConfig.Path, sshConfig.Command)
 			if err == nil {
 				// append data
 				for key, value := range openSshServerConfig {
