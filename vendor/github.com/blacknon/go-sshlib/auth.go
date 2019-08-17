@@ -43,6 +43,12 @@ func CreateSignerPublicKey(key, password string) (signer ssh.Signer, err error) 
 		return
 	}
 
+	signer, err = CreateSignerPublicKeyData(keyData, password)
+
+	return
+}
+
+func CreateSignerPublicKeyData(keyData []byte, password string) (signer ssh.Signer, err error) {
 	if password != "" { // password is not empty
 		signer, err = ssh.ParsePrivateKeyWithPassphrase(keyData, []byte(password))
 	} else { // password is empty
