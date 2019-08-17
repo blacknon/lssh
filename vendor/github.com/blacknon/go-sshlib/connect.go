@@ -130,8 +130,8 @@ func (c *Connect) SendKeepAlive(session *ssh.Session) {
 	i := 0
 	for {
 		// Send keep alive packet
-		ok, _, _ := c.Client.SendRequest("keepalive", true, nil)
-		if ok {
+		_, err := session.SendRequest("keepalive", true, nil)
+		if err != nil {
 			i = 0
 		} else {
 			i += 1
