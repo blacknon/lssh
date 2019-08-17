@@ -130,6 +130,7 @@ func (c *Connect) SetLog(path string, timestamp bool) {
 }
 
 // logger is logging terminal log to c.logFile
+// TODO(blacknon): Writerを利用した処理方法に変更する(v0.1.1)
 func (c *Connect) logger(session *ssh.Session) (err error) {
 	logfile, err := os.OpenFile(c.logFile, os.O_WRONLY|os.O_APPEND|os.O_CREATE, 0600)
 	if err != nil {

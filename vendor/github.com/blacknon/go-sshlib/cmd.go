@@ -5,11 +5,9 @@
 package sshlib
 
 import (
-	"bytes"
 	"io"
 	"log"
 	"os"
-	"time"
 
 	"golang.org/x/crypto/ssh"
 	"golang.org/x/crypto/ssh/terminal"
@@ -18,61 +16,59 @@ import (
 // Cmd connect and run command over ssh.
 // Output data is processed by channel because it is executed in parallel. If specification is troublesome, it is good to generate and process session from ssh package.
 // TODO(blacknon): writer/readerによる入出力に書き換える(stdinは特に)。 (対応: v0.1.1)。
-func (c *Connect) Cmd(command string, output chan []byte) (err error) {
+func (c *Connect) Command(command string) (err error) {
 	// create session
-	if c.session == nil {
-		c.session, err = c.CreateSession()
+	if c.Session == nil {
+		c.Session, err = c.CreateSession()
 		if err != nil {
-			close(output)
 			return
 		}
 	}
+	defer func() { c.Session = nil }()
 
-	// setup
-	err = c.setupCmd(c.session)
+	// setup options
+	err = c.setOption(c.Session)
 	if err != nil {
 		return
 	}
 
-	// if set Stdin,
-	if len(c.Stdin) > 0 {
-		c.session.Stdin = bytes.NewReader(c.Stdin)
+	// Set Stdin, Stdout, Stderr...
+	if c.Stdin != nil {
+		w, _ := c.Session.StdinPipe()
+		go io.Copy(w, c.Stdin)
 	} else {
-		c.session.Stdin = os.Stdin
+		c.Session.Stdin = os.Stdin
 	}
 
-	// Set output buffer
-	buf := new(bytes.Buffer)
+	if c.Stdout != nil {
+		or, _ := c.Session.StdoutPipe()
+		go io.Copy(c.Stdout, or)
+	} else {
+		c.Session.Stdout = os.Stdout
+	}
 
-	// set output
-	// TODO(blacknon): bufferは可能な限り使わず、Readerを渡すようにしたい
-	c.session.Stdout = io.MultiWriter(buf)
-	c.session.Stderr = io.MultiWriter(buf)
-	if c.ForceStd {
+	if c.Stderr != nil {
+		er, _ := c.Session.StderrPipe()
+		go io.Copy(c.Stderr, er)
+	} else {
+		c.Session.Stderr = os.Stderr
+	}
+
+	if c.Stdin == os.Stdin {
 		// Input terminal Make raw
 		fd := int(os.Stdin.Fd())
 		state, _ := terminal.MakeRaw(fd)
 		defer terminal.Restore(fd, state)
-
-		c.session.Stdout = os.Stdout
-		c.session.Stderr = os.Stderr
 	}
 
 	// Run Command
-	isExit := make(chan bool)
-	go func() {
-		c.session.Run(command)
-		isExit <- true
-	}()
-
-	// Send output channel
-	sendCmdOutput(buf, output, isExit)
+	c.Session.Run(command)
 
 	return
 }
 
 //
-func (c *Connect) setupCmd(session *ssh.Session) (err error) {
+func (c *Connect) setOption(session *ssh.Session) (err error) {
 	// Request tty
 	if c.TTY {
 		err = RequestTty(session)
@@ -96,41 +92,4 @@ func (c *Connect) setupCmd(session *ssh.Session) (err error) {
 	}
 
 	return
-}
-
-// sendCmdOutput send to output channel.
-// TODO(blacknon): Writer/Readerでの入出力に切り替えたら削除。(対応: v0.1.1)
-func sendCmdOutput(buf *bytes.Buffer, output chan []byte, isExit <-chan bool) {
-	// TODO(blacknon): bufferは使わず、Readerを渡すようにしたい
-	exit := false
-
-GetOutputLoop:
-	for {
-		if buf.Len() > 0 {
-			for {
-				line, err := buf.ReadBytes('\n')
-				if len(line) > 0 {
-					output <- line
-				}
-
-				// if err is io.EOF
-				if err == io.EOF {
-					break
-				}
-			}
-		} else {
-			select {
-			case <-isExit:
-				exit = true
-			case <-time.After(10 * time.Millisecond):
-				if exit {
-					break GetOutputLoop
-				} else {
-					continue GetOutputLoop
-				}
-			}
-		}
-	}
-
-	close(output)
 }
