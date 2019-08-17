@@ -28,7 +28,7 @@ func Lsftp() (app *cli.App) {
 	cli.AppHelpTemplate = `NAME:
     {{.Name}} - {{.Usage}}
 USAGE:
-    {{.HelpName}} {{if .VisibleFlags}}[options]{{end}} (local|remote):from_path... (local|remote):to_path
+    {{.HelpName}} {{if .VisibleFlags}}[options]{{end}} [(local|remote):from_path... (local|remote):to_path]
     {{if len .Authors}}
 AUTHOR:
     {{range .Authors}}{{ . }}{{end}}
@@ -95,6 +95,7 @@ USAGE:
 		// TODO: 引数の数が2個以上の場合、lscpと同様のチェックをさせる
 		// if args >= 2, check path type.
 		if len(c.Args()) >= 2 {
+
 		}
 
 		// Set args path
@@ -144,7 +145,7 @@ USAGE:
 		case isFromInRemote && isToRemote:
 			// View From list
 			from_l := new(list.ListInfo)
-			from_l.Prompt = "lscp(from)>>"
+			from_l.Prompt = "lsftp(from)>>"
 			from_l.NameList = names
 			from_l.DataList = data
 			from_l.MultiFlag = false
@@ -157,7 +158,7 @@ USAGE:
 
 			// View to list
 			to_l := new(list.ListInfo)
-			to_l.Prompt = "lscp(to)>>"
+			to_l.Prompt = "lsftp(to)>>"
 			to_l.NameList = names
 			to_l.DataList = data
 			to_l.MultiFlag = true
@@ -171,7 +172,7 @@ USAGE:
 		default:
 			// View List And Get Select Line
 			l := new(list.ListInfo)
-			l.Prompt = "lscp>>"
+			l.Prompt = "lsftp>>"
 			l.NameList = names
 			l.DataList = data
 			l.MultiFlag = true
@@ -191,7 +192,7 @@ USAGE:
 		}
 
 		// scp struct
-		runScp := new(ssh.RunScp)
+		runSftp := new(ssh.RunSftp)
 
 		// set from info
 		for _, from := range fromArgs {
@@ -209,42 +210,42 @@ USAGE:
 			}
 
 			// set from data
-			runScp.From.IsRemote = isFromRemote
+			runSftp.From.IsRemote = isFromRemote
 			if isFromRemote {
 				fromPath = check.EscapePath(fromPath)
 			}
-			runScp.From.Path = append(runScp.From.Path, fromPath)
+			runSftp.From.Path = append(runSftp.From.Path, fromPath)
 
 		}
-		runScp.From.Server = fromServer
+		runSftp.From.Server = fromServer
 
 		// set to info
 		isToRemote, toPath := check.ParseScpPath(toArg)
-		runScp.To.IsRemote = isToRemote
+		runSftp.To.IsRemote = isToRemote
 		if isToRemote {
 			toPath = check.EscapePath(toPath)
 		}
-		runScp.To.Path = []string{toPath}
-		runScp.To.Server = toServer
+		runSftp.To.Path = []string{toPath}
+		runSftp.To.Server = toServer
 
-		runScp.Permission = c.Bool("permission")
-		runScp.Config = data
+		runSftp.Permission = c.Bool("permission")
+		runSftp.Config = data
 
 		// print from
 		if !isFromInRemote {
-			fmt.Fprintf(os.Stderr, "From local:%s\n", runScp.From.Path)
+			fmt.Fprintf(os.Stderr, "From local:%s\n", runSftp.From.Path)
 		} else {
-			fmt.Fprintf(os.Stderr, "From remote(%s):%s\n", strings.Join(runScp.From.Server, ","), runScp.From.Path)
+			fmt.Fprintf(os.Stderr, "From remote(%s):%s\n", strings.Join(runSftp.From.Server, ","), runSftp.From.Path)
 		}
 
 		// print to
 		if !isToRemote {
-			fmt.Fprintf(os.Stderr, "To   local:%s\n", runScp.To.Path)
+			fmt.Fprintf(os.Stderr, "To   local:%s\n", runSftp.To.Path)
 		} else {
-			fmt.Fprintf(os.Stderr, "To   remote(%s):%s\n", strings.Join(runScp.To.Server, ","), runScp.To.Path)
+			fmt.Fprintf(os.Stderr, "To   remote(%s):%s\n", strings.Join(runSftp.To.Server, ","), runSftp.To.Path)
 		}
 
-		runScp.Start()
+		runSftp.Start()
 		return nil
 	}
 

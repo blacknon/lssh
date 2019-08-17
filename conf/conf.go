@@ -120,7 +120,7 @@ type ServerConfig struct {
 	LocalRcDecodeCmd string   `toml:"local_rc_decode_cmd"`
 
 	// local/remote port forwarding setting
-	PortForwardMode   string `toml:"port_forward"`        // `L`|`R`
+	PortForwardMode   string `toml:"port_forward"`        // [`L`,`l`,`LOCAL`,`local`]|[`R`,`r`,`REMOTE`,`remote`]
 	PortForwardLocal  string `toml:"port_forward_local"`  // port forward (local). "host:port"
 	PortForwardRemote string `toml:"port_forward_remote"` // port forward (remote). "host:port"
 
@@ -156,10 +156,7 @@ type ProxyConfig struct {
 //
 // WARN: This struct is not use...
 type OpenSshConfig struct {
-	Path string `toml:"path"`
-
-	// TODO(blacknon): AWS等のクラウドで使えるよう、OpenSSHConfigの生成コマンドを指定して、そこから読み取る処理を追加する。
-	//                 pathとの優先をどうするかを検討しないといけないので要考慮。
+	Path    string `toml:"path"` // This is preferred
 	Command string `toml:"command"`
 	ServerConfig
 }

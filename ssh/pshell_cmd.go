@@ -22,10 +22,12 @@ import (
 )
 
 // TODO(blacknon): 以下のBuild-in Commandを追加する
-//     - %outlist           ... outの番号とコマンドを一覧で出力する(historyに組み込んだほうがいいのか？？) (v0.6.1)
+//     - %cd <PATH>         ... リモートのディレクトリを変更する(事前のチェックにsftpを使用か？)
+//     - %lcd <PATH>        ... ローカルのディレクトリを変更する
 //     - %save <num> <PATH> ... 指定したnumの履歴をPATHに記録する (v0.6.1)
 //     - %set <args..>      ... 指定されたオプションを設定する(Optionsにて管理) (v0.6.1)
 //     - %diff <num>        ... 指定されたnumの履歴をdiffする(multi diff)。できるかどうか要検討。 (v0.6.1以降)
+//                              できれば、vimdiffのように横に差分表示させるようにしたいものだけど…？
 
 // checkBuildInCommand return true if cmd is build-in command.
 func checkBuildInCommand(cmd string) (isBuildInCmd bool) {
@@ -34,7 +36,7 @@ func checkBuildInCommand(cmd string) (isBuildInCmd bool) {
 	case "exit", "quit", "clear": // build-in command
 		isBuildInCmd = true
 
-	case "%history", "%out": // parsent build-in command.
+	case "%history", "%out", "%outlist": // parsent build-in command.
 		isBuildInCmd = true
 	}
 
@@ -91,6 +93,11 @@ func (ps *pShell) run(pline pipeLine, in *io.PipeReader, out *io.PipeWriter, ch 
 		ps.buildin_history(out, ch)
 		return
 
+	// %outlist
+	case "%outlist":
+		ps.buildin_outlist(out, ch)
+		return
+
 	// %out [num]
 	case "%out":
 		num := ps.Count - 1
@@ -125,7 +132,7 @@ func (ps *pShell) run(pline pipeLine, in *io.PipeReader, out *io.PipeWriter, ch 
 // }
 
 // localCmd_save is save HistoryResult results as a file local.
-//     %save num PATH(独自の環境変数を利用して個別に保存できるようにする)
+//     %save num PATH(独自の環境変数を利用して個別のファイルに保存できるようにする)
 // TODO(blacknon): Optionsの値などについて、あとから変更できるようにする。
 // func (ps *pShell) buildin_save(args []string, out *io.PipeWriter, ch chan<- bool) {
 // }
@@ -143,6 +150,28 @@ func (ps *pShell) buildin_history(out *io.PipeWriter, ch chan<- bool) {
 	// print out history
 	for _, h := range data {
 		fmt.Fprintf(stdout, "%s: %s\n", h.Timestamp, h.Command)
+	}
+
+	// close out
+	switch stdout.(type) {
+	case *io.PipeWriter:
+		out.CloseWithError(io.ErrClosedPipe)
+	}
+
+	// send exit
+	ch <- true
+}
+
+// localcmd_outlit is print exec history list.
+func (ps *pShell) buildin_outlist(out *io.PipeWriter, ch chan<- bool) {
+	stdout := setOutput(out)
+
+	for i := 0; i < len(ps.History); i++ {
+		h := ps.History[i]
+		for _, hh := range h {
+			fmt.Fprintf(stdout, "%3d : %s\n", i, hh.Command)
+			break
+		}
 	}
 
 	// close out
