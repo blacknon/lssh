@@ -5,6 +5,7 @@
 package sshlib
 
 import (
+	"io"
 	"net"
 	"os"
 	"os/signal"
@@ -21,30 +22,29 @@ type Connect struct {
 	// Client *ssh.Client
 	Client *ssh.Client
 
-	// Session (only use CmdWriter())
-	session *ssh.Session
+	// Session
+	Session *ssh.Session
+
+	// Session Stdin, Stdout, Stderr...
+	Stdin  io.Reader
+	Stdout io.Writer
+	Stderr io.Writer
 
 	// ProxyDialer
 	ProxyDialer proxy.Dialer
 
 	// Connect timeout second.
-	Timeout int
+	TimeoutConnect int
+
+	// SendKeepAliveMax and SendKeepAliveInterval
+	SendKeepAliveMax      int
+	SendKeepAliveInterval int
 
 	// Session use tty flag.
 	TTY bool
 
-	// Stdin to be passed to ssh connection destination.
-	// If the value is set here, it is treated as passed from the pipe.
-	// TODO(blacknon): Readerに切り替え
-	Stdin []byte
-
 	// Forward ssh agent flag.
 	ForwardAgent bool
-
-	// ForceStd used by Cmd().
-	// If this value is enabled, the output destinations of session.Stdout
-	// and session.Stderr will be set to os.Stdout and os.Stderr respectively
-	ForceStd bool
 
 	// ssh-agent interface.
 	// agent.Agent or agent.ExtendedAgent
@@ -109,6 +109,8 @@ func (c *Connect) CreateSession() (session *ssh.Session, err error) {
 // SendKeepAlive send packet to session.
 // TODO(blacknon): Interval及びMaxを設定できるようにする(v0.1.1)
 func (c *Connect) SendKeepAlive(session *ssh.Session) {
+	// keep alive counter
+	// i := 0
 	for {
 		_, _ = session.SendRequest("keepalive", true, nil)
 		time.Sleep(15 * time.Second)

@@ -14,20 +14,16 @@ import (
 	"strings"
 
 	"github.com/blacknon/go-sshlib"
-	"golang.org/x/crypto/ssh"
 )
 
 var cmdOPROMPT = "${SERVER} :: "
 
-// cmd
-// TODO(blacknon): リファクタリング(v0.6.0)
-// TODO(blacknon): ダブルクォーテーションなどで囲った文字列を渡した際、単純に結合するだけだとうまく行かないので、ちゃんと囲み直してあげる必要がある？
-//                 => sshコマンドも同じだった。やらんでもいいか？
+// cmd is run command.
 func (r *Run) cmd() (err error) {
 	// command
 	command := strings.Join(r.ExecCmd, " ")
 
-	// connect map
+	// create connect map
 	connmap := map[string]*sshlib.Connect{}
 
 	// make channel
@@ -41,7 +37,7 @@ func (r *Run) cmd() (err error) {
 		r.printProxy(r.ServerList[0])
 	}
 
-	// Create sshlib.Connect loop
+	// Create sshlib.Connect to connmap
 	for _, server := range r.ServerList {
 		// check count AuthMethod
 		if len(r.serverAuthMethodMap[server]) == 0 {
@@ -61,9 +57,9 @@ func (r *Run) cmd() (err error) {
 
 	// Run command and print loop
 	writers := []io.WriteCloser{}
-	sessions := []*ssh.Session{}
 	for s, c := range connmap {
-		session, _ := c.CreateSession()
+		// set session
+		c.Session, _ = c.CreateSession()
 
 		// Get server config
 		config := r.Conf.Server[s]
@@ -78,12 +74,8 @@ func (r *Run) cmd() (err error) {
 		}
 		o.Create(s)
 
-		// if single server
+		// if single server, setup port forwarding.
 		if len(r.ServerList) == 1 {
-			session.Stdout = os.Stdout
-			session.Stderr = os.Stderr
-			session.Stdin = os.Stdin
-
 			// OverWrite port forward mode
 			if r.PortForwardMode != "" {
 				config.PortForwardMode = r.PortForwardMode
@@ -112,12 +104,14 @@ func (r *Run) cmd() (err error) {
 				go c.TCPDynamicForward("localhost", config.DynamicPortForward)
 			}
 		} else {
-			session.Stdout = o.NewWriter()
-			session.Stderr = o.NewWriter()
-			w, _ := session.StdinPipe()
-			writers = append(writers, w)
+			c.Stdout = o.NewWriter()
+			c.Stderr = o.NewWriter()
+
+			if r.IsParallel {
+				w, _ := c.Session.StdinPipe()
+				writers = append(writers, w)
+			}
 		}
-		sessions = append(sessions, session)
 	}
 
 	// if parallel flag true, and select server is not single,
@@ -131,40 +125,45 @@ func (r *Run) cmd() (err error) {
 			go pushInput(exitInput, writers)
 		}
 	case !r.IsParallel && len(r.ServerList) > 1:
-		stdinData, _ = ioutil.ReadAll(os.Stdin)
+		if r.isStdinPipe {
+			stdinData, _ = ioutil.ReadAll(os.Stdin)
+		}
 	}
 
 	// run command
-	for _, s := range sessions {
-		session := s
+	for _, c := range connmap {
+		conn := c
 		if r.IsParallel {
 			go func() {
-				session.Run(command)
+				conn.Command(command)
 				finished <- true
 			}()
 		} else {
 			if len(stdinData) > 0 {
 				// get stdin
 				rd := bytes.NewReader(stdinData)
-				w, _ := session.StdinPipe()
+				w, _ := conn.Session.StdinPipe()
 
 				// run command
-				session.Start(command)
+				go func() {
+					conn.Command(command)
+					finished <- true
+				}()
 
 				// send stdin
 				io.Copy(w, rd)
 				w.Close()
-
-				// wait command exit
-				session.Wait()
 			} else {
 				// run command
-				session.Run(command)
+				go func() {
+					conn.Command(command)
+					finished <- true
+				}()
 			}
-			go func() { finished <- true }()
 		}
 	}
 
+	// wait
 	for i := 0; i < len(connmap); i++ {
 		<-finished
 	}
