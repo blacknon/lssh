@@ -34,7 +34,7 @@ type Connect struct {
 	ProxyDialer proxy.Dialer
 
 	// Connect timeout second.
-	TimeoutConnect int
+	ConnectTimeout int
 
 	// SendKeepAliveMax and SendKeepAliveInterval
 	SendKeepAliveMax      int
@@ -67,12 +67,17 @@ type Connect struct {
 func (c *Connect) CreateClient(host, port, user string, authMethods []ssh.AuthMethod) (err error) {
 	uri := net.JoinHostPort(host, port)
 
+	timeout := 20
+	if c.ConnectTimeout > 0 {
+		timeout = c.ConnectTimeout
+	}
+
 	// Create new ssh.ClientConfig{}
 	config := &ssh.ClientConfig{
 		User:            user,
 		Auth:            authMethods,
 		HostKeyCallback: ssh.InsecureIgnoreHostKey(),
-		Timeout:         20 * time.Second,
+		Timeout:         time.Duration(timeout) * time.Second,
 	}
 
 	// check Dialer
@@ -109,11 +114,37 @@ func (c *Connect) CreateSession() (session *ssh.Session, err error) {
 // SendKeepAlive send packet to session.
 // TODO(blacknon): Interval及びMaxを設定できるようにする(v0.1.1)
 func (c *Connect) SendKeepAlive(session *ssh.Session) {
+	// keep alive interval (default 30 sec)
+	interval := 30
+	if c.SendKeepAliveInterval > 0 {
+		interval = c.SendKeepAliveInterval
+	}
+
+	// keep alive max (default 5)
+	max := 5
+	if c.SendKeepAliveMax > 0 {
+		max = c.SendKeepAliveMax
+	}
+
 	// keep alive counter
-	// i := 0
+	i := 0
 	for {
-		_, _ = session.SendRequest("keepalive", true, nil)
-		time.Sleep(15 * time.Second)
+		// Send keep alive packet
+		ok, _, _ := c.Client.SendRequest("keepalive", true, nil)
+		if ok {
+			i = 0
+		} else {
+			i += 1
+		}
+
+		// check counter
+		if max <= i {
+			session.Close()
+			return
+		}
+
+		// sleep
+		time.Sleep(time.Duration(interval) * time.Second)
 	}
 }
 

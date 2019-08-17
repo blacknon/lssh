@@ -5,9 +5,7 @@
 package ssh
 
 import (
-	"bytes"
 	"fmt"
-	"io"
 	"log"
 	"os"
 	"os/exec"
@@ -23,6 +21,8 @@ import (
 // TODO(blacknon): 自動再接続機能の追加(v0.6.1)
 //     autosshのように、接続が切れた際に自動的に再接続を試みる動作をさせたい
 //     パラメータでの有効・無効指定が必要になる。
+
+// TODO(blacknon):
 
 // TODO(blacknon): リバースでのsshfsの追加(v0.6.1以降？)
 //     lsshfs実装後になるか？ssh接続時に、指定したフォルダにローカルの内容をマウントさせて読み取らせる。
@@ -77,15 +77,8 @@ type Run struct {
 	// In agent.Agent or agent.ExtendedAgent.
 	agent interface{}
 
-	// StdinData from pipe
-	// TODO(blacknon): Readerを置くようにして削除する
+	// StdinData from pipe flag
 	isStdinPipe bool
-
-	// stdin pipe reader
-	stdinPipe *io.PipeReader
-
-	// use terminal log
-	outputData *bytes.Buffer
 
 	// AuthMethodMap is
 	// map of AuthMethod summarized in Run overall
