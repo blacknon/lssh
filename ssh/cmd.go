@@ -155,10 +155,8 @@ func (r *Run) cmd() (err error) {
 				w.Close()
 			} else {
 				// run command
-				go func() {
-					conn.Command(command)
-					finished <- true
-				}()
+				conn.Command(command)
+				go func() { finished <- true }()
 			}
 		}
 	}
