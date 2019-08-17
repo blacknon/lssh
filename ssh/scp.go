@@ -16,16 +16,6 @@ import (
 	"golang.org/x/crypto/ssh"
 )
 
-// TODO(blacknon): Bufferに出力するのではなく、io.Pipeなどを使って直接渡すようにする。
-//                 パラレルで渡す場合やRemote => Remoteについては、io.MultiWriterを使ったりして
-//                 可能な限りBufferの利用を減らしていく！(v0.6.0)
-
-type CopyConInfo struct {
-	IsRemote bool
-	Path     []string
-	Server   []string
-}
-
 type RunScp struct {
 	From       CopyConInfo
 	To         CopyConInfo
