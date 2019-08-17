@@ -91,6 +91,7 @@ type ServerConfig struct {
 	Passes          []string `toml:"passes"`
 	Key             string   `toml:"key"`
 	KeyCommand      string   `toml:"keycmd"`
+	KeyCommandPass  string   `toml:"keycmdpass"`
 	KeyPass         string   `toml:"keypass"`
 	Keys            []string `toml:"keys"` // "keypath::passphrase"
 	Cert            string   `toml:"cert"`
