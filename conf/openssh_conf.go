@@ -5,7 +5,10 @@
 package conf
 
 import (
+	"bytes"
+	"io"
 	"os"
+	"os/exec"
 	"regexp"
 	"strings"
 
@@ -14,26 +17,43 @@ import (
 )
 
 // openOpenSshConfig open the OpenSsh configuration file, return *ssh_config.Config.
-func openOpenSshConfig(path string) (cfg *ssh_config.Config, err error) {
-	// Read Openssh Config
-	sshConfigFile := common.GetFullPath(path)
-	f, err := os.Open(sshConfigFile)
+func openOpenSshConfig(path, command string) (cfg *ssh_config.Config, err error) {
+	var rd io.Reader
+	switch {
+	case path != "": // 1st
+		// Read Openssh Config
+		sshConfigFile := common.GetFullPath(path)
+		rd, err = os.Open(sshConfigFile)
+	case command != "": // 2nd
+		var data []byte
+		cmd := exec.Command("sh", "-c", command)
+		data, err = cmd.Output()
+		rd = bytes.NewReader(data)
+	}
+
+	// error check
 	if err != nil {
 		return
 	}
 
-	cfg, err = ssh_config.Decode(f)
+	cfg, err = ssh_config.Decode(rd)
 	return
 }
 
 // getOpenSshConfig loads the specified OpenSsh configuration file and returns it in conf.ServerConfig format
-func getOpenSshConfig(path string) (config map[string]ServerConfig, err error) {
+func getOpenSshConfig(path, command string) (config map[string]ServerConfig, err error) {
 	config = map[string]ServerConfig{}
 
 	// open openssh config
-	cfg, err := openOpenSshConfig(path)
+	cfg, err := openOpenSshConfig(path, command)
 	if err != nil {
 		return
+	}
+
+	// set name element
+	ele := path
+	if ele == "" {
+		ele = "generate_sshconfig"
 	}
 
 	// Get Node names
@@ -57,7 +77,7 @@ func getOpenSshConfig(path string) (config map[string]ServerConfig, err error) {
 			User:         ssh_config.Get(host, "User"),
 			ProxyCommand: ssh_config.Get(host, "ProxyCommand"),
 			PreCmd:       ssh_config.Get(host, "LocalCommand"),
-			Note:         "from :" + path,
+			Note:         "from:" + ele,
 		}
 
 		// TODO(blacknon): OpenSshの設定ファイルだと、Certificateは複数指定可能な模様。ただ、あまり一般的な使い方ではないようなので、現状は複数のファイルを受け付けるように作っていない。
@@ -109,7 +129,7 @@ func getOpenSshConfig(path string) (config map[string]ServerConfig, err error) {
 			serverConfig.DynamicPortForward = dynamicForward
 		}
 
-		serverName := path + ":" + host
+		serverName := ele + ":" + host
 		config[serverName] = serverConfig
 	}
 
