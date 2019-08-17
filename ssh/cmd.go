@@ -5,8 +5,10 @@
 package ssh
 
 import (
+	"bytes"
 	"fmt"
 	"io"
+	"io/ioutil"
 	"log"
 	"os"
 	"strings"
@@ -19,7 +21,8 @@ var cmdOPROMPT = "${SERVER} :: "
 
 // cmd
 // TODO(blacknon): リファクタリング(v0.6.0)
-// TODO(blacknon): ダブルクォーテーションなどで囲った文字列を渡した際、単純に結合するだけだとうまく行かないので、ちゃんと囲み直してあげる必要がある
+// TODO(blacknon): ダブルクォーテーションなどで囲った文字列を渡した際、単純に結合するだけだとうまく行かないので、ちゃんと囲み直してあげる必要がある？
+//                 => sshコマンドも同じだった。やらんでもいいか？
 func (r *Run) cmd() (err error) {
 	// command
 	command := strings.Join(r.ExecCmd, " ")
@@ -80,12 +83,6 @@ func (r *Run) cmd() (err error) {
 			session.Stdout = os.Stdout
 			session.Stderr = os.Stderr
 			session.Stdin = os.Stdin
-			// switch {
-			// case r.IsTerm && len(r.stdinData) == 0:
-
-			// case len(r.stdinData) > 0:
-			// 	session.Stdin = bytes.NewReader(r.stdinData)
-			// }
 
 			// OverWrite port forward mode
 			if r.PortForwardMode != "" {
@@ -125,6 +122,7 @@ func (r *Run) cmd() (err error) {
 
 	// if parallel flag true, and select server is not single,
 	// set send stdin.
+	var stdinData []byte
 	switch {
 	case r.IsParallel && len(r.ServerList) > 1:
 		if r.isStdinPipe {
@@ -132,6 +130,8 @@ func (r *Run) cmd() (err error) {
 		} else {
 			go pushInput(exitInput, writers)
 		}
+	case !r.IsParallel && len(r.ServerList) > 1:
+		stdinData, _ = ioutil.ReadAll(os.Stdin)
 	}
 
 	// run command
@@ -143,7 +143,24 @@ func (r *Run) cmd() (err error) {
 				finished <- true
 			}()
 		} else {
-			session.Run(command)
+			if len(stdinData) > 0 {
+				// get stdin
+				rd := bytes.NewReader(stdinData)
+				w, _ := session.StdinPipe()
+
+				// run command
+				session.Start(command)
+
+				// send stdin
+				io.Copy(w, rd)
+				w.Close()
+
+				// wait command exit
+				session.Wait()
+			} else {
+				// run command
+				session.Run(command)
+			}
 			go func() { finished <- true }()
 		}
 	}
