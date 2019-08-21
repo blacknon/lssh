@@ -8,11 +8,15 @@ import (
 	"bufio"
 	"bytes"
 	"os/exec"
+	"path/filepath"
+	"sort"
 	"strconv"
 	"strings"
 
 	"github.com/c-bata/go-prompt"
 )
+
+// TODO(blacknon): `!!`や`!$`についても実装を行う
 
 // Completer parallel-shell complete function
 func (ps *pShell) Completer(t prompt.Document) []prompt.Suggest {
@@ -73,10 +77,10 @@ func (ps *pShell) Completer(t prompt.Document) []prompt.Suggest {
 			var a []prompt.Suggest
 			switch c {
 			case "%out":
-				for i, h := range ps.History {
+				for i := 0; i < len(ps.History); i++ {
 					var cmd string
-					for _, hh := range h {
-						cmd = hh.Command
+					for _, h := range ps.History[i] {
+						cmd = h.Command
 					}
 
 					suggest := prompt.Suggest{
@@ -89,20 +93,20 @@ func (ps *pShell) Completer(t prompt.Document) []prompt.Suggest {
 
 			return prompt.FilterHasPrefix(a, t.GetWordBeforeCursor(), false)
 
-		case checkLocalCommand(c): // if local command(!command...). return local path.
-			return prompt.FilterHasPrefix(nil, t.GetWordBeforeCursor(), false)
+		default:
+			// Get path data.
+			ps.PathComplete = ps.GetPathComplete(!checkLocalCommand(c), t.GetWordBeforeCursor())
 
-		case !checkLocalCommand(c): // if remote command(command...). return remote path.
-			return prompt.FilterHasPrefix(nil, t.GetWordBeforeCursor(), false)
+			// get lash slash place
+			word := t.GetWordBeforeCursor()
+			sp := strings.LastIndex(word, "/")
+			if len(word) > 0 {
+				word = word[sp+1:]
+			}
+
+			return prompt.FilterHasPrefix(ps.PathComplete, word, false)
 		}
 	}
-
-	// TODO(blacknon): とりあえず値を仮置き。後で以下の処理を追加する(優先度A)
-	//        - compgen(confで補完用の結果を取得するためのコマンドは指定可能にする)での補完結果の定期取得処理(+補完の取得用ローカルコマンドの追加)
-	//        - 何も入力していない場合は非表示にさせたい
-	//        - ファイルについても対応させたい
-	//        - ファイルやコマンドなど、状況に応じて補完対象を変えるにはやはり構文解析が必要になってくる。Parserを実装するまではコマンドのみ対応。
-	//        	参考: https://github.com/c-bata/kube-prompt/blob/2276d167e2e693164c5980427a6809058a235c95/kube/completer.go
 
 	return prompt.FilterHasPrefix(nil, t.GetWordBeforeCursor(), false)
 }
@@ -111,12 +115,6 @@ func (ps *pShell) Completer(t prompt.Document) []prompt.Suggest {
 // mode ... command/path
 // data ... Value being entered
 func (ps *pShell) GetCommandComplete() {
-	// TODO(blacknon):
-	//   - 構文解析して、ファイルの補完処理も行わせる
-	//     - 引数にコマンドorファイルの種別を渡すようにする
-	//   - 補完コマンドをconfigでオプションとして指定できるようにする
-	//     - あまり無いだろうけど、bash以外をリモートで使ってる場合など(ashとかzsh(レア)など)
-
 	// bash complete command. use `compgen`.
 	compCmd := []string{"compgen", "-c"}
 	command := strings.Join(compCmd, " ")
@@ -170,16 +168,12 @@ func (ps *pShell) GetCommandComplete() {
 		// append ps.Complete
 		ps.CmdComplete = append(ps.CmdComplete, suggest)
 	}
+
+	sort.SliceStable(ps.CmdComplete, func(i, j int) bool { return ps.CmdComplete[i].Text < ps.CmdComplete[j].Text })
 }
 
 // GetPathComplete return complete path from local or remote machine.
 func (ps *pShell) GetPathComplete(remote bool, word string) (p []prompt.Suggest) {
-	// NOTE: 処理がどうしても重くなるため、現在は使用していない。どのように対処していくか要検討。
-	//       そもそも、補完処理の値の取得をどのタイミングで行わせるべきなのかは考える必要がある。
-	//       ※ おそらく、定期的にPATHを取得してどこかのStructに配置しておくとかが良さそう？？
-	//         `/`とか`/etc/`のディレクトリ名だけを取得して、それがあるかを事前にmapでチェックするような方式だろうか？
-	//         あとはそのDirPathで定期的にチェックする。(`/et`=>`/`, `/etc/ss`=>`/etc/`)
-
 	compCmd := []string{"compgen", "-f", word}
 	command := strings.Join(compCmd, " ")
 
@@ -201,7 +195,9 @@ func (ps *pShell) GetPathComplete(remote bool, word string) (p []prompt.Suggest)
 			// Scan and put completed command to map.
 			sc := bufio.NewScanner(buf)
 			for sc.Scan() {
-				m[sc.Text()] = append(m[sc.Text()], c.Name)
+				path := filepath.Base(sc.Text())
+				// path := sc.Text()
+				m[path] = append(m[path], c.Name)
 			}
 		}
 
@@ -226,12 +222,15 @@ func (ps *pShell) GetPathComplete(remote bool, word string) (p []prompt.Suggest)
 		sc := bufio.NewScanner(rd)
 		for sc.Scan() {
 			suggest := prompt.Suggest{
-				Text:        sc.Text(),
+				Text: filepath.Base(sc.Text()),
+				// Text:        sc.Text(),
 				Description: "local path.",
 			}
 			p = append(p, suggest)
 		}
 	}
+
+	sort.SliceStable(p, func(i, j int) bool { return p[i].Text < p[j].Text })
 	return
 }
 

@@ -24,6 +24,9 @@ type RunScp struct {
 	Config     conf.Config
 }
 
+// TODO(blacknon): scp時のプログレスバーの表示について検討する(リモートについては、リモートで実行しているscpコマンドの出力をそのまま出力すればいけそうな気がする)
+// TODO(blacknon): Reader/Writerでの処理に切り替えたほうが良さそう
+
 // Start scp, switching process.
 func (r *RunScp) Start() {
 	// Create AuthMap
@@ -114,6 +117,7 @@ func (r *RunScp) run(mode string, authMap map[string][]ssh.AuthMethod) {
 }
 
 // push file scp
+// TODO(blacknon): targetいらない気がする…
 func (r *RunScp) push(target string, scp *scplib.SCPClient) {
 	var err error
 	if r.From.IsRemote && r.To.IsRemote {
