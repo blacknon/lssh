@@ -31,6 +31,7 @@ type pShell struct {
 	HistoryFile   string
 	latestCommand string
 	CmdComplete   []prompt.Suggest
+	PathComplete  []prompt.Suggest
 	Options       pShellOption
 }
 
@@ -46,8 +47,11 @@ type pShellOption struct {
 	// trueの場合、リモートマシンにキーインプットを送信しない
 	// hogehoge
 
-	// trueの場合、補完処理を向こうにする
-	// DisableComplete bool
+	// trueの場合、コマンドの補完処理を無効にする
+	// DisableCommandComplete bool
+
+	// trueの場合、PATHの補完処理を無効にする
+	// DisableCommandComplete bool
 }
 
 // psConnect is pShell connect struct.
