@@ -8,11 +8,14 @@ require (
 	github.com/golang/glog v0.0.0-20160126235308-23def4e6c14b // indirect
 	github.com/kardianos/osext v0.0.0-20190222173326-2bc1f35cddc0 // indirect
 	github.com/kevinburke/ssh_config v0.0.0-20190724205821-6cfae18c12b8
+	github.com/kr/fs v0.1.0 // indirect
 	github.com/kr/pretty v0.1.0 // indirect
 	github.com/mattn/go-colorable v0.1.2 // indirect
 	github.com/mattn/go-runewidth v0.0.4
 	github.com/mattn/go-tty v0.0.0-20190424173100-523744f04859 // indirect
 	github.com/nsf/termbox-go v0.0.0-20190325093121-288510b9734e
+	github.com/pkg/errors v0.8.1 // indirect
+	github.com/pkg/sftp v1.10.0
 	github.com/pkg/term v0.0.0-20190109203006-aa71e9d9e942 // indirect
 	github.com/sevlyar/go-daemon v0.1.5
 	github.com/stretchr/testify v1.3.0

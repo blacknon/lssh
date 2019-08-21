@@ -19,6 +19,8 @@ github.com/golang/glog
 github.com/kardianos/osext
 # github.com/kevinburke/ssh_config v0.0.0-20190724205821-6cfae18c12b8
 github.com/kevinburke/ssh_config
+# github.com/kr/fs v0.1.0
+github.com/kr/fs
 # github.com/mattn/go-colorable v0.1.2
 github.com/mattn/go-colorable
 # github.com/mattn/go-isatty v0.0.8
@@ -31,6 +33,10 @@ github.com/mattn/go-tty
 github.com/miekg/pkcs11
 # github.com/nsf/termbox-go v0.0.0-20190325093121-288510b9734e
 github.com/nsf/termbox-go
+# github.com/pkg/errors v0.8.1
+github.com/pkg/errors
+# github.com/pkg/sftp v1.10.0
+github.com/pkg/sftp
 # github.com/pkg/term v0.0.0-20190109203006-aa71e9d9e942
 github.com/pkg/term/termios
 # github.com/pmezard/go-difflib v1.0.0

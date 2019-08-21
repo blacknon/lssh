@@ -20,32 +20,32 @@ type RunSftp struct {
 
 func (r *RunSftp) Start() {
 	// Create AuthMap
-	slist := append(r.To.Server, r.From.Server...)
-	run := new(Run)
-	run.ServerList = slist
-	run.Conf = r.Config
-	run.createAuthMethodMap()
-	authMap := run.serverAuthMethodMap
+	// slist := append(r.To.Server, r.From.Server...)
+	// run := new(Run)
+	// run.ServerList = slist
+	// run.Conf = r.Config
+	// run.createAuthMethodMap()
+	// authMap := run.serverAuthMethodMap
 
-	// Create Connection
+	// // Create Connection
 
-	switch {
-	case r.IsShell:
-		r.shell(authMap)
+	// switch {
+	// case r.IsShell:
+	// 	r.shell(authMap)
 
-	// remote to remote
-	case r.From.IsRemote && r.To.IsRemote:
-		r.run("pull", authMap)
-		r.run("push", authMap)
+	// // remote to remote
+	// case r.From.IsRemote && r.To.IsRemote:
+	// 	r.run("pull", authMap)
+	// 	r.run("push", authMap)
 
-	// remote to local
-	case r.From.IsRemote && !r.To.IsRemote:
-		r.run("pull", authMap)
+	// // remote to local
+	// case r.From.IsRemote && !r.To.IsRemote:
+	// 	r.run("pull", authMap)
 
-	// local to remote
-	case !r.From.IsRemote && r.To.IsRemote:
-		r.run("push", authMap)
-	}
+	// // local to remote
+	// case !r.From.IsRemote && r.To.IsRemote:
+	// 	r.run("push", authMap)
+	// }
 }
 
 // sftp Shell mode function
@@ -72,7 +72,7 @@ func (r *RunSftp) run(mode string, authMap map[string][]ssh.AuthMethod) {
 }
 
 func (r *RunSftp) list(target, path string, sftp *sftp.Client) {
-	walker := sftp.Walk(path)
+	// walker := sftp.Walk(path)
 
 }
 
