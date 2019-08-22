@@ -96,6 +96,9 @@ func (r *RunSftp) push(target, path string, sftp *sftp.Client) {
 	// remoteFile, err := sftp.Create("hello.txt")
 	// localFile, err := os.Open("hello.txt")
 	// io.Copy(remoteFile, localFile)
+
+	// f, err := sftp.Create("hello.txt")
+	// TODO(blacknon): io.Copy使うとよさそう？？
 }
 
 //
