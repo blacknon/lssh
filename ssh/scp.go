@@ -24,7 +24,10 @@ type RunScp struct {
 	Config     conf.Config
 }
 
-// TODO(blacknon): scp時のプログレスバーの表示について検討する(リモートについては、リモートで実行しているscpコマンドの出力をそのまま出力すればいけそうな気がする)
+// TODO(blacknon): scpプロトコルは使用せず、sftpプロトコルを利用する。(これにより、リモートにscpコマンドがなくても動作するようになる)
+// TODO(blacknon):
+//     scp時のプログレスバーの表示について検討する(リモートについては、リモートで実行しているscpコマンドの出力をそのまま出力すればいけそうな気がする)
+//     https://github.com/cheggaaa/pb
 // TODO(blacknon): Reader/Writerでの処理に切り替えたほうが良さそう
 
 // Start scp, switching process.
