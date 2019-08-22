@@ -6,6 +6,7 @@ package ssh
 
 import (
 	"fmt"
+	"os"
 	"os/exec"
 	"strings"
 
@@ -55,7 +56,7 @@ func (r *Run) createAuthMethodMap() {
 		if config.Key != "" {
 			err := r.registAuthMapPublicKey(server, config.Key, config.KeyPass)
 			if err != nil {
-				fmt.Println(err)
+				fmt.Fprintln(os.Stderr, err)
 			}
 		}
 
@@ -75,7 +76,7 @@ func (r *Run) createAuthMethodMap() {
 				//
 				err := r.registAuthMapPublicKey(server, keyName, keyPass)
 				if err != nil {
-					fmt.Println(err)
+					fmt.Fprintln(os.Stderr, err)
 					continue
 				}
 			}
@@ -86,7 +87,7 @@ func (r *Run) createAuthMethodMap() {
 			// TODO(blacknon): keyCommandの追加
 			err := r.registAuthMapPublicKeyCommand(server, config.KeyCommand, config.KeyCommandPass)
 			if err != nil {
-				fmt.Println(err)
+				fmt.Fprintln(os.Stderr, err)
 			}
 		}
 
@@ -94,13 +95,13 @@ func (r *Run) createAuthMethodMap() {
 		if config.Cert != "" {
 			keySigner, err := sshlib.CreateSignerPublicKeyPrompt(config.CertKey, config.CertKeyPass)
 			if err != nil {
-				fmt.Println(err)
+				fmt.Fprintln(os.Stderr, err)
 				continue
 			}
 
 			err = r.registAuthMapCertificate(server, config.Cert, keySigner)
 			if err != nil {
-				fmt.Println(err)
+				fmt.Fprintln(os.Stderr, err)
 				continue
 			}
 		}
@@ -109,7 +110,7 @@ func (r *Run) createAuthMethodMap() {
 		if config.PKCS11Use {
 			err := r.registAuthMapPKCS11(server, config.PKCS11Provider, config.PKCS11PIN)
 			if err != nil {
-				fmt.Println(err)
+				fmt.Fprintln(os.Stderr, err)
 			}
 		}
 	}
