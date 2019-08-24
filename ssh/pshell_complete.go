@@ -12,6 +12,7 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"sync"
 
 	"github.com/c-bata/go-prompt"
 )
@@ -94,8 +95,12 @@ func (ps *pShell) Completer(t prompt.Document) []prompt.Suggest {
 			return prompt.FilterHasPrefix(a, t.GetWordBeforeCursor(), false)
 
 		default:
-			// Get path data.
-			ps.PathComplete = ps.GetPathComplete(!checkLocalCommand(c), t.GetWordBeforeCursor())
+			switch {
+			case contains([]string{"/"}, char): // char is slach or
+				ps.PathComplete = ps.GetPathComplete(!checkLocalCommand(c), t.GetWordBeforeCursor())
+			case contains([]string{" "}, char) && strings.Count(t.CurrentLineBeforeCursor(), " ") == 1:
+				ps.PathComplete = ps.GetPathComplete(!checkLocalCommand(c), t.GetWordBeforeCursor())
+			}
 
 			// get lash slash place
 			word := t.GetWordBeforeCursor()
@@ -179,26 +184,42 @@ func (ps *pShell) GetPathComplete(remote bool, word string) (p []prompt.Suggest)
 
 	switch {
 	case remote: // is remote machine
+		// create map
 		m := map[string][]string{}
+
+		exit := make(chan bool)
+
+		// create sync mutex
+		sm := new(sync.Mutex)
+
 		// append path to m
 		for _, c := range ps.Connects {
-			// Create buffer
-			buf := new(bytes.Buffer)
+			go func() {
+				// Create buffer
+				buf := new(bytes.Buffer)
 
-			// Create session, and output to buffer
-			session, _ := c.CreateSession()
-			session.Stdout = buf
+				// Create session, and output to buffer
+				session, _ := c.CreateSession()
+				session.Stdout = buf
 
-			// Run get complete command
-			session.Run(command)
+				// Run get complete command
+				session.Run(command)
 
-			// Scan and put completed command to map.
-			sc := bufio.NewScanner(buf)
-			for sc.Scan() {
-				path := filepath.Base(sc.Text())
-				// path := sc.Text()
-				m[path] = append(m[path], c.Name)
-			}
+				// Scan and put completed command to map.
+				sc := bufio.NewScanner(buf)
+				for sc.Scan() {
+					sm.Lock()
+					path := filepath.Base(sc.Text())
+					m[path] = append(m[path], c.Name)
+					sm.Unlock()
+				}
+
+				exit <- true
+			}()
+		}
+
+		for i := 0; i < len(ps.Connects); i++ {
+			<-exit
 		}
 
 		// m to suggest
