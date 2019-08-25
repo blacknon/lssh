@@ -109,13 +109,6 @@ type AuthKey struct {
 	Value string
 }
 
-// use scp, sftp
-type CopyConInfo struct {
-	IsRemote bool
-	Path     []string
-	Server   []string
-}
-
 const (
 	AUTHKEY_PASSWORD = "password"
 	AUTHKEY_AGENT    = "agent"
