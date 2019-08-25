@@ -56,10 +56,6 @@ type ScpConnect struct {
 	Output *Output
 }
 
-// push
-// pull
-// via
-
 // TODO(blacknon): scpプロトコルは使用せず、sftpプロトコルを利用する。(これにより、リモートにscpコマンドがなくても動作するようになる)
 // TODO(blacknon):
 //     scp時のプログレスバーの表示について検討する(リモートについては、リモートで実行しているscpコマンドの出力をそのまま出力すればいけそうな気がする)
@@ -81,12 +77,10 @@ func (cp *Scp) Start() {
 	switch {
 	// remote to remote
 	case cp.From.IsRemote && cp.To.IsRemote:
-		fmt.Println("create now...")
-		// cp.viapush()
+		cp.viaPush()
 
 	// remote to local
 	case cp.From.IsRemote && !cp.To.IsRemote:
-		// fmt.Println("create now...")
 		cp.pull()
 
 	// local to remote
@@ -139,7 +133,7 @@ func (cp *Scp) push() {
 
 			// push path
 			for _, path := range paths {
-				cp.pushpath(ftp, ow, path)
+				cp.pushPath(ftp, ow, path)
 			}
 
 			// exit messages
@@ -158,7 +152,7 @@ func (cp *Scp) push() {
 }
 
 //
-func (cp *Scp) pushpath(ftp *sftp.Client, ow *io.PipeWriter, path string) (err error) {
+func (cp *Scp) pushPath(ftp *sftp.Client, ow *io.PipeWriter, path string) (err error) {
 	// get rel path
 	baseDir, _ := os.Getwd()
 	relpath, _ := filepath.Rel(baseDir, path)
@@ -180,7 +174,7 @@ func (cp *Scp) pushpath(ftp *sftp.Client, ow *io.PipeWriter, path string) (err e
 
 		// copy file
 		// TODO(blacknon): Outputからプログレスバーで出力できるようにする(io.MultiWriterを利用して書き込み？)
-		err = cp.pushfile(lf, ftp, rpath)
+		err = cp.pushFile(lf, ftp, rpath)
 		if err != nil {
 			return err
 		}
@@ -197,7 +191,7 @@ func (cp *Scp) pushpath(ftp *sftp.Client, ow *io.PipeWriter, path string) (err e
 }
 
 // pushfile put file to path.
-func (cp *Scp) pushfile(file io.Reader, ftp *sftp.Client, path string) (err error) {
+func (cp *Scp) pushFile(file io.Reader, ftp *sftp.Client, path string) (err error) {
 	// mkdir all
 	dir := filepath.Dir(path)
 	err = ftp.MkdirAll(dir)
@@ -215,6 +209,81 @@ func (cp *Scp) pushfile(file io.Reader, ftp *sftp.Client, path string) (err erro
 	io.Copy(rf, file)
 
 	return
+}
+
+//
+func (cp *Scp) viaPush() {
+	// get server name
+	from := cp.From.Server[0] // string
+	to := cp.To.Server        // []string
+
+	// create client
+	fclient := cp.createScpConnects([]string{from})
+	tclient := cp.createScpConnects(to)
+	if len(fclient) == 0 || len(tclient) == 0 {
+		fmt.Fprintf(os.Stderr, "There is no host to connect to\n")
+		return
+	}
+
+	// pull and push data
+	for _, path := range cp.From.Path {
+		// TODO(): つくる。やってるさいちゅう。
+		cp.viaPushPath(path, fclient[0], tclient)
+	}
+}
+
+//
+func (cp *Scp) viaPushPath(path string, fclient *ScpConnect, tclients []*ScpConnect) {
+	// from ftp client
+	fftp := fclient.Connect
+
+	// create from sftp walker
+	walker := fftp.Walk(path)
+
+	// get from sftp output writer
+	fclient.Output.Create(fclient.Server)
+	fow := fclient.Output.NewWriter()
+
+	for walker.Step() {
+		err := walker.Err()
+		if err != nil {
+			fmt.Fprintf(fow, "Error: %s\n", err)
+			continue
+		}
+
+		p := walker.Path()
+		stat := walker.Stat()
+		if stat.IsDir() { // is directory
+			for _, tc := range tclients {
+				tc.Connect.Mkdir(p)
+			}
+		} else { // is file
+			// open from server file
+			file, err := fftp.Open(p)
+			if err != nil {
+				fmt.Fprintf(fow, "Error: %s\n", err)
+				continue
+			}
+
+			exit := make(chan bool)
+			for _, tc := range tclients {
+				tclient := tc
+				go func() {
+					tclient.Output.Create(tclient.Server)
+					tow := tclient.Output.NewWriter()
+
+					cp.pushFile(file, tclient.Connect, p)
+					exit <- true
+
+					fmt.Fprintf(tow, "exit: %s\n", p)
+				}()
+			}
+
+			for i := 0; i < len(tclients); i++ {
+				<-exit
+			}
+		}
+	}
 }
 
 //
@@ -244,7 +313,7 @@ func (cp *Scp) pull() {
 			ow := client.Output.NewWriter()
 
 			// pull data
-			cp.pullpath(ftp, ow, client.Server)
+			cp.pullPath(ftp, ow, client.Server)
 
 			exit <- true
 		}()
@@ -258,7 +327,7 @@ func (cp *Scp) pull() {
 }
 
 // walk return file path list ([]string).
-func (cp *Scp) pullpath(ftp *sftp.Client, ow *io.PipeWriter, server string) (result []string) {
+func (cp *Scp) pullPath(ftp *sftp.Client, ow *io.PipeWriter, server string) (result []string) {
 	// basedir
 	baseDir := cp.To.Path[0]
 
