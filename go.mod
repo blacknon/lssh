@@ -2,7 +2,6 @@ module github.com/blacknon/lssh
 
 require (
 	github.com/BurntSushi/toml v0.3.1
-	github.com/blacknon/go-scplib v0.1.0
 	github.com/blacknon/go-sshlib v0.1.1
 	github.com/c-bata/go-prompt v0.2.3
 	github.com/golang/glog v0.0.0-20160126235308-23def4e6c14b // indirect

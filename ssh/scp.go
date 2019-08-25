@@ -86,8 +86,8 @@ func (cp *Scp) Start() {
 
 	// remote to local
 	case cp.From.IsRemote && !cp.To.IsRemote:
-		fmt.Println("create now...")
-		// cp.pull()
+		// fmt.Println("create now...")
+		cp.pull()
 
 	// local to remote
 	case !cp.From.IsRemote && cp.To.IsRemote:
@@ -163,6 +163,7 @@ func (cp *Scp) pushpath(ftp *sftp.Client, ow *io.PipeWriter, path string) (err e
 	baseDir, _ := os.Getwd()
 	relpath, _ := filepath.Rel(baseDir, path)
 	relpath = strings.Replace(relpath, "../", "", -1) // test(delete `../`)
+	relpath = strings.Replace(relpath, "//", "/", -1) // test(replace `/` => `/`)
 	rpath := cp.To.Path[0] + "/" + relpath
 
 	// get local file info
@@ -242,15 +243,76 @@ func (cp *Scp) pull() {
 			client.Output.Create(client.Server)
 			ow := client.Output.NewWriter()
 
-			// get path
-			// TODO(2019/08/25): walkを外だしして対処
-			for _, path := range cp.From.Path {
-				walker := ftp.Walk(path)
-				walker.Path()
-			}
+			// pull data
+			cp.pullpath(ftp, ow, client.Server)
 
+			exit <- true
 		}()
 	}
+
+	// wait send data
+	for i := 0; i < len(clients); i++ {
+		<-exit
+	}
+	close(exit)
+}
+
+// walk return file path list ([]string).
+func (cp *Scp) pullpath(ftp *sftp.Client, ow *io.PipeWriter, server string) (result []string) {
+	// basedir
+	baseDir := cp.To.Path[0]
+
+	// if multi pull, servername add baseDir
+	if len(cp.From.Server) > 1 {
+		baseDir = filepath.Join(baseDir, server)
+		os.Mkdir(baseDir, 0755)
+	}
+
+	// walk remote path
+	for _, path := range cp.From.Path {
+		walker := ftp.Walk(path)
+		for walker.Step() {
+			err := walker.Err()
+			if err != nil {
+				fmt.Fprintf(ow, "Error: %s\n", err)
+				continue
+			}
+
+			p := walker.Path()
+			lpath := filepath.Join(baseDir, p)
+
+			stat := walker.Stat()
+			if stat.IsDir() { // create dir
+				os.Mkdir(lpath, 0755)
+			} else { // create file
+				rf, err := ftp.Open(p)
+				if err != nil {
+					fmt.Fprintf(ow, "Error: %s\n", err)
+					continue
+				}
+
+				lf, err := os.OpenFile(lpath, os.O_RDWR|os.O_CREATE, 0644)
+				if err != nil {
+					fmt.Fprintf(ow, "Error: %s\n", err)
+					continue
+				}
+
+				io.Copy(lf, rf)
+			}
+
+			// set mode
+			if cp.Permission {
+				os.Chmod(lpath, stat.Mode())
+			}
+
+			fmt.Fprintf(ow, "%s => %s exit.\n", path, lpath)
+		}
+	}
+
+	// sort result
+	sort.Strings(result)
+
+	return result
 }
 
 // createScpConnects return []*ScpConnect.
