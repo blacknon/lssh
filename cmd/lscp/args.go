@@ -182,7 +182,7 @@ USAGE:
 		}
 
 		// scp struct
-		runScp := new(ssh.RunScp)
+		scp := new(ssh.Scp)
 
 		// set from info
 		for _, from := range fromArgs {
@@ -200,42 +200,42 @@ USAGE:
 			}
 
 			// set from data
-			runScp.From.IsRemote = isFromRemote
+			scp.From.IsRemote = isFromRemote
 			if isFromRemote {
 				fromPath = check.EscapePath(fromPath)
 			}
-			runScp.From.Path = append(runScp.From.Path, fromPath)
+			scp.From.Path = append(scp.From.Path, fromPath)
 
 		}
-		runScp.From.Server = fromServer
+		scp.From.Server = fromServer
 
 		// set to info
 		isToRemote, toPath := check.ParseScpPath(toArg)
-		runScp.To.IsRemote = isToRemote
+		scp.To.IsRemote = isToRemote
 		if isToRemote {
 			toPath = check.EscapePath(toPath)
 		}
-		runScp.To.Path = []string{toPath}
-		runScp.To.Server = toServer
+		scp.To.Path = []string{toPath}
+		scp.To.Server = toServer
 
-		runScp.Permission = c.Bool("permission")
-		runScp.Config = data
+		scp.Permission = c.Bool("permission")
+		scp.Config = data
 
 		// print from
 		if !isFromInRemote {
-			fmt.Fprintf(os.Stderr, "From local:%s\n", runScp.From.Path)
+			fmt.Fprintf(os.Stderr, "From local:%s\n", scp.From.Path)
 		} else {
-			fmt.Fprintf(os.Stderr, "From remote(%s):%s\n", strings.Join(runScp.From.Server, ","), runScp.From.Path)
+			fmt.Fprintf(os.Stderr, "From remote(%s):%s\n", strings.Join(scp.From.Server, ","), scp.From.Path)
 		}
 
 		// print to
 		if !isToRemote {
-			fmt.Fprintf(os.Stderr, "To   local:%s\n", runScp.To.Path)
+			fmt.Fprintf(os.Stderr, "To   local:%s\n", scp.To.Path)
 		} else {
-			fmt.Fprintf(os.Stderr, "To   remote(%s):%s\n", strings.Join(runScp.To.Server, ","), runScp.To.Path)
+			fmt.Fprintf(os.Stderr, "To   remote(%s):%s\n", strings.Join(scp.To.Server, ","), scp.To.Path)
 		}
 
-		runScp.Start()
+		scp.Start()
 		return nil
 	}
 
