@@ -4,8 +4,6 @@ github.com/ThalesIgnite/crypto11 v0.1.0 h1:wh3jljzD2GLFcWZQlT5RC2yHxt10gdxhZg/Tn
 github.com/ThalesIgnite/crypto11 v0.1.0/go.mod h1:DdvQlzHSrdXwhcXCWY6o1HquZycJyAwsXXpKlk1+rww=
 github.com/armon/go-socks5 v0.0.0-20160902184237-e75332964ef5 h1:0CwZNZbxp69SHPdPJAN/hZIm0C4OItdklCFmMRWYpio=
 github.com/armon/go-socks5 v0.0.0-20160902184237-e75332964ef5/go.mod h1:wHh0iHkYZB8zMSxRWpUBQtwG5a7fFgvEO+odwuTv2gs=
-github.com/blacknon/go-scplib v0.1.0 h1:aqOisPQeweqnJ8Fj0shKeIAph0f2YeF78kHQqecQGLw=
-github.com/blacknon/go-scplib v0.1.0/go.mod h1:4C1mtfKx4LurNk74Q1m77WCgICatc8nCw3TI73lrLZc=
 github.com/c-bata/go-prompt v0.2.3 h1:jjCS+QhG/sULBhAaBdjb2PlMRVaKXQgn+4yzaauvs2s=
 github.com/c-bata/go-prompt v0.2.3/go.mod h1:VzqtzE2ksDBcdln8G7mk2RX9QyGjH+OVqOCSiVIqS34=
 github.com/davecgh/go-spew v1.1.0 h1:ZDRjVQ15GmhC3fiQ8ni8+OwkZQO4DARzQgrnXU1Liz8=
