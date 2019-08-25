@@ -11,8 +11,8 @@ import (
 )
 
 type RunSftp struct {
-	From       CopyConInfo
-	To         CopyConInfo
+	// From       CopyConInfo
+	// To         CopyConInfo
 	Permission bool
 	Config     conf.Config
 	IsShell    bool
