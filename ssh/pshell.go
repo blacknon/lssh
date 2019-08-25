@@ -18,6 +18,8 @@ import (
 	"github.com/c-bata/go-prompt/completer"
 )
 
+// TODO(blacknon): 接続が切れた場合の再接続処理、および再接続ができなかった場合のsliceからの削除対応の追加(v0.6.0)
+
 // TODO(blacknon): pShellのログ(実行コマンド及び出力結果)をログとしてファイルに記録する機能の追加(v0.6.1)
 
 // Pshell is Parallel-Shell struct
