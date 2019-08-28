@@ -10,7 +10,6 @@ import (
 	"os"
 	"path/filepath"
 	"sort"
-	"strings"
 	"sync"
 
 	"github.com/blacknon/lssh/common"
@@ -160,11 +159,12 @@ func (cp *Scp) push() {
 //
 func (cp *Scp) pushPath(ftp *sftp.Client, ow *io.PipeWriter, path string) (err error) {
 	// get rel path
-	baseDir, _ := os.Getwd()
-	relpath, _ := filepath.Rel(baseDir, path)
-	relpath = strings.Replace(relpath, "../", "", -1) // test(delete `../`)
-	relpath = strings.Replace(relpath, "//", "/", -1) // test(replace `/` => `/`)
-	rpath := cp.To.Path[0] + "/" + relpath
+	// baseDir, _ := os.Getwd()
+	// relpath, _ := filepath.Base(baseDir, path)
+	// relpath = strings.Replace(relpath, "../", "", -1) // test(delete `../`)
+	// relpath = strings.Replace(relpath, "//", "/", -1) // test(replace `/` => `/`)
+	// rpath := cp.To.Path[0] + "/" + relpath
+	rpath := filepath.Base(path)
 
 	// get local file info
 	fInfo, _ := os.Lstat(path)
@@ -233,7 +233,6 @@ func (cp *Scp) viaPush() {
 
 	// pull and push data
 	for _, path := range cp.From.Path {
-		// TODO(): つくる。やってるさいちゅう。
 		cp.viaPushPath(path, fclient[0], tclient)
 	}
 }
@@ -340,13 +339,18 @@ func (cp *Scp) pullPath(ftp *sftp.Client, ow *io.PipeWriter, server string) (res
 	// if multi pull, servername add baseDir
 	if len(cp.From.Server) > 1 {
 		baseDir = filepath.Join(baseDir, server)
-		os.Mkdir(baseDir, 0755)
+		os.MkdirAll(baseDir, 0755)
 	}
+	baseDir, _ = filepath.Abs(baseDir)
 
 	// walk remote path
 	for _, path := range cp.From.Path {
 		walker := ftp.Walk(path)
 		for walker.Step() {
+			// basedir
+			remoteBase := filepath.Dir(path)
+			fmt.Println(remoteBase)
+
 			err := walker.Err()
 			if err != nil {
 				fmt.Fprintf(ow, "Error: %s\n", err)
@@ -354,11 +358,14 @@ func (cp *Scp) pullPath(ftp *sftp.Client, ow *io.PipeWriter, server string) (res
 			}
 
 			p := walker.Path()
-			lpath := filepath.Join(baseDir, p)
+			rp, _ := filepath.Rel(remoteBase, p)
+			fmt.Println(rp)
+			lpath := filepath.Join(baseDir, rp)
+			fmt.Println(lpath)
 
 			stat := walker.Stat()
 			if stat.IsDir() { // create dir
-				os.Mkdir(lpath, 0755)
+				os.MkdirAll(lpath, 0755)
 			} else { // create file
 				rf, err := ftp.Open(p)
 				if err != nil {
