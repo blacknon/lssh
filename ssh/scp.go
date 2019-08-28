@@ -122,6 +122,7 @@ func (cp *Scp) push() {
 	//     ex.) `/dotfiles/.tmux.conf => /hoge/fuga/dir/`と指定した際
 	//          正) /hoge/fuga/dir/.tmux.conf
 	//          誤) /hoge/fuga/dir/dotfiles/.tmux.conf <= 今コッチになってる
+	//     絶対PATHで指定しても挙動がおかしいので、対応を考える必要あり！
 
 	// parallel push data
 	for _, c := range clients {
