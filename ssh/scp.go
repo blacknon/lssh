@@ -118,6 +118,11 @@ func (cp *Scp) push() {
 	// sort paths
 	sort.Strings(paths)
 
+	// TODO(blacknon): PATHの指定方法がおかしいので、対処する
+	//     ex.) `/dotfiles/.tmux.conf => /hoge/fuga/dir/`と指定した際
+	//          正) /hoge/fuga/dir/.tmux.conf
+	//          誤) /hoge/fuga/dir/dotfiles/.tmux.conf <= 今コッチになってる
+
 	// parallel push data
 	for _, c := range clients {
 		client := c
