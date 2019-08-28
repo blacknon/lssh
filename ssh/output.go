@@ -15,6 +15,7 @@ import (
 
 	"github.com/blacknon/lssh/common"
 	"github.com/blacknon/lssh/conf"
+	"github.com/vbauerster/mpb"
 )
 
 // Output struct. command execute and lssh-shell mode output data.
@@ -50,7 +51,11 @@ type Output struct {
 	// ServerConfig
 	Conf conf.ServerConfig
 
+	// TODO(blacknon): プログレスバーを出力させるための項目を追加
+	Progress *mpb.Progress
+
 	// Auto Colorize flag
+	// TODO(blacknon): colormodeに応じて、パイプ経由だった場合は色分けしないなどの対応ができるように条件分岐する
 	AutoColor bool
 }
 
