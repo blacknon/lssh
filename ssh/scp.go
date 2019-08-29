@@ -104,18 +104,23 @@ func (cp *Scp) push() {
 	}
 
 	// get local host directory walk data
-	paths := []string{}
+	pathset := []PathSet{}
 	for _, p := range cp.From.Path {
 		data, err := common.WalkDir(p)
 		if err != nil {
 			continue
 		}
 
-		paths = append(paths, data...)
+		sort.Strings(data)
+		dataset := PathSet{
+			Base:      filepath.Dir(p),
+			PathSlice: data,
+		}
+
+		pathset = append(pathset, dataset)
 	}
 
 	// sort paths
-	sort.Strings(paths)
 
 	// TODO(blacknon): PATHの指定方法がおかしいので、対処する
 	//     ex.) `/dotfiles/.tmux.conf => /hoge/fuga/dir/`と指定した際
@@ -137,8 +142,12 @@ func (cp *Scp) push() {
 			ow := client.Output.NewWriter()
 
 			// push path
-			for _, path := range paths {
-				cp.pushPath(ftp, ow, path)
+			for _, p := range pathset {
+				base := p.Base
+				data := p.PathSlice
+				for _, path := range data {
+					cp.pushPath(ftp, ow, base, path)
+				}
 			}
 
 			// exit messages
@@ -157,14 +166,10 @@ func (cp *Scp) push() {
 }
 
 //
-func (cp *Scp) pushPath(ftp *sftp.Client, ow *io.PipeWriter, path string) (err error) {
+func (cp *Scp) pushPath(ftp *sftp.Client, ow *io.PipeWriter, base, path string) (err error) {
 	// get rel path
-	// baseDir, _ := os.Getwd()
-	// relpath, _ := filepath.Base(baseDir, path)
-	// relpath = strings.Replace(relpath, "../", "", -1) // test(delete `../`)
-	// relpath = strings.Replace(relpath, "//", "/", -1) // test(replace `/` => `/`)
-	// rpath := cp.To.Path[0] + "/" + relpath
-	rpath := filepath.Base(path)
+	relpath, _ := filepath.Rel(base, path)
+	rpath := filepath.Join(cp.To.Path[0], relpath)
 
 	// get local file info
 	fInfo, _ := os.Lstat(path)
@@ -349,7 +354,6 @@ func (cp *Scp) pullPath(ftp *sftp.Client, ow *io.PipeWriter, server string) (res
 		for walker.Step() {
 			// basedir
 			remoteBase := filepath.Dir(path)
-			fmt.Println(remoteBase)
 
 			err := walker.Err()
 			if err != nil {
@@ -359,9 +363,7 @@ func (cp *Scp) pullPath(ftp *sftp.Client, ow *io.PipeWriter, server string) (res
 
 			p := walker.Path()
 			rp, _ := filepath.Rel(remoteBase, p)
-			fmt.Println(rp)
 			lpath := filepath.Join(baseDir, rp)
-			fmt.Println(lpath)
 
 			stat := walker.Stat()
 			if stat.IsDir() { // create dir
