@@ -2,6 +2,7 @@ module github.com/blacknon/lssh
 
 require (
 	github.com/BurntSushi/toml v0.3.1
+	github.com/VividCortex/ewma v1.1.1 // indirect
 	github.com/blacknon/go-sshlib v0.1.1
 	github.com/c-bata/go-prompt v0.2.3
 	github.com/golang/glog v0.0.0-20160126235308-23def4e6c14b // indirect
@@ -19,6 +20,7 @@ require (
 	github.com/sevlyar/go-daemon v0.1.5
 	github.com/stretchr/testify v1.3.0
 	github.com/urfave/cli v1.20.0
+	github.com/vbauerster/mpb v3.4.0+incompatible
 	github.com/youtube/vitess v2.1.1+incompatible // indirect
 	golang.org/x/crypto v0.0.0-20190701094942-4def268fd1a4
 	golang.org/x/net v0.0.0-20190420063019-afa5a82059c6

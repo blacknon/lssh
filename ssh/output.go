@@ -8,13 +8,17 @@ import (
 	"bufio"
 	"fmt"
 	"io"
+	"math/rand"
 	"os"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/blacknon/lssh/common"
 	"github.com/blacknon/lssh/conf"
+	"github.com/vbauerster/mpb"
+	"github.com/vbauerster/mpb/decor"
 )
 
 // Output struct. command execute and lssh-shell mode output data.
@@ -52,7 +56,8 @@ type Output struct {
 
 	// Progress bar
 	// TODO(blacknon): プログレスバーを出力させるための項目を追加
-	// Progress *mpb.Progress
+	Progress   *mpb.Progress
+	ProgressWG *sync.WaitGroup
 
 	// Auto Colorize flag
 	// TODO(blacknon): colormodeに応じて、パイプ経由だった場合は色分けしないなどの対応ができるように条件分岐する
@@ -129,6 +134,54 @@ loop:
 			continue
 		}
 	}
+}
+
+// ProgressPrinter
+func (o *Output) ProgressPrinter(size int64, reader io.Reader) {
+	// print header
+	oPrompt := ""
+	if len(o.ServerList) > 1 {
+		oPrompt = o.GetPrompt()
+	}
+
+	// set progress
+	bar := o.Progress.AddBar((size),
+		mpb.PrependDecorators(
+			decor.Name(oPrompt),                 // set name
+			decor.Percentage(decor.WCSyncSpace), // decor.DSyncWidth bit enables column width synchronization
+		),
+		mpb.AppendDecorators(
+			// replace ETA decorator with "done" message, OnComplete event
+			decor.OnComplete(
+				// ETA decorator with ewma age of 60
+				decor.EwmaETA(decor.ET_STYLE_GO, 60), "done",
+			),
+		),
+	)
+
+	// set start, and max time
+	start := time.Now()
+	max := 10 * time.Millisecond
+
+	var sum int
+
+	// print out progress
+	defer o.ProgressWG.Done()
+	for !bar.Completed() {
+		// sleep
+		time.Sleep(time.Duration(rand.Intn(10)+1) * max / 10)
+
+		// read byte (1mb)
+		b := make([]byte, 1048576)
+		s, _ := reader.Read(b)
+
+		sum += s
+
+		// add size
+		bar.IncrBy(s, time.Since(start))
+	}
+
+	return
 }
 
 func outColorStrings(num int, inStrings string) (str string) {

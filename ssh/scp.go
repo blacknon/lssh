@@ -15,6 +15,7 @@ import (
 	"github.com/blacknon/lssh/common"
 	"github.com/blacknon/lssh/conf"
 	"github.com/pkg/sftp"
+	"github.com/vbauerster/mpb"
 	"golang.org/x/crypto/ssh"
 )
 
@@ -23,14 +24,26 @@ var (
 )
 
 type Scp struct {
-	Run         *Run
-	From        ScpInfo
-	To          ScpInfo
-	Permission  bool
+	// ssh Run
+	Run *Run
+
+	// From and To data
+	From ScpInfo
+	To   ScpInfo
+
+	Config  conf.Config
+	AuthMap map[AuthKey][]ssh.AuthMethod
+
+	// copy with permission flag
+	Permission bool
+
+	// send parallel flag
 	Parallel    bool
 	ParallelNum int
-	Config      conf.Config
-	AuthMap     map[AuthKey][]ssh.AuthMethod
+
+	// progress bar
+	Progress   *mpb.Progress
+	ProgressWG *sync.WaitGroup
 }
 
 type ScpInfo struct {
@@ -55,12 +68,10 @@ type ScpConnect struct {
 	Output *Output
 }
 
-// TODO(blacknon): scpプロトコルは使用せず、sftpプロトコルを利用する。(これにより、リモートにscpコマンドがなくても動作するようになる)
 // TODO(blacknon):
 //     scp時のプログレスバーの表示について検討する(リモートについては、リモートで実行しているscpコマンドの出力をそのまま出力すればいけそうな気がする)
 //     https://github.com/cheggaaa/pb
 //     https://github.com/vbauerster/mpb // パラレルのバーを使うので、使うならこっち！
-// TODO(blacknon): Reader/Writerでの処理に切り替えたほうが良さそう
 
 // Start scp, switching process.
 func (cp *Scp) Start() {
@@ -72,6 +83,10 @@ func (cp *Scp) Start() {
 	cp.Run.ServerList = slist
 	cp.Run.Conf = cp.Config
 	cp.Run.createAuthMethodMap()
+
+	// Create Progress bar struct
+	cp.ProgressWG = new(sync.WaitGroup)
+	cp.Progress = mpb.New(mpb.WithWaitGroup(cp.ProgressWG))
 
 	switch {
 	// remote to remote
@@ -307,16 +322,8 @@ func (cp *Scp) pull() {
 	for _, c := range clients {
 		client := c
 		go func() {
-			// set ftp client
-			ftp := client.Connect
-
-			// get output writer
-			client.Output.Create(client.Server)
-			ow := client.Output.NewWriter()
-
 			// pull data
-			cp.pullPath(ftp, ow, client.Server)
-
+			cp.pullPath(client)
 			exit <- true
 		}()
 	}
@@ -329,13 +336,20 @@ func (cp *Scp) pull() {
 }
 
 // walk return file path list ([]string).
-func (cp *Scp) pullPath(ftp *sftp.Client, ow *io.PipeWriter, server string) (result []string) {
+func (cp *Scp) pullPath(client *ScpConnect) (result []string) {
+	// set ftp client
+	ftp := client.Connect
+
+	// get output writer
+	client.Output.Create(client.Server)
+	ow := client.Output.NewWriter()
+
 	// basedir
 	baseDir := cp.To.Path[0]
 
 	// if multi pull, servername add baseDir
 	if len(cp.From.Server) > 1 {
-		baseDir = filepath.Join(baseDir, server)
+		baseDir = filepath.Join(baseDir, client.Server)
 		os.MkdirAll(baseDir, 0755)
 	}
 	baseDir, _ = filepath.Abs(baseDir)
@@ -361,27 +375,40 @@ func (cp *Scp) pullPath(ftp *sftp.Client, ow *io.PipeWriter, server string) (res
 			if stat.IsDir() { // create dir
 				os.MkdirAll(lpath, 0755)
 			} else { // create file
+				// get size
+				size := stat.Size()
+
+				// start messages
+				fmt.Fprintf(ow, "[%d] %s => %s\n", size, path, lpath)
+
+				// open remote file
 				rf, err := ftp.Open(p)
 				if err != nil {
 					fmt.Fprintf(ow, "Error: %s\n", err)
 					continue
 				}
 
+				// open local file
 				lf, err := os.OpenFile(lpath, os.O_RDWR|os.O_CREATE, 0644)
 				if err != nil {
 					fmt.Fprintf(ow, "Error: %s\n", err)
 					continue
 				}
 
-				io.Copy(lf, rf)
+				// set tee reader
+				rd := io.TeeReader(rf, lf)
+
+				cp.ProgressWG.Add(1)
+				client.Output.ProgressPrinter(size, rd)
+
+				// exit messages
+				fmt.Fprintf(ow, "[%d] %s => %s done.\n", size, path, lpath)
 			}
 
 			// set mode
 			if cp.Permission {
 				os.Chmod(lpath, stat.Mode())
 			}
-
-			fmt.Fprintf(ow, "%s => %s exit.\n", path, lpath)
 		}
 	}
 
@@ -394,7 +421,6 @@ func (cp *Scp) pullPath(ftp *sftp.Client, ow *io.PipeWriter, server string) (res
 // createScpConnects return []*ScpConnect.
 func (cp *Scp) createScpConnects(targets []string) (result []*ScpConnect) {
 	ch := make(chan bool)
-
 	m := new(sync.Mutex)
 	for _, target := range targets {
 		server := target
@@ -421,6 +447,8 @@ func (cp *Scp) createScpConnects(targets []string) (result []*ScpConnect) {
 				ServerList: targets,
 				Conf:       cp.Config.Server[server],
 				AutoColor:  true,
+				Progress:   cp.Progress,
+				ProgressWG: cp.ProgressWG,
 			}
 
 			// create ScpConnect
