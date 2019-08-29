@@ -109,6 +109,12 @@ type AuthKey struct {
 	Value string
 }
 
+// use scp,sftp
+type PathSet struct {
+	Base      string
+	PathSlice []string
+}
+
 const (
 	AUTHKEY_PASSWORD = "password"
 	AUTHKEY_AGENT    = "agent"
