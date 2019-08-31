@@ -154,12 +154,12 @@ func (cp *Scp) push() {
 				base := p.Base
 				data := p.PathSlice
 				for _, path := range data {
-					cp.pushPath(ftp, ow, base, path)
+					cp.pushPath(ftp, ow, client.Output, base, path)
 				}
 			}
 
 			// exit messages
-			fmt.Fprintf(ow, "all push exit.\n")
+			// fmt.Fprintf(ow, "all push exit.\n")
 
 			// exit
 			exit <- true
@@ -171,10 +171,15 @@ func (cp *Scp) push() {
 		<-exit
 	}
 	close(exit)
+
+	time.Sleep(300 * time.Millisecond)
+
+	// exit messages
+	fmt.Println("all push exit.")
 }
 
 //
-func (cp *Scp) pushPath(ftp *sftp.Client, ow *io.PipeWriter, base, path string) (err error) {
+func (cp *Scp) pushPath(ftp *sftp.Client, ow *io.PipeWriter, output *Output, base, path string) (err error) {
 	// get rel path
 	relpath, _ := filepath.Rel(base, path)
 	rpath := filepath.Join(cp.To.Path[0], relpath)
@@ -191,9 +196,13 @@ func (cp *Scp) pushPath(ftp *sftp.Client, ow *io.PipeWriter, base, path string) 
 		}
 		defer lf.Close()
 
+		// get file size
+		lstat, _ := os.Lstat(path)
+		size := lstat.Size()
+
 		// copy file
 		// TODO(blacknon): Outputからプログレスバーで出力できるようにする(io.MultiWriterを利用して書き込み？)
-		err = cp.pushFile(lf, ftp, rpath)
+		err = cp.pushFile(lf, ftp, output, rpath, size)
 		if err != nil {
 			return err
 		}
@@ -204,13 +213,13 @@ func (cp *Scp) pushPath(ftp *sftp.Client, ow *io.PipeWriter, base, path string) 
 		ftp.Chmod(rpath, fInfo.Mode())
 	}
 
-	fmt.Fprintf(ow, "%s => %s exit.\n", path, rpath)
+	// fmt.Fprintf(ow, "%s => %s exit.\n", path, rpath)
 
 	return
 }
 
 // pushfile put file to path.
-func (cp *Scp) pushFile(file io.Reader, ftp *sftp.Client, path string) (err error) {
+func (cp *Scp) pushFile(lf io.Reader, ftp *sftp.Client, output *Output, path string, size int64) (err error) {
 	// mkdir all
 	dir := filepath.Dir(path)
 	err = ftp.MkdirAll(dir)
@@ -224,8 +233,15 @@ func (cp *Scp) pushFile(file io.Reader, ftp *sftp.Client, path string) (err erro
 		return
 	}
 
+	// set tee reader
+	rd := io.TeeReader(lf, rf)
+
+	// copy to data
+	cp.ProgressWG.Add(1)
+	output.ProgressPrinter(size, rd, path)
+
 	// copy file
-	io.Copy(rf, file)
+	// io.Copy(rf, file)
 
 	return
 }
@@ -282,18 +298,16 @@ func (cp *Scp) viaPushPath(path string, fclient *ScpConnect, tclients []*ScpConn
 				fmt.Fprintf(fow, "Error: %s\n", err)
 				continue
 			}
+			size := stat.Size()
 
 			exit := make(chan bool)
 			for _, tc := range tclients {
 				tclient := tc
 				go func() {
 					tclient.Output.Create(tclient.Server)
-					tow := tclient.Output.NewWriter()
 
-					cp.pushFile(file, tclient.Connect, p)
+					cp.pushFile(file, tclient.Connect, tclient.Output, p, size)
 					exit <- true
-
-					fmt.Fprintf(tow, "exit: %s\n", p)
 				}()
 			}
 
@@ -400,7 +414,7 @@ func (cp *Scp) pullPath(client *ScpConnect) {
 				rd := io.TeeReader(rf, lf)
 
 				cp.ProgressWG.Add(1)
-				client.Output.ProgressPrinter(size, rd, p, lpath)
+				client.Output.ProgressPrinter(size, rd, p)
 			}
 
 			// set mode
