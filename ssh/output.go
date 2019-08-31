@@ -137,7 +137,7 @@ loop:
 }
 
 // ProgressPrinter
-func (o *Output) ProgressPrinter(size int64, reader io.Reader, from, to string) {
+func (o *Output) ProgressPrinter(size int64, reader io.Reader, path string) {
 	// print header
 	oPrompt := ""
 	if len(o.ServerList) > 1 {
@@ -145,15 +145,14 @@ func (o *Output) ProgressPrinter(size int64, reader io.Reader, from, to string) 
 	}
 
 	// trim space
-	from = strings.TrimSpace(from)
-	to = strings.TrimSpace(to)
+	path = strings.TrimSpace(path)
 
 	// set progress
 	bar := o.Progress.AddBar((size),
 		mpb.BarClearOnComplete(),
 		mpb.PrependDecorators(
-			decor.Name(oPrompt, decor.WC{W: len(from) + 1, C: decor.DSyncSpaceR}),
-			decor.OnComplete(decor.Name(from, decor.WCSyncSpaceR), fmt.Sprintf("%s done!", from)),
+			decor.Name(oPrompt, decor.WC{W: len(path) + 1, C: decor.DSyncSpaceR}),
+			decor.OnComplete(decor.Name(path, decor.WCSyncSpaceR), fmt.Sprintf("%s done!", path)),
 			decor.OnComplete(decor.EwmaETA(decor.ET_STYLE_MMSS, 0, decor.WCSyncWidth), ""),
 		),
 		mpb.AppendDecorators(
