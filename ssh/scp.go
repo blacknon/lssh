@@ -378,9 +378,6 @@ func (cp *Scp) pullPath(client *ScpConnect) (result []string) {
 				// get size
 				size := stat.Size()
 
-				// start messages
-				fmt.Fprintf(ow, "[%d] %s => %s\n", size, path, lpath)
-
 				// open remote file
 				rf, err := ftp.Open(p)
 				if err != nil {
@@ -399,10 +396,7 @@ func (cp *Scp) pullPath(client *ScpConnect) (result []string) {
 				rd := io.TeeReader(rf, lf)
 
 				cp.ProgressWG.Add(1)
-				client.Output.ProgressPrinter(size, rd)
-
-				// exit messages
-				fmt.Fprintf(ow, "[%d] %s => %s done.\n", size, path, lpath)
+				client.Output.ProgressPrinter(size, rd, p, lpath)
 			}
 
 			// set mode
