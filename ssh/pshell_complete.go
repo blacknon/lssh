@@ -180,6 +180,7 @@ func (ps *pShell) GetCommandComplete() {
 }
 
 // GetPathComplete return complete path from local or remote machine.
+// TODO(blacknon): 複数のノードにあるPATHだけ補完リストに出てる状態なので、単一ノードにしか無いファイルも出力されるよう修正する
 func (ps *pShell) GetPathComplete(remote bool, word string) (p []prompt.Suggest) {
 	compCmd := []string{"compgen", "-f", word}
 	command := strings.Join(compCmd, " ")
