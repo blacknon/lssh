@@ -11,6 +11,7 @@ import (
 	"path/filepath"
 	"sort"
 	"sync"
+	"time"
 
 	"github.com/blacknon/lssh/common"
 	"github.com/blacknon/lssh/conf"
@@ -333,10 +334,13 @@ func (cp *Scp) pull() {
 		<-exit
 	}
 	close(exit)
+
+	// exit messages
+	fmt.Println("all pull exit.")
 }
 
 // walk return file path list ([]string).
-func (cp *Scp) pullPath(client *ScpConnect) (result []string) {
+func (cp *Scp) pullPath(client *ScpConnect) {
 	// set ftp client
 	ftp := client.Connect
 
@@ -406,10 +410,9 @@ func (cp *Scp) pullPath(client *ScpConnect) (result []string) {
 		}
 	}
 
-	// sort result
-	sort.Strings(result)
+	time.Sleep(300 * time.Millisecond)
 
-	return result
+	return
 }
 
 // createScpConnects return []*ScpConnect.
