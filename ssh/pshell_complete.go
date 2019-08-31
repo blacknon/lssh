@@ -18,6 +18,7 @@ import (
 )
 
 // TODO(blacknon): `!!`や`!$`についても実装を行う
+// TODO(blacknon): `!command`だとまとめてパイプ経由でデータを渡すことになっているが、`!!command`で個別のローカルコマンドにデータを渡すように実装する
 
 // Completer parallel-shell complete function
 func (ps *pShell) Completer(t prompt.Document) []prompt.Suggest {
@@ -162,6 +163,7 @@ func (ps *pShell) GetCommandComplete() {
 	// cmdMap to suggest
 	for cmd, hosts := range cmdMap {
 		// join hosts
+		sort.Strings(hosts)
 		h := strings.Join(hosts, ",")
 
 		// create suggest
@@ -194,6 +196,7 @@ func (ps *pShell) GetPathComplete(remote bool, word string) (p []prompt.Suggest)
 
 		// append path to m
 		for _, c := range ps.Connects {
+			con := c
 			go func() {
 				// Create buffer
 				buf := new(bytes.Buffer)
@@ -210,7 +213,7 @@ func (ps *pShell) GetPathComplete(remote bool, word string) (p []prompt.Suggest)
 				for sc.Scan() {
 					sm.Lock()
 					path := filepath.Base(sc.Text())
-					m[path] = append(m[path], c.Name)
+					m[path] = append(m[path], con.Name)
 					sm.Unlock()
 				}
 

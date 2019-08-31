@@ -137,26 +137,44 @@ loop:
 }
 
 // ProgressPrinter
-func (o *Output) ProgressPrinter(size int64, reader io.Reader) {
+func (o *Output) ProgressPrinter(size int64, reader io.Reader, from, to string) {
 	// print header
 	oPrompt := ""
 	if len(o.ServerList) > 1 {
 		oPrompt = o.GetPrompt()
 	}
 
+	// trim space
+	from = strings.TrimSpace(from)
+	to = strings.TrimSpace(to)
+
 	// set progress
 	bar := o.Progress.AddBar((size),
+		mpb.BarClearOnComplete(),
 		mpb.PrependDecorators(
-			decor.Name(oPrompt),                 // set name
-			decor.Percentage(decor.WCSyncSpace), // decor.DSyncWidth bit enables column width synchronization
+			// decor.Name(oPrompt, decor.WC{W: len(from) + 1, C: decor.DidentRight}),
+			decor.Name(oPrompt, decor.WC{W: len(from) + 1, C: decor.DSyncSpaceR}),
+			decor.OnComplete(decor.Name(from, decor.WCSyncSpaceR), fmt.Sprintf("%s done!", from)),
+			decor.OnComplete(decor.EwmaETA(decor.ET_STYLE_MMSS, 0, decor.WCSyncWidth), ""),
+		// decor.OnComplete(decor.EwmaETA(decor.ET_STYLE_GO, 0, decor.WCSyncWidth), ""),
+		// decor.OnComplete(decor.EwmaETA(decor.ET_STYLE_GO, 60), ""),
 		),
+
 		mpb.AppendDecorators(
-			// replace ETA decorator with "done" message, OnComplete event
-			decor.OnComplete(
-				// ETA decorator with ewma age of 60
-				decor.EwmaETA(decor.ET_STYLE_GO, 60), "done",
-			),
+			decor.OnComplete(decor.Percentage(decor.WC{W: 5}), ""),
 		),
+
+		// mpb.PrependDecorators(
+		// 	decor.Name(oPrompt),                 // set name
+		// 	decor.Percentage(decor.WCSyncSpace), // decor.DSyncWidth bit enables column width synchronization
+		// ),
+		// mpb.AppendDecorators(
+		// 	// replace ETA decorator with "done" message, OnComplete event
+		// 	decor.OnComplete(
+		// 		// ETA decorator with ewma age of 60
+		// 		decor.EwmaETA(decor.ET_STYLE_GO, 60), "done",
+		// 	),
+		// ),
 	)
 
 	// set start, and max time
@@ -167,19 +185,27 @@ func (o *Output) ProgressPrinter(size int64, reader io.Reader) {
 
 	// print out progress
 	defer o.ProgressWG.Done()
-	for !bar.Completed() {
+	for {
 		// sleep
 		time.Sleep(time.Duration(rand.Intn(10)+1) * max / 10)
 
 		// read byte (1mb)
-		b := make([]byte, 1048576)
-		s, _ := reader.Read(b)
+		b := make([]byte, 102400)
+		s, err := reader.Read(b)
 
 		sum += s
 
 		// add size
+		// bar.IncrBy(sum, time.Since(start))
 		bar.IncrBy(s, time.Since(start))
+
+		if err == io.EOF {
+			bar.SetTotal(size, true)
+			break
+		}
 	}
+
+	// fmt.Println(sum)
 
 	return
 }

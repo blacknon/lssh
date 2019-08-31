@@ -205,7 +205,6 @@ USAGE:
 				fromPath = check.EscapePath(fromPath)
 			}
 			scp.From.Path = append(scp.From.Path, fromPath)
-
 		}
 		scp.From.Server = fromServer
 
