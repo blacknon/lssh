@@ -69,11 +69,6 @@ type ScpConnect struct {
 	Output *Output
 }
 
-// TODO(blacknon):
-//     scp時のプログレスバーの表示について検討する(リモートについては、リモートで実行しているscpコマンドの出力をそのまま出力すればいけそうな気がする)
-//     https://github.com/cheggaaa/pb
-//     https://github.com/vbauerster/mpb // パラレルのバーを使うので、使うならこっち！
-
 // Start scp, switching process.
 func (cp *Scp) Start() {
 	// Create server list
@@ -158,9 +153,6 @@ func (cp *Scp) push() {
 				}
 			}
 
-			// exit messages
-			// fmt.Fprintf(ow, "all push exit.\n")
-
 			// exit
 			exit <- true
 		}()
@@ -172,6 +164,7 @@ func (cp *Scp) push() {
 	}
 	close(exit)
 
+	// wait 0.3 sec
 	time.Sleep(300 * time.Millisecond)
 
 	// exit messages
@@ -213,8 +206,6 @@ func (cp *Scp) pushPath(ftp *sftp.Client, ow *io.PipeWriter, output *Output, bas
 		ftp.Chmod(rpath, fInfo.Mode())
 	}
 
-	// fmt.Fprintf(ow, "%s => %s exit.\n", path, rpath)
-
 	return
 }
 
@@ -240,9 +231,6 @@ func (cp *Scp) pushFile(lf io.Reader, ftp *sftp.Client, output *Output, path str
 	cp.ProgressWG.Add(1)
 	output.ProgressPrinter(size, rd, path)
 
-	// copy file
-	// io.Copy(rf, file)
-
 	return
 }
 
@@ -264,6 +252,12 @@ func (cp *Scp) viaPush() {
 	for _, path := range cp.From.Path {
 		cp.viaPushPath(path, fclient[0], tclient)
 	}
+
+	// wait 0.3 sec
+	time.Sleep(300 * time.Millisecond)
+
+	// exit messages
+	fmt.Println("all push exit.")
 }
 
 //
@@ -349,6 +343,9 @@ func (cp *Scp) pull() {
 	}
 	close(exit)
 
+	// wait 0.3 sec
+	time.Sleep(300 * time.Millisecond)
+
 	// exit messages
 	fmt.Println("all pull exit.")
 }
@@ -423,8 +420,6 @@ func (cp *Scp) pullPath(client *ScpConnect) {
 			}
 		}
 	}
-
-	time.Sleep(300 * time.Millisecond)
 
 	return
 }
