@@ -9,10 +9,7 @@ import (
 	"os"
 	"os/user"
 	"sort"
-	"strings"
 
-	"github.com/blacknon/lssh/check"
-	"github.com/blacknon/lssh/common"
 	"github.com/blacknon/lssh/conf"
 	"github.com/blacknon/lssh/list"
 	"github.com/blacknon/lssh/ssh"
@@ -47,15 +44,6 @@ VERSION:
 USAGE:
 	# start lsftp shell
 	{{.Name}}
-
-    # local to remote sftp, like scp command.
-    {{.Name}} /path/to/local... remote:/path/to/remote
-
-    # remote to local sftp, like scp command.
-    {{.Name}} remote:/path/to/remote... /path/to/local
-
-    # remote to remote sftp, like scp command.
-    {{.Name}} remote:/path/to/remote... remote:/path/to/local
 `
 	// Create app
 	app = cli.NewApp()
@@ -65,10 +53,7 @@ USAGE:
 	app.Version = "0.6.0"
 
 	app.Flags = []cli.Flag{
-		cli.StringSliceFlag{Name: "host,H", Usage: "connect servernames"},
-		cli.BoolFlag{Name: "list,l", Usage: "print server list from config"},
 		cli.StringFlag{Name: "file,f", Value: defConf, Usage: "config file path"},
-		cli.BoolFlag{Name: "permission,p", Usage: "copy file permission (like scp copy)"},
 		cli.BoolFlag{Name: "help,h", Usage: "print this help"},
 	}
 
@@ -82,42 +67,8 @@ USAGE:
 			os.Exit(0)
 		}
 
-		hosts := c.StringSlice("host")
+		// hosts := c.StringSlice("host")
 		confpath := c.String("file")
-
-		// check count args
-		if len(c.Args()) == 1 {
-			fmt.Fprintln(os.Stderr, "Too few arguments.")
-			cli.ShowAppHelp(c)
-			os.Exit(1)
-		}
-
-		// TODO: 引数の数が2個以上の場合、lscpと同様のチェックをさせる
-		// if args >= 2, check path type.
-		if len(c.Args()) >= 2 {
-
-		}
-
-		// Set args path
-		fromArgs := c.Args()[:c.NArg()-1]
-		toArg := c.Args()[c.NArg()-1]
-
-		isFromInRemote := false
-		isFromInLocal := false
-		for _, from := range fromArgs {
-			// parse args
-			isFromRemote, _ := check.ParseScpPath(from)
-
-			if isFromRemote {
-				isFromInRemote = true
-			} else {
-				isFromInLocal = true
-			}
-		}
-		isToRemote, _ := check.ParseScpPath(toArg)
-
-		// Check from and to Type
-		check.CheckTypeError(isFromInRemote, isFromInLocal, isToRemote, len(hosts))
 
 		// Get config data
 		data := conf.ReadConf(confpath)
@@ -126,129 +77,30 @@ USAGE:
 		names := conf.GetNameList(data)
 		sort.Strings(names)
 
-		selected := []string{}
-		toServer := []string{}
-		fromServer := []string{}
+		// create select list
+		l := new(list.ListInfo)
+		l.Prompt = "lsftp>>"
+		l.NameList = names
+		l.DataList = data
+		l.MultiFlag = true
+		l.View()
 
-		// view server list
-		switch {
-		// connectHost is set
-		case len(hosts) != 0:
-			if check.ExistServer(hosts, names) == false {
-				fmt.Fprintln(os.Stderr, "Input Server not found from list.")
-				os.Exit(1)
-			} else {
-				toServer = hosts
-			}
-
-		// remote to remote scp
-		case isFromInRemote && isToRemote:
-			// View From list
-			from_l := new(list.ListInfo)
-			from_l.Prompt = "lsftp(from)>>"
-			from_l.NameList = names
-			from_l.DataList = data
-			from_l.MultiFlag = false
-			from_l.View()
-			fromServer = from_l.SelectName
-			if fromServer[0] == "ServerName" {
-				fmt.Fprintln(os.Stderr, "Server not selected.")
-				os.Exit(1)
-			}
-
-			// View to list
-			to_l := new(list.ListInfo)
-			to_l.Prompt = "lsftp(to)>>"
-			to_l.NameList = names
-			to_l.DataList = data
-			to_l.MultiFlag = true
-			to_l.View()
-			toServer = to_l.SelectName
-			if toServer[0] == "ServerName" {
-				fmt.Fprintln(os.Stderr, "Server not selected.")
-				os.Exit(1)
-			}
-
-		default:
-			// View List And Get Select Line
-			l := new(list.ListInfo)
-			l.Prompt = "lsftp>>"
-			l.NameList = names
-			l.DataList = data
-			l.MultiFlag = true
-			l.View()
-
-			selected = l.SelectName
-			if selected[0] == "ServerName" {
-				fmt.Fprintln(os.Stderr, "Server not selected.")
-				os.Exit(1)
-			}
-
-			if isFromInRemote {
-				fromServer = selected
-			} else {
-				toServer = selected
-			}
+		// selected check
+		selected := l.SelectName
+		if selected[0] == "ServerName" {
+			fmt.Fprintln(os.Stderr, "Server not selected.")
+			os.Exit(1)
 		}
 
 		// scp struct
 		runSftp := new(ssh.RunSftp)
-
-		// set from info
-		for _, from := range fromArgs {
-			// parse args
-			isFromRemote, fromPath := check.ParseScpPath(from)
-
-			// Check local file exisits
-			if !isFromRemote {
-				_, err := os.Stat(common.GetFullPath(fromPath))
-				if err != nil {
-					fmt.Fprintf(os.Stderr, "not found path %s \n", fromPath)
-					os.Exit(1)
-				}
-				fromPath = common.GetFullPath(fromPath)
-			}
-
-			// set from data
-			runSftp.From.IsRemote = isFromRemote
-			if isFromRemote {
-				fromPath = check.EscapePath(fromPath)
-			}
-			runSftp.From.Path = append(runSftp.From.Path, fromPath)
-
-		}
-		runSftp.From.Server = fromServer
-
-		// set to info
-		isToRemote, toPath := check.ParseScpPath(toArg)
-		runSftp.To.IsRemote = isToRemote
-		if isToRemote {
-			toPath = check.EscapePath(toPath)
-		}
-		runSftp.To.Path = []string{toPath}
-		runSftp.To.Server = toServer
-
-		runSftp.Permission = c.Bool("permission")
 		runSftp.Config = data
+		runSftp.SelectServer = selected
 
-		// print from
-		if !isFromInRemote {
-			fmt.Fprintf(os.Stderr, "From local:%s\n", runSftp.From.Path)
-		} else {
-			fmt.Fprintf(os.Stderr, "From remote(%s):%s\n", strings.Join(runSftp.From.Server, ","), runSftp.From.Path)
-		}
-
-		// print to
-		if !isToRemote {
-			fmt.Fprintf(os.Stderr, "To   local:%s\n", runSftp.To.Path)
-		} else {
-			fmt.Fprintf(os.Stderr, "To   remote(%s):%s\n", strings.Join(runSftp.To.Server, ","), runSftp.To.Path)
-		}
-
+		// start lsftp shell
 		runSftp.Start()
 		return nil
 	}
 
 	return app
-
 }
