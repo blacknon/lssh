@@ -5,58 +5,134 @@
 package ssh
 
 import (
+	"fmt"
+	"os"
+	"sync"
+
 	"github.com/blacknon/lssh/conf"
 	"github.com/pkg/sftp"
-	"golang.org/x/crypto/ssh"
+	"github.com/vbauerster/mpb"
 )
-
-type RunSftp struct {
-	// From       CopyConInfo
-	// To         CopyConInfo
-	Permission bool
-	Config     conf.Config
-	IsShell    bool
-}
 
 // TODO(blacknon): 転送時の進捗状況を表示するプログレスバーの表示はさせること
 
+type RunSftp struct {
+	// select server
+	SelectServer []string
+
+	// config
+	Config conf.Config
+
+	// Client
+	Client map[string]*SftpConnect
+
+	// ssh Run
+	Run *Run
+
+	// progress bar
+	Progress   *mpb.Progress
+	ProgressWG *sync.WaitGroup
+}
+
+type SftpConnect struct {
+	// ssh connect
+	Connect *sftp.Client
+
+	// Output
+	Output *Output
+
+	// Current Directory
+	PWD string
+}
+
 func (r *RunSftp) Start() {
-	// // Create AuthMap
-	// slist := append(r.To.Server, r.From.Server...)
-	// run := new(Run)
-	// run.ServerList = slist
-	// run.Conf = r.Config
-	// run.createAuthMethodMap()
-	// authMap := run.serverAuthMethodMap
+	// Create AuthMap
+	r.Run = new(Run)
+	r.Run.ServerList = r.SelectServer
+	r.Run.Conf = r.Config
+	r.Run.createAuthMethodMap()
 
-	// // Create Connection
+	// Create Sftp Connect
+	r.Client = r.createSftpConnect(r.Run.ServerList)
 
-	// switch {
-	// case r.IsShell:
-	// 	r.shell(authMap)
+	// Start sftp shell
+	r.shell()
+}
 
-	// // remote to remote
-	// case r.From.IsRemote && r.To.IsRemote:
-	// 	r.copy("pull", authMap)
-	// 	r.copy("push", authMap)
+//
+func (r *RunSftp) createSftpConnect(targets []string) (result map[string]*SftpConnect) {
+	// init
+	result = map[string]*SftpConnect{}
 
-	// // remote to local
-	// case r.From.IsRemote && !r.To.IsRemote:
-	// 	r.copy("pull", authMap)
+	ch := make(chan bool)
+	m := new(sync.Mutex)
+	for _, target := range targets {
+		server := target
+		go func() {
+			// ssh connect
+			conn, err := r.Run.createSshConnect(server)
+			if err != nil {
+				fmt.Fprintf(os.Stderr, "%s connect error: %s\n", server, err)
+				ch <- true
+				return
+			}
 
-	// // local to remote
-	// case !r.From.IsRemote && r.To.IsRemote:
-	// 	r.copy("push", authMap)
+			// create sftp client
+			ftp, err := sftp.NewClient(conn.Client)
+			if err != nil {
+				fmt.Fprintf(os.Stderr, "%s create client error: %s\n", server, err)
+				ch <- true
+				return
+			}
+
+			// create output
+			o := &Output{
+				Templete:   oprompt,
+				ServerList: targets,
+				Conf:       r.Config.Server[server],
+				AutoColor:  true,
+				Progress:   r.Progress,
+				ProgressWG: r.ProgressWG,
+			}
+
+			// create SftpConnect
+			sftpCon := &SftpConnect{
+				Connect: ftp,
+				Output:  o,
+			}
+
+			// append result
+			m.Lock()
+			result[server] = sftpCon
+			m.Unlock()
+
+			ch <- true
+		}()
+	}
+
+	// wait
+	for i := 0; i < len(targets); i++ {
+		<-ch
+	}
+
+	return result
+}
+
+//
+// NOTE: リモートマシンからリモートマシンにコピーさせるような処理や、対象となるホストを個別に指定してコピーできるような仕組みをつくること！
+func (r *RunSftp) cd(args string) {
+	// for _, c := range r.Client {
+
 	// }
 }
 
-// sftp Shell mode function
-func (r *RunSftp) shell(authMap map[string][]ssh.AuthMethod) {
+func (r *RunSftp) chown(target, path string) {
 
 }
 
 // sftp put/pull function
-func (r *RunSftp) copy(mode string, authMap map[string][]ssh.AuthMethod) {
+// NOTE: リモートマシンからリモートマシンにコピーさせるような処理や、対象となるホストを個別に指定してコピーできるような仕組みをつくること！
+func (r *RunSftp) cp(args string) {
 	// finished := make(chan bool)
 
 	// // set target list
@@ -73,13 +149,44 @@ func (r *RunSftp) copy(mode string, authMap map[string][]ssh.AuthMethod) {
 	// }
 }
 
+//
+func (r *RunSftp) get(args string) {
+	// pathがディレクトリかどうかのチェックが必要
+	// remoteFile, err := sftp.Create("hello.txt")
+	// localFile, err := os.Open("hello.txt")
+	// io.Copy(remoteFile, localFile)
+
+	// f, err := sftp.Create("hello.txt")
+	// TODO(blacknon): io.Copy使うとよさそう？？
+}
+
 // list is stfp ls command.
-func (r *RunSftp) list(target, path string, sftp *sftp.Client) (err error) {
-	// // get directory files
+func (r *RunSftp) ls(args string) (err error) {
+	// TODO(blacknon): パース処理を行い、オプションが利用できるようにする
+	// TODO(blacknon): PATH追加等の対応
+
+	// set path
+	path := "./"
+
+	// get directory files
+	for server, client := range r.Client {
+		// get writer
+		client.Output.Create(server)
+		w := client.Output.NewWriter()
+
+		// get directory list data
+		data, err := client.Connect.ReadDir(path)
+		if err != nil {
+			fmt.Fprintf(w, "Error: %s\n", err)
+			continue
+		}
+
+		for _, f := range data {
+			name := f.Name()
+			fmt.Fprintf(w, "%s\n", name)
+		}
+	}
 	// data, err := sftp.ReadDir(path)
-	// if err != nil {
-	// 	return
-	// }
 
 	// // TODO(blacknon): lsのオプション相当のものを受け付けるようにする必要がある。
 	// //                 それとも、単にdataを返すだけになるかも？？
@@ -91,18 +198,7 @@ func (r *RunSftp) list(target, path string, sftp *sftp.Client) (err error) {
 }
 
 //
-func (r *RunSftp) push(target, path string, sftp *sftp.Client) {
-	// pathがディレクトリかどうかのチェックが必要
-	// remoteFile, err := sftp.Create("hello.txt")
-	// localFile, err := os.Open("hello.txt")
-	// io.Copy(remoteFile, localFile)
-
-	// f, err := sftp.Create("hello.txt")
-	// TODO(blacknon): io.Copy使うとよさそう？？
-}
-
-//
-func (r *RunSftp) pull(target, path string, sftp *sftp.Client) {
+func (r *RunSftp) put(args string) {
 	// pathがディレクトリかどうかのチェックが必要
 	// f, err := sftp.Open(path)
 	// TODO(blacknon): io.Copy使うとよさそう？？

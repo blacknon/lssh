@@ -60,7 +60,7 @@ type Output struct {
 	ProgressWG *sync.WaitGroup
 
 	// Auto Colorize flag
-	// TODO(blacknon): colormodeに応じて、パイプ経由だった場合は色分けしないなどの対応ができるように条件分岐する
+	// TODO(blacknon): colormodeに応じて、パイプ経由だった場合は色分けしないなどの対応ができるように条件分岐する(v0.6.1)
 	AutoColor bool
 }
 
@@ -140,8 +140,10 @@ loop:
 func (o *Output) ProgressPrinter(size int64, reader io.Reader, path string) {
 	// print header
 	oPrompt := ""
+	name := decor.Name(oPrompt)
 	if len(o.ServerList) > 1 {
 		oPrompt = o.GetPrompt()
+		name = decor.Name(oPrompt, decor.WC{W: len(path) + 1, C: decor.DSyncWidth})
 	}
 
 	// trim space
@@ -151,7 +153,7 @@ func (o *Output) ProgressPrinter(size int64, reader io.Reader, path string) {
 	bar := o.Progress.AddBar((size),
 		mpb.BarClearOnComplete(),
 		mpb.PrependDecorators(
-			decor.Name(oPrompt, decor.WC{W: len(path) + 1, C: decor.DSyncSpaceR}),
+			name,
 			decor.OnComplete(decor.Name(path, decor.WCSyncSpaceR), fmt.Sprintf("%s done!", path)),
 			decor.OnComplete(decor.EwmaETA(decor.ET_STYLE_MMSS, 0, decor.WCSyncWidth), ""),
 		),

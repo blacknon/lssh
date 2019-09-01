@@ -17,15 +17,22 @@ build:
 	$(GOBUILD) ./cmd/lssh
 	# Build lscp
 	$(GOBUILD) ./cmd/lscp
+	# Build lsftp
+	$(GOBUILD) ./cmd/lsftp
 
 clean:
 	$(GOCLEAN) ./...
 	rm -f lssh
 	rm -f lscp
+	rm -f lsftp
 
 install:
+	# copy lssh binary to /usr/local/bin/
 	cp lssh /usr/local/bin/
+	# copy lscp binary to /usr/local/bin/
 	cp lscp /usr/local/bin/
+	# copy lsftp binary to /usr/local/bin/
+	cp lsftp /usr/local/bin/
 	cp -n example/config.tml ~/.lssh.conf || true
 
 test:

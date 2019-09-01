@@ -61,6 +61,9 @@ USAGE:
 	app.Copyright = "blacknon(blacknon@orebibou.com)"
 	app.Version = "0.6.0"
 
+	// options
+	// TODO(blacknon): オプションの追加(0.6.1)
+	//     -P <num> ... 同じホストでパラレルでファイルをコピーできるようにする。パラレル数を指定。
 	app.Flags = []cli.Flag{
 		cli.StringSliceFlag{Name: "host,H", Usage: "connect servernames"},
 		cli.BoolFlag{Name: "list,l", Usage: "print server list from config"},
