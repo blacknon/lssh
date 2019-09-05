@@ -175,7 +175,7 @@ func (o *Output) ProgressPrinter(size int64, reader io.Reader, path string) {
 		time.Sleep(time.Duration(rand.Intn(10)+1) * max / 10)
 
 		// read byte (1mb)
-		b := make([]byte, 102400)
+		b := make([]byte, 1048576)
 		s, err := reader.Read(b)
 
 		sum += s
