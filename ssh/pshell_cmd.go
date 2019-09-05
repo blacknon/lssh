@@ -38,7 +38,10 @@ func checkBuildInCommand(cmd string) (isBuildInCmd bool) {
 	case "exit", "quit", "clear": // build-in command
 		isBuildInCmd = true
 
-	case "%history", "%out", "%outlist": // parsent build-in command.
+	case
+		"%history",
+		"%out", "%outlist",
+		"%save", "%set": // parsent build-in command.
 		isBuildInCmd = true
 	}
 

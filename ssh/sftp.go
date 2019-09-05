@@ -14,8 +14,6 @@ import (
 	"github.com/vbauerster/mpb"
 )
 
-// TODO(blacknon): 転送時の進捗状況を表示するプログレスバーの表示はさせること
-
 type RunSftp struct {
 	// select server
 	SelectServer []string
@@ -116,90 +114,4 @@ func (r *RunSftp) createSftpConnect(targets []string) (result map[string]*SftpCo
 	}
 
 	return result
-}
-
-//
-// NOTE: リモートマシンからリモートマシンにコピーさせるような処理や、対象となるホストを個別に指定してコピーできるような仕組みをつくること！
-func (r *RunSftp) cd(args string) {
-	// for _, c := range r.Client {
-
-	// }
-}
-
-func (r *RunSftp) chown(target, path string) {
-
-}
-
-// sftp put/pull function
-// NOTE: リモートマシンからリモートマシンにコピーさせるような処理や、対象となるホストを個別に指定してコピーできるような仕組みをつくること！
-func (r *RunSftp) cp(args string) {
-	// finished := make(chan bool)
-
-	// // set target list
-	// targetList := []string{}
-	// switch mode {
-	// case "push":
-	// 	targetList = r.To.Server
-	// case "pull":
-	// 	targetList = r.From.Server
-	// }
-
-	// for _, value := range targetList {
-	// 	target := value
-	// }
-}
-
-//
-func (r *RunSftp) get(args string) {
-	// pathがディレクトリかどうかのチェックが必要
-	// remoteFile, err := sftp.Create("hello.txt")
-	// localFile, err := os.Open("hello.txt")
-	// io.Copy(remoteFile, localFile)
-
-	// f, err := sftp.Create("hello.txt")
-	// TODO(blacknon): io.Copy使うとよさそう？？
-}
-
-// list is stfp ls command.
-func (r *RunSftp) ls(args string) (err error) {
-	// TODO(blacknon): パース処理を行い、オプションが利用できるようにする
-	// TODO(blacknon): PATH追加等の対応
-
-	// set path
-	path := "./"
-
-	// get directory files
-	for server, client := range r.Client {
-		// get writer
-		client.Output.Create(server)
-		w := client.Output.NewWriter()
-
-		// get directory list data
-		data, err := client.Connect.ReadDir(path)
-		if err != nil {
-			fmt.Fprintf(w, "Error: %s\n", err)
-			continue
-		}
-
-		for _, f := range data {
-			name := f.Name()
-			fmt.Fprintf(w, "%s\n", name)
-		}
-	}
-	// data, err := sftp.ReadDir(path)
-
-	// // TODO(blacknon): lsのオプション相当のものを受け付けるようにする必要がある。
-	// //                 それとも、単にdataを返すだけになるかも？？
-	// for _, f := range data {
-	// 	name := f.Name()
-	// 	fmt.Println(name)
-	// }
-	return
-}
-
-//
-func (r *RunSftp) put(args string) {
-	// pathがディレクトリかどうかのチェックが必要
-	// f, err := sftp.Open(path)
-	// TODO(blacknon): io.Copy使うとよさそう？？
 }
