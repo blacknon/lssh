@@ -18,9 +18,11 @@ import (
 	"os/user"
 	"path/filepath"
 	"reflect"
+	"regexp"
 	"strings"
 	"time"
 
+	"github.com/urfave/cli"
 	"golang.org/x/crypto/ssh/terminal"
 )
 
@@ -233,4 +235,75 @@ func WalkDir(dir string) (files []string, err error) {
 		return nil
 	})
 	return
+}
+
+// ParseArgs return os.Args parse short options (ex.) [-la] => [-l,-a] )
+//
+// TODO(blacknon): Migrate to github.com/urfave/cli version 1.22.
+func ParseArgs(options []cli.Flag, args []string) []string {
+	// create cli.Flag map
+	optionMap := map[string]cli.Flag{}
+	for _, op := range options {
+		name := op.GetName()
+		names := strings.Split(name, ",")
+
+		for _, n := range names {
+			// add hyphen
+			if len(n) == 1 {
+				n = "-" + n
+			} else {
+				n = "--" + n
+			}
+			optionMap[n] = op
+		}
+	}
+
+	var result []string
+	result = append(result, args[0])
+
+	// command flag
+	isOptionArgs := false
+
+	optionReg := regexp.MustCompile("^-")
+	parseReg := regexp.MustCompile("^-[^-]{2,}")
+
+parseloop:
+	for i, arg := range args[1:] {
+		switch {
+		case !optionReg.MatchString(arg) && !isOptionArgs:
+			// not option arg, and sOptinArgs flag false
+			result = append(result, args[i+1:]...)
+			break parseloop
+
+		case !optionReg.MatchString(arg) && isOptionArgs:
+			result = append(result, arg)
+
+		case parseReg.MatchString(arg): // combine short option -la)
+			slice := strings.Split(arg[1:], "")
+			for _, s := range slice {
+				s = "-" + s
+				result = append(result, s)
+
+				if val, ok := optionMap[s]; ok {
+					switch val.(type) {
+					case cli.StringSliceFlag:
+						isOptionArgs = true
+					case cli.StringFlag:
+						isOptionArgs = true
+					}
+				}
+			}
+
+		default: // options (-a,--all)
+			if val, ok := optionMap[arg]; ok {
+				switch val.(type) {
+				case cli.StringSliceFlag:
+					isOptionArgs = true
+				case cli.StringFlag:
+					isOptionArgs = true
+				}
+			}
+		}
+	}
+	return result
 }

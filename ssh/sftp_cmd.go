@@ -1,8 +1,16 @@
+// Copyright (c) 2019 Blacknon. All rights reserved.
+// Use of this source code is governed by an MIT license
+// that can be found in the LICENSE file.
+
 package ssh
 
 import (
 	"fmt"
+	"os"
+	"regexp"
+	"sort"
 
+	"github.com/blacknon/lssh/common"
 	"github.com/urfave/cli"
 )
 
@@ -62,6 +70,14 @@ func (r *RunSftp) get(args []string) {
 func (r *RunSftp) ls(args []string) (err error) {
 	// create app
 	app := cli.NewApp()
+	// app.UseShortOptionHandling = true
+
+	// set help message
+	app.CustomAppHelpTemplate = `	{{.Name}} - {{.Usage}}
+	{{.HelpName}} {{if .VisibleFlags}}[options]{{end}} [PATH]
+	{{range .VisibleFlags}}	{{.}}
+	{{end}}
+	`
 
 	// set parameter
 	app.Flags = []cli.Flag{
@@ -75,11 +91,16 @@ func (r *RunSftp) ls(args []string) (err error) {
 		cli.BoolFlag{Name: "S", Usage: "sort by file size, largest first"},
 		cli.BoolFlag{Name: "t", Usage: "sort by modification time, newest first"},
 	}
+	app.Name = "ls"
+	app.Usage = "lsftp build-in command: ls [remote machine ls]"
 	app.HideHelp = true
+	app.HideVersion = true
+	app.EnableBashCompletion = true
 
 	// action
 	app.Action = func(c *cli.Context) error {
 		// set path
+		// TODO(blacknon): cdでカレントディレクトリ変更した場合の処理に対応させる
 		path := "./"
 		if len(c.Args()) > 0 {
 			path = c.Args().First()
@@ -104,15 +125,60 @@ func (r *RunSftp) ls(args []string) (err error) {
 				continue
 			}
 
+			// if `a` flag disable, delete Hidden files...
+			if !c.Bool("a") {
+				// hidden delete data slice
+				hddata := []os.FileInfo{}
+
+				// regex
+				rgx := regexp.MustCompile(`^\.`)
+
+				for _, f := range data {
+					if !rgx.MatchString(f.Name()) {
+						hddata = append(hddata, f)
+					}
+				}
+
+				data = hddata
+			}
+
 			// sort
 			switch {
 			case c.Bool("f"): // do not sort
-			case c.Bool("S"): // sort by file size
-			case c.Bool("t"): // sort by mod time
-			default:
-			}
+				// If the l flag is enabled, sort by name
+				if c.Bool("l") {
+					// check reverse
+					if c.Bool("r") {
+						sort.Reverse(ByName{data})
+					} else {
+						sort.Sort(ByName{data})
+					}
+				}
 
-			// reverse order sort
+			case c.Bool("S"): // sort by file size
+				// check reverse
+				if c.Bool("r") {
+					sort.Reverse(BySize{data})
+				} else {
+					sort.Sort(BySize{data})
+				}
+
+			case c.Bool("t"): // sort by mod time
+				// check reverse
+				if c.Bool("r") {
+					sort.Reverse(ByTime{data})
+				} else {
+					sort.Sort(ByTime{data})
+				}
+
+			default: // sort by name (default).
+				// check reverse
+				if c.Bool("r") {
+					sort.Reverse(ByName{data})
+				} else {
+					sort.Sort(ByName{data})
+				}
+			}
 
 			// print
 			switch {
@@ -131,6 +197,7 @@ func (r *RunSftp) ls(args []string) (err error) {
 				}
 
 			default: // default
+				// TODO(blacknon): 幅を計算させて出力させる
 
 			}
 		}
@@ -138,6 +205,8 @@ func (r *RunSftp) ls(args []string) (err error) {
 		return nil
 	}
 
+	// parse short options
+	args = common.ParseArgs(app.Flags, args)
 	app.Run(args)
 
 	return

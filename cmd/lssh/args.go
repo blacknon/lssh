@@ -55,6 +55,7 @@ USAGE:
 
 	// Create app
 	app = cli.NewApp()
+	// app.UseShortOptionHandling = true
 	app.Name = "lssh"
 	app.Usage = "TUI list select and parallel ssh client command."
 	app.Copyright = "blacknon(blacknon@orebibou.com)"

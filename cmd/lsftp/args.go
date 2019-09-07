@@ -25,7 +25,7 @@ func Lsftp() (app *cli.App) {
 	cli.AppHelpTemplate = `NAME:
     {{.Name}} - {{.Usage}}
 USAGE:
-    {{.HelpName}} {{if .VisibleFlags}}[options]{{end}} [(local|remote):from_path... (local|remote):to_path]
+    {{.HelpName}} {{if .VisibleFlags}}[options]{{end}}
     {{if len .Authors}}
 AUTHOR:
     {{range .Authors}}{{ . }}{{end}}
@@ -47,6 +47,7 @@ USAGE:
 `
 	// Create app
 	app = cli.NewApp()
+	// app.UseShortOptionHandling = true
 	app.Name = "lsftp"
 	app.Usage = "TUI list select and parallel sftp client command."
 	app.Copyright = "blacknon(blacknon@orebibou.com)"

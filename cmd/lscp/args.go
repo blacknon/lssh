@@ -56,6 +56,7 @@ USAGE:
 `
 	// Create app
 	app = cli.NewApp()
+	// app.UseShortOptionHandling = true
 	app.Name = "lscp"
 	app.Usage = "TUI list select and parallel scp client command."
 	app.Copyright = "blacknon(blacknon@orebibou.com)"
