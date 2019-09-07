@@ -19,7 +19,7 @@ require (
 	github.com/pkg/term v0.0.0-20190109203006-aa71e9d9e942 // indirect
 	github.com/sevlyar/go-daemon v0.1.5
 	github.com/stretchr/testify v1.3.0
-	github.com/urfave/cli v1.20.0
+	github.com/urfave/cli v1.21.0
 	github.com/vbauerster/mpb v3.4.0+incompatible
 	github.com/youtube/vitess v2.1.1+incompatible // indirect
 	golang.org/x/crypto v0.0.0-20190701094942-4def268fd1a4
@@ -28,5 +28,7 @@ require (
 )
 
 replace github.com/blacknon/go-sshlib v0.1.1 => ../go-sshlib
+
+replace github.com/urfave/cli v1.22.0 => ../../urfave/cli
 
 go 1.13
