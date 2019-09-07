@@ -42,21 +42,13 @@ func (r *RunSftp) Executor(command string) {
 	// parse command
 	cmdline := strings.Split(command, " ")
 
-	// set args
-	args := []string{}
-	if len(cmdline) > 1 {
-		args = cmdline[1:]
-	} else {
-		args = append(args, " ")
-	}
-
 	// switch command
 	switch cmdline[0] {
 	case "bye", "exit", "quit":
 		os.Exit(0)
 	case "help", "?":
 	case "cd": // change remote directory
-		r.cd(args)
+		r.cd(cmdline)
 	case "chgrp":
 	case "chown":
 	case "cp":
@@ -69,13 +61,13 @@ func (r *RunSftp) Executor(command string) {
 	case "ln":
 	case "lpwd":
 	case "ls":
-		r.ls(args)
+		r.ls(cmdline)
 	case "lumask":
 	case "mkdir":
 	case "progress":
 	case "put":
 	case "pwd":
-		r.pwd(args)
+		r.pwd(cmdline)
 	case "rename":
 	case "rm":
 	case "rmdir":

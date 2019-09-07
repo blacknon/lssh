@@ -12,6 +12,7 @@ import (
 	"log"
 	"os"
 	"strings"
+	"time"
 
 	"github.com/blacknon/go-sshlib"
 )
@@ -167,6 +168,9 @@ func (r *Run) cmd() (err error) {
 	}
 
 	close(exitInput)
+
+	// sleep
+	time.Sleep(300 * time.Millisecond)
 
 	return
 }
