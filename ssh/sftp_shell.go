@@ -136,6 +136,17 @@ func (r *RunSftp) Completer(t prompt.Document) []prompt.Suggest {
 		case "ln":
 		case "lpwd":
 		case "ls":
+			suggest = []prompt.Suggest{
+				{Text: "-1", Description: "list one file per line"},
+				{Text: "-a", Description: "do not ignore entries starting with"},
+				{Text: "-f", Description: "do not sort"},
+				{Text: "-h", Description: "with -l, print sizes like 1K 234M 2G etc."},
+				{Text: "-l", Description: "use a long listing format"},
+				{Text: "-n", Description: "list numeric user and group IDs"},
+				{Text: "-r", Description: "reverse order while sorting"},
+				{Text: "-S", Description: "sort by file size, largest first"},
+				{Text: "-t", Description: "sort by modification time, newest first"},
+			}
 		case "lumask":
 		case "mkdir":
 		case "progress":
