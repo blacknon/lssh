@@ -10,7 +10,10 @@ import (
 	"regexp"
 	"sort"
 
+	"text/tabwriter"
+
 	"github.com/blacknon/lssh/common"
+	"github.com/pkg/sftp"
 	"github.com/urfave/cli"
 )
 
@@ -149,7 +152,7 @@ func (r *RunSftp) ls(args []string) (err error) {
 				if c.Bool("l") {
 					// check reverse
 					if c.Bool("r") {
-						sort.Reverse(ByName{data})
+						sort.Sort(sort.Reverse(ByName{data}))
 					} else {
 						sort.Sort(ByName{data})
 					}
@@ -158,7 +161,7 @@ func (r *RunSftp) ls(args []string) (err error) {
 			case c.Bool("S"): // sort by file size
 				// check reverse
 				if c.Bool("r") {
-					sort.Reverse(BySize{data})
+					sort.Sort(sort.Reverse(BySize{data}))
 				} else {
 					sort.Sort(BySize{data})
 				}
@@ -166,7 +169,7 @@ func (r *RunSftp) ls(args []string) (err error) {
 			case c.Bool("t"): // sort by mod time
 				// check reverse
 				if c.Bool("r") {
-					sort.Reverse(ByTime{data})
+					sort.Sort(sort.Reverse(ByTime{data}))
 				} else {
 					sort.Sort(ByTime{data})
 				}
@@ -174,7 +177,7 @@ func (r *RunSftp) ls(args []string) (err error) {
 			default: // sort by name (default).
 				// check reverse
 				if c.Bool("r") {
-					sort.Reverse(ByName{data})
+					sort.Sort(sort.Reverse(ByName{data}))
 				} else {
 					sort.Sort(ByName{data})
 				}
@@ -184,10 +187,27 @@ func (r *RunSftp) ls(args []string) (err error) {
 			switch {
 			case c.Bool("l"): // long list format
 				// for printout
+				tabw := new(tabwriter.Writer)
+				tabw.Init(w, 0, 1, 1, ' ', 0)
 				for _, f := range data {
 					name := f.Name()
-					fmt.Fprintf(w, "%s\n", name)
+					mode := f.Mode()
+					sys := f.Sys()
+
+					// TODO(blacknon): count hardlink (2列目)の取得方法がわからないため、わかったら追加。
+					var uid uint32
+					var gid uint32
+					var size uint64
+					if stat, ok := sys.(*sftp.FileStat); ok {
+						uid = stat.UID
+						gid = stat.GID
+						size = stat.Size
+					}
+
+					// fmt.Fprintf(tabw, "%s\t%s\n", mode.String(), name)
+					fmt.Fprintf(tabw, "%s\t%d\t%d\t%12d\t%s\n", mode.String(), uid, gid, size, name)
 				}
+				tabw.Flush()
 
 			case c.Bool("1"): // list 1 file per line
 				// for list
@@ -207,6 +227,7 @@ func (r *RunSftp) ls(args []string) (err error) {
 
 	// parse short options
 	args = common.ParseArgs(app.Flags, args)
+	fmt.Println(args)
 	app.Run(args)
 
 	return

@@ -11,6 +11,7 @@ import (
 	"crypto/sha1"
 	"encoding/base64"
 	"fmt"
+	"io"
 	"io/ioutil"
 	"log"
 	"math/rand"
@@ -237,6 +238,16 @@ func WalkDir(dir string) (files []string, err error) {
 	return
 }
 
+// GetUserName
+func GetUserName(etcPasswd io.Reader, uid uint32) (user string) {
+	return
+}
+
+// GetGroupName
+func GetGroupName(etcGroup io.Reader, gid uint32) (group string) {
+	return
+}
+
 // ParseArgs return os.Args parse short options (ex.) [-la] => [-l,-a] )
 //
 // TODO(blacknon): Migrate to github.com/urfave/cli version 1.22.
@@ -295,6 +306,8 @@ parseloop:
 			}
 
 		default: // options (-a,--all)
+			result = append(result, arg)
+
 			if val, ok := optionMap[arg]; ok {
 				switch val.(type) {
 				case cli.StringSliceFlag:
