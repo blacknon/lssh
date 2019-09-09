@@ -185,10 +185,12 @@ func (r *RunSftp) ls(args []string) (err error) {
 				}
 			}
 
-			// debug
+			// read /etc/passwd
 			passwdFile, _ := client.Connect.Open("/etc/passwd")
 			passwdByte, _ := ioutil.ReadAll(passwdFile)
 			passwd := string(passwdByte)
+
+			// read /etc/group
 			groupFile, _ := client.Connect.Open("/etc/group")
 			groupByte, _ := ioutil.ReadAll(groupFile)
 			groups := string(groupByte)
@@ -214,16 +216,18 @@ func (r *RunSftp) ls(args []string) (err error) {
 						uid = stat.UID
 						gid = stat.GID
 						size = stat.Size
-
-						// Switch with or without -n option.
-						if c.Bool("n") {
-							user = strconv.FormatUint(uint64(uid), 10)
-							group = strconv.FormatUint(uint64(gid), 10)
-						} else {
-							user = common.GetUserName(passwd, uid)
-							group = common.GetGroupName(groups, gid)
-						}
 					}
+
+					// Switch with or without -n option.
+					if c.Bool("n") {
+						user = strconv.FormatUint(uint64(uid), 10)
+						group = strconv.FormatUint(uint64(gid), 10)
+					} else {
+						user = common.GetUserName(passwd, uid)
+						group = common.GetGroupName(groups, gid)
+					}
+
+					// Switch with or without -h option.
 
 					// fmt.Fprintf(tabw, "%s\t%s\n", mode.String(), name)
 					fmt.Fprintf(tabw, "%s\t%s\t%s\t%12d\t%s\n", mode.String(), user, group, size, name)
