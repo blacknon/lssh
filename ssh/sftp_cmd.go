@@ -6,9 +6,11 @@ package ssh
 
 import (
 	"fmt"
+	"io/ioutil"
 	"os"
 	"regexp"
 	"sort"
+	"strconv"
 
 	"text/tabwriter"
 
@@ -184,7 +186,12 @@ func (r *RunSftp) ls(args []string) (err error) {
 			}
 
 			// debug
-			passwd, _ := client.Connect.Open("/etc/passwd")
+			passwdFile, _ := client.Connect.Open("/etc/passwd")
+			passwdByte, _ := ioutil.ReadAll(passwdFile)
+			passwd := string(passwdByte)
+			groupFile, _ := client.Connect.Open("/etc/group")
+			groupByte, _ := ioutil.ReadAll(groupFile)
+			groups := string(groupByte)
 
 			// print
 			switch {
@@ -201,16 +208,25 @@ func (r *RunSftp) ls(args []string) (err error) {
 					var uid uint32
 					var gid uint32
 					var size uint64
+					var user string
+					var group string
 					if stat, ok := sys.(*sftp.FileStat); ok {
 						uid = stat.UID
 						gid = stat.GID
 						size = stat.Size
 
-						common.GetUserName(passwd, uid)
+						// Switch with or without -n option.
+						if c.Bool("n") {
+							user = strconv.FormatUint(uint64(uid), 10)
+							group = strconv.FormatUint(uint64(gid), 10)
+						} else {
+							user = common.GetUserName(passwd, uid)
+							group = common.GetGroupName(groups, gid)
+						}
 					}
 
 					// fmt.Fprintf(tabw, "%s\t%s\n", mode.String(), name)
-					fmt.Fprintf(tabw, "%s\t%d\t%d\t%12d\t%s\n", mode.String(), uid, gid, size, name)
+					fmt.Fprintf(tabw, "%s\t%s\t%s\t%12d\t%s\n", mode.String(), user, group, size, name)
 				}
 				tabw.Flush()
 
@@ -232,7 +248,6 @@ func (r *RunSftp) ls(args []string) (err error) {
 
 	// parse short options
 	args = common.ParseArgs(app.Flags, args)
-	fmt.Println(args)
 	app.Run(args)
 
 	return
