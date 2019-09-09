@@ -183,6 +183,9 @@ func (r *RunSftp) ls(args []string) (err error) {
 				}
 			}
 
+			// debug
+			passwd, _ := client.Connect.Open("/etc/passwd")
+
 			// print
 			switch {
 			case c.Bool("l"): // long list format
@@ -202,6 +205,8 @@ func (r *RunSftp) ls(args []string) (err error) {
 						uid = stat.UID
 						gid = stat.GID
 						size = stat.Size
+
+						common.GetUserName(passwd, uid)
 					}
 
 					// fmt.Fprintf(tabw, "%s\t%s\n", mode.String(), name)

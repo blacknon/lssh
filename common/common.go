@@ -8,6 +8,7 @@ common is a package that summarizes the common processing of lssh package.
 package common
 
 import (
+	"bufio"
 	"crypto/sha1"
 	"encoding/base64"
 	"fmt"
@@ -238,13 +239,35 @@ func WalkDir(dir string) (files []string, err error) {
 	return
 }
 
-// GetUserName
-func GetUserName(etcPasswd io.Reader, uid uint32) (user string) {
+// GetUserName return user name from /etc/passwd and uid.
+func GetUID(etcpasswd io.Reader, user string) (uid uint32) {
+
 	return
 }
 
-// GetGroupName
-func GetGroupName(etcGroup io.Reader, gid uint32) (group string) {
+// GetUserName return user name from /etc/passwd and uid.
+func GetUserName(etcpasswd string, uid uint32) (user string) {
+	rd := strings.NewReader(etcpasswd)
+	sc := bufio.NewScanner(rd)
+
+	for sc.Scan() {
+		line := sc.Text()
+
+		fmt.Println(line)
+	}
+
+	return
+}
+
+// GetGroupName return group name from /etc/group and gid.
+func GetGID(etcgroup io.Reader, group string) (gid uint32) {
+
+	return
+}
+
+// GetGroupName return group name from /etc/group and gid.
+func GetGroupName(etcgroup io.Reader, gid uint32) (group string) {
+
 	return
 }
 
