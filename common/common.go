@@ -276,7 +276,7 @@ func GetUserName(etcpasswd string, uid uint32) (user string) {
 	return
 }
 
-// GetGroupName return group name from /etc/group and gid.
+// GetGID return group name from /etc/group and gid.
 func GetGID(etcgroup string, group string) (gid uint32) {
 
 	return
