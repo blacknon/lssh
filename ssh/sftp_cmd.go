@@ -207,6 +207,7 @@ func (r *RunSftp) ls(args []string) (err error) {
 					sys := f.Sys()
 
 					// TODO(blacknon): count hardlink (2列目)の取得方法がわからないため、わかったら追加。
+					// TODO(blacknon): 最初にStructに入れて、サイズの最大桁数でパディングするようコードを編集。
 					var uid uint32
 					var gid uint32
 					var size uint64
@@ -223,8 +224,8 @@ func (r *RunSftp) ls(args []string) (err error) {
 						user = strconv.FormatUint(uint64(uid), 10)
 						group = strconv.FormatUint(uint64(gid), 10)
 					} else {
-						user = common.GetUserName(passwd, uid)
-						group = common.GetGroupName(groups, gid)
+						user = common.GetNameFromId(passwd, uid)
+						group = common.GetNameFromId(groups, gid)
 					}
 
 					// Switch with or without -h option.
