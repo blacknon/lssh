@@ -240,17 +240,17 @@ func WalkDir(dir string) (files []string, err error) {
 }
 
 // GetUserName return user name from /etc/passwd and uid.
-func GetUID(etcpasswd string, user string) (uid uint32) {
-	rd := strings.NewReader(etcpasswd)
+func GetIdFromName(file string, name string) (id uint32) {
+	rd := strings.NewReader(file)
 	sc := bufio.NewScanner(rd)
 
 	for sc.Scan() {
 		l := sc.Text()
 		line := strings.Split(l, ":")
-		if line[0] == user {
-			uidStr := line[2]
-			u64, _ := strconv.ParseUint(uidStr, 10, 32)
-			uid = uint32(u64)
+		if line[0] == name {
+			idstr := line[2]
+			u64, _ := strconv.ParseUint(idstr, 10, 32)
+			id = uint32(u64)
 			break
 		}
 	}
@@ -259,40 +259,16 @@ func GetUID(etcpasswd string, user string) (uid uint32) {
 }
 
 // GetUserName return user name from /etc/passwd and uid.
-func GetUserName(etcpasswd string, uid uint32) (user string) {
-	rd := strings.NewReader(etcpasswd)
+func GetNameFromId(file string, id uint32) (name string) {
+	rd := strings.NewReader(file)
 	sc := bufio.NewScanner(rd)
 
-	uidStr := strconv.FormatUint(uint64(uid), 10)
+	idstr := strconv.FormatUint(uint64(id), 10)
 	for sc.Scan() {
 		l := sc.Text()
 		line := strings.Split(l, ":")
-		if line[2] == uidStr {
-			user = line[0]
-			break
-		}
-	}
-
-	return
-}
-
-// GetGID return group name from /etc/group and gid.
-func GetGID(etcgroup string, group string) (gid uint32) {
-
-	return
-}
-
-// GetGroupName return group name from /etc/group and gid.
-func GetGroupName(etcgroup string, gid uint32) (group string) {
-	rd := strings.NewReader(etcgroup)
-	sc := bufio.NewScanner(rd)
-
-	gidStr := strconv.FormatUint(uint64(gid), 10)
-	for sc.Scan() {
-		l := sc.Text()
-		line := strings.Split(l, ":")
-		if line[2] == gidStr {
-			group = line[0]
+		if line[2] == idstr {
+			name = line[0]
 			break
 		}
 	}
