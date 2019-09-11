@@ -2,6 +2,9 @@
 // Use of this source code is governed by an MIT license
 // that can be found in the LICENSE file.
 
+// This file describes the code of the built-in command used by lsftp.
+// It is quite big in that relationship. Maybe it will be separated or repaired soon.
+
 package ssh
 
 import (
@@ -11,10 +14,12 @@ import (
 	"regexp"
 	"sort"
 	"strconv"
+	"time"
 
 	"text/tabwriter"
 
 	"github.com/blacknon/lssh/common"
+	"github.com/dustin/go-humanize"
 	"github.com/pkg/sftp"
 	"github.com/urfave/cli"
 )
@@ -198,25 +203,28 @@ func (r *RunSftp) ls(args []string) (err error) {
 			// print
 			switch {
 			case c.Bool("l"): // long list format
-				// for printout
+				// set tabwriter
 				tabw := new(tabwriter.Writer)
 				tabw.Init(w, 0, 1, 1, ' ', 0)
+
+				// for get data
+				datas := []*SftpLsData{}
+				var maxSizeWidth int
 				for _, f := range data {
-					name := f.Name()
-					mode := f.Mode()
 					sys := f.Sys()
 
 					// TODO(blacknon): count hardlink (2列目)の取得方法がわからないため、わかったら追加。
 					// TODO(blacknon): 最初にStructに入れて、サイズの最大桁数でパディングするようコードを編集。
-					var uid uint32
-					var gid uint32
+					var uid, gid uint32
 					var size uint64
-					var user string
-					var group string
+					var user, group, timestr, sizestr string
+
 					if stat, ok := sys.(*sftp.FileStat); ok {
 						uid = stat.UID
 						gid = stat.GID
 						size = stat.Size
+						timestamp := time.Unix(int64(stat.Mtime), 0)
+						timestr = timestamp.Format("2006 01-02 15:04:05")
 					}
 
 					// Switch with or without -n option.
@@ -229,10 +237,38 @@ func (r *RunSftp) ls(args []string) (err error) {
 					}
 
 					// Switch with or without -h option.
+					if c.Bool("h") {
+						sizestr = humanize.Bytes(size)
+					} else {
+						sizestr = strconv.FormatUint(size, 10)
+					}
 
-					// fmt.Fprintf(tabw, "%s\t%s\n", mode.String(), name)
-					fmt.Fprintf(tabw, "%s\t%s\t%s\t%12d\t%s\n", mode.String(), user, group, size, name)
+					// set sizestr max length
+					if maxSizeWidth < len(sizestr) {
+						maxSizeWidth = len(sizestr)
+					}
+
+					// set data
+					data := new(SftpLsData)
+					data.Mode = f.Mode().String()
+					data.User = user
+					data.Group = group
+					data.Size = sizestr
+					data.Time = timestr
+					data.Path = f.Name()
+
+					// append data
+					datas = append(datas, data)
 				}
+
+				// set print format
+				format := "%s\t%s\t%s\t%" + strconv.Itoa(maxSizeWidth) + "s\t%s\t%s\n"
+
+				// print ls
+				for _, d := range datas {
+					fmt.Fprintf(tabw, format, d.Mode, d.User, d.Group, d.Size, d.Time, d.Path)
+				}
+
 				tabw.Flush()
 
 			case c.Bool("1"): // list 1 file per line

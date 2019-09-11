@@ -5,6 +5,7 @@ require (
 	github.com/VividCortex/ewma v1.1.1 // indirect
 	github.com/blacknon/go-sshlib v0.1.1
 	github.com/c-bata/go-prompt v0.2.3
+	github.com/dustin/go-humanize v1.0.0
 	github.com/golang/glog v0.0.0-20160126235308-23def4e6c14b // indirect
 	github.com/kardianos/osext v0.0.0-20190222173326-2bc1f35cddc0 // indirect
 	github.com/kevinburke/ssh_config v0.0.0-20190724205821-6cfae18c12b8
