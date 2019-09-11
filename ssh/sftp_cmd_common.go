@@ -11,6 +11,17 @@ import (
 	"os"
 )
 
+// SftpLsData struct by sftp ls command list data.
+type SftpLsData struct {
+	Mode  string
+	User  string
+	Group string
+	Size  string
+	Time  string
+	Path  string
+}
+
+// FileInfos is []os.FileInfo.
 type FileInfos []os.FileInfo
 
 // ByName is sort by name
