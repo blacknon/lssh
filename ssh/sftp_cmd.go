@@ -18,6 +18,7 @@ import (
 
 	"text/tabwriter"
 
+	"github.com/acarl005/textcol"
 	"github.com/blacknon/lssh/common"
 	"github.com/dustin/go-humanize"
 	"github.com/pkg/sftp"
@@ -62,7 +63,38 @@ func (r *RunSftp) cp(args []string) {
 
 //
 func (r *RunSftp) df(args []string) {
+	// create app
+	app := cli.NewApp()
+	// app.UseShortOptionHandling = true
 
+	// set help message
+	app.CustomAppHelpTemplate = `	{{.Name}} - {{.Usage}}
+	{{.HelpName}} {{if .VisibleFlags}}[options]{{end}} [PATH]
+	{{range .VisibleFlags}}	{{.}}
+	{{end}}
+	`
+
+	// set parameter
+	app.Flags = []cli.Flag{
+		cli.BoolFlag{Name: "h", Usage: "print sizes in powers of 1024 (e.g., 1023M)"},
+		cli.BoolFlag{Name: "i", Usage: "list inode information instead of block usage"},
+	}
+	app.Name = "df"
+	app.Usage = "lsftp build-in command: df [remote machine df]"
+	app.HideHelp = true
+	app.HideVersion = true
+	app.EnableBashCompletion = true
+
+	// action
+	app.Action = func(c *cli.Context) error {
+		return nil
+	}
+
+	// parse short options
+	args = common.ParseArgs(app.Flags, args)
+	app.Run(args)
+
+	return
 }
 
 // TODO(blacknon): 転送時の進捗状況を表示するプログレスバーの表示はさせること
@@ -115,12 +147,6 @@ func (r *RunSftp) ls(args []string) (err error) {
 		if len(c.Args()) > 0 {
 			path = c.Args().First()
 		}
-
-		// get terminal width
-		// width, _, err := terminal.GetSize(int(os.Stdout.Fd()))
-		// if err != nil {
-		// 	return err
-		// }
 
 		// get directory files
 		for server, client := range r.Client {
@@ -279,8 +305,11 @@ func (r *RunSftp) ls(args []string) (err error) {
 				}
 
 			default: // default
-				// TODO(blacknon): 幅を計算させて出力させる
-
+				var item []string
+				for _, f := range data {
+					item = append(item, f.Name())
+				}
+				textcol.PrintColumns(&item, 2)
 			}
 		}
 

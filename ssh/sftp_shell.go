@@ -39,6 +39,9 @@ func (r *RunSftp) shell() {
 
 // sftp Shell mode function
 func (r *RunSftp) Executor(command string) {
+	// trim space
+	command = strings.TrimSpace(command)
+
 	// parse command
 	cmdline := strings.Split(command, " ")
 

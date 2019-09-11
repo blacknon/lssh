@@ -3,6 +3,8 @@ module github.com/blacknon/lssh
 require (
 	github.com/BurntSushi/toml v0.3.1
 	github.com/VividCortex/ewma v1.1.1 // indirect
+	github.com/acarl005/stripansi v0.0.0-20180116102854-5a71ef0e047d // indirect
+	github.com/acarl005/textcol v0.0.0
 	github.com/blacknon/go-sshlib v0.1.1
 	github.com/c-bata/go-prompt v0.2.3
 	github.com/dustin/go-humanize v1.0.0
