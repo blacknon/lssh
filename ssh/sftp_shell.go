@@ -71,6 +71,7 @@ func (r *RunSftp) Executor(command string) {
 	case "pwd":
 		r.pwd(cmdline)
 	case "rename":
+		r.rename(cmdline)
 	case "rm":
 	case "rmdir":
 	case "symlink":
