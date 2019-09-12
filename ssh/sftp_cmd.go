@@ -18,8 +18,8 @@ import (
 
 	"text/tabwriter"
 
-	"github.com/acarl005/textcol"
 	"github.com/blacknon/lssh/common"
+	"github.com/blacknon/textcol"
 	"github.com/dustin/go-humanize"
 	"github.com/pkg/sftp"
 	"github.com/urfave/cli"
@@ -87,6 +87,84 @@ func (r *RunSftp) df(args []string) {
 
 	// action
 	app.Action = func(c *cli.Context) error {
+		// set path
+		// TODO(blacknon): cdでカレントディレクトリ変更した場合の処理に対応させる
+		path := "./"
+		if len(c.Args()) > 0 {
+			path = c.Args().First()
+		}
+
+		// get remote stat data
+		stats := map[string]*sftp.StatVFS{}
+		for server, client := range r.Client {
+			// set ftp client
+			ftp := client.Connect
+
+			// get StatVFS
+			stat, err := ftp.StatVFS(path)
+			if err != nil {
+				fmt.Println(err)
+				continue
+			}
+			stats[server] = stat
+		}
+
+		// set tabwriter
+		tabw := new(tabwriter.Writer)
+		tabw.Init(os.Stdout, 0, 8, 4, ' ', tabwriter.AlignRight)
+
+		// print header
+		headerTotal := "TotalSize"
+		if c.Bool("i") {
+			headerTotal = "Inodes"
+		}
+		fmt.Fprintf(tabw, "%s\t%s\t%s\t%s\t%s\t\n", "Server", headerTotal, "Used", "(root)", "Capacity")
+
+		// print stat
+		for server, stat := range stats {
+			// set data in columns
+			var column1, column2, column3, column4, column5 string
+			switch {
+			case c.Bool("i"):
+				totals := stat.Files
+				frees := stat.Ffree
+				useds := totals - frees
+
+				column1 = server
+				column2 = strconv.FormatUint(totals, 10)
+				column3 = strconv.FormatUint(useds, 10)
+				column4 = strconv.FormatUint(frees, 10)
+				column5 = fmt.Sprintf("%0.2f", (float64(useds)/float64(totals))*100)
+
+			case c.Bool("h"):
+				totals := stat.TotalSpace()
+				frees := stat.FreeSpace()
+				useds := stat.TotalSpace() - stat.FreeSpace()
+
+				column1 = server
+				column2 = humanize.IBytes(totals)
+				column3 = humanize.IBytes(useds)
+				column4 = humanize.IBytes(frees)
+				column5 = fmt.Sprintf("%0.2f", (float64(useds)/float64(totals))*100)
+
+			default:
+				totals := stat.TotalSpace()
+				frees := stat.FreeSpace()
+				useds := stat.TotalSpace() - stat.FreeSpace()
+
+				column1 = server
+				column2 = strconv.FormatUint(totals/1024, 10)
+				column3 = strconv.FormatUint(useds/1024, 10)
+				column4 = strconv.FormatUint(frees/1024, 10)
+				column5 = fmt.Sprintf("%0.2f", (float64(useds)/float64(totals))*100)
+			}
+
+			fmt.Fprintf(tabw, "%s\t%s\t%s\t%s\t%s%%\t\n", column1, column2, column3, column4, column5)
+		}
+
+		// write tabwriter
+		tabw.Flush()
+
 		return nil
 	}
 
@@ -153,6 +231,7 @@ func (r *RunSftp) ls(args []string) (err error) {
 			// get writer
 			client.Output.Create(server)
 			w := client.Output.NewWriter()
+			headerWidth := len(client.Output.prompt)
 
 			// get directory list data
 			data, err := client.Connect.ReadDir(path)
@@ -240,7 +319,6 @@ func (r *RunSftp) ls(args []string) (err error) {
 					sys := f.Sys()
 
 					// TODO(blacknon): count hardlink (2列目)の取得方法がわからないため、わかったら追加。
-					// TODO(blacknon): 最初にStructに入れて、サイズの最大桁数でパディングするようコードを編集。
 					var uid, gid uint32
 					var size uint64
 					var user, group, timestr, sizestr string
@@ -309,6 +387,9 @@ func (r *RunSftp) ls(args []string) (err error) {
 				for _, f := range data {
 					item = append(item, f.Name())
 				}
+
+				textcol.Output = w
+				textcol.Padding = headerWidth
 				textcol.PrintColumns(&item, 2)
 			}
 		}
