@@ -56,8 +56,7 @@ func (r *RunSftp) Executor(command string) {
 	case "chown":
 	case "cp":
 	case "df":
-	case "reget":
-	case "reput":
+		r.df(cmdline)
 	case "lcd":
 	case "lls":
 	case "lmkdir":
@@ -130,9 +129,11 @@ func (r *RunSftp) Completer(t prompt.Document) []prompt.Suggest {
 		case "chgrp":
 		case "chown":
 		case "df":
+			suggest = []prompt.Suggest{
+				{Text: "-h", Description: "print sizes in powers of 1024 (e.g., 1023M)"},
+				{Text: "-i", Description: "list inode information instead of block usage"},
+			}
 		case "get":
-		case "reget":
-		case "reput":
 		case "lcd":
 		case "lls":
 		case "lmkdir":
