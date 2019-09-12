@@ -14,6 +14,7 @@ import (
 )
 
 var Output io.Writer = os.Stdout
+var Padding int = 0
 
 func PrintColumns(strs *[]string, margin int) {
 	// get the longest string the columns need to contain
@@ -31,6 +32,7 @@ func PrintColumns(strs *[]string, margin int) {
 
 	// see how wide the terminal is
 	width := getTermWidth()
+	width = width - Padding
 	// calculate the dimensions of the columns
 	numCols, numRows := calculateTableSize(width, margin, maxLength, len(*strs))
 
