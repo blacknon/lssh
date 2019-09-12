@@ -188,6 +188,8 @@ func (r *RunSftp) get(args []string) {
 }
 
 // list is stfp ls command.
+// TODO(blacknon): `ls -l`時に全サーバで表示を揃える
+// TODO(blacknon): データをparallelで取得させる
 func (r *RunSftp) ls(args []string) (err error) {
 	// create app
 	app := cli.NewApp()
@@ -235,11 +237,23 @@ func (r *RunSftp) ls(args []string) (err error) {
 			w := client.Output.NewWriter()
 			headerWidth := len(client.Output.prompt)
 
-			// get directory list data
-			data, err := client.Connect.ReadDir(path)
+			// get stat
+			lstat, err := client.Connect.Lstat(path)
 			if err != nil {
 				fmt.Fprintf(w, "Error: %s\n", err)
 				continue
+			}
+
+			var data []os.FileInfo
+			if lstat.IsDir() {
+				// get directory list data
+				data, err = client.Connect.ReadDir(path)
+				if err != nil {
+					fmt.Fprintf(w, "Error: %s\n", err)
+					continue
+				}
+			} else {
+				data = []os.FileInfo{lstat}
 			}
 
 			// if `a` flag disable, delete Hidden files...
@@ -408,7 +422,66 @@ func (r *RunSftp) ls(args []string) (err error) {
 
 //
 func (r *RunSftp) mkdir(args []string) {
+	// create app
+	app := cli.NewApp()
+	// app.UseShortOptionHandling = true
 
+	// set parameter
+	app.Flags = []cli.Flag{
+		cli.BoolFlag{Name: "p", Usage: "no error if existing, make parent directories as needed"},
+	}
+
+	// set help message
+	app.CustomAppHelpTemplate = `	{{.Name}} - {{.Usage}}
+	{{.HelpName}} {{if .VisibleFlags}}[options]{{end}} [PATH]
+	{{range .VisibleFlags}}	{{.}}
+	{{end}}
+	`
+	app.Name = "mkdir"
+	app.Usage = "lsftp build-in command: mkdir [remote machine mkdir]"
+	app.ArgsUsage = "[path]"
+	app.HideHelp = true
+	app.HideVersion = true
+	app.EnableBashCompletion = true
+
+	// action
+	app.Action = func(c *cli.Context) error {
+		// TODO(blacknon): 複数のディレクトリ受付(v0.6.1)
+		if len(c.Args()) != 1 {
+			fmt.Println("Requires one arguments")
+			fmt.Println("mkdir [path]")
+			return nil
+		}
+
+		for server, client := range r.Client {
+			// get writer
+			client.Output.Create(server)
+			w := client.Output.NewWriter()
+
+			// create directory
+			var err error
+			if c.Bool("p") {
+				err = client.Connect.MkdirAll(c.Args()[0])
+			} else {
+				err = client.Connect.Mkdir(c.Args()[0])
+			}
+
+			// check error
+			if err != nil {
+				fmt.Fprintf(w, "%s\n", err)
+			}
+
+			fmt.Fprintf(w, "make directory: %s\n", c.Args()[0])
+		}
+
+		return nil
+	}
+
+	// parse short options
+	args = common.ParseArgs(app.Flags, args)
+	app.Run(args)
+
+	return
 }
 
 // TODO(blacknon): 転送時の進捗状況を表示するプログレスバーの表示はさせること
@@ -465,9 +538,25 @@ func (r *RunSftp) rename(args []string) {
 	// action
 	app.Action = func(c *cli.Context) error {
 		if len(c.Args()) != 2 {
-			fmt.Println("Error")
+			fmt.Println("Requires two arguments")
+			fmt.Println("rename [old] [new]")
 			return nil
 		}
+
+		for server, client := range r.Client {
+			// get writer
+			client.Output.Create(server)
+			w := client.Output.NewWriter()
+
+			// get current directory
+			err := client.Connect.Rename(c.Args()[0], c.Args()[1])
+			if err != nil {
+				fmt.Fprintf(w, "%s\n", err)
+			}
+
+			fmt.Fprintf(w, "rename: %s => %s\n", c.Args()[0], c.Args()[1])
+		}
+
 		return nil
 	}
 
@@ -482,8 +571,55 @@ func (r *RunSftp) rm(args []string) {
 
 }
 
+//
 func (r *RunSftp) rmdir(args []string) {
+	// create app
+	app := cli.NewApp()
+	// app.UseShortOptionHandling = true
 
+	// set help message
+	app.CustomAppHelpTemplate = `	{{.Name}} - {{.Usage}}
+	{{.HelpName}} {{if .VisibleFlags}}[options]{{end}} [PATH]
+	{{range .VisibleFlags}}	{{.}}
+	{{end}}
+	`
+	app.Name = "rmdir"
+	app.Usage = "lsftp build-in command: rmdir [remote machine rmdir]"
+	app.ArgsUsage = "[path]"
+	app.HideHelp = true
+	app.HideVersion = true
+	app.EnableBashCompletion = true
+
+	// action
+	app.Action = func(c *cli.Context) error {
+		if len(c.Args()) != 1 {
+			fmt.Println("Requires one arguments")
+			fmt.Println("rmdir [path]")
+			return nil
+		}
+
+		for server, client := range r.Client {
+			// get writer
+			client.Output.Create(server)
+			w := client.Output.NewWriter()
+
+			// remove directory
+			err := client.Connect.RemoveDirectory(c.Args()[0])
+			if err != nil {
+				fmt.Fprintf(w, "%s\n", err)
+			}
+
+			fmt.Fprintf(w, "remove dir: %s\n", c.Args()[0])
+		}
+
+		return nil
+	}
+
+	// parse short options
+	args = common.ParseArgs(app.Flags, args)
+	app.Run(args)
+
+	return
 }
 
 func (r *RunSftp) symlink(args []string) {
