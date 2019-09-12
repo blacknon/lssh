@@ -81,6 +81,7 @@ func (r *RunSftp) df(args []string) {
 	}
 	app.Name = "df"
 	app.Usage = "lsftp build-in command: df [remote machine df]"
+	app.ArgsUsage = "[path]"
 	app.HideHelp = true
 	app.HideVersion = true
 	app.EnableBashCompletion = true
@@ -213,6 +214,7 @@ func (r *RunSftp) ls(args []string) (err error) {
 	}
 	app.Name = "ls"
 	app.Usage = "lsftp build-in command: ls [remote machine ls]"
+	app.ArgsUsage = "[path]"
 	app.HideHelp = true
 	app.HideVersion = true
 	app.EnableBashCompletion = true
@@ -443,7 +445,37 @@ func (r *RunSftp) pwd(args []string) {
 }
 
 func (r *RunSftp) rename(args []string) {
+	// create app
+	app := cli.NewApp()
+	// app.UseShortOptionHandling = true
 
+	// set help message
+	app.CustomAppHelpTemplate = `	{{.Name}} - {{.Usage}}
+	{{.HelpName}} {{if .VisibleFlags}}[options]{{end}} [PATH] [PATH]
+	{{range .VisibleFlags}}	{{.}}
+	{{end}}
+	`
+	app.Name = "rename"
+	app.Usage = "lsftp build-in command: rename [remote machine rename]"
+	app.ArgsUsage = "[path path]"
+	app.HideHelp = true
+	app.HideVersion = true
+	app.EnableBashCompletion = true
+
+	// action
+	app.Action = func(c *cli.Context) error {
+		if len(c.Args()) != 2 {
+			fmt.Println("Error")
+			return nil
+		}
+		return nil
+	}
+
+	// parse short options
+	args = common.ParseArgs(app.Flags, args)
+	app.Run(args)
+
+	return
 }
 
 func (r *RunSftp) rm(args []string) {
