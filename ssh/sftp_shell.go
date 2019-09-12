@@ -66,6 +66,7 @@ func (r *RunSftp) Executor(command string) {
 		r.ls(cmdline)
 	case "lumask":
 	case "mkdir":
+		r.mkdir(cmdline)
 	case "progress":
 	case "put":
 	case "pwd":
@@ -154,6 +155,9 @@ func (r *RunSftp) Completer(t prompt.Document) []prompt.Suggest {
 			}
 		case "lumask":
 		case "mkdir":
+			suggest = []prompt.Suggest{
+				{Text: "-p", Description: "no error if existing, make parent directories as needed"},
+			}
 		case "progress":
 		case "put":
 		case "pwd":
