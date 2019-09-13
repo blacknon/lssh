@@ -176,15 +176,34 @@ func (r *RunSftp) df(args []string) {
 	return
 }
 
-// TODO(blacknon): 転送時の進捗状況を表示するプログレスバーの表示はさせること
-func (r *RunSftp) get(args []string) {
-	// pathがディレクトリかどうかのチェックが必要
-	// remoteFile, err := sftp.Create("hello.txt")
-	// localFile, err := os.Open("hello.txt")
-	// io.Copy(remoteFile, localFile)
+func (r *RunSftp) ln(args []string) (err error) {
+	// create app
+	app := cli.NewApp()
+	// app.UseShortOptionHandling = true
 
-	// f, err := sftp.Create("hello.txt")
-	// TODO(blacknon): io.Copy使うとよさそう？？
+	// set help message
+	app.CustomAppHelpTemplate = `	{{.Name}} - {{.Usage}}
+	{{.HelpName}} {{if .VisibleFlags}}[options]{{end}} [PATH]
+	{{range .VisibleFlags}}	{{.}}
+	{{end}}
+	`
+	app.Name = "ln"
+	app.Usage = "lsftp build-in command: ln [remote machine ln]"
+	app.ArgsUsage = "[path]"
+	app.HideHelp = true
+	app.HideVersion = true
+	app.EnableBashCompletion = true
+
+	// action
+	app.Action = func(c *cli.Context) error {
+		return nil
+	}
+
+	// parse short options
+	args = common.ParseArgs(app.Flags, args)
+	app.Run(args)
+
+	return
 }
 
 // list is stfp ls command.
@@ -484,13 +503,6 @@ func (r *RunSftp) mkdir(args []string) {
 	return
 }
 
-// TODO(blacknon): 転送時の進捗状況を表示するプログレスバーの表示はさせること
-func (r *RunSftp) put(args []string) {
-	// pathがディレクトリかどうかのチェックが必要
-	// f, err := sftp.Open(path)
-	// TODO(blacknon): io.Copy使うとよさそう？？
-}
-
 //
 func (r *RunSftp) pwd(args []string) {
 	exit := make(chan bool)
@@ -620,10 +632,6 @@ func (r *RunSftp) rmdir(args []string) {
 	app.Run(args)
 
 	return
-}
-
-func (r *RunSftp) symlink(args []string) {
-
 }
 
 func (r *RunSftp) tree(args []string) {
