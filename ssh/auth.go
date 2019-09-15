@@ -17,8 +17,8 @@ import (
 
 const SSH_AUTH_SOCK = "SSH_AUTH_SOCK"
 
-// createAuthMethodMap Create ssh.AuthMethod, into r.AuthMethodMap.
-func (r *Run) createAuthMethodMap() {
+// CreateAuthMethodMap Create ssh.AuthMethod, into r.AuthMethodMap.
+func (r *Run) CreateAuthMethodMap() {
 	srvs := r.ServerList
 	for _, server := range r.ServerList {
 		proxySrvs, _ := getProxyRoute(server, r.Conf)

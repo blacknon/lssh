@@ -2,7 +2,7 @@
 // Use of this source code is governed by an MIT license
 // that can be found in the LICENSE file.
 
-package ssh
+package output
 
 import (
 	"bufio"
@@ -40,10 +40,10 @@ type Output struct {
 	Templete string
 
 	// prompt is Output prompt.
-	prompt string
+	Prompt string
 
 	// target server name. ${SERVER}
-	server string
+	Server string
 
 	// Count value. ${COUNT}
 	Count int
@@ -67,7 +67,7 @@ type Output struct {
 // Create template, set variable value.
 func (o *Output) Create(server string) {
 	// TODO(blacknon): Replaceでの処理ではなく、Text templateを作ってそちらで処理させる(置換処理だと脆弱性がありそうなので)
-	o.server = server
+	o.Server = server
 
 	// get max length at server name
 	length := common.GetMaxLength(o.ServerList)
@@ -75,7 +75,7 @@ func (o *Output) Create(server string) {
 
 	// get color num
 	n := common.GetOrderNumber(server, o.ServerList)
-	colorServerName := outColorStrings(n, server)
+	colorServerName := OutColorStrings(n, server)
 
 	// set templete
 	p := o.Templete
@@ -86,7 +86,7 @@ func (o *Output) Create(server string) {
 	p = strings.Replace(p, "${USER}", o.Conf.User, -1)
 	p = strings.Replace(p, "${PORT}", o.Conf.Port, -1)
 
-	o.prompt = p
+	o.Prompt = p
 }
 
 // GetPrompt update variable value
@@ -94,7 +94,7 @@ func (o *Output) GetPrompt() (p string) {
 	// Get time
 
 	// replace variable value
-	p = strings.Replace(o.prompt, "${COUNT}", strconv.Itoa(o.Count), -1)
+	p = strings.Replace(o.Prompt, "${COUNT}", strconv.Itoa(o.Count), -1)
 	return
 }
 
@@ -193,7 +193,7 @@ func (o *Output) ProgressPrinter(size int64, reader io.Reader, path string) {
 	return
 }
 
-func outColorStrings(num int, inStrings string) (str string) {
+func OutColorStrings(num int, inStrings string) (str string) {
 	// 1=Red,2=Yellow,3=Blue,4=Magenta,0=Cyan
 	color := 31 + num%5
 
@@ -202,7 +202,7 @@ func outColorStrings(num int, inStrings string) (str string) {
 }
 
 // multiPipeReadWriter is PipeReader to []io.WriteCloser.
-func pushPipeWriter(isExit <-chan bool, output []io.WriteCloser, input io.Reader) {
+func PushPipeWriter(isExit <-chan bool, output []io.WriteCloser, input io.Reader) {
 	rd := bufio.NewReader(input)
 loop:
 	for {
@@ -240,7 +240,7 @@ loop:
 }
 
 // send input to ssh Session Stdin
-func pushInput(isExit <-chan bool, output []io.WriteCloser) {
+func PushInput(isExit <-chan bool, output []io.WriteCloser) {
 	rd := bufio.NewReader(os.Stdin)
 loop:
 	for {

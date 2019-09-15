@@ -15,7 +15,7 @@ import (
 	"github.com/blacknon/lssh/common"
 	"github.com/blacknon/lssh/conf"
 	"github.com/blacknon/lssh/list"
-	"github.com/blacknon/lssh/ssh"
+	"github.com/blacknon/lssh/scp"
 	"github.com/urfave/cli"
 )
 
@@ -186,7 +186,7 @@ USAGE:
 		}
 
 		// scp struct
-		scp := new(ssh.Scp)
+		scp := new(scp.Scp)
 
 		// set from info
 		for _, from := range fromArgs {

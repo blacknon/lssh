@@ -2,7 +2,7 @@
 // Use of this source code is governed by an MIT license
 // that can be found in the LICENSE file.
 
-package ssh
+package sftp
 
 import (
 	"fmt"
@@ -10,6 +10,8 @@ import (
 	"sync"
 
 	"github.com/blacknon/lssh/conf"
+	"github.com/blacknon/lssh/output"
+	sshl "github.com/blacknon/lssh/ssh"
 	"github.com/pkg/sftp"
 	"github.com/vbauerster/mpb"
 )
@@ -25,7 +27,7 @@ type RunSftp struct {
 	Client map[string]*SftpConnect
 
 	// ssh Run
-	Run *Run
+	Run *sshl.Run
 
 	// progress bar
 	Progress   *mpb.Progress
@@ -37,18 +39,22 @@ type SftpConnect struct {
 	Connect *sftp.Client
 
 	// Output
-	Output *Output
+	Output *output.Output
 
 	// Current Directory
-	PWD string
+	Pwd string
 }
+
+var (
+	oprompt = "${SERVER} :: "
+)
 
 func (r *RunSftp) Start() {
 	// Create AuthMap
-	r.Run = new(Run)
+	r.Run = new(sshl.Run)
 	r.Run.ServerList = r.SelectServer
 	r.Run.Conf = r.Config
-	r.Run.createAuthMethodMap()
+	r.Run.CreateAuthMethodMap()
 
 	// Create Sftp Connect
 	r.Client = r.createSftpConnect(r.Run.ServerList)
@@ -68,7 +74,7 @@ func (r *RunSftp) createSftpConnect(targets []string) (result map[string]*SftpCo
 		server := target
 		go func() {
 			// ssh connect
-			conn, err := r.Run.createSshConnect(server)
+			conn, err := r.Run.CreateSshConnect(server)
 			if err != nil {
 				fmt.Fprintf(os.Stderr, "%s connect error: %s\n", server, err)
 				ch <- true
@@ -84,7 +90,7 @@ func (r *RunSftp) createSftpConnect(targets []string) (result map[string]*SftpCo
 			}
 
 			// create output
-			o := &Output{
+			o := &output.Output{
 				Templete:   oprompt,
 				ServerList: targets,
 				Conf:       r.Config.Server[server],

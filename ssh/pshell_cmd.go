@@ -18,6 +18,7 @@ import (
 	"time"
 
 	"github.com/blacknon/go-sshlib"
+	"github.com/blacknon/lssh/output"
 	"golang.org/x/crypto/ssh"
 )
 
@@ -280,7 +281,7 @@ func (ps *pShell) executeRemotePipeLine(pline pipeLine, in *io.PipeReader, out *
 			defer w.CloseWithError(io.ErrClosedPipe)
 
 			// create pShellHistory Writer
-			hw := ps.NewHistoryWriter(c.Output.server, c.Output, m)
+			hw := ps.NewHistoryWriter(c.Output.Server, c.Output, m)
 			defer hw.CloseWithError(io.ErrClosedPipe)
 
 			ow = io.MultiWriter(w, hw)
@@ -301,10 +302,10 @@ func (ps *pShell) executeRemotePipeLine(pline pipeLine, in *io.PipeReader, out *
 		// push input to pararell session
 		// (Only when input is os.Stdin and output is os.Stdout).
 		if stdout == os.Stdout {
-			go pushInput(exitInput, writers)
+			go output.PushInput(exitInput, writers)
 		}
 	case *io.PipeReader:
-		go pushPipeWriter(exitInput, writers, stdin)
+		go output.PushPipeWriter(exitInput, writers, stdin)
 	}
 
 	// run command
