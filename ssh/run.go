@@ -139,7 +139,7 @@ func (r *Run) Start() {
 	}
 
 	// create AuthMap
-	r.createAuthMethodMap()
+	r.CreateAuthMethodMap()
 
 	// connect
 	switch {
@@ -164,9 +164,9 @@ func (r *Run) Start() {
 	}
 }
 
-// printSelectServer is printout select server.
+// PrintSelectServer is printout select server.
 // use ssh login header.
-func (r *Run) printSelectServer() {
+func (r *Run) PrintSelectServer() {
 	serverListStr := strings.Join(r.ServerList, ",")
 	fmt.Fprintf(os.Stderr, "Select Server :%s\n", serverListStr)
 }

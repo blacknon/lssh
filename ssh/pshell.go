@@ -14,6 +14,7 @@ import (
 	"syscall"
 
 	"github.com/blacknon/go-sshlib"
+	"github.com/blacknon/lssh/output"
 	"github.com/c-bata/go-prompt"
 	"github.com/c-bata/go-prompt/completer"
 )
@@ -60,7 +61,7 @@ type pShellOption struct {
 // psConnect is pShell connect struct.
 type psConnect struct {
 	Name   string
-	Output *Output
+	Output *output.Output
 	*sshlib.Connect
 }
 
@@ -79,7 +80,7 @@ var (
 func (r *Run) pshell() (err error) {
 	// print header
 	fmt.Println("Start parallel-shell...")
-	r.printSelectServer()
+	r.PrintSelectServer()
 
 	// read shell config
 	config := r.Conf.Shell
@@ -107,7 +108,7 @@ func (r *Run) pshell() (err error) {
 	var cons []*psConnect
 	for _, server := range r.ServerList {
 		// Create *sshlib.Connect
-		con, err := r.createSshConnect(server)
+		con, err := r.CreateSshConnect(server)
 		if err != nil {
 			log.Println(err)
 			continue
@@ -117,7 +118,7 @@ func (r *Run) pshell() (err error) {
 		con.TTY = true
 
 		// Create Output
-		o := &Output{
+		o := &output.Output{
 			Templete:   config.OPrompt,
 			ServerList: r.ServerList,
 			Conf:       r.Conf.Server[server],

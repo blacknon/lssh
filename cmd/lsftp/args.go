@@ -12,7 +12,7 @@ import (
 
 	"github.com/blacknon/lssh/conf"
 	"github.com/blacknon/lssh/list"
-	"github.com/blacknon/lssh/ssh"
+	"github.com/blacknon/lssh/sftp"
 	"github.com/urfave/cli"
 )
 
@@ -94,7 +94,7 @@ USAGE:
 		}
 
 		// scp struct
-		runSftp := new(ssh.RunSftp)
+		runSftp := new(sftp.RunSftp)
 		runSftp.Config = data
 		runSftp.SelectServer = selected
 

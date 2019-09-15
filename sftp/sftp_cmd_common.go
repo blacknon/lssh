@@ -5,14 +5,21 @@
 // NOTE:
 // The file in which code for the sort function used mainly with the lsftp ls command is written.
 
-package ssh
+package sftp
 
 import (
 	"os"
 )
 
-// SftpLsData struct by sftp ls command list data.
-type SftpLsData struct {
+//
+type sftpLs struct {
+	Files  []os.FileInfo
+	Passwd string
+	Groups string
+}
+
+// sftpLsData struct by sftp ls command list data.
+type sftpLsData struct {
 	Mode  string
 	User  string
 	Group string

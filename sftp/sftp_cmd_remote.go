@@ -5,7 +5,7 @@
 // This file describes the code of the built-in command used by lsftp.
 // It is quite big in that relationship. Maybe it will be separated or repaired soon.
 
-package ssh
+package sftp
 
 import (
 	"fmt"
@@ -14,6 +14,7 @@ import (
 	"regexp"
 	"sort"
 	"strconv"
+	"sync"
 	"time"
 
 	"text/tabwriter"
@@ -176,6 +177,7 @@ func (r *RunSftp) df(args []string) {
 	return
 }
 
+//
 func (r *RunSftp) ln(args []string) (err error) {
 	// create app
 	app := cli.NewApp()
@@ -249,54 +251,87 @@ func (r *RunSftp) ls(args []string) (err error) {
 			path = c.Args().First()
 		}
 
-		// get directory files
-		for server, client := range r.Client {
-			// get writer
-			client.Output.Create(server)
-			w := client.Output.NewWriter()
-			headerWidth := len(client.Output.prompt)
+		// get directory files data
+		exit := make(chan bool)
+		lsdata := map[string]sftpLs{}
+		m := new(sync.Mutex)
+		for s, cl := range r.Client {
+			server := s
+			client := cl
 
-			// get stat
-			lstat, err := client.Connect.Lstat(path)
-			if err != nil {
-				fmt.Fprintf(w, "Error: %s\n", err)
-				continue
-			}
+			go func() {
+				// get output
+				client.Output.Create(server)
+				w := client.Output.NewWriter()
 
-			var data []os.FileInfo
-			if lstat.IsDir() {
-				// get directory list data
-				data, err = client.Connect.ReadDir(path)
+				// get stat
+				lstat, err := client.Connect.Lstat(path)
 				if err != nil {
 					fmt.Fprintf(w, "Error: %s\n", err)
-					continue
+					exit <- true
+					return
 				}
-			} else {
-				data = []os.FileInfo{lstat}
-			}
 
-			// if `a` flag disable, delete Hidden files...
-			if !c.Bool("a") {
-				// hidden delete data slice
-				hddata := []os.FileInfo{}
-
-				// regex
-				rgx := regexp.MustCompile(`^\.`)
-
-				for _, f := range data {
-					if !rgx.MatchString(f.Name()) {
-						hddata = append(hddata, f)
+				var data []os.FileInfo
+				if lstat.IsDir() {
+					// get directory list data
+					data, err = client.Connect.ReadDir(path)
+					if err != nil {
+						fmt.Fprintf(w, "Error: %s\n", err)
+						exit <- true
+						return
 					}
+				} else {
+					data = []os.FileInfo{lstat}
 				}
 
-				data = hddata
-			}
+				// if `a` flag disable, delete Hidden files...
+				if !c.Bool("a") {
+					// hidden delete data slice
+					hddata := []os.FileInfo{}
 
-			// sort
-			switch {
-			case c.Bool("f"): // do not sort
-				// If the l flag is enabled, sort by name
-				if c.Bool("l") {
+					// regex
+					rgx := regexp.MustCompile(`^\.`)
+
+					for _, f := range data {
+						if !rgx.MatchString(f.Name()) {
+							hddata = append(hddata, f)
+						}
+					}
+
+					data = hddata
+				}
+
+				// sort
+				switch {
+				case c.Bool("f"): // do not sort
+					// If the l flag is enabled, sort by name
+					if c.Bool("l") {
+						// check reverse
+						if c.Bool("r") {
+							sort.Sort(sort.Reverse(ByName{data}))
+						} else {
+							sort.Sort(ByName{data})
+						}
+					}
+
+				case c.Bool("S"): // sort by file size
+					// check reverse
+					if c.Bool("r") {
+						sort.Sort(sort.Reverse(BySize{data}))
+					} else {
+						sort.Sort(BySize{data})
+					}
+
+				case c.Bool("t"): // sort by mod time
+					// check reverse
+					if c.Bool("r") {
+						sort.Sort(sort.Reverse(ByTime{data}))
+					} else {
+						sort.Sort(ByTime{data})
+					}
+
+				default: // sort by name (default).
 					// check reverse
 					if c.Bool("r") {
 						sort.Sort(sort.Reverse(ByName{data}))
@@ -305,52 +340,50 @@ func (r *RunSftp) ls(args []string) (err error) {
 					}
 				}
 
-			case c.Bool("S"): // sort by file size
-				// check reverse
-				if c.Bool("r") {
-					sort.Sort(sort.Reverse(BySize{data}))
-				} else {
-					sort.Sort(BySize{data})
+				// read /etc/passwd
+				passwdFile, _ := client.Connect.Open("/etc/passwd")
+				passwdByte, _ := ioutil.ReadAll(passwdFile)
+				passwd := string(passwdByte)
+
+				// read /etc/group
+				groupFile, _ := client.Connect.Open("/etc/group")
+				groupByte, _ := ioutil.ReadAll(groupFile)
+				groups := string(groupByte)
+
+				// write lsdata
+				m.Lock()
+				lsdata[server] = sftpLs{
+					Files:  data,
+					Passwd: passwd,
+					Groups: groups,
 				}
+				m.Unlock()
 
-			case c.Bool("t"): // sort by mod time
-				// check reverse
-				if c.Bool("r") {
-					sort.Sort(sort.Reverse(ByTime{data}))
-				} else {
-					sort.Sort(ByTime{data})
-				}
+				exit <- true
+			}()
+		}
 
-			default: // sort by name (default).
-				// check reverse
-				if c.Bool("r") {
-					sort.Sort(sort.Reverse(ByName{data}))
-				} else {
-					sort.Sort(ByName{data})
-				}
-			}
+		// wait get directory data
+		for i := 0; i < len(r.Client); i++ {
+			<-exit
+		}
 
-			// read /etc/passwd
-			passwdFile, _ := client.Connect.Open("/etc/passwd")
-			passwdByte, _ := ioutil.ReadAll(passwdFile)
-			passwd := string(passwdByte)
+		// set tabwriter
+		tabw := new(tabwriter.Writer)
+		tabw.Init(os.Stdout, 0, 1, 1, ' ', 0)
 
-			// read /etc/group
-			groupFile, _ := client.Connect.Open("/etc/group")
-			groupByte, _ := ioutil.ReadAll(groupFile)
-			groups := string(groupByte)
+		for server, client := range r.Client {
+			// get output
+			client.Output.Create(server)
+			w := client.Output.NewWriter()
 
 			// print
 			switch {
 			case c.Bool("l"): // long list format
-				// set tabwriter
-				tabw := new(tabwriter.Writer)
-				tabw.Init(w, 0, 1, 1, ' ', 0)
-
 				// for get data
-				datas := []*SftpLsData{}
+				datas := []*sftpLsData{}
 				var maxSizeWidth int
-				for _, f := range data {
+				for _, f := range lsdata[server].Files {
 					sys := f.Sys()
 
 					// TODO(blacknon): count hardlink (2列目)の取得方法がわからないため、わかったら追加。
@@ -371,8 +404,8 @@ func (r *RunSftp) ls(args []string) (err error) {
 						user = strconv.FormatUint(uint64(uid), 10)
 						group = strconv.FormatUint(uint64(gid), 10)
 					} else {
-						user = common.GetNameFromId(passwd, uid)
-						group = common.GetNameFromId(groups, gid)
+						user = common.GetNameFromId(lsdata[server].Passwd, uid)
+						group = common.GetNameFromId(lsdata[server].Groups, gid)
 					}
 
 					// Switch with or without -h option.
@@ -388,7 +421,7 @@ func (r *RunSftp) ls(args []string) (err error) {
 					}
 
 					// set data
-					data := new(SftpLsData)
+					data := new(sftpLsData)
 					data.Mode = f.Mode().String()
 					data.User = user
 					data.Group = group
@@ -400,26 +433,36 @@ func (r *RunSftp) ls(args []string) (err error) {
 					datas = append(datas, data)
 				}
 
-				// set print format
-				format := "%s\t%s\t%s\t%" + strconv.Itoa(maxSizeWidth) + "s\t%s\t%s\n"
-
 				// print ls
 				for _, d := range datas {
-					fmt.Fprintf(tabw, format, d.Mode, d.User, d.Group, d.Size, d.Time, d.Path)
-				}
+					if len(lsdata) == 1 {
+						// set print format
+						format := "%s\t%s\t%s\t%" + strconv.Itoa(maxSizeWidth) + "s\t%s\t%s\n"
 
-				tabw.Flush()
+						// write data
+						fmt.Fprintf(tabw, format, d.Mode, d.User, d.Group, d.Size, d.Time, d.Path)
+					} else {
+						// set print format
+						format := "%s\t%s\t%s\t%s\t%" + strconv.Itoa(maxSizeWidth) + "s\t%s\t%s\n"
+
+						// write data
+						fmt.Fprintf(tabw, format, client.Output.Prompt, d.Mode, d.User, d.Group, d.Size, d.Time, d.Path)
+					}
+				}
 
 			case c.Bool("1"): // list 1 file per line
 				// for list
-				for _, f := range data {
+				for _, f := range lsdata[server].Files {
 					name := f.Name()
 					fmt.Fprintf(w, "%s\n", name)
 				}
 
 			default: // default
+				// get header width
+				headerWidth := len(client.Output.Prompt)
+
 				var item []string
-				for _, f := range data {
+				for _, f := range lsdata[server].Files {
 					item = append(item, f.Name())
 				}
 
@@ -428,6 +471,8 @@ func (r *RunSftp) ls(args []string) (err error) {
 				textcol.PrintColumns(&item, 2)
 			}
 		}
+
+		tabw.Flush()
 
 		return nil
 	}
@@ -472,25 +517,37 @@ func (r *RunSftp) mkdir(args []string) {
 			return nil
 		}
 
-		for server, client := range r.Client {
-			// get writer
-			client.Output.Create(server)
-			w := client.Output.NewWriter()
+		exit := make(chan bool)
+		for s, cl := range r.Client {
+			server := s
+			client := cl
+			path := c.Args()[0]
 
-			// create directory
-			var err error
-			if c.Bool("p") {
-				err = client.Connect.MkdirAll(c.Args()[0])
-			} else {
-				err = client.Connect.Mkdir(c.Args()[0])
-			}
+			go func() {
+				// get writer
+				client.Output.Create(server)
+				w := client.Output.NewWriter()
 
-			// check error
-			if err != nil {
-				fmt.Fprintf(w, "%s\n", err)
-			}
+				// create directory
+				var err error
+				if c.Bool("p") {
+					err = client.Connect.MkdirAll(path)
+				} else {
+					err = client.Connect.Mkdir(path)
+				}
 
-			fmt.Fprintf(w, "make directory: %s\n", c.Args()[0])
+				// check error
+				if err != nil {
+					fmt.Fprintf(w, "%s\n", err)
+				}
+
+				fmt.Fprintf(w, "make directory: %s\n", path)
+				exit <- true
+			}()
+		}
+
+		for i := 0; i < len(r.Client); i++ {
+			<-exit
 		}
 
 		return nil
@@ -529,6 +586,7 @@ func (r *RunSftp) pwd(args []string) {
 	return
 }
 
+//
 func (r *RunSftp) rename(args []string) {
 	// create app
 	app := cli.NewApp()
@@ -555,18 +613,35 @@ func (r *RunSftp) rename(args []string) {
 			return nil
 		}
 
-		for server, client := range r.Client {
-			// get writer
-			client.Output.Create(server)
-			w := client.Output.NewWriter()
+		exit := make(chan bool)
+		for s, cl := range r.Client {
+			server := s
+			client := cl
 
-			// get current directory
-			err := client.Connect.Rename(c.Args()[0], c.Args()[1])
-			if err != nil {
-				fmt.Fprintf(w, "%s\n", err)
-			}
+			oldname := c.Args()[0]
+			newname := c.Args()[1]
 
-			fmt.Fprintf(w, "rename: %s => %s\n", c.Args()[0], c.Args()[1])
+			go func() {
+				// get writer
+				client.Output.Create(server)
+				w := client.Output.NewWriter()
+
+				// get current directory
+				err := client.Connect.Rename(oldname, newname)
+				if err != nil {
+					fmt.Fprintf(w, "%s\n", err)
+					exit <- true
+					return
+				}
+
+				fmt.Fprintf(w, "rename: %s => %s\n", oldname, newname)
+				exit <- true
+				return
+			}()
+		}
+
+		for i := 0; i < len(r.Client); i++ {
+			<-exit
 		}
 
 		return nil
@@ -579,8 +654,98 @@ func (r *RunSftp) rename(args []string) {
 	return
 }
 
+//
 func (r *RunSftp) rm(args []string) {
+	// create app
+	app := cli.NewApp()
+	// app.UseShortOptionHandling = true
 
+	// set parameter
+	// TODO(blacknon): walkerでPATHを取得して各個削除する
+	app.Flags = []cli.Flag{
+		cli.BoolFlag{Name: "r", Usage: "remove directories and their contents recursively"},
+	}
+
+	// set help message
+	app.CustomAppHelpTemplate = `	{{.Name}} - {{.Usage}}
+	{{.HelpName}} {{if .VisibleFlags}}[options]{{end}} [PATH]
+	{{range .VisibleFlags}}	{{.}}
+	{{end}}
+	`
+	app.Name = "rm"
+	app.Usage = "lsftp build-in command: rm [remote machine rm]"
+	app.HideHelp = true
+	app.HideVersion = true
+	app.EnableBashCompletion = true
+
+	// action
+	app.Action = func(c *cli.Context) error {
+		if len(c.Args()) != 1 {
+			fmt.Println("Requires one arguments")
+			fmt.Println("rename [path]")
+			return nil
+		}
+
+		for s, cl := range r.Client {
+			server := s
+			client := cl
+			path := c.Args()[0]
+
+			go func() {
+				// get writer
+				client.Output.Create(server)
+				w := client.Output.NewWriter()
+
+				// get current directory
+				if c.Bool("r") {
+					// create walker
+					walker := client.Connect.Walk(c.Args()[0])
+
+					var data []string
+					for walker.Step() {
+						err := walker.Err()
+						if err != nil {
+							fmt.Fprintf(w, "Error: %s\n", err)
+							continue
+						}
+
+						p := walker.Path()
+						data = append(data, p)
+					}
+
+					// reverse slice
+					for i, j := 0, len(data)-1; i < j; i, j = i+1, j-1 {
+						data[i], data[j] = data[j], data[i]
+					}
+
+					for _, p := range data {
+						err := client.Connect.Remove(p)
+						if err != nil {
+							fmt.Fprintf(w, "%s\n", err)
+							return
+						}
+					}
+
+				} else {
+					err := client.Connect.Remove(path)
+					if err != nil {
+						fmt.Fprintf(w, "%s\n", err)
+						return
+					}
+				}
+
+				fmt.Fprintf(w, "remove: %s\n", path)
+			}()
+		}
+
+		return nil
+	}
+
+	// parse short options
+	args = common.ParseArgs(app.Flags, args)
+	app.Run(args)
+
+	return
 }
 
 //
@@ -597,7 +762,6 @@ func (r *RunSftp) rmdir(args []string) {
 	`
 	app.Name = "rmdir"
 	app.Usage = "lsftp build-in command: rmdir [remote machine rmdir]"
-	app.ArgsUsage = "[path]"
 	app.HideHelp = true
 	app.HideVersion = true
 	app.EnableBashCompletion = true

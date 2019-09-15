@@ -59,7 +59,7 @@ func (r *Run) shell() (err error) {
 	}
 
 	// header
-	r.printSelectServer()
+	r.PrintSelectServer()
 	r.printPortForward(config.PortForwardMode, config.PortForwardLocal, config.PortForwardRemote)
 	r.printDynamicPortForward(config.DynamicPortForward)
 	r.printProxy(server)
@@ -68,7 +68,7 @@ func (r *Run) shell() (err error) {
 	}
 
 	// Craete sshlib.Connect (Connect Proxy loop)
-	connect, err := r.createSshConnect(server)
+	connect, err := r.CreateSshConnect(server)
 	if err != nil {
 		return
 	}

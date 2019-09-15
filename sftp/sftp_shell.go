@@ -2,7 +2,7 @@
 // Use of this source code is governed by an MIT license
 // that can be found in the LICENSE file.
 
-package ssh
+package sftp
 
 import (
 	"fmt"
@@ -18,7 +18,7 @@ func (r *RunSftp) shell() {
 	fmt.Println("Start lsftp...")
 
 	// print select server
-	r.Run.printSelectServer()
+	r.Run.PrintSelectServer()
 
 	// create go-prompt
 	p := prompt.New(
@@ -50,11 +50,15 @@ func (r *RunSftp) Executor(command string) {
 	case "bye", "exit", "quit":
 		os.Exit(0)
 	case "help", "?":
+
 	case "cd": // change remote directory
 		r.cd(cmdline)
 	case "chgrp":
+
 	case "chown":
+
 	case "cp":
+
 	case "df":
 		r.df(cmdline)
 	case "lcd":
@@ -68,17 +72,24 @@ func (r *RunSftp) Executor(command string) {
 	case "mkdir":
 		r.mkdir(cmdline)
 	case "progress":
+
 	case "put":
+
 	case "pwd":
 		r.pwd(cmdline)
 	case "rename":
 		r.rename(cmdline)
 	case "rm":
+		r.rm(cmdline)
 	case "rmdir":
-	case "symlink":
+		r.rmdir(cmdline)
 	case "tree":
+
 	case "version":
 	case "!": // ! or !command...
+	case "": // none command...
+	default:
+		fmt.Println("Command Not Found...")
 	}
 }
 
@@ -118,7 +129,6 @@ func (r *RunSftp) Completer(t prompt.Document) []prompt.Suggest {
 			{Text: "rename", Description: "Rename remote file"},
 			{Text: "rm", Description: "Delete remote file"},
 			{Text: "rmdir", Description: "Remove remote directory"},
-			{Text: "symlink", Description: "Symlink remote file"},
 			{Text: "tree", Description: "Tree view remote directory"},
 			{Text: "version", Description: "Show SFTP version"},
 			{Text: "!command", Description: "Execute 'command' in local shell"},
@@ -165,7 +175,6 @@ func (r *RunSftp) Completer(t prompt.Document) []prompt.Suggest {
 		case "rename":
 		case "rm":
 		case "rmdir":
-		case "symlink":
 		case "tree":
 		case "version":
 		}

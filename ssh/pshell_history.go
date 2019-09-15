@@ -13,17 +13,19 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/blacknon/lssh/output"
 )
 
 type pShellHistory struct {
 	Timestamp string
 	Command   string
 	Result    string
-	Output    *Output
+	Output    *output.Output
 }
 
 //
-func (ps *pShell) NewHistoryWriter(server string, output *Output, m *sync.Mutex) *io.PipeWriter {
+func (ps *pShell) NewHistoryWriter(server string, output *output.Output, m *sync.Mutex) *io.PipeWriter {
 	// craete pShellHistory struct
 	psh := &pShellHistory{
 		Command:   ps.latestCommand,
