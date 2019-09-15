@@ -2,7 +2,7 @@
 // Use of this source code is governed by an MIT license
 // that can be found in the LICENSE file.
 
-package ssh
+package scp
 
 import (
 	"fmt"
@@ -15,6 +15,8 @@ import (
 
 	"github.com/blacknon/lssh/common"
 	"github.com/blacknon/lssh/conf"
+	"github.com/blacknon/lssh/output"
+	sshl "github.com/blacknon/lssh/ssh"
 	"github.com/pkg/sftp"
 	"github.com/vbauerster/mpb"
 	"golang.org/x/crypto/ssh"
@@ -26,14 +28,14 @@ var (
 
 type Scp struct {
 	// ssh Run
-	Run *Run
+	Run *sshl.Run
 
 	// From and To data
 	From ScpInfo
 	To   ScpInfo
 
 	Config  conf.Config
-	AuthMap map[AuthKey][]ssh.AuthMethod
+	AuthMap map[sshl.AuthKey][]ssh.AuthMethod
 
 	// copy with permission flag
 	Permission bool
@@ -66,7 +68,12 @@ type ScpConnect struct {
 	Connect *sftp.Client
 
 	// Output
-	Output *Output
+	Output *output.Output
+}
+
+type PathSet struct {
+	Base      string
+	PathSlice []string
 }
 
 // Start scp, switching process.
@@ -75,10 +82,10 @@ func (cp *Scp) Start() {
 	slist := append(cp.To.Server, cp.From.Server...)
 
 	// Create AuthMap
-	cp.Run = new(Run)
+	cp.Run = new(sshl.Run)
 	cp.Run.ServerList = slist
 	cp.Run.Conf = cp.Config
-	cp.Run.createAuthMethodMap()
+	cp.Run.CreateAuthMethodMap()
 
 	// Create Progress bar struct
 	cp.ProgressWG = new(sync.WaitGroup)
@@ -172,7 +179,7 @@ func (cp *Scp) push() {
 }
 
 //
-func (cp *Scp) pushPath(ftp *sftp.Client, ow *io.PipeWriter, output *Output, base, path string) (err error) {
+func (cp *Scp) pushPath(ftp *sftp.Client, ow *io.PipeWriter, output *output.Output, base, path string) (err error) {
 	// get rel path
 	relpath, _ := filepath.Rel(base, path)
 	rpath := filepath.Join(cp.To.Path[0], relpath)
@@ -210,7 +217,7 @@ func (cp *Scp) pushPath(ftp *sftp.Client, ow *io.PipeWriter, output *Output, bas
 }
 
 // pushfile put file to path.
-func (cp *Scp) pushFile(lf io.Reader, ftp *sftp.Client, output *Output, path string, size int64) (err error) {
+func (cp *Scp) pushFile(lf io.Reader, ftp *sftp.Client, output *output.Output, path string, size int64) (err error) {
 	// mkdir all
 	dir := filepath.Dir(path)
 	err = ftp.MkdirAll(dir)
@@ -263,10 +270,10 @@ func (cp *Scp) viaPush() {
 //
 func (cp *Scp) viaPushPath(path string, fclient *ScpConnect, tclients []*ScpConnect) {
 	// from ftp client
-	fftp := fclient.Connect
+	ftp := fclient.Connect
 
 	// create from sftp walker
-	walker := fftp.Walk(path)
+	walker := ftp.Walk(path)
 
 	// get from sftp output writer
 	fclient.Output.Create(fclient.Server)
@@ -287,7 +294,7 @@ func (cp *Scp) viaPushPath(path string, fclient *ScpConnect, tclients []*ScpConn
 			}
 		} else { // is file
 			// open from server file
-			file, err := fftp.Open(p)
+			file, err := ftp.Open(p)
 			if err != nil {
 				fmt.Fprintf(fow, "Error: %s\n", err)
 				continue
@@ -432,7 +439,7 @@ func (cp *Scp) createScpConnects(targets []string) (result []*ScpConnect) {
 		server := target
 		go func() {
 			// ssh connect
-			conn, err := cp.Run.createSshConnect(server)
+			conn, err := cp.Run.CreateSshConnect(server)
 			if err != nil {
 				fmt.Fprintf(os.Stderr, "%s connect error: %s\n", server, err)
 				ch <- true
@@ -448,7 +455,7 @@ func (cp *Scp) createScpConnects(targets []string) (result []*ScpConnect) {
 			}
 
 			// create output
-			o := &Output{
+			o := &output.Output{
 				Templete:   oprompt,
 				ServerList: targets,
 				Conf:       cp.Config.Server[server],

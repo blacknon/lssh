@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"github.com/blacknon/go-sshlib"
+	"github.com/blacknon/lssh/output"
 )
 
 var cmdOPROMPT = "${SERVER} :: "
@@ -32,7 +33,7 @@ func (r *Run) cmd() (err error) {
 	exitInput := make(chan bool)
 
 	// print header
-	r.printSelectServer()
+	r.PrintSelectServer()
 	r.printRunCommand()
 	if len(r.ServerList) == 1 {
 		r.printProxy(r.ServerList[0])
@@ -47,7 +48,7 @@ func (r *Run) cmd() (err error) {
 		}
 
 		// Create sshlib.Connect
-		conn, err := r.createSshConnect(server)
+		conn, err := r.CreateSshConnect(server)
 		if err != nil {
 			log.Printf("Error: %s:%s\n", server, err)
 			continue
@@ -66,7 +67,7 @@ func (r *Run) cmd() (err error) {
 		config := r.Conf.Server[s]
 
 		// create Output
-		o := &Output{
+		o := &output.Output{
 			Templete:   cmdOPROMPT,
 			Count:      0,
 			ServerList: r.ServerList,
@@ -121,9 +122,9 @@ func (r *Run) cmd() (err error) {
 	switch {
 	case r.IsParallel && len(r.ServerList) > 1:
 		if r.isStdinPipe {
-			go pushPipeWriter(exitInput, writers, os.Stdin)
+			go output.PushPipeWriter(exitInput, writers, os.Stdin)
 		} else {
-			go pushInput(exitInput, writers)
+			go output.PushInput(exitInput, writers)
 		}
 	case !r.IsParallel && len(r.ServerList) > 1:
 		if r.isStdinPipe {

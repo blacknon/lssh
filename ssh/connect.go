@@ -13,9 +13,9 @@ import (
 	"golang.org/x/net/proxy"
 )
 
-// createSshConnect return *sshlib.Connect
+// CreateSshConnect return *sshlib.Connect
 // this vaule in ssh.Client with proxy.
-func (r *Run) createSshConnect(server string) (connect *sshlib.Connect, err error) {
+func (r *Run) CreateSshConnect(server string) (connect *sshlib.Connect, err error) {
 	// create proxyRoute
 	proxyRoute, err := getProxyRoute(server, r.Conf)
 	if err != nil {
