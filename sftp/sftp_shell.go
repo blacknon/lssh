@@ -10,6 +10,7 @@ import (
 	"strings"
 
 	"github.com/c-bata/go-prompt"
+	"github.com/c-bata/go-prompt/completer"
 )
 
 // sftp Shell mode function
@@ -28,7 +29,7 @@ func (r *RunSftp) shell() {
 		prompt.OptionLivePrefix(r.CreatePrompt),
 		prompt.OptionInputTextColor(prompt.Green),
 		prompt.OptionPrefixTextColor(prompt.Blue),
-		// prompt.OptionCompletionWordSeparator(completer.FilePathCompletionSeparator), // test
+		prompt.OptionCompletionWordSeparator(completer.FilePathCompletionSeparator), // test
 	)
 
 	// start go-prompt
@@ -54,25 +55,27 @@ func (r *RunSftp) Executor(command string) {
 	case "cd": // change remote directory
 		r.cd(cmdline)
 	case "chgrp":
-
+		r.chgrp(cmdline)
+	case "chmod":
+		r.chmod(cmdline)
 	case "chown":
-
+		r.chown(cmdline)
 	case "cp":
 
 	case "df":
 		r.df(cmdline)
 	case "lcd":
+		r.lcd(cmdline)
 	case "lls":
 	case "lmkdir":
-	case "ln":
+	// case "ln":
 	case "lpwd":
+		r.lpwd(cmdline)
 	case "ls":
 		r.ls(cmdline)
 	case "lumask":
 	case "mkdir":
 		r.mkdir(cmdline)
-	case "progress":
-
 	case "put":
 
 	case "pwd":
@@ -83,9 +86,10 @@ func (r *RunSftp) Executor(command string) {
 		r.rm(cmdline)
 	case "rmdir":
 		r.rmdir(cmdline)
+	case "symlink":
+		r.symlink(cmdline)
 	case "tree":
 
-	case "version":
 	case "!": // ! or !command...
 	case "": // none command...
 	default:
@@ -111,26 +115,26 @@ func (r *RunSftp) Completer(t prompt.Document) []prompt.Suggest {
 			{Text: "df", Description: "Display statistics for current directory or filesystem containing 'path'"},
 			{Text: "exit", Description: "Quit lsftp"},
 			{Text: "get", Description: "Download file"},
-			{Text: "reget", Description: "Resume download file"},
-			{Text: "reput", Description: "Resume upload file"},
+			// {Text: "reget", Description: "Resume download file"},
+			// {Text: "reput", Description: "Resume upload file"},
 			{Text: "help", Description: "Display this help text"},
 			{Text: "lcd", Description: "Change local directory to 'path'"},
 			{Text: "lls", Description: "Display local directory listing"},
 			{Text: "lmkdir", Description: "Create local directory"},
-			{Text: "ln", Description: "Link remote file (-s for symlink)"},
+			// {Text: "ln", Description: "Link remote file (-s for symlink)"},
 			{Text: "lpwd", Description: "Print local working directory"},
 			{Text: "ls", Description: "Display remote directory listing"},
 			{Text: "lumask", Description: "Set local umask to 'umask'"},
 			{Text: "mkdir", Description: "Create remote directory"},
-			{Text: "progress", Description: "Toggle display of progress meter"},
+			// {Text: "progress", Description: "Toggle display of progress meter"},
 			{Text: "put", Description: "Upload file"},
 			{Text: "pwd", Description: "Display remote working directory"},
 			{Text: "quit", Description: "Quit sftp"},
 			{Text: "rename", Description: "Rename remote file"},
 			{Text: "rm", Description: "Delete remote file"},
 			{Text: "rmdir", Description: "Remove remote directory"},
+			{Text: "symlink", Description: "Create symbolic link"},
 			{Text: "tree", Description: "Tree view remote directory"},
-			{Text: "version", Description: "Show SFTP version"},
 			{Text: "!command", Description: "Execute 'command' in local shell"},
 			{Text: "!", Description: "Escape to local shell"},
 			{Text: "?", Description: "Display this help text"},
@@ -149,7 +153,7 @@ func (r *RunSftp) Completer(t prompt.Document) []prompt.Suggest {
 		case "lcd":
 		case "lls":
 		case "lmkdir":
-		case "ln":
+		// case "ln":
 		case "lpwd":
 		case "ls":
 			suggest = []prompt.Suggest{
@@ -168,19 +172,28 @@ func (r *RunSftp) Completer(t prompt.Document) []prompt.Suggest {
 			suggest = []prompt.Suggest{
 				{Text: "-p", Description: "no error if existing, make parent directories as needed"},
 			}
-		case "progress":
 		case "put":
 		case "pwd":
 		case "quit":
 		case "rename":
 		case "rm":
 		case "rmdir":
+		case "symlink":
 		case "tree":
-		case "version":
 		}
 	}
 
 	return prompt.FilterHasPrefix(suggest, t.GetWordBeforeCursor(), true)
+}
+
+//
+func (r *RunSftp) GetCompleteRemotePath() {
+
+}
+
+//
+func (r *RunSftp) GetCompleteLocalPath() {
+
 }
 
 func (r *RunSftp) CreatePrompt() (p string, result bool) {

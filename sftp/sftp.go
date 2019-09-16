@@ -29,6 +29,9 @@ type RunSftp struct {
 	// ssh Run
 	Run *sshl.Run
 
+	//
+	Permission bool
+
 	// progress bar
 	Progress   *mpb.Progress
 	ProgressWG *sync.WaitGroup
@@ -43,6 +46,11 @@ type SftpConnect struct {
 
 	// Current Directory
 	Pwd string
+}
+
+type PathSet struct {
+	Base      string
+	PathSlice []string
 }
 
 var (
@@ -103,6 +111,7 @@ func (r *RunSftp) createSftpConnect(targets []string) (result map[string]*SftpCo
 			sftpCon := &SftpConnect{
 				Connect: ftp,
 				Output:  o,
+				Pwd:     "./",
 			}
 
 			// append result
