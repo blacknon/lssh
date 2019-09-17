@@ -6,11 +6,5 @@ package sftp
 
 // TODO(blacknon): 転送時の進捗状況を表示するプログレスバーの表示はさせること
 func (r *RunSftp) get(args []string) {
-	// pathがディレクトリかどうかのチェックが必要
-	// remoteFile, err := sftp.Create("hello.txt")
-	// localFile, err := os.Open("hello.txt")
-	// io.Copy(remoteFile, localFile)
 
-	// f, err := sftp.Create("hello.txt")
-	// TODO(blacknon): io.Copy使うとよさそう？？
 }
