@@ -74,6 +74,7 @@ func (r *RunSftp) put(args []string) {
 			server := s
 			client := c
 			go func() {
+				// TODO(blacknon): PATHの指定がおかしいので修正
 				// set arg path
 				if !filepath.IsAbs(target) {
 					target = filepath.Join(client.Pwd, target)
@@ -128,7 +129,7 @@ func (r *RunSftp) put(args []string) {
 
 //
 func (r *RunSftp) pushPath(ftp *sftp.Client, ow *io.PipeWriter, output *output.Output, pwd, base, path string) (err error) {
-	// TODO(blacknon): リモートのPATH(target)の推測等の処理をこっちに移す
+	// TODO(blacknon): PATHの指定がおかしいので修正
 	// set arg path
 	if !filepath.IsAbs(path) {
 		path = filepath.Join(pwd, path)
