@@ -11,6 +11,7 @@ import (
 	"bufio"
 	"crypto/sha1"
 	"encoding/base64"
+	"errors"
 	"fmt"
 	"io/ioutil"
 	"log"
@@ -240,7 +241,7 @@ func WalkDir(dir string) (files []string, err error) {
 }
 
 // GetUserName return user name from /etc/passwd and uid.
-func GetIdFromName(file string, name string) (id uint32) {
+func GetIdFromName(file string, name string) (id uint32, err error) {
 	rd := strings.NewReader(file)
 	sc := bufio.NewScanner(rd)
 
@@ -251,15 +252,17 @@ func GetIdFromName(file string, name string) (id uint32) {
 			idstr := line[2]
 			u64, _ := strconv.ParseUint(idstr, 10, 32)
 			id = uint32(u64)
-			break
+			return
 		}
 	}
+
+	err = errors.New(fmt.Sprintf("Error: %s", "name not found"))
 
 	return
 }
 
 // GetUserName return user name from /etc/passwd and uid.
-func GetNameFromId(file string, id uint32) (name string) {
+func GetNameFromId(file string, id uint32) (name string, err error) {
 	rd := strings.NewReader(file)
 	sc := bufio.NewScanner(rd)
 
@@ -269,9 +272,11 @@ func GetNameFromId(file string, id uint32) (name string) {
 		line := strings.Split(l, ":")
 		if line[2] == idstr {
 			name = line[0]
-			break
+			return
 		}
 	}
+
+	err = errors.New(fmt.Sprintf("Error: %s", "name not found"))
 
 	return
 }
