@@ -77,7 +77,7 @@ func (r *RunSftp) Executor(command string) {
 	case "mkdir":
 		r.mkdir(cmdline)
 	case "put":
-
+		r.put(cmdline)
 	case "pwd":
 		r.pwd(cmdline)
 	case "rename":

@@ -103,8 +103,6 @@ func (r *RunSftp) createSftpConnect(targets []string) (result map[string]*SftpCo
 				ServerList: targets,
 				Conf:       r.Config.Server[server],
 				AutoColor:  true,
-				Progress:   r.Progress,
-				ProgressWG: r.ProgressWG,
 			}
 
 			// create SftpConnect
