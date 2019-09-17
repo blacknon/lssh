@@ -145,12 +145,12 @@ func GetFilesBase64(paths []string) (result string, err error) {
 		}
 		defer file.Close()
 
-		file_data, err := ioutil.ReadAll(file)
+		filedata, err := ioutil.ReadAll(file)
 		if err != nil {
 			return "", err
 		}
 
-		data = append(data, file_data...)
+		data = append(data, filedata...)
 		data = append(data, '\n')
 	}
 
