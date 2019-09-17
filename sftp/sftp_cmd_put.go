@@ -10,12 +10,14 @@ import (
 	"os"
 	"path/filepath"
 	"sort"
+	"sync"
 	"time"
 
 	"github.com/blacknon/lssh/common"
 	"github.com/blacknon/lssh/output"
 	"github.com/pkg/sftp"
 	"github.com/urfave/cli"
+	"github.com/vbauerster/mpb"
 )
 
 // TODO(blacknon): 転送時の進捗状況を表示するプログレスバーの表示はさせること
@@ -43,6 +45,10 @@ func (r *RunSftp) put(args []string) {
 			return nil
 		}
 
+		// Create Progress
+		r.ProgressWG = new(sync.WaitGroup)
+		r.Progress = mpb.New(mpb.WithWaitGroup(r.ProgressWG))
+
 		// set path
 		source := c.Args()[0]
 		target := c.Args()[1]
@@ -57,10 +63,9 @@ func (r *RunSftp) put(args []string) {
 
 		sort.Strings(data)
 		dataset := PathSet{
-			Base:      filepath.Dir(p),
+			Base:      filepath.Dir(source),
 			PathSlice: data,
 		}
-
 		pathset = append(pathset, dataset)
 
 		// parallel push data
@@ -74,6 +79,10 @@ func (r *RunSftp) put(args []string) {
 					target = filepath.Join(client.Pwd, target)
 				}
 
+				// set Progress
+				client.Output.Progress = r.Progress
+				client.Output.ProgressWG = r.ProgressWG
+
 				// set ftp client
 				ftp := client.Connect
 
@@ -86,7 +95,7 @@ func (r *RunSftp) put(args []string) {
 					base := p.Base
 					data := p.PathSlice
 					for _, path := range data {
-						r.pushPath(ftp, ow, client.Output, base, target)
+						r.pushPath(ftp, ow, client.Output, client.Pwd, base, path)
 					}
 				}
 
@@ -101,6 +110,9 @@ func (r *RunSftp) put(args []string) {
 		}
 		close(exit)
 
+		// wait Progress
+		r.Progress.Wait()
+
 		// wait 0.3 sec
 		time.Sleep(300 * time.Millisecond)
 
@@ -114,85 +126,17 @@ func (r *RunSftp) put(args []string) {
 	return
 }
 
-// local machine to remote machine push data
-// func (r *RunSftp) put() {
-// 	// set target hosts
-// 	targets := cp.To.Server
-
-// 	// create channel
-// 	exit := make(chan bool)
-
-// 	// create connection parallel
-// 	clients := cp.createScpConnects(targets)
-// 	if len(clients) == 0 {
-// 		fmt.Fprintf(os.Stderr, "There is no host to connect to\n")
-// 		return
-// 	}
-
-// 	// get local host directory walk data
-// 	pathset := []PathSet{}
-// 	for _, p := range cp.From.Path {
-// 		data, err := common.WalkDir(p)
-// 		if err != nil {
-// 			continue
-// 		}
-
-// 		sort.Strings(data)
-// 		dataset := PathSet{
-// 			Base:      filepath.Dir(p),
-// 			PathSlice: data,
-// 		}
-
-// 		pathset = append(pathset, dataset)
-// 	}
-
-// 	// parallel push data
-// 	for _, c := range clients {
-// 		client := c
-// 		go func() {
-// 			// TODO(blacknon): Parallelで指定した数までは同時コピーできるようにする
-
-// 			// set ftp client
-// 			ftp := client.Connect
-
-// 			// get output writer
-// 			client.Output.Create(client.Server)
-// 			ow := client.Output.NewWriter()
-
-// 			// push path
-// 			for _, p := range pathset {
-// 				base := p.Base
-// 				data := p.PathSlice
-// 				for _, path := range data {
-// 					cp.pushPath(ftp, ow, client.Output, base, path)
-// 				}
-// 			}
-
-// 			// exit
-// 			exit <- true
-// 		}()
-// 	}
-
-// 	// wait send data
-// 	for i := 0; i < len(clients); i++ {
-// 		<-exit
-// 	}
-// 	close(exit)
-
-// 	// wait 0.3 sec
-// 	time.Sleep(300 * time.Millisecond)
-
-// 	// exit messages
-// 	fmt.Println("all push exit.")
-// }
-
 //
-func (r *RunSftp) pushPath(ftp *sftp.Client, ow *io.PipeWriter, output *output.Output, base, path string) (err error) {
+func (r *RunSftp) pushPath(ftp *sftp.Client, ow *io.PipeWriter, output *output.Output, pwd, base, path string) (err error) {
 	// TODO(blacknon): リモートのPATH(target)の推測等の処理をこっちに移す
+	// set arg path
+	if !filepath.IsAbs(path) {
+		path = filepath.Join(pwd, path)
+	}
 
 	// get rel path
 	relpath, _ := filepath.Rel(base, path)
-	rpath := filepath.Join(cp.To.Path[0], relpath)
+	rpath := filepath.Join(path, relpath)
 
 	// get local file info
 	fInfo, _ := os.Lstat(path)
