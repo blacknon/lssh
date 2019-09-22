@@ -28,8 +28,6 @@ require (
 	mvdan.cc/sh v2.6.3+incompatible
 )
 
-replace github.com/blacknon/go-sshlib v0.1.1 => ../go-sshlib
-
 replace github.com/urfave/cli v1.22.0 => ../../urfave/cli
 
 go 1.13

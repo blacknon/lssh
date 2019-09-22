@@ -9,6 +9,7 @@ package sftp
 
 import (
 	"fmt"
+	"path/filepath"
 
 	"github.com/blacknon/lssh/common"
 	"github.com/urfave/cli"
@@ -54,6 +55,11 @@ func (r *RunSftp) mkdir(args []string) {
 				// get writer
 				client.Output.Create(server)
 				w := client.Output.NewWriter()
+
+				// set arg path
+				if !filepath.IsAbs(path) {
+					path = filepath.Join(client.Pwd, path)
+				}
 
 				// create directory
 				var err error

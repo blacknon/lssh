@@ -230,6 +230,11 @@ func GetUniqueSlice(data []string) (result []string) {
 
 // WalkDir return file path list ([]string).
 func WalkDir(dir string) (files []string, err error) {
+	_, err = os.Lstat(dir)
+	if err != nil {
+		return
+	}
+
 	err = filepath.Walk(dir, func(path string, info os.FileInfo, err error) error {
 		if info.IsDir() {
 			path = path + "/"
