@@ -14,7 +14,6 @@ import (
 
 // Cmd connect and run command over ssh.
 // Output data is processed by channel because it is executed in parallel. If specification is troublesome, it is good to generate and process session from ssh package.
-// TODO(blacknon): writer/readerによる入出力に書き換える(stdinは特に)。 (対応: v0.1.1)。
 func (c *Connect) Command(command string) (err error) {
 	// create session
 	if c.Session == nil {
