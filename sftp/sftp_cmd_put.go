@@ -91,12 +91,14 @@ func (r *RunSftp) put(args []string) {
 				client.Output.Create(server)
 				ow := client.Output.NewWriter()
 
+				fmt.Println(target)
 				// push path
 				for _, p := range pathset {
 					base := p.Base
 					data := p.PathSlice
+
 					for _, path := range data {
-						r.pushPath(ftp, ow, client.Output, client.Pwd, base, path)
+						r.pushPath(ftp, ow, client.Output, target, client.Pwd, base, path)
 					}
 				}
 
@@ -128,16 +130,18 @@ func (r *RunSftp) put(args []string) {
 }
 
 //
-func (r *RunSftp) pushPath(ftp *sftp.Client, ow *io.PipeWriter, output *output.Output, pwd, base, path string) (err error) {
+func (r *RunSftp) pushPath(ftp *sftp.Client, ow *io.PipeWriter, output *output.Output, target, pwd, base, path string) (err error) {
 	// TODO(blacknon): PATHの指定がおかしいので修正
-	// set arg path
-	if !filepath.IsAbs(path) {
-		path = filepath.Join(pwd, path)
-	}
 
-	// get rel path
-	relpath, _ := filepath.Rel(base, path)
-	rpath := filepath.Join(path, relpath)
+	// set arg path
+	rpath, _ := filepath.Rel(base, path)
+	switch {
+	case filepath.IsAbs(target):
+		rpath = filepath.Join(target, rpath)
+	case !filepath.IsAbs(target):
+		target, _ = filepath.Rel(pwd, target)
+		rpath = filepath.Join(target, rpath)
+	}
 
 	// get local file info
 	fInfo, _ := os.Lstat(path)
@@ -156,7 +160,6 @@ func (r *RunSftp) pushPath(ftp *sftp.Client, ow *io.PipeWriter, output *output.O
 		size := lstat.Size()
 
 		// copy file
-		// TODO(blacknon): Outputからプログレスバーで出力できるようにする(io.MultiWriterを利用して書き込み？)
 		err = r.pushFile(lf, ftp, output, rpath, size)
 		if err != nil {
 			return err

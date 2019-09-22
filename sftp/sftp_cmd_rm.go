@@ -6,6 +6,7 @@ package sftp
 
 import (
 	"fmt"
+	"path/filepath"
 
 	"github.com/blacknon/lssh/common"
 	"github.com/urfave/cli"
@@ -40,6 +41,7 @@ func (r *RunSftp) rm(args []string) {
 			return nil
 		}
 
+		exit := make(chan bool)
 		for s, cl := range r.Client {
 			server := s
 			client := cl
@@ -50,17 +52,23 @@ func (r *RunSftp) rm(args []string) {
 				client.Output.Create(server)
 				w := client.Output.NewWriter()
 
+				// set arg path
+				if !filepath.IsAbs(path) {
+					path = filepath.Join(client.Pwd, path)
+				}
+
 				// get current directory
 				if c.Bool("r") {
 					// create walker
-					walker := client.Connect.Walk(c.Args()[0])
+					walker := client.Connect.Walk(path)
 
 					var data []string
 					for walker.Step() {
 						err := walker.Err()
 						if err != nil {
 							fmt.Fprintf(w, "Error: %s\n", err)
-							continue
+							exit <- true
+							return
 						}
 
 						p := walker.Path()
@@ -76,6 +84,7 @@ func (r *RunSftp) rm(args []string) {
 						err := client.Connect.Remove(p)
 						if err != nil {
 							fmt.Fprintf(w, "%s\n", err)
+							exit <- true
 							return
 						}
 					}
@@ -84,12 +93,18 @@ func (r *RunSftp) rm(args []string) {
 					err := client.Connect.Remove(path)
 					if err != nil {
 						fmt.Fprintf(w, "%s\n", err)
+						exit <- true
 						return
 					}
 				}
 
 				fmt.Fprintf(w, "remove: %s\n", path)
+				exit <- true
 			}()
+		}
+
+		for i := 0; i < len(r.Client); i++ {
+			<-exit
 		}
 
 		return nil
