@@ -60,10 +60,11 @@ func (r *RunSftp) Executor(command string) {
 		r.chmod(cmdline)
 	case "chown":
 		r.chown(cmdline)
-	case "cp":
-
+	// case "copy":
 	case "df":
 		r.df(cmdline)
+	case "get":
+		r.get(cmdline)
 	case "lcd":
 		r.lcd(cmdline)
 	case "lls":
@@ -88,9 +89,8 @@ func (r *RunSftp) Executor(command string) {
 		r.rmdir(cmdline)
 	case "symlink":
 		r.symlink(cmdline)
-	case "tree":
-
-	case "!": // ! or !command...
+	// case "tree":
+	// case "!": // ! or !command...
 	case "": // none command...
 	default:
 		fmt.Println("Command Not Found...")
@@ -111,7 +111,7 @@ func (r *RunSftp) Completer(t prompt.Document) []prompt.Suggest {
 			{Text: "cd", Description: "Change remote directory to 'path'"},
 			{Text: "chgrp", Description: "Change group of file 'path' to 'grp'"},
 			{Text: "chown", Description: "Change owner of file 'path' to 'own'"},
-			{Text: "copy", Description: "Copy to file from 'remote' or 'local' to 'remote' or 'local'"},
+			// {Text: "copy", Description: "Copy to file from 'remote' or 'local' to 'remote' or 'local'"},
 			{Text: "df", Description: "Display statistics for current directory or filesystem containing 'path'"},
 			{Text: "exit", Description: "Quit lsftp"},
 			{Text: "get", Description: "Download file"},
@@ -134,8 +134,8 @@ func (r *RunSftp) Completer(t prompt.Document) []prompt.Suggest {
 			{Text: "rm", Description: "Delete remote file"},
 			{Text: "rmdir", Description: "Remove remote directory"},
 			{Text: "symlink", Description: "Create symbolic link"},
-			{Text: "tree", Description: "Tree view remote directory"},
-			{Text: "!command", Description: "Execute 'command' in local shell"},
+			// {Text: "tree", Description: "Tree view remote directory"},
+			// {Text: "!command", Description: "Execute 'command' in local shell"},
 			{Text: "!", Description: "Escape to local shell"},
 			{Text: "?", Description: "Display this help text"},
 		}
@@ -179,7 +179,7 @@ func (r *RunSftp) Completer(t prompt.Document) []prompt.Suggest {
 		case "rm":
 		case "rmdir":
 		case "symlink":
-		case "tree":
+			// case "tree":
 		}
 	}
 
