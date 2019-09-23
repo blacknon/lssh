@@ -20,7 +20,9 @@ import (
 	"github.com/vbauerster/mpb"
 )
 
-// TODO(blacknon): 転送時の進捗状況を表示するプログレスバーの表示はさせること
+// TODO(blacknon): リファクタリング(v0.6.1)
+
+//
 func (r *RunSftp) put(args []string) {
 	// create app
 	app := cli.NewApp()
@@ -74,7 +76,6 @@ func (r *RunSftp) put(args []string) {
 			server := s
 			client := c
 			go func() {
-				// TODO(blacknon): PATHの指定がおかしいので修正
 				// set arg path
 				if !filepath.IsAbs(target) {
 					target = filepath.Join(client.Pwd, target)
@@ -91,7 +92,6 @@ func (r *RunSftp) put(args []string) {
 				client.Output.Create(server)
 				ow := client.Output.NewWriter()
 
-				fmt.Println(target)
 				// push path
 				for _, p := range pathset {
 					base := p.Base
@@ -131,8 +131,6 @@ func (r *RunSftp) put(args []string) {
 
 //
 func (r *RunSftp) pushPath(ftp *sftp.Client, ow *io.PipeWriter, output *output.Output, target, pwd, base, path string) (err error) {
-	// TODO(blacknon): PATHの指定がおかしいので修正
-
 	// set arg path
 	rpath, _ := filepath.Rel(base, path)
 	switch {
