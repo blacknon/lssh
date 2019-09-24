@@ -12,8 +12,6 @@ import (
 	"time"
 
 	"github.com/blacknon/lssh/common"
-	"github.com/blacknon/lssh/output"
-	"github.com/pkg/sftp"
 	"github.com/urfave/cli"
 	"github.com/vbauerster/mpb"
 )
@@ -103,11 +101,11 @@ func (r *RunSftp) get(args []string) {
 }
 
 //
-func (r *RunSftp) pullPath(ftp *sftp.Client, ow *io.PipeWriter, output *output.Output, source, pwd, target string) (err error) {
+func (r *RunSftp) pullPath(client *SftpConnect, target, base, path string) (err error) {
 
 }
 
-//
-func (r *RunSftp) pullFile(lf io.Reader, ftp *sftp.Client, output *output.Output, path string, size int64) (err error) {
+// いらないかも？
+func (r *RunSftp) pullFile(client *SftpConnect, remote io.Reader, path string, size int64) (err error) {
 
 }

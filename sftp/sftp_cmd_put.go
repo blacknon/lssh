@@ -14,8 +14,6 @@ import (
 	"time"
 
 	"github.com/blacknon/lssh/common"
-	"github.com/blacknon/lssh/output"
-	"github.com/pkg/sftp"
 	"github.com/urfave/cli"
 	"github.com/vbauerster/mpb"
 )
@@ -76,21 +74,12 @@ func (r *RunSftp) put(args []string) {
 			server := s
 			client := c
 			go func() {
-				// set arg path
-				if !filepath.IsAbs(target) {
-					target = filepath.Join(client.Pwd, target)
-				}
-
 				// set Progress
 				client.Output.Progress = r.Progress
 				client.Output.ProgressWG = r.ProgressWG
 
-				// set ftp client
-				ftp := client.Connect
-
-				// get output writer
+				// create output
 				client.Output.Create(server)
-				ow := client.Output.NewWriter()
 
 				// push path
 				for _, p := range pathset {
@@ -98,7 +87,7 @@ func (r *RunSftp) put(args []string) {
 					data := p.PathSlice
 
 					for _, path := range data {
-						r.pushPath(ftp, ow, client.Output, target, client.Pwd, base, path)
+						r.pushPath(client, target, base, path)
 					}
 				}
 
@@ -107,7 +96,7 @@ func (r *RunSftp) put(args []string) {
 			}()
 		}
 
-		//
+		// wait exit
 		for i := 0; i < len(r.Client); i++ {
 			<-exit
 		}
@@ -130,35 +119,35 @@ func (r *RunSftp) put(args []string) {
 }
 
 //
-func (r *RunSftp) pushPath(ftp *sftp.Client, ow *io.PipeWriter, output *output.Output, target, pwd, base, path string) (err error) {
+func (r *RunSftp) pushPath(client *SftpConnect, target, base, path string) (err error) {
 	// set arg path
 	rpath, _ := filepath.Rel(base, path)
 	switch {
 	case filepath.IsAbs(target):
 		rpath = filepath.Join(target, rpath)
 	case !filepath.IsAbs(target):
-		target, _ = filepath.Rel(pwd, target)
+		target = filepath.Join(client.Pwd, target)
 		rpath = filepath.Join(target, rpath)
 	}
 
 	// get local file info
 	fInfo, _ := os.Lstat(path)
 	if fInfo.IsDir() { // directory
-		ftp.Mkdir(rpath)
+		client.Connect.Mkdir(rpath)
 	} else { //file
 		// open local file
-		lf, err := os.Open(path)
+		localfile, err := os.Open(path)
 		if err != nil {
 			return err
 		}
-		defer lf.Close()
+		defer localfile.Close()
 
 		// get file size
 		lstat, _ := os.Lstat(path)
 		size := lstat.Size()
 
 		// copy file
-		err = r.pushFile(lf, ftp, output, rpath, size)
+		err = r.pushFile(client, localfile, rpath, size)
 		if err != nil {
 			return err
 		}
@@ -166,33 +155,33 @@ func (r *RunSftp) pushPath(ftp *sftp.Client, ow *io.PipeWriter, output *output.O
 
 	// set mode
 	if r.Permission {
-		ftp.Chmod(rpath, fInfo.Mode())
+		client.Connect.Chmod(rpath, fInfo.Mode())
 	}
 
 	return
 }
 
 // pushfile put file to path.
-func (r *RunSftp) pushFile(lf io.Reader, ftp *sftp.Client, output *output.Output, path string, size int64) (err error) {
+func (r *RunSftp) pushFile(client *SftpConnect, localfile io.Reader, path string, size int64) (err error) {
 	// mkdir all
 	dir := filepath.Dir(path)
-	err = ftp.MkdirAll(dir)
+	err = client.Connect.MkdirAll(dir)
 	if err != nil {
 		return
 	}
 
 	// open remote file
-	rf, err := ftp.OpenFile(path, os.O_RDWR|os.O_CREATE)
+	remotefile, err := client.Connect.OpenFile(path, os.O_RDWR|os.O_CREATE)
 	if err != nil {
 		return
 	}
 
 	// set tee reader
-	rd := io.TeeReader(lf, rf)
+	rd := io.TeeReader(localfile, remotefile)
 
 	// copy to data
 	r.ProgressWG.Add(1)
-	output.ProgressPrinter(size, rd, path)
+	client.Output.ProgressPrinter(size, rd, path)
 
 	return
 }
