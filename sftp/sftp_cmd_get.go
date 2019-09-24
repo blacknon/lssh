@@ -4,96 +4,108 @@
 
 package sftp
 
+import (
+	"fmt"
+	"io"
+	"path/filepath"
+	"sync"
+	"time"
+
+	"github.com/blacknon/lssh/common"
+	"github.com/blacknon/lssh/output"
+	"github.com/urfave/cli"
+)
+
 // TODO(blacknon): リファクタリング(v0.6.1)
 
 //
 func (r *RunSftp) get(args []string) {
-	// // create app
-	// app := cli.NewApp()
-	// // app.UseShortOptionHandling = true
+	// create app
+	app := cli.NewApp()
+	// app.UseShortOptionHandling = true
 
-	// // set help message
-	// app.CustomAppHelpTemplate = helptext
+	// set help message
+	app.CustomAppHelpTemplate = helptext
 
-	// // set parameter
-	// app.Name = "get"
-	// app.Usage = "lsftp build-in command: get"
-	// app.ArgsUsage = "[source(remote) target(local)]"
-	// app.HideHelp = true
-	// app.HideVersion = true
-	// app.EnableBashCompletion = true
+	// set parameter
+	app.Name = "get"
+	app.Usage = "lsftp build-in command: get"
+	app.ArgsUsage = "[source(remote) target(local)]"
+	app.HideHelp = true
+	app.HideVersion = true
+	app.EnableBashCompletion = true
 
-	// // action
-	// app.Action = func(c *cli.Context) error {
-	// 	if len(c.Args()) != 2 {
-	// 		fmt.Println("Requires two arguments")
-	// 		fmt.Println("get source(remote) target(local)")
-	// 		return nil
-	// 	}
+	// action
+	app.Action = func(c *cli.Context) error {
+		if len(c.Args()) != 2 {
+			fmt.Println("Requires two arguments")
+			fmt.Println("get source(remote) target(local)")
+			return nil
+		}
 
-	// 	// Create Progress
-	// 	r.ProgressWG = new(sync.WaitGroup)
-	// 	r.Progress = mpb.New(mpb.WithWaitGroup(r.ProgressWG))
+		// Create Progress
+		r.ProgressWG = new(sync.WaitGroup)
+		r.Progress = mpb.New(mpb.WithWaitGroup(r.ProgressWG))
 
-	// 	// set path
-	// 	source := c.Args()[0]
-	// 	target := c.Args()[1]
+		// set path
+		source := c.Args()[0]
+		target := c.Args()[1]
 
-	// 	// get directory data, copy remote to local
-	// 	exit := make(chan bool)
-	// 	for s, c := range r.Client {
-	// 		server := s
-	// 		client := c
+		// get directory data, copy remote to local
+		exit := make(chan bool)
+		for s, c := range r.Client {
+			server := s
+			client := c
 
-	// 		go func() {
-	// 			// set Progress
-	// 			client.Output.Progress = r.Progress
-	// 			client.Output.ProgressWG = r.ProgressWG
+			go func() {
+				// set Progress
+				client.Output.Progress = r.Progress
+				client.Output.ProgressWG = r.ProgressWG
 
-	// 			// set ftp client
-	// 			ftp := client.Connect
+				// set ftp client
+				ftp := client.Connect
 
-	// 			// get output writer
-	// 			client.Output.Create(server)
-	// 			ow := client.Output.NewWriter()
+				// get output writer
+				client.Output.Create(server)
+				ow := client.Output.NewWriter()
 
-	// 			// local target
-	// 			target, _ = filepath.Abs(target)
+				// local target
+				target, _ = filepath.Abs(target)
 
-	// 			err = pullPath(ftp, ow, client.Output, source, client.Pwd, target)
+				err = pullPath(ftp, ow, client.Output, source, client.Pwd, target)
 
-	// 			exit <- true
-	// 		}()
-	// 	}
+				exit <- true
+			}()
+		}
 
-	// 	// wait exit
-	// 	for i := 0; i < len(r.Client); i++ {
-	// 		<-exit
-	// 	}
-	// 	close(exit)
+		// wait exit
+		for i := 0; i < len(r.Client); i++ {
+			<-exit
+		}
+		close(exit)
 
-	// 	// wait Progress
-	// 	r.Progress.Wait()
+		// wait Progress
+		r.Progress.Wait()
 
-	// 	// wait 0.3 sec
-	// 	time.Sleep(300 * time.Millisecond)
+		// wait 0.3 sec
+		time.Sleep(300 * time.Millisecond)
 
-	// 	return nil
-	// }
+		return nil
+	}
 
-	// // parse short options
-	// args = common.ParseArgs(app.Flags, args)
-	// app.Run(args)
+	// parse short options
+	args = common.ParseArgs(app.Flags, args)
+	app.Run(args)
 
 	return
 }
 
-// //
-// func (r *RunSftp) pullPath(ftp *sftp.Client, ow *io.PipeWriter, output *output.Output, source, pwd, target string) (err error) {
+//
+func (r *RunSftp) pullPath(ftp *sftp.Client, ow *io.PipeWriter, output *output.Output, source, pwd, target string) (err error) {
 
-// }
+}
 
-// //
-// func (r *RunSftp) pullFile(lf io.Reader, ftp *sftp.Client, output *output.Output, path string, size int64) (err error) {
+//
+func (r *RunSftp) pullFile(lf io.Reader, ftp *sftp.Client, output *output.Output, path string, size int64) (err error) {
 
-// }
+}
