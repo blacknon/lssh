@@ -6,7 +6,7 @@ package sftp
 
 import (
 	"fmt"
-	"io"
+	"os"
 	"path/filepath"
 	"sync"
 	"time"
@@ -51,11 +51,27 @@ func (r *RunSftp) get(args []string) {
 		source := c.Args()[0]
 		target := c.Args()[1]
 
+		// get target directory abs
+		target, err := filepath.Abs(target)
+		if err != nil {
+			fmt.Println("hogehoge") // debug
+		}
+
+		// mkdir local target directory
+		if err = os.MkdirAll(target, 0644); err != nil {
+			fmt.Println("hogehoge") // debug
+		}
+
 		// get directory data, copy remote to local
 		exit := make(chan bool)
 		for s, c := range r.Client {
 			server := s
 			client := c
+
+			// TODO: ホストを複数台指定している場合、ホスト名でディレクトリを掘る
+			if len(r.Client) > 1 {
+
+			}
 
 			go func() {
 				// set Progress
@@ -101,11 +117,8 @@ func (r *RunSftp) get(args []string) {
 }
 
 //
-func (r *RunSftp) pullPath(client *SftpConnect, target, base, path string) (err error) {
+func (r *RunSftp) pullPath(client *SftpConnect, path, base, target string) (err error) {
+	// TODO: ftpクライアントを使ってディレクトリをwalk(+ワイルドカードか？)
 
-}
-
-// いらないかも？
-func (r *RunSftp) pullFile(client *SftpConnect, remote io.Reader, path string, size int64) (err error) {
-
+	// TODO: walk後、forで回してgetしていく
 }
