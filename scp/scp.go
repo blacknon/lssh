@@ -378,52 +378,60 @@ func (cp *Scp) pullPath(client *ScpConnect) {
 
 	// walk remote path
 	for _, path := range cp.From.Path {
-		walker := ftp.Walk(path)
-		for walker.Step() {
-			// basedir
-			remoteBase := filepath.Dir(path)
+		globpath, err := ftp.Glob(path)
+		if err != nil {
+			fmt.Fprintf(ow, "Error: %s\n", err)
+			continue
+		}
 
-			err := walker.Err()
-			if err != nil {
-				fmt.Fprintf(ow, "Error: %s\n", err)
-				continue
-			}
+		for _, gp := range globpath {
+			walker := ftp.Walk(gp)
+			for walker.Step() {
+				// basedir
+				remoteBase := filepath.Dir(gp)
 
-			p := walker.Path()
-			rp, _ := filepath.Rel(remoteBase, p)
-			lpath := filepath.Join(baseDir, rp)
-
-			stat := walker.Stat()
-			if stat.IsDir() { // create dir
-				os.MkdirAll(lpath, 0755)
-			} else { // create file
-				// get size
-				size := stat.Size()
-
-				// open remote file
-				rf, err := ftp.Open(p)
+				err := walker.Err()
 				if err != nil {
 					fmt.Fprintf(ow, "Error: %s\n", err)
 					continue
 				}
 
-				// open local file
-				lf, err := os.OpenFile(lpath, os.O_RDWR|os.O_CREATE, 0644)
-				if err != nil {
-					fmt.Fprintf(ow, "Error: %s\n", err)
-					continue
+				p := walker.Path()
+				rp, _ := filepath.Rel(remoteBase, p)
+				lpath := filepath.Join(baseDir, rp)
+
+				stat := walker.Stat()
+				if stat.IsDir() { // create dir
+					os.MkdirAll(lpath, 0755)
+				} else { // create file
+					// get size
+					size := stat.Size()
+
+					// open remote file
+					rf, err := ftp.Open(p)
+					if err != nil {
+						fmt.Fprintf(ow, "Error: %s\n", err)
+						continue
+					}
+
+					// open local file
+					lf, err := os.OpenFile(lpath, os.O_RDWR|os.O_CREATE, 0644)
+					if err != nil {
+						fmt.Fprintf(ow, "Error: %s\n", err)
+						continue
+					}
+
+					// set tee reader
+					rd := io.TeeReader(rf, lf)
+
+					cp.ProgressWG.Add(1)
+					client.Output.ProgressPrinter(size, rd, p)
 				}
 
-				// set tee reader
-				rd := io.TeeReader(rf, lf)
-
-				cp.ProgressWG.Add(1)
-				client.Output.ProgressPrinter(size, rd, p)
-			}
-
-			// set mode
-			if cp.Permission {
-				os.Chmod(lpath, stat.Mode())
+				// set mode
+				if cp.Permission {
+					os.Chmod(lpath, stat.Mode())
+				}
 			}
 		}
 	}
