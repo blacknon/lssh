@@ -13,6 +13,8 @@ import (
 	"github.com/c-bata/go-prompt/completer"
 )
 
+// TODO(blacknon): catコマンド相当の機能を追加する
+
 // sftp Shell mode function
 func (r *RunSftp) shell() {
 	// start message
