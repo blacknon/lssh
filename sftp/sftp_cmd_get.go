@@ -185,11 +185,7 @@ func (r *RunSftp) pullPath(client *SftpConnect, path, base, target string) (err 
 				os.Chmod(localpath, stat.Mode())
 			}
 		}
-
 	}
 
-	// TODO: ftpクライアントを使ってディレクトリをwalk(+ワイルドカードか？)
-
-	// TODO: walk後、forで回してgetしていく
-
+	return
 }
