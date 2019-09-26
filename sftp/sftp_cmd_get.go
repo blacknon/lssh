@@ -54,12 +54,15 @@ func (r *RunSftp) get(args []string) {
 		// get target directory abs
 		target, err := filepath.Abs(target)
 		if err != nil {
-			fmt.Println("hogehoge") // debug
+			fmt.Fprintf(os.Stderr, "Error: %s\n", err)
+			return nil
 		}
 
 		// mkdir local target directory
-		if err = os.MkdirAll(target, 0644); err != nil {
-			fmt.Println("hogehoge") // debug
+		err = os.MkdirAll(target, 0644)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Error: %s\n", err)
+			return nil
 		}
 
 		// get directory data, copy remote to local
@@ -68,9 +71,10 @@ func (r *RunSftp) get(args []string) {
 			server := s
 			client := c
 
+			targetdir := target
 			// TODO: ホストを複数台指定している場合、ホスト名でディレクトリを掘る
 			if len(r.Client) > 1 {
-
+				targetdir = filepath.Join(target, server)
 			}
 
 			go func() {
@@ -78,17 +82,13 @@ func (r *RunSftp) get(args []string) {
 				client.Output.Progress = r.Progress
 				client.Output.ProgressWG = r.ProgressWG
 
-				// set ftp client
-				ftp := client.Connect
-
-				// get output writer
+				// create output
 				client.Output.Create(server)
-				ow := client.Output.NewWriter()
 
 				// local target
 				target, _ = filepath.Abs(target)
 
-				err = pullPath(ftp, ow, client.Output, source, client.Pwd, target)
+				err = r.pullPath(client, source, client.Pwd, targetdir)
 
 				exit <- true
 			}()
@@ -118,7 +118,28 @@ func (r *RunSftp) get(args []string) {
 
 //
 func (r *RunSftp) pullPath(client *SftpConnect, path, base, target string) (err error) {
+	// set arg path
+	rpath, _ := filepath.Rel(base, path)
+	switch {
+	case filepath.IsAbs(target):
+		rpath = filepath.Join(target, rpath)
+	case !filepath.IsAbs(target):
+		target = filepath.Join(client.Pwd, target)
+		rpath = filepath.Join(target, rpath)
+	}
+
+	// expantion path
+	epath, _ := client.Connect.Glob(rpath)
+
+	// for walk
+	for _, p := range epath {
+		walker := client.Connect.Walk(p)
+
+		fmt.Println(walker)
+	}
+
 	// TODO: ftpクライアントを使ってディレクトリをwalk(+ワイルドカードか？)
 
 	// TODO: walk後、forで回してgetしていく
+
 }
