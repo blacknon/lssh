@@ -6,6 +6,7 @@ package sftp
 
 import (
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"sync"
@@ -128,14 +129,63 @@ func (r *RunSftp) pullPath(client *SftpConnect, path, base, target string) (err 
 		rpath = filepath.Join(target, rpath)
 	}
 
+	// get writer
+	ow := client.Output.NewWriter()
+
 	// expantion path
 	epath, _ := client.Connect.Glob(rpath)
 
 	// for walk
-	for _, p := range epath {
-		walker := client.Connect.Walk(p)
+	for _, ep := range epath {
+		walker := client.Connect.Walk(ep)
 
 		fmt.Println(walker)
+		for walker.Step() {
+			err := walker.Err()
+			if err != nil {
+				fmt.Fprintf(ow, "Error: %s\n", err)
+				continue
+			}
+
+			p := walker.Path()
+			stat := walker.Stat()
+
+			localpath := filepath.Join(target, p)
+
+			//
+			if stat.IsDir() { // is directory
+				os.Mkdir(localpath, 0755)
+			} else { // is not directory
+				// get size
+				size := stat.Size()
+
+				// open remote file
+				remotefile, err := client.Connect.Open(p)
+				if err != nil {
+					fmt.Fprintf(ow, "Error: %s\n", err)
+					continue
+				}
+
+				// open local file
+				localfile, err := os.OpenFile(localpath, os.O_RDWR|os.O_CREATE, 0644)
+				if err != nil {
+					fmt.Fprintf(ow, "Error: %s\n", err)
+					continue
+				}
+
+				// set tee reader
+				rd := io.TeeReader(remotefile, localfile)
+
+				r.ProgressWG.Add(1)
+				client.Output.ProgressPrinter(size, rd, p)
+			}
+
+			// set mode
+			if r.Permission {
+				os.Chmod(localpath, stat.Mode())
+			}
+		}
+
 	}
 
 	// TODO: ftpクライアントを使ってディレクトリをwalk(+ワイルドカードか？)
