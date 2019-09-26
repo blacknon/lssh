@@ -60,7 +60,7 @@ func (r *RunSftp) get(args []string) {
 		}
 
 		// mkdir local target directory
-		err = os.MkdirAll(target, 0644)
+		err = os.MkdirAll(target, 0755)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "Error: %s\n", err)
 			return nil
@@ -73,9 +73,14 @@ func (r *RunSftp) get(args []string) {
 			client := c
 
 			targetdir := target
-			// TODO: ホストを複数台指定している場合、ホスト名でディレクトリを掘る
 			if len(r.Client) > 1 {
 				targetdir = filepath.Join(target, server)
+				// mkdir local target directory
+				err = os.MkdirAll(targetdir, 0755)
+				if err != nil {
+					fmt.Fprintf(os.Stderr, "Error: %s\n", err)
+					return nil
+				}
 			}
 
 			go func() {
@@ -89,7 +94,7 @@ func (r *RunSftp) get(args []string) {
 				// local target
 				target, _ = filepath.Abs(target)
 
-				err = r.pullPath(client, source, client.Pwd, targetdir)
+				err = r.pullPath(client, source, targetdir)
 
 				exit <- true
 			}()
@@ -118,16 +123,19 @@ func (r *RunSftp) get(args []string) {
 }
 
 //
-func (r *RunSftp) pullPath(client *SftpConnect, path, base, target string) (err error) {
+func (r *RunSftp) pullPath(client *SftpConnect, path, target string) (err error) {
 	// set arg path
-	rpath, _ := filepath.Rel(base, path)
+	var rpath string
 	switch {
-	case filepath.IsAbs(target):
-		rpath = filepath.Join(target, rpath)
-	case !filepath.IsAbs(target):
-		target = filepath.Join(client.Pwd, target)
-		rpath = filepath.Join(target, rpath)
+	case filepath.IsAbs(path):
+		rpath = path
+	case !filepath.IsAbs(path):
+		rpath = filepath.Join(client.Pwd, path)
 	}
+	// rpath := path
+	base := filepath.Dir(rpath)
+	fmt.Println(path)
+	fmt.Println(rpath)
 
 	// get writer
 	ow := client.Output.NewWriter()
@@ -148,9 +156,10 @@ func (r *RunSftp) pullPath(client *SftpConnect, path, base, target string) (err 
 			}
 
 			p := walker.Path()
+			relpath, _ := filepath.Rel(base, p)
 			stat := walker.Stat()
 
-			localpath := filepath.Join(target, p)
+			localpath := filepath.Join(target, relpath)
 
 			//
 			if stat.IsDir() { // is directory
