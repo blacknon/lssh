@@ -54,6 +54,8 @@ func (r *RunSftp) Executor(command string) {
 		os.Exit(0)
 	case "help", "?":
 
+	// case "cat":
+
 	case "cd": // change remote directory
 		r.cd(cmdline)
 	case "chgrp":
@@ -110,6 +112,7 @@ func (r *RunSftp) Completer(t prompt.Document) []prompt.Suggest {
 	if len(cmdline) == 1 {
 		suggest = []prompt.Suggest{
 			{Text: "bye", Description: "Quit lsftp"},
+			// {Text: "cat", Description: "Open file"},
 			{Text: "cd", Description: "Change remote directory to 'path'"},
 			{Text: "chgrp", Description: "Change group of file 'path' to 'grp'"},
 			{Text: "chown", Description: "Change owner of file 'path' to 'own'"},
@@ -181,7 +184,10 @@ func (r *RunSftp) Completer(t prompt.Document) []prompt.Suggest {
 		case "rm":
 		case "rmdir":
 		case "symlink":
-			// case "tree":
+
+		// case "tree":
+
+		default:
 		}
 	}
 
