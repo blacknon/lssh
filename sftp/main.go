@@ -29,7 +29,7 @@ type RunSftp struct {
 	// ssh Run
 	Run *sshl.Run
 
-	//
+	// now not use. delete at 0.6.1
 	Permission bool
 
 	// progress bar
