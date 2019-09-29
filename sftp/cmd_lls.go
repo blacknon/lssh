@@ -15,7 +15,6 @@ import (
 	"strconv"
 	"syscall"
 	"text/tabwriter"
-	"time"
 
 	"github.com/blacknon/lssh/common"
 	"github.com/blacknon/textcol"
@@ -105,14 +104,15 @@ func (r *RunSftp) lls(args []string) (err error) {
 			for _, f := range data {
 				var uid, gid uint32
 				var size int64
+
+				timestamp := f.ModTime()
+				timestr = timestamp.Format("2006 01-02 15:04:05")
+
 				sys := f.Sys()
 				if stat, ok := sys.(*syscall.Stat_t); ok {
 					uid = stat.Uid
 					gid = stat.Gid
 					size = stat.Size
-					timeunix, _ := stat.Mtimespec.Unix()
-					timestamp := time.Unix(timeunix, 0)
-					timestr = timestamp.Format("2006 01-02 15:04:05")
 				}
 
 				// Switch with or without -n option.
