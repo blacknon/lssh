@@ -4,11 +4,11 @@
 lssh
 ====
 
-TUI list select ssh/scp client tools.
+TUI list select ssh/scp/sftp client tools.
 
 ## Description
 
-command to read a prepared list in advance and connect ssh/scp the selected host. List file is set in yaml format. When selecting a host, you can filter by keywords. Can execute commands concurrently to multiple hosts. Supported multiple ssh proxy, http/socks5 proxy, x11 forward, and port forwarding.
+command to read a prepared list in advance and connect ssh/scp/sftp the selected host. List file is set in yaml format. When selecting a host, you can filter by keywords. Can execute commands concurrently to multiple hosts. Supported multiple ssh proxy, http/socks5 proxy, x11 forward, and port forwarding.
 
 ## Features
 
@@ -26,18 +26,15 @@ command to read a prepared list in advance and connect ssh/scp the selected host
 <img src="./images/lssh.gif" />
 </p>
 
-## Requirement
-
-lscp is need the following command in remote server.
-
-- scp
-
 ## Install
+
+### compile
 
 compile gofile(tested go1.12.4).
 
     go get -u github.com/blacknon/lssh/cmd/lssh
     go get -u github.com/blacknon/lssh/cmd/lscp
+    go get -u github.com/blacknon/lssh/cmd/lsftp
 
     # copy sample config. create `~/.lssh.conf`.
     test -f ~/.lssh.conf||curl -s https://raw.githubusercontent.com/blacknon/lssh/master/example/config.tml -o ~/.lssh.conf
@@ -50,6 +47,8 @@ or
 
     # copy sample config. create `~/.lssh.conf`.
     test -f ~/.lssh.conf||curl -s https://raw.githubusercontent.com/blacknon/lssh/master/example/config.tml -o ~/.lssh.conf
+
+### brew install
 
 brew install(Mac OS X)
 
@@ -66,6 +65,8 @@ For details see [wiki](https://github.com/blacknon/lssh/wiki/Config).
 
 ## Usage
 
+### lssh
+
 run command.
 
     lssh
@@ -79,23 +80,29 @@ option(lssh)
 	    lssh [options] [commands...]
 	
 	OPTIONS:
-	    --host value, -H value      connect servernames
-	    --file value, -f value      config file path (default: "/Users/uesugi/.lssh.conf")
-	    --portforward-local value   port forwarding local port(ex. 127.0.0.1:8080)
-	    --portforward-remote value  port forwarding remote port(ex. 127.0.0.1:80)
-	    --list, -l                  print server list from config
-	    --term, -t                  run specified command at terminal
-	    --shell, -s                 use lssh shell (Beta)
-	    --parallel, -p              run command parallel node(tail -F etc...)
-	    --x11, -X                   x11 forwarding(forward to ${DISPLAY})
-	    --help, -h                  print this help
-	    --version, -v               print the version
+	    --host servername, -H servername            connect servername.
+	    --file filepath, -F filepath                config filepath. (default: "/Users/blacknon/.lssh.conf")
+	    -L [bind_address:]port:remote_address:port  Local port forward mode.Specify a [bind_address:]port:remote_address:port.
+	    -R [bind_address:]port:remote_address:port  Remote port forward mode.Specify a [bind_address:]port:remote_address:port.
+	    -D port                                     Dynamic port forward mode(Socks5). Specify a port.
+	    -w                                          Displays the server header when in command execution mode.
+	    -W                                          Not displays the server header when in command execution mode.
+	    --not-execute, -N                           not execute remote command and shell.
+	    --x11, -X                                   x11 forwarding(forward to ${DISPLAY}).
+	    --term, -t                                  run specified command at terminal.
+	    --parallel, -p                              run command parallel node(tail -F etc...).
+	    --localrc                                   use local bashrc shell.
+	    --not-localrc                               not use local bashrc shell.
+	    --pshell, -s                                use parallel-shell(pshell) (alpha).
+	    --list, -l                                  print server list from config.
+	    --help, -h                                  print this help
+	    --version, -v                               print the version
 	
 	COPYRIGHT:
 	    blacknon(blacknon@orebibou.com)
 	
 	VERSION:
-	    0.5.6
+	    0.6.0
 	
 	USAGE:
 	    # connect ssh
@@ -108,6 +115,12 @@ option(lssh)
 	    lssh -s
 
 
+### lscp
+
+run command.
+
+    lscp from... to
+
 option(lscp)
 	
 	NAME:
@@ -118,7 +131,7 @@ option(lscp)
 	OPTIONS:
 	    --host value, -H value  connect servernames
 	    --list, -l              print server list from config
-	    --file value, -f value  config file path (default: "/Users/uesugi/.lssh.conf")
+	    --file value, -f value  config file path (default: "/Users/blacknon/.lssh.conf")
 	    --permission, -p        copy file permission
 	    --help, -h              print this help
 	    --version, -v           print the version
@@ -127,7 +140,7 @@ option(lscp)
 	    blacknon(blacknon@orebibou.com)
 	
 	VERSION:
-	    0.5.6
+	    0.6.0
 	
 	USAGE:
 	    # local to remote scp
@@ -138,6 +151,36 @@ option(lscp)
 	
 	    # remote to remote scp
 	    lscp remote:/path/to/remote... remote:/path/to/local
+
+
+### lsftp
+
+run command.
+
+    lsftp
+
+option(lsftp)
+
+	NAME:
+	    lsftp - TUI list select and parallel sftp client command.
+	USAGE:
+	    lsftp [options]
+	
+	OPTIONS:
+	    --file value, -f value  config file path (default: "/Users/blacknon/.lssh.conf")
+	    --help, -h              print this help
+	    --version, -v           print the version
+	
+	COPYRIGHT:
+	    blacknon(blacknon@orebibou.com)
+	
+	VERSION:
+	    0.6.0
+	
+	USAGE:
+	  # start lsftp shell
+	  lsftp
+
 
 If you specify a command as an argument, you can select multiple hosts. Select host <kbd>Tab</kbd>, select all displayed hosts <kbd>Ctrl</kbd> + <kbd>a</kbd>.
 
@@ -202,6 +245,17 @@ if iTerm2, you can also change the profile.
     post_cmd = 'printf "\e]10;#ffffff\a\e]11;#000000\a"' # local color
 	note = "(option) exec command after ssh disconnected."
 
+
+A terminal log can be recorded by writing a configuration file.
+
+`~/.lssh.conf` example.
+
+	[log]
+	enable = true
+	timestamp = true
+	dirpath = "~/log/lssh/<Date>/<Hostname>"
+
+
 </details>
 
 ### 2. [lssh] run command (parallel)
@@ -259,7 +313,11 @@ You can send commands to multiple servers interactively.
 <details>
 
 You can do scp by selecting a list with the command lscp.\
-You can select multiple connection destinations.
+You can select multiple connection destinations. This program use sftp protocol.
+
+<p align="center">
+<img src="./images/4-1.gif" />
+</p>
 
 `local => remote(multiple)`
 
@@ -280,6 +338,22 @@ You can select multiple connection destinations.
 
 
 </details>
+
+### 5. [lsftp] sftp (local=>remote(multi), remote(multi)=>local)
+<details>
+
+You can do sftp by selecting a list with the command lstp.\
+You can select multiple connection destinations.
+
+<p align="center">
+<img src="./images/5-1.gif" />
+</p>
+
+`lsftp`
+
+
+</details>
+
 
 ### 5. include ~/.ssh/config file.
 <details>
@@ -487,6 +561,43 @@ Besides this, you can also specify ProxyCommand like OpenSSH.
 	user = "user"
 	agentauth = true # auth ssh-agent
 	note = "ssh-agent auth server"
+
+</details>
+
+
+### 9. Port forwarding
+<details>
+
+Supported Local/Remote/Dynamic port forwarding.\
+You can specify from the command line or from the configuration file.
+
+#### command line option
+
+    lssh -L 8080:localhost:80 # local port forwarding
+    lssh -R 80:localhost:8080 # remote port forwarding
+    lssh -D 10080             # dynamic port forwarding
+
+
+#### config file
+
+	[server.LocalPortForward]
+	addr = "localforward.local"
+	user = "user"
+	agentauth = true
+	port_forward_local = "localhost:8080"
+	port_forward_remote = "localhost:80"
+	note = "local port forwawrd example"
+
+	[server.RemotePortForward]
+	addr = "remoteforward.local"
+	user = "user"
+	agentauth = true
+	port_forward = "REMOTE"
+	port_forward_local = "localhost:80"
+	port_forward_remote = "localhost:8080"
+	note = "remote port forwawrd example"
+
+If OpenSsh config is loaded, it will be loaded as it is.
 
 
 </details>
