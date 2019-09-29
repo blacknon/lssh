@@ -59,6 +59,10 @@ type Output struct {
 	Progress   *mpb.Progress
 	ProgressWG *sync.WaitGroup
 
+	// Enable/Disable print header
+	EnableHeader  bool
+	DisableHeader bool
+
 	// Auto Colorize flag
 	// TODO(blacknon): colormodeに応じて、パイプ経由だった場合は色分けしないなどの対応ができるように条件分岐する(v0.6.1)
 	AutoColor bool
@@ -117,7 +121,7 @@ loop:
 	for {
 		for sc.Scan() {
 			text := sc.Text()
-			if len(o.ServerList) > 1 {
+			if (len(o.ServerList) > 1 && !o.DisableHeader) || o.EnableHeader {
 				oPrompt := o.GetPrompt()
 				fmt.Printf("%s %s\n", oPrompt, text)
 			} else {

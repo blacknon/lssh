@@ -88,6 +88,8 @@ USAGE:
 		cli.StringFlag{Name: "portforward-remote", Usage: "port forwarding parameter, `address:port`. use local-forward or reverse-forward. (remote port(ex. 127.0.0.1:80))."},
 
 		// Other bool
+		cli.BoolFlag{Name: "w", Usage: "Displays the server header when in command execution mode."},
+		cli.BoolFlag{Name: "W", Usage: "Not displays the server header when in command execution mode."},
 		cli.BoolFlag{Name: "not-execute,N", Usage: "not execute remote command and shell."},
 		cli.BoolFlag{Name: "x11,X", Usage: "x11 forwarding(forward to ${DISPLAY})."},
 		cli.BoolFlag{Name: "term,t", Usage: "run specified command at terminal."},
@@ -184,6 +186,16 @@ USAGE:
 		// local bashrc use
 		r.IsBashrc = c.Bool("localrc")
 		r.IsNotBashrc = c.Bool("not-localrc")
+
+		// set w/W flag
+		if c.Bool("w") {
+			fmt.Println("enable w")
+			r.EnableHeader = true
+		}
+		if c.Bool("W") {
+			fmt.Println("enable W")
+			r.DisableHeader = true
+		}
 
 		// local/remote port forwarding mode
 		switch {
