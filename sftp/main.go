@@ -12,6 +12,7 @@ import (
 	"github.com/blacknon/lssh/conf"
 	"github.com/blacknon/lssh/output"
 	sshl "github.com/blacknon/lssh/ssh"
+	"github.com/c-bata/go-prompt"
 	"github.com/pkg/sftp"
 	"github.com/vbauerster/mpb"
 )
@@ -35,6 +36,10 @@ type RunSftp struct {
 	// progress bar
 	Progress   *mpb.Progress
 	ProgressWG *sync.WaitGroup
+
+	// PathComplete
+	RemoteComplete []prompt.Suggest
+	LocalComplete  []prompt.Suggest
 }
 
 type SftpConnect struct {

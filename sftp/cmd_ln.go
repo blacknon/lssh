@@ -14,6 +14,8 @@ import (
 	"github.com/urfave/cli"
 )
 
+// TODO(blacknon): sftpライブラリ側で対応するようになったら開発する
+
 //
 func (r *RunSftp) ln(args []string) (err error) {
 	// create app

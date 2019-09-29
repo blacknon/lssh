@@ -132,10 +132,7 @@ func (r *RunSftp) pullPath(client *SftpConnect, path, target string) (err error)
 	case !filepath.IsAbs(path):
 		rpath = filepath.Join(client.Pwd, path)
 	}
-	// rpath := path
 	base := filepath.Dir(rpath)
-	fmt.Println(path)
-	fmt.Println(rpath)
 
 	// get writer
 	ow := client.Output.NewWriter()
@@ -147,7 +144,6 @@ func (r *RunSftp) pullPath(client *SftpConnect, path, target string) (err error)
 	for _, ep := range epath {
 		walker := client.Connect.Walk(ep)
 
-		fmt.Println(walker)
 		for walker.Step() {
 			err := walker.Err()
 			if err != nil {
