@@ -103,7 +103,7 @@ func (ps *pShell) Completer(t prompt.Document) []prompt.Suggest {
 				ps.PathComplete = ps.GetPathComplete(!checkLocalCommand(c), t.GetWordBeforeCursor())
 			}
 
-			// get lash slash place
+			// get last slash place
 			word := t.GetWordBeforeCursor()
 			sp := strings.LastIndex(word, "/")
 			if len(word) > 0 {
