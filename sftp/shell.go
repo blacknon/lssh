@@ -165,9 +165,11 @@ func (r *RunSftp) Completer(t prompt.Document) []prompt.Suggest {
 	} else { // command pattern
 		switch cmdline[0] {
 		case "cd":
-			return r.PathComplete(true, t)
+			return r.PathComplete(true, 1, t)
 		case "chgrp":
+			// TODO(blacknon): そのうち追加 ver0.6.1
 		case "chown":
+			// TODO(blacknon): そのうち追加 ver0.6.1
 		case "df":
 			suggest = []prompt.Suggest{
 				{Text: "-h", Description: "print sizes in powers of 1024 (e.g., 1023M)"},
@@ -175,10 +177,36 @@ func (r *RunSftp) Completer(t prompt.Document) []prompt.Suggest {
 			}
 			return prompt.FilterHasPrefix(suggest, t.GetWordBeforeCursor(), false)
 		case "get":
+			// TODO(blacknon): オプションを追加したら引数の数から減らす処理が必要
+			switch {
+			case strings.Count(t.CurrentLineBeforeCursor(), " ") == 1: // remote
+				return r.PathComplete(true, 1, t)
+			case strings.Count(t.CurrentLineBeforeCursor(), " ") == 2: // local
+				return r.PathComplete(false, 2, t)
+			}
 
 		case "lcd":
-			return r.PathComplete(false, t)
+			return r.PathComplete(false, 1, t)
 		case "lls":
+			// switch options or path
+			switch {
+			case contains([]string{"-"}, char):
+				suggest = []prompt.Suggest{
+					{Text: "-1", Description: "list one file per line"},
+					{Text: "-a", Description: "do not ignore entries starting with"},
+					{Text: "-f", Description: "do not sort"},
+					{Text: "-h", Description: "with -l, print sizes like 1K 234M 2G etc."},
+					{Text: "-l", Description: "use a long listing format"},
+					{Text: "-n", Description: "list numeric user and group IDs"},
+					{Text: "-r", Description: "reverse order while sorting"},
+					{Text: "-S", Description: "sort by file size, largest first"},
+					{Text: "-t", Description: "sort by modification time, newest first"},
+				}
+				return prompt.FilterHasPrefix(suggest, t.GetWordBeforeCursor(), false)
+
+			default:
+				return r.PathComplete(false, 1, t)
+			}
 		case "lmkdir":
 			switch {
 			case contains([]string{"-"}, char):
@@ -188,7 +216,7 @@ func (r *RunSftp) Completer(t prompt.Document) []prompt.Suggest {
 				return prompt.FilterHasPrefix(suggest, t.GetWordBeforeCursor(), false)
 
 			default:
-				return r.PathComplete(false, t)
+				return r.PathComplete(false, 1, t)
 			}
 
 		// case "ln":
@@ -211,7 +239,7 @@ func (r *RunSftp) Completer(t prompt.Document) []prompt.Suggest {
 				return prompt.FilterHasPrefix(suggest, t.GetWordBeforeCursor(), false)
 
 			default:
-				return r.PathComplete(true, t)
+				return r.PathComplete(true, 1, t)
 			}
 
 		// case "lumask":
@@ -223,20 +251,27 @@ func (r *RunSftp) Completer(t prompt.Document) []prompt.Suggest {
 				}
 
 			default:
-				return r.PathComplete(true, t)
+				return r.PathComplete(true, 1, t)
 			}
 
 		case "put":
+			// TODO(blacknon): オプションを追加したら引数の数から減らす処理が必要
+			switch {
+			case strings.Count(t.CurrentLineBeforeCursor(), " ") == 1: // local
+				return r.PathComplete(false, 1, t)
+			case strings.Count(t.CurrentLineBeforeCursor(), " ") == 2: // remote
+				return r.PathComplete(true, 2, t)
+			}
 		case "pwd":
 		case "quit":
 		case "rename":
-			return r.PathComplete(true, t)
+			return r.PathComplete(true, 1, t)
 		case "rm":
-			return r.PathComplete(true, t)
+			return r.PathComplete(true, 1, t)
 		case "rmdir":
-			return r.PathComplete(true, t)
+			return r.PathComplete(true, 1, t)
 		case "symlink":
-
+			// TODO(blacknon): そのうち追加 ver0.6.1
 		// case "tree":
 
 		default:
@@ -248,7 +283,7 @@ func (r *RunSftp) Completer(t prompt.Document) []prompt.Suggest {
 }
 
 //
-func (r *RunSftp) PathComplete(remote bool, t prompt.Document) []prompt.Suggest {
+func (r *RunSftp) PathComplete(remote bool, num int, t prompt.Document) []prompt.Suggest {
 	// suggest
 	var suggest []prompt.Suggest
 
@@ -274,7 +309,7 @@ func (r *RunSftp) PathComplete(remote bool, t prompt.Document) []prompt.Suggest 
 		switch {
 		case contains([]string{"/"}, char): // char is slach or
 			r.GetRemoteComplete(t.GetWordBeforeCursor())
-		case contains([]string{" "}, char) && strings.Count(t.CurrentLineBeforeCursor(), " ") == 1:
+		case contains([]string{" "}, char) && strings.Count(t.CurrentLineBeforeCursor(), " ") == num:
 			r.GetRemoteComplete(t.GetWordBeforeCursor())
 		}
 		suggest = r.RemoteComplete
@@ -284,7 +319,7 @@ func (r *RunSftp) PathComplete(remote bool, t prompt.Document) []prompt.Suggest 
 		switch {
 		case contains([]string{"/"}, char): // char is slach or
 			r.GetLocalComplete(t.GetWordBeforeCursor())
-		case contains([]string{" "}, char) && strings.Count(t.CurrentLineBeforeCursor(), " ") == 1:
+		case contains([]string{" "}, char) && strings.Count(t.CurrentLineBeforeCursor(), " ") == num:
 			r.GetLocalComplete(t.GetWordBeforeCursor())
 		}
 		suggest = r.LocalComplete
