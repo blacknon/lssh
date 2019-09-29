@@ -82,9 +82,9 @@ USAGE:
 		cli.StringFlag{Name: "file,F", Value: defConf, Usage: "config `filepath`."},
 
 		// port forward option
-		cli.StringFlag{Name: "local-forward,L", Usage: "Local port forward mode.Specify a `[bind_address:]port:remote_address:port`."},
-		cli.StringFlag{Name: "remote-forward,R", Usage: "Remote port forward mode.Specify a `[bind_address:]port:local_address:port`."},
-		cli.StringFlag{Name: "dynamic-forward,D", Usage: "Dynamic port forward mode(Socks5). Specify a `port`."},
+		cli.StringFlag{Name: "L", Usage: "Local port forward mode.Specify a `[bind_address:]port:remote_address:port`."},
+		cli.StringFlag{Name: "R", Usage: "Remote port forward mode.Specify a `[bind_address:]port:remote_address:port`."},
+		cli.StringFlag{Name: "D", Usage: "Dynamic port forward mode(Socks5). Specify a `port`."},
 		// cli.StringFlag{Name: "portforward-local", Usage: "port forwarding parameter, `address:port`. use local-forward or reverse-forward. (local port(ex. 127.0.0.1:8080))."},
 		// cli.StringFlag{Name: "portforward-remote", Usage: "port forwarding parameter, `address:port`. use local-forward or reverse-forward. (remote port(ex. 127.0.0.1:80))."},
 
@@ -202,17 +202,17 @@ USAGE:
 		var err error
 		var forwardlocal, forwardremote string
 		switch {
-		case c.String("local-forward") != "":
+		case c.String("L") != "":
 			r.PortForwardMode = "L"
-			forwardlocal, forwardremote, err = common.ParseForwardPort(c.String("local-forward"))
+			forwardlocal, forwardremote, err = common.ParseForwardPort(c.String("L"))
 
-		case c.String("remote-forward") != "":
+		case c.String("R") != "":
 			r.PortForwardMode = "R"
-			forwardlocal, forwardremote, err = common.ParseForwardPort(c.String("remote-forward"))
+			forwardlocal, forwardremote, err = common.ParseForwardPort(c.String("R"))
 
-		case c.String("local-forward") != "" && c.String("remote-forward") != "":
+		case c.String("L") != "" && c.String("R") != "":
 			r.PortForwardMode = "R"
-			forwardlocal, forwardremote, err = common.ParseForwardPort(c.String("remote-forward"))
+			forwardlocal, forwardremote, err = common.ParseForwardPort(c.String("R"))
 
 		default:
 			r.PortForwardMode = ""
@@ -233,7 +233,7 @@ USAGE:
 		r.PortForwardRemote = forwardremote
 
 		// Dynamic port forwarding port
-		r.DynamicPortForward = c.String("dynamic-forward")
+		r.DynamicPortForward = c.String("D")
 
 		r.Start()
 		return nil
