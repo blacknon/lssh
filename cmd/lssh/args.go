@@ -11,6 +11,7 @@ import (
 	"sort"
 
 	"github.com/blacknon/lssh/check"
+	"github.com/blacknon/lssh/common"
 	"github.com/blacknon/lssh/conf"
 	"github.com/blacknon/lssh/list"
 	sshcmd "github.com/blacknon/lssh/ssh"
@@ -81,11 +82,11 @@ USAGE:
 		cli.StringFlag{Name: "file,F", Value: defConf, Usage: "config `filepath`."},
 
 		// port forward option
-		cli.BoolFlag{Name: "local-forward,L", Usage: "Local port forward mode."},
-		cli.BoolFlag{Name: "remote-forward,R", Usage: "Remote port forward mode."},
+		cli.StringFlag{Name: "local-forward,L", Usage: "Local port forward mode.Specify a `[bind_address:]port:remote_address:port`."},
+		cli.StringFlag{Name: "remote-forward,R", Usage: "Remote port forward mode.Specify a `[bind_address:]port:local_address:port`."},
 		cli.StringFlag{Name: "dynamic-forward,D", Usage: "Dynamic port forward mode(Socks5). Specify a `port`."},
-		cli.StringFlag{Name: "portforward-local", Usage: "port forwarding parameter, `address:port`. use local-forward or reverse-forward. (local port(ex. 127.0.0.1:8080))."},
-		cli.StringFlag{Name: "portforward-remote", Usage: "port forwarding parameter, `address:port`. use local-forward or reverse-forward. (remote port(ex. 127.0.0.1:80))."},
+		// cli.StringFlag{Name: "portforward-local", Usage: "port forwarding parameter, `address:port`. use local-forward or reverse-forward. (local port(ex. 127.0.0.1:8080))."},
+		// cli.StringFlag{Name: "portforward-remote", Usage: "port forwarding parameter, `address:port`. use local-forward or reverse-forward. (remote port(ex. 127.0.0.1:80))."},
 
 		// Other bool
 		cli.BoolFlag{Name: "w", Usage: "Displays the server header when in command execution mode."},
@@ -198,23 +199,38 @@ USAGE:
 		}
 
 		// local/remote port forwarding mode
+		var err error
+		var forwardlocal, forwardremote string
 		switch {
-		case c.Bool("local-forward"):
+		case c.String("local-forward") != "":
 			r.PortForwardMode = "L"
-		case c.Bool("remote-forward"):
+			forwardlocal, forwardremote, err = common.ParseForwardPort(c.String("local-forward"))
+
+		case c.String("remote-forward") != "":
 			r.PortForwardMode = "R"
-		case c.Bool("local-forward") && c.Bool("remote-forward"):
+			forwardlocal, forwardremote, err = common.ParseForwardPort(c.String("remote-forward"))
+
+		case c.String("local-forward") != "" && c.String("remote-forward") != "":
 			r.PortForwardMode = "R"
+			forwardlocal, forwardremote, err = common.ParseForwardPort(c.String("remote-forward"))
+
 		default:
 			r.PortForwardMode = ""
+
+		}
+
+		// if err
+		if err != nil {
+			fmt.Printf("Error: %s \n", err)
 		}
 
 		// is not execute
 		r.IsNone = c.Bool("not-execute")
 
 		// local/remote port forwarding address
-		r.PortForwardLocal = c.String("portforward-local")
-		r.PortForwardRemote = c.String("portforward-remote")
+
+		r.PortForwardLocal = forwardlocal
+		r.PortForwardRemote = forwardremote
 
 		// Dynamic port forwarding port
 		r.DynamicPortForward = c.String("dynamic-forward")

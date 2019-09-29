@@ -10,6 +10,7 @@ import (
 	"os"
 	"os/exec"
 	"regexp"
+	"strconv"
 	"strings"
 
 	"github.com/blacknon/lssh/common"
@@ -108,8 +109,21 @@ func getOpenSshConfig(path, command string) (config map[string]ServerConfig, err
 		if localForward != "" {
 			array := strings.SplitN(localForward, " ", 2)
 			if len(array) > 1 {
-				serverConfig.PortForwardLocal = "localhost:" + array[0]
-				serverConfig.PortForwardRemote = array[1]
+				var e error
+
+				_, e = strconv.Atoi(array[0])
+				if e != nil { // localhost:8080
+					serverConfig.PortForwardLocal = array[0]
+				} else { // 8080
+					serverConfig.PortForwardLocal = "localhost:" + array[0]
+				}
+
+				_, e = strconv.Atoi(array[1])
+				if e != nil { // localhost:8080
+					serverConfig.PortForwardRemote = array[1]
+				} else { // 8080
+					serverConfig.PortForwardRemote = "localhost:" + array[1]
+				}
 			}
 		}
 
@@ -118,8 +132,21 @@ func getOpenSshConfig(path, command string) (config map[string]ServerConfig, err
 		if remoteForward != "" {
 			array := strings.SplitN(remoteForward, " ", 2)
 			if len(array) > 1 {
-				serverConfig.PortForwardLocal = array[1]
-				serverConfig.PortForwardRemote = "localhost:" + array[0]
+				var e error
+
+				_, e = strconv.Atoi(array[0])
+				if e != nil { // localhost:8080
+					serverConfig.PortForwardLocal = array[0]
+				} else { // 8080
+					serverConfig.PortForwardLocal = "localhost:" + array[0]
+				}
+
+				_, e = strconv.Atoi(array[1])
+				if e != nil { // localhost:8080
+					serverConfig.PortForwardRemote = array[1]
+				} else { // 8080
+					serverConfig.PortForwardRemote = "localhost:" + array[1]
+				}
 			}
 		}
 
