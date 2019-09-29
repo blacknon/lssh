@@ -9,13 +9,13 @@ package sftp
 
 import (
 	"fmt"
+	"os"
 	"path/filepath"
 
 	"github.com/blacknon/lssh/common"
 	"github.com/urfave/cli"
 )
 
-//
 //
 func (r *RunSftp) mkdir(args []string) {
 	// create app
@@ -38,7 +38,7 @@ func (r *RunSftp) mkdir(args []string) {
 
 	// action
 	app.Action = func(c *cli.Context) error {
-		// TODO(blacknon): 複数のディレクトリ受付(v0.6.1)
+		// TODO(blacknon): 複数のディレクトリ受付(v0.6.1以降)
 		if len(c.Args()) != 1 {
 			fmt.Println("Requires one arguments")
 			fmt.Println("mkdir [path]")
@@ -81,6 +81,57 @@ func (r *RunSftp) mkdir(args []string) {
 
 		for i := 0; i < len(r.Client); i++ {
 			<-exit
+		}
+
+		return nil
+	}
+
+	// parse short options
+	args = common.ParseArgs(app.Flags, args)
+	app.Run(args)
+
+	return
+}
+
+//
+func (r *RunSftp) lmkdir(args []string) {
+	// create app
+	app := cli.NewApp()
+	// app.UseShortOptionHandling = true
+
+	// set parameter
+	app.Flags = []cli.Flag{
+		cli.BoolFlag{Name: "p", Usage: "no error if existing, make parent directories as needed"},
+	}
+
+	// set help message
+	app.CustomAppHelpTemplate = helptext
+	app.Name = "lmkdir"
+	app.Usage = "lsftp build-in command: lmkdir [local machine mkdir]"
+	app.ArgsUsage = "[path]"
+	app.HideHelp = true
+	app.HideVersion = true
+	app.EnableBashCompletion = true
+
+	// action
+	app.Action = func(c *cli.Context) error {
+		// TODO(blacknon): 複数のディレクトリ受付(v0.6.1以降)
+		if len(c.Args()) != 1 {
+			fmt.Println("Requires one arguments")
+			fmt.Println("lmkdir [path]")
+			return nil
+		}
+
+		path := c.Args()[0]
+		var err error
+		if c.Bool("p") {
+			err = os.MkdirAll(path, 0755)
+		} else {
+			err = os.Mkdir(path, 0755)
+		}
+
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "%s\n", err)
 		}
 
 		return nil

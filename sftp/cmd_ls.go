@@ -200,11 +200,11 @@ func (r *RunSftp) ls(args []string) (err error) {
 			var maxSizeWidth int
 			var sizestr string
 			for _, data := range lsdata {
-				for _, d := range data.Files {
+				for _, f := range data.Files {
 					if c.Bool("h") {
-						sizestr = humanize.Bytes(uint64(d.Size()))
+						sizestr = humanize.Bytes(uint64(f.Size()))
 					} else {
-						sizestr = strconv.FormatUint(uint64(d.Size()), 10)
+						sizestr = strconv.FormatUint(uint64(f.Size()), 10)
 					}
 
 					// set sizestr max length
