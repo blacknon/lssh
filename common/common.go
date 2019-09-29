@@ -286,6 +286,40 @@ func GetNameFromId(file string, id uint32) (name string, err error) {
 	return
 }
 
+// ParseForwardPort return forward address and port from string.
+//
+// ex.)
+//     - `localhost:8000:localhost:18000` => local: "localhost:8000", remote: "localhost:18000"
+//     - `8080:localhost:18080` => local: "localhost:8080", remote: "localhost:18080"
+//     - `localhost:2222:12222` => local: "localhost:2222", remote: "localhost:12222"
+func ParseForwardPort(value string) (local, remote string, err error) {
+	// count column
+	count := strings.Count(value, ":")
+	data := strings.Split(value, ":")
+
+	// switch count
+	switch count {
+	case 3: // `localhost:8000:localhost:18000`
+		local = data[0] + ":" + data[1]
+		remote = data[2] + ":" + data[3]
+	case 2:
+		// check 1st column is int
+		_, e := strconv.Atoi(data[0])
+		if e == nil { // 1st column is port (int)
+			local = "localhost:" + data[0]
+			remote = data[1] + ":" + data[2]
+		} else { // 1st column is not port (int)
+			local = data[0] + ":" + data[1]
+			remote = "localhost:" + data[2]
+		}
+
+	default:
+		err = errors.New("Could not parse.")
+	}
+
+	return
+}
+
 // ParseArgs return os.Args parse short options (ex.) [-la] => [-l,-a] )
 //
 // TODO(blacknon): Migrate to github.com/urfave/cli version 1.22.
