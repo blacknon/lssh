@@ -22,8 +22,6 @@ import (
 //     autosshのように、接続が切れた際に自動的に再接続を試みる動作をさせたい
 //     パラメータでの有効・無効指定が必要になる。
 
-// TODO(blacknon):
-
 // TODO(blacknon): リバースでのsshfsの追加(v0.6.1以降？)
 //     lsshfs実装後になるか？ssh接続時に、指定したフォルダにローカルの内容をマウントさせて読み取らせる。
 //     うまくやれれば、ローカルのスクリプトなどをそのままマウントさせて実行させたりできるかもしれない。
@@ -72,6 +70,10 @@ type Run struct {
 
 	// Exec command
 	ExecCmd []string
+
+	// enable/disable print header in command mode
+	EnableHeader  bool
+	DisableHeader bool
 
 	// Agent is ssh-agent.
 	// In agent.Agent or agent.ExtendedAgent.

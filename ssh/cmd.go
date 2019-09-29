@@ -68,13 +68,19 @@ func (r *Run) cmd() (err error) {
 
 		// create Output
 		o := &output.Output{
-			Templete:   cmdOPROMPT,
-			Count:      0,
-			ServerList: r.ServerList,
-			Conf:       r.Conf.Server[s],
-			AutoColor:  true,
+			Templete:      cmdOPROMPT,
+			Count:         0,
+			ServerList:    r.ServerList,
+			Conf:          r.Conf.Server[s],
+			EnableHeader:  r.EnableHeader,
+			DisableHeader: r.DisableHeader,
+			AutoColor:     true,
 		}
 		o.Create(s)
+
+		// set output
+		c.Stdout = o.NewWriter()
+		c.Stderr = o.NewWriter()
 
 		// if single server, setup port forwarding.
 		if len(r.ServerList) == 1 {
@@ -105,10 +111,14 @@ func (r *Run) cmd() (err error) {
 				r.printDynamicPortForward(config.DynamicPortForward)
 				go c.TCPDynamicForward("localhost", config.DynamicPortForward)
 			}
-		} else {
-			c.Stdout = o.NewWriter()
-			c.Stderr = o.NewWriter()
 
+			// if tty
+			if r.IsTerm {
+				c.Stdin = os.Stdin
+				c.Stdout = os.Stdout
+				c.Stderr = os.Stderr
+			}
+		} else {
 			if r.IsParallel {
 				w, _ := c.Session.StdinPipe()
 				writers = append(writers, w)
