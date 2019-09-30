@@ -5,10 +5,19 @@ _lssh() {
         '(- *)'{-v,--version}'[print the version]' \
         '(-H --host)'{-H,--host}'[Connect servername]:_message' \
         '(-f --file)'{-f,--file}'+[Config file path]:include file:_files' \
-        '(--portforward-local){--portforward-local}[port forwarding local port(ex. 127.0.0.1:8080)]' \
-        '(--portforward-remote){--portforward-remote}[port forwarding remote port(ex. 127.0.0.1:80)]' \
-        '(-l --list)'{-l,--list}'[Print server list]' \
-        '(-s --shell)'{-s,--shell}'[use lssh shell (Beta)]' \
-        '(-t --terminal)'{-t,--terminal}'[Run specified command at terminal]' \
+        '-L[Local port forward mode.Specify a \[bind_address:\]port:remote_address:port]' \
+        '-R[Remote port forward mode.Specify a \[bind_address:\]port:remote_address:port.]' \
+        '-D[Dynamic port forward mode(Socks5). Specify a port.]' \
+        '-w[Displays the server header when in command execution mode.]' \
+        '-W[Not displays the server header when in command execution mode.]' \
+        '(-N --not-execute)'{-N,--not-execute}'[not execute remote command and shell.]' \
+        '(-X --x11)'{-X,--x11}'[x11 forwarding(forward to ${DISPLAY}).]' \
+        '(-t --term)'{-t,--term}'[Run specified command at terminal]' \
         '(-p --parallel)'{-p,--parallel}'[Exec command parallel node(tail -F etc...)]' \
+        '--localrc[use local bashrc shell.]' \
+        '--not-localrc[not use local bashrc shell.]' \
+        '(-s,--pshell)'{-s,--pshell}'[use parallel-shell(pshell) (alpha).]' \
+        '(-l --list)'{-l,--list}'[Print server list]' \
+        '(-h --help)'{-h,--help}'[show help]' \
+        '(-v --version)'{-v,--version}'[show version]' \
 }

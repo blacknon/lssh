@@ -1,11 +1,17 @@
+// Copyright (c) 2019 Blacknon. All rights reserved.
+// Use of this source code is governed by an MIT license
+// that can be found in the LICENSE file.
+
 /*
 common is a package that summarizes the common processing of lssh package.
 */
 package common
 
 import (
+	"bufio"
 	"crypto/sha1"
 	"encoding/base64"
+	"errors"
 	"fmt"
 	"io/ioutil"
 	"log"
@@ -14,9 +20,12 @@ import (
 	"os/user"
 	"path/filepath"
 	"reflect"
+	"regexp"
+	"strconv"
 	"strings"
 	"time"
 
+	"github.com/urfave/cli"
 	"golang.org/x/crypto/ssh/terminal"
 )
 
@@ -137,12 +146,12 @@ func GetFilesBase64(paths []string) (result string, err error) {
 		}
 		defer file.Close()
 
-		file_data, err := ioutil.ReadAll(file)
+		filedata, err := ioutil.ReadAll(file)
 		if err != nil {
 			return "", err
 		}
 
-		data = append(data, file_data...)
+		data = append(data, filedata...)
 		data = append(data, '\n')
 	}
 
@@ -205,10 +214,181 @@ func RandomString(n int) string {
 	return string(b)
 }
 
-// func GetAbsPath(path string) string {
-// 	// Replace home directory
-// 	usr, _ := user.Current()
-// 	path = strings.Replace(path, "~", usr.HomeDir, 1)
+// GetUniqueSlice return slice, removes duplicate values ​​from data(slice).
+func GetUniqueSlice(data []string) (result []string) {
+	m := make(map[string]bool)
 
-// 	return filepath.Abs(path)
-// }
+	for _, ele := range data {
+		if !m[ele] {
+			m[ele] = true
+			result = append(result, ele)
+		}
+	}
+
+	return
+}
+
+// WalkDir return file path list ([]string).
+func WalkDir(dir string) (files []string, err error) {
+	_, err = os.Lstat(dir)
+	if err != nil {
+		return
+	}
+
+	err = filepath.Walk(dir, func(path string, info os.FileInfo, err error) error {
+		if info.IsDir() {
+			path = path + "/"
+		}
+		files = append(files, path)
+		return nil
+	})
+	return
+}
+
+// GetUserName return user name from /etc/passwd and uid.
+func GetIdFromName(file string, name string) (id uint32, err error) {
+	rd := strings.NewReader(file)
+	sc := bufio.NewScanner(rd)
+
+	for sc.Scan() {
+		l := sc.Text()
+		line := strings.Split(l, ":")
+		if line[0] == name {
+			idstr := line[2]
+			u64, _ := strconv.ParseUint(idstr, 10, 32)
+			id = uint32(u64)
+			return
+		}
+	}
+
+	err = errors.New(fmt.Sprintf("Error: %s", "name not found"))
+
+	return
+}
+
+// GetUserName return user name from /etc/passwd and uid.
+func GetNameFromId(file string, id uint32) (name string, err error) {
+	rd := strings.NewReader(file)
+	sc := bufio.NewScanner(rd)
+
+	idstr := strconv.FormatUint(uint64(id), 10)
+	for sc.Scan() {
+		l := sc.Text()
+		line := strings.Split(l, ":")
+		if line[2] == idstr {
+			name = line[0]
+			return
+		}
+	}
+
+	err = errors.New(fmt.Sprintf("Error: %s", "name not found"))
+
+	return
+}
+
+// ParseForwardPort return forward address and port from string.
+//
+// ex.)
+//     - `localhost:8000:localhost:18000` => local: "localhost:8000", remote: "localhost:18000"
+//     - `8080:localhost:18080` => local: "localhost:8080", remote: "localhost:18080"
+//     - `localhost:2222:12222` => local: "localhost:2222", remote: "localhost:12222"
+func ParseForwardPort(value string) (local, remote string, err error) {
+	// count column
+	count := strings.Count(value, ":")
+	data := strings.Split(value, ":")
+
+	// switch count
+	switch count {
+	case 3: // `localhost:8000:localhost:18000`
+		local = data[0] + ":" + data[1]
+		remote = data[2] + ":" + data[3]
+	case 2:
+		// check 1st column is int
+		_, e := strconv.Atoi(data[0])
+		if e == nil { // 1st column is port (int)
+			local = "localhost:" + data[0]
+			remote = data[1] + ":" + data[2]
+		} else { // 1st column is not port (int)
+			local = data[0] + ":" + data[1]
+			remote = "localhost:" + data[2]
+		}
+
+	default:
+		err = errors.New("Could not parse.")
+	}
+
+	return
+}
+
+// ParseArgs return os.Args parse short options (ex.) [-la] => [-l,-a] )
+//
+// TODO(blacknon): Migrate to github.com/urfave/cli version 1.22.
+func ParseArgs(options []cli.Flag, args []string) []string {
+	// create cli.Flag map
+	optionMap := map[string]cli.Flag{}
+	for _, op := range options {
+		name := op.GetName()
+		names := strings.Split(name, ",")
+
+		for _, n := range names {
+			// add hyphen
+			if len(n) == 1 {
+				n = "-" + n
+			} else {
+				n = "--" + n
+			}
+			optionMap[n] = op
+		}
+	}
+
+	var result []string
+	result = append(result, args[0])
+
+	// command flag
+	isOptionArgs := false
+
+	optionReg := regexp.MustCompile("^-")
+	parseReg := regexp.MustCompile("^-[^-]{2,}")
+
+parseloop:
+	for i, arg := range args[1:] {
+		switch {
+		case !optionReg.MatchString(arg) && !isOptionArgs:
+			// not option arg, and sOptinArgs flag false
+			result = append(result, args[i+1:]...)
+			break parseloop
+
+		case !optionReg.MatchString(arg) && isOptionArgs:
+			result = append(result, arg)
+
+		case parseReg.MatchString(arg): // combine short option -la)
+			slice := strings.Split(arg[1:], "")
+			for _, s := range slice {
+				s = "-" + s
+				result = append(result, s)
+
+				if val, ok := optionMap[s]; ok {
+					switch val.(type) {
+					case cli.StringSliceFlag:
+						isOptionArgs = true
+					case cli.StringFlag:
+						isOptionArgs = true
+					}
+				}
+			}
+
+		default: // options (-a,--all)
+			result = append(result, arg)
+
+			if val, ok := optionMap[arg]; ok {
+				switch val.(type) {
+				case cli.StringSliceFlag:
+					isOptionArgs = true
+				case cli.StringFlag:
+					isOptionArgs = true
+				}
+			}
+		}
+	}
+	return result
+}

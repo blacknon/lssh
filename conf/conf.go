@@ -1,3 +1,7 @@
+// Copyright (c) 2019 Blacknon. All rights reserved.
+// Use of this source code is governed by an MIT license
+// that can be found in the LICENSE file.
+
 /*
 conf is a package used to read configuration file (~/.lssh.conf).
 */
@@ -86,11 +90,14 @@ type ServerConfig struct {
 	Pass            string   `toml:"pass"`
 	Passes          []string `toml:"passes"`
 	Key             string   `toml:"key"`
+	KeyCommand      string   `toml:"keycmd"`
+	KeyCommandPass  string   `toml:"keycmdpass"`
 	KeyPass         string   `toml:"keypass"`
 	Keys            []string `toml:"keys"` // "keypath::passphrase"
 	Cert            string   `toml:"cert"`
 	CertKey         string   `toml:"certkey"`
 	CertKeyPass     string   `toml:"certkeypass"`
+	CertPKCS11      bool     `toml:"certpkcs11"`
 	AgentAuth       bool     `toml:"agentauth"`
 	SSHAgentUse     bool     `toml:"ssh_agent"`
 	SSHAgentKeyPath []string `toml:"ssh_agent_key"` // "keypath::passphrase"
@@ -112,35 +119,50 @@ type ServerConfig struct {
 	LocalRcPath      []string `toml:"local_rc_file"`
 	LocalRcDecodeCmd string   `toml:"local_rc_decode_cmd"`
 
-	// port forwarding setting
+	// local/remote port forwarding setting
+	PortForwardMode   string `toml:"port_forward"`        // [`L`,`l`,`LOCAL`,`local`]|[`R`,`r`,`REMOTE`,`remote`]
 	PortForwardLocal  string `toml:"port_forward_local"`  // port forward (local). "host:port"
 	PortForwardRemote string `toml:"port_forward_remote"` // port forward (remote). "host:port"
+
+	// Dynamic Port Forwarding setting
+	DynamicPortForward string `toml:"dynamic_port_forward"` // ex.) "11080"
 
 	// x11 forwarding setting
 	X11 bool `toml:"x11"`
 
+	// Connection Timeout second
+	ConnectTimeout int `toml:"connect_timeout"`
+
+	// Server Alive
+	ServerAliveCountMax      int `toml:"alive_max"`
+	ServerAliveCountInterval int `toml:"alive_interval"`
+
+	// note
 	Note string `toml:"note"`
 }
 
 // Struct that stores Proxy server settings connected via http and socks5.
 type ProxyConfig struct {
-	Addr string `toml:"addr"`
-	Port string `toml:"port"`
-	User string `toml:"user"`
-	Pass string `toml:"pass"`
-	Note string `toml:"note"`
+	Addr      string `toml:"addr"`
+	Port      string `toml:"port"`
+	User      string `toml:"user"`
+	Pass      string `toml:"pass"`
+	Proxy     string `toml:"proxy"`
+	ProxyType string `toml:"proxy_type"`
+	Note      string `toml:"note"`
 }
 
 // Structure to read OpenSSH configuration file.
 //
 // WARN: This struct is not use...
 type OpenSshConfig struct {
-	// TODO(blacknon): Implement with v0.5.6
-	Path string `toml:"path"`
+	Path    string `toml:"path"` // This is preferred
+	Command string `toml:"command"`
 	ServerConfig
 }
 
 // ReadConf load configuration file and return Config structure
+// TODO(blacknon): リファクタリング！(v0.6.1) 外出しや処理のまとめなど
 func ReadConf(confPath string) (config Config) {
 	// user path
 	usr, _ := user.Current()
@@ -152,6 +174,7 @@ func ReadConf(confPath string) (config Config) {
 	}
 
 	config.Server = map[string]ServerConfig{}
+	config.SshConfig = map[string]OpenSshConfig{}
 
 	// Read config file
 	_, err := toml.DecodeFile(confPath, &config)
@@ -168,7 +191,7 @@ func ReadConf(confPath string) (config Config) {
 
 	// Read Openssh configs
 	if len(config.SshConfig) == 0 {
-		openSshServerConfig, err := getOpenSshConfig("~/.ssh/config")
+		openSshServerConfig, err := getOpenSshConfig("~/.ssh/config", "")
 		if err == nil {
 			// append data
 			for key, value := range openSshServerConfig {
@@ -178,12 +201,12 @@ func ReadConf(confPath string) (config Config) {
 		}
 	} else {
 		for _, sshConfig := range config.SshConfig {
-			openSshServerConfig, err := getOpenSshConfig(sshConfig.Path)
+			openSshServerConfig, err := getOpenSshConfig(sshConfig.Path, sshConfig.Command)
 			if err == nil {
 				// append data
 				for key, value := range openSshServerConfig {
-					value := serverConfigReduct(config.Common, value)
-					value = serverConfigReduct(sshConfig.ServerConfig, value)
+					setCommon := serverConfigReduct(config.Common, sshConfig.ServerConfig)
+					value = serverConfigReduct(setCommon, value)
 					config.Server[key] = value
 				}
 			}

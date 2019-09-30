@@ -1,0 +1,18 @@
+dist: xenial
+
+language: go
+
+env:
+  - GO111MODULE=on
+
+go:
+  - 1.12.x
+
+git:
+  depth: 1
+
+notifications:
+  email: false
+
+script:
+  - go build

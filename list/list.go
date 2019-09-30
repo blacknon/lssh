@@ -1,3 +1,7 @@
+// Copyright (c) 2019 Blacknon. All rights reserved.
+// Use of this source code is governed by an MIT license
+// that can be found in the LICENSE file.
+
 /*
 list package creates a TUI list based on the contents specified in a structure, and returns the selected row.
 */
@@ -10,6 +14,7 @@ import (
 	"strings"
 	"text/tabwriter"
 
+	"github.com/blacknon/lssh/conf"
 	termbox "github.com/nsf/termbox-go"
 )
 
@@ -21,6 +26,34 @@ import (
 //     - 内部でのウィンドウの実装
 //         - 項目について、更新や閲覧ができるようにする
 //     - キーバインドの設定変更
+
+type ListInfo struct {
+	// Incremental search line prompt string
+	Prompt string
+
+	NameList   []string
+	SelectName []string
+	DataList   conf.Config // original config data(struct)
+	DataText   []string    // all data text list
+	ViewText   []string    // filtered text list
+	MultiFlag  bool        // multi select flag
+	Keyword    string      // input keyword
+	CursorLine int         // cursor line
+	Term       TermInfo
+}
+
+type TermInfo struct {
+	Headline        int
+	LeftMargin      int
+	Color           int
+	BackgroundColor int
+}
+
+type ListArrayInfo struct {
+	Name    string
+	Connect string
+	Note    string
+}
 
 // arrayContains returns that arr contains str.
 func arrayContains(arr []string, str string) bool {
