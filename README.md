@@ -256,6 +256,16 @@ A terminal log can be recorded by writing a configuration file.
 	dirpath = "~/log/lssh/<Date>/<Hostname>"
 
 
+There are other parameters corresponding to ClientAliveInterval and ClientAliveCountMax.
+
+    [server.alivecount]
+	addr = "192.168.100.101"
+	key  = "/path/to/private_key"
+	note = "alive count max."
+	alive_max = 3 # ServerAliveCountMax
+	alive_interval = 60 # ServerAliveCountInterval
+
+
 </details>
 
 ### 2. [lssh] run command (parallel)
@@ -305,6 +315,11 @@ You can send commands to multiple servers interactively.
 
 	# parallel shell connect
 	lssh -s
+
+
+You can also combine remote and local commands.
+
+	remote_command | !local_command
 
 
 </details>
