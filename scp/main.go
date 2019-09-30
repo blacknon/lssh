@@ -192,6 +192,7 @@ func (cp *Scp) pushPath(ftp *sftp.Client, ow *io.PipeWriter, output *output.Outp
 		// open local file
 		lf, err := os.Open(path)
 		if err != nil {
+			fmt.Fprintf(ow, "%s\n", err)
 			return err
 		}
 		defer lf.Close()
@@ -204,6 +205,7 @@ func (cp *Scp) pushPath(ftp *sftp.Client, ow *io.PipeWriter, output *output.Outp
 		// TODO(blacknon): Outputからプログレスバーで出力できるようにする(io.MultiWriterを利用して書き込み？)
 		err = cp.pushFile(lf, ftp, output, rpath, size)
 		if err != nil {
+			fmt.Fprintf(ow, "%s\n", err)
 			return err
 		}
 	}
@@ -218,16 +220,21 @@ func (cp *Scp) pushPath(ftp *sftp.Client, ow *io.PipeWriter, output *output.Outp
 
 // pushfile put file to path.
 func (cp *Scp) pushFile(lf io.Reader, ftp *sftp.Client, output *output.Output, path string, size int64) (err error) {
+	// get output writer
+	ow := output.NewWriter()
+
 	// mkdir all
 	dir := filepath.Dir(path)
 	err = ftp.MkdirAll(dir)
 	if err != nil {
+		fmt.Fprintf(ow, "%s\n", err)
 		return
 	}
 
 	// open remote file
 	rf, err := ftp.OpenFile(path, os.O_RDWR|os.O_CREATE)
 	if err != nil {
+		fmt.Fprintf(ow, "%s\n", err)
 		return
 	}
 
