@@ -1,4 +1,11 @@
+# Meta files
 *.DS_Store
-lssh.sublime-project
+*.sublime-*
+
+# Binary programs
 /lssh
 /lscp
+/lsftp
+/lsshfs
+/lssync
+*.exe

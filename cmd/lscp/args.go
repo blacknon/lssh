@@ -1,3 +1,7 @@
+// Copyright (c) 2019 Blacknon. All rights reserved.
+// Use of this source code is governed by an MIT license
+// that can be found in the LICENSE file.
+
 package main
 
 import (
@@ -11,7 +15,7 @@ import (
 	"github.com/blacknon/lssh/common"
 	"github.com/blacknon/lssh/conf"
 	"github.com/blacknon/lssh/list"
-	"github.com/blacknon/lssh/ssh"
+	"github.com/blacknon/lssh/scp"
 	"github.com/urfave/cli"
 )
 
@@ -52,11 +56,15 @@ USAGE:
 `
 	// Create app
 	app = cli.NewApp()
+	// app.UseShortOptionHandling = true
 	app.Name = "lscp"
 	app.Usage = "TUI list select and parallel scp client command."
 	app.Copyright = "blacknon(blacknon@orebibou.com)"
-	app.Version = "0.5.6"
+	app.Version = "0.6.0"
 
+	// options
+	// TODO(blacknon): オプションの追加(0.6.1)
+	//     -P <num> ... 同じホストでパラレルでファイルをコピーできるようにする。パラレル数を指定。
 	app.Flags = []cli.Flag{
 		cli.StringSliceFlag{Name: "host,H", Usage: "connect servernames"},
 		cli.BoolFlag{Name: "list,l", Usage: "print server list from config"},
@@ -85,12 +93,12 @@ USAGE:
 		}
 
 		// Set args path
-		fromsArgs := c.Args()[:c.NArg()-1]
+		fromArgs := c.Args()[:c.NArg()-1]
 		toArg := c.Args()[c.NArg()-1]
 
 		isFromInRemote := false
 		isFromInLocal := false
-		for _, from := range fromsArgs {
+		for _, from := range fromArgs {
 			// parse args
 			isFromRemote, _ := check.ParseScpPath(from)
 
@@ -178,10 +186,10 @@ USAGE:
 		}
 
 		// scp struct
-		runScp := new(ssh.RunScp)
+		scp := new(scp.Scp)
 
 		// set from info
-		for _, from := range fromsArgs {
+		for _, from := range fromArgs {
 			// parse args
 			isFromRemote, fromPath := check.ParseScpPath(from)
 
@@ -196,42 +204,41 @@ USAGE:
 			}
 
 			// set from data
-			runScp.From.IsRemote = isFromRemote
+			scp.From.IsRemote = isFromRemote
 			if isFromRemote {
 				fromPath = check.EscapePath(fromPath)
 			}
-			runScp.From.Path = append(runScp.From.Path, fromPath)
-
+			scp.From.Path = append(scp.From.Path, fromPath)
 		}
-		runScp.From.Server = fromServer
+		scp.From.Server = fromServer
 
 		// set to info
 		isToRemote, toPath := check.ParseScpPath(toArg)
-		runScp.To.IsRemote = isToRemote
+		scp.To.IsRemote = isToRemote
 		if isToRemote {
 			toPath = check.EscapePath(toPath)
 		}
-		runScp.To.Path = []string{toPath}
-		runScp.To.Server = toServer
+		scp.To.Path = []string{toPath}
+		scp.To.Server = toServer
 
-		runScp.Permission = c.Bool("permission")
-		runScp.Config = data
+		scp.Permission = c.Bool("permission")
+		scp.Config = data
 
 		// print from
 		if !isFromInRemote {
-			fmt.Fprintf(os.Stderr, "From local:%s\n", runScp.From.Path)
+			fmt.Fprintf(os.Stderr, "From local:%s\n", scp.From.Path)
 		} else {
-			fmt.Fprintf(os.Stderr, "From remote(%s):%s\n", strings.Join(runScp.From.Server, ","), runScp.From.Path)
+			fmt.Fprintf(os.Stderr, "From remote(%s):%s\n", strings.Join(scp.From.Server, ","), scp.From.Path)
 		}
 
 		// print to
 		if !isToRemote {
-			fmt.Fprintf(os.Stderr, "To   local:%s\n", runScp.To.Path)
+			fmt.Fprintf(os.Stderr, "To   local:%s\n", scp.To.Path)
 		} else {
-			fmt.Fprintf(os.Stderr, "To   remote(%s):%s\n", strings.Join(runScp.To.Server, ","), runScp.To.Path)
+			fmt.Fprintf(os.Stderr, "To   remote(%s):%s\n", strings.Join(scp.To.Server, ","), scp.To.Path)
 		}
 
-		runScp.Start()
+		scp.Start()
 		return nil
 	}
 
