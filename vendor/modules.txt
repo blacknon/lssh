@@ -55,32 +55,32 @@ github.com/stretchr/testify/assert
 github.com/urfave/cli
 # github.com/vbauerster/mpb v3.4.0+incompatible
 github.com/vbauerster/mpb
-github.com/vbauerster/mpb/cwriter
 github.com/vbauerster/mpb/decor
+github.com/vbauerster/mpb/cwriter
 github.com/vbauerster/mpb/internal
 # github.com/youtube/vitess v2.1.1+incompatible
-github.com/youtube/vitess/go/acl
-github.com/youtube/vitess/go/cache
 github.com/youtube/vitess/go/pools
 github.com/youtube/vitess/go/sync2
+github.com/youtube/vitess/go/acl
+github.com/youtube/vitess/go/cache
 # golang.org/x/crypto v0.0.0-20190820162420-60c769a6c586
+golang.org/x/crypto/ssh/terminal
+golang.org/x/crypto/ssh
 golang.org/x/crypto/curve25519
 golang.org/x/crypto/ed25519
-golang.org/x/crypto/ed25519/internal/edwards25519
 golang.org/x/crypto/internal/chacha20
-golang.org/x/crypto/internal/subtle
 golang.org/x/crypto/poly1305
-golang.org/x/crypto/ssh
 golang.org/x/crypto/ssh/agent
-golang.org/x/crypto/ssh/terminal
+golang.org/x/crypto/ed25519/internal/edwards25519
+golang.org/x/crypto/internal/subtle
 # golang.org/x/net v0.0.0-20190420063019-afa5a82059c6
-golang.org/x/net/context
-golang.org/x/net/internal/socks
 golang.org/x/net/proxy
+golang.org/x/net/internal/socks
+golang.org/x/net/context
 # golang.org/x/sys v0.0.0-20190412213103-97732733099d
-golang.org/x/sys/cpu
 golang.org/x/sys/unix
 golang.org/x/sys/windows
+golang.org/x/sys/cpu
 # gopkg.in/yaml.v2 v2.2.2
 gopkg.in/yaml.v2
 # mvdan.cc/sh v2.6.3+incompatible
