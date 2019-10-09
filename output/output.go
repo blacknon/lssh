@@ -158,8 +158,11 @@ func (o *Output) ProgressPrinter(size int64, reader io.Reader, path string) {
 		mpb.BarClearOnComplete(),
 		mpb.PrependDecorators(
 			name,
-			decor.OnComplete(decor.Name(path, decor.WCSyncSpaceR), fmt.Sprintf("%s done!", path)),
-			decor.OnComplete(decor.EwmaETA(decor.ET_STYLE_MMSS, 0, decor.WCSyncWidth), ""),
+			// どっちかがポイント？
+			// decor.OnComplete(decor.Name(path, decor.WCSyncSpaceR), fmt.Sprintf("%s done!", path)),
+			decor.OnComplete(decor.Name(path), fmt.Sprintf("%s done!", path)),
+			// decor.OnComplete(decor.EwmaETA(decor.ET_STYLE_MMSS, 0, decor.WCSyncWidth), ""),
+			decor.OnComplete(decor.EwmaETA(decor.ET_STYLE_MMSS, 0), ""),
 		),
 		mpb.AppendDecorators(
 			decor.OnComplete(decor.Percentage(decor.WC{W: 5}), ""),
