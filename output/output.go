@@ -140,14 +140,14 @@ loop:
 	}
 }
 
-// ProgressPrinter
+// ProgressPrinter is print out progress bar
 func (o *Output) ProgressPrinter(size int64, reader io.Reader, path string) {
 	// print header
 	oPrompt := ""
 	name := decor.Name(oPrompt)
 	if len(o.ServerList) > 1 {
 		oPrompt = o.GetPrompt()
-		name = decor.Name(oPrompt, decor.WC{W: len(path) + 1, C: decor.DSyncWidth})
+		name = decor.Name(oPrompt, decor.WC{W: len(path) + 1})
 	}
 
 	// trim space
@@ -162,7 +162,8 @@ func (o *Output) ProgressPrinter(size int64, reader io.Reader, path string) {
 			// decor.OnComplete(decor.Name(path, decor.WCSyncSpaceR), fmt.Sprintf("%s done!", path)),
 			decor.OnComplete(decor.Name(path), fmt.Sprintf("%s done!", path)),
 			// decor.OnComplete(decor.EwmaETA(decor.ET_STYLE_MMSS, 0, decor.WCSyncWidth), ""),
-			decor.OnComplete(decor.EwmaETA(decor.ET_STYLE_MMSS, 0), ""),
+			// decor.OnComplete(decor.EwmaETA(decor.ET_STYLE_MMSS, 0), ""),
+			decor.OnComplete(decor.EwmaSpeed(decor.UnitKiB, " % .2f", 60), ""),
 		),
 		mpb.AppendDecorators(
 			decor.OnComplete(decor.Percentage(decor.WC{W: 5}), ""),
@@ -200,6 +201,7 @@ func (o *Output) ProgressPrinter(size int64, reader io.Reader, path string) {
 	return
 }
 
+// OutColorStrings return color code
 func OutColorStrings(num int, inStrings string) (str string) {
 	// 1=Red,2=Yellow,3=Blue,4=Magenta,0=Cyan
 	color := 31 + num%5
@@ -208,7 +210,7 @@ func OutColorStrings(num int, inStrings string) (str string) {
 	return
 }
 
-// multiPipeReadWriter is PipeReader to []io.WriteCloser.
+// PushPipeWriter is PipeReader to []io.WriteCloser.
 func PushPipeWriter(isExit <-chan bool, output []io.WriteCloser, input io.Reader) {
 	rd := bufio.NewReader(input)
 loop:
@@ -246,7 +248,7 @@ loop:
 	}
 }
 
-// send input to ssh Session Stdin
+// PushInput is send input to ssh Session Stdin
 func PushInput(isExit <-chan bool, output []io.WriteCloser) {
 	rd := bufio.NewReader(os.Stdin)
 loop:
