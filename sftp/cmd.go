@@ -29,7 +29,7 @@ func (fi ByName) Less(i, j int) bool {
 	return fi.FileInfos[j].Name() > fi.FileInfos[i].Name()
 }
 
-// ByName is sort by name
+// BySize is sort by size
 type BySize struct{ FileInfos }
 
 func (fi BySize) Len() int {
@@ -42,7 +42,7 @@ func (fi BySize) Less(i, j int) bool {
 	return fi.FileInfos[j].Size() > fi.FileInfos[i].Size()
 }
 
-// ByName is sort by name
+// ByTime is sort by time
 type ByTime struct{ FileInfos }
 
 func (fi ByTime) Len() int {
