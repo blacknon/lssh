@@ -30,7 +30,6 @@ func (r *RunSftp) shell() {
 	p := prompt.New(
 		r.Executor,
 		r.Completer,
-		// prompt.OptionPrefix(pShellPrompt),
 		prompt.OptionLivePrefix(r.CreatePrompt),
 		prompt.OptionInputTextColor(prompt.Green),
 		prompt.OptionPrefixTextColor(prompt.Blue),
@@ -43,7 +42,7 @@ func (r *RunSftp) shell() {
 	return
 }
 
-// sftp Shell mode function
+// Executor is sftp Shell mode function.
 func (r *RunSftp) Executor(command string) {
 	// trim space
 	command = strings.TrimSpace(command)
@@ -112,7 +111,7 @@ func (r *RunSftp) Executor(command string) {
 	}
 }
 
-// sftp Shell mode function
+// Completer is sftp Shell mode function
 func (r *RunSftp) Completer(t prompt.Document) []prompt.Suggest {
 	// result
 	var suggest []prompt.Suggest
@@ -138,8 +137,6 @@ func (r *RunSftp) Completer(t prompt.Document) []prompt.Suggest {
 			{Text: "df", Description: "Display statistics for current directory or filesystem containing 'path'"},
 			{Text: "exit", Description: "Quit lsftp"},
 			{Text: "get", Description: "Download file"},
-			// {Text: "reget", Description: "Resume download file"},
-			// {Text: "reput", Description: "Resume upload file"},
 			{Text: "help", Description: "Display this help text"},
 			{Text: "lcd", Description: "Change local directory to 'path'"},
 			{Text: "lls", Description: "Display local directory listing"},
@@ -149,7 +146,6 @@ func (r *RunSftp) Completer(t prompt.Document) []prompt.Suggest {
 			{Text: "ls", Description: "Display remote directory listing"},
 			// {Text: "lumask", Description: "Set local umask to 'umask'"},
 			{Text: "mkdir", Description: "Create remote directory"},
-			// {Text: "progress", Description: "Toggle display of progress meter"},
 			{Text: "put", Description: "Upload file"},
 			{Text: "pwd", Description: "Display remote working directory"},
 			{Text: "quit", Description: "Quit sftp"},
@@ -282,7 +278,7 @@ func (r *RunSftp) Completer(t prompt.Document) []prompt.Suggest {
 	return prompt.FilterHasPrefix(suggest, t.GetWordBeforeCursor(), false)
 }
 
-//
+// PathComplete return path complete data
 func (r *RunSftp) PathComplete(remote bool, num int, t prompt.Document) []prompt.Suggest {
 	// suggest
 	var suggest []prompt.Suggest
@@ -329,7 +325,7 @@ func (r *RunSftp) PathComplete(remote bool, num int, t prompt.Document) []prompt
 	return prompt.FilterHasPrefix(suggest, word, false)
 }
 
-//
+// GetRemoteComplete set r.RemoteComplete
 func (r *RunSftp) GetRemoteComplete(path string) {
 	// create map
 	m := map[string][]string{}
@@ -412,7 +408,7 @@ func (r *RunSftp) GetRemoteComplete(path string) {
 	r.RemoteComplete = p
 }
 
-//
+// GetLocalComplete set r.LocalComplete
 func (r *RunSftp) GetLocalComplete(path string) {
 	// create suggest slice
 	var p []prompt.Suggest
@@ -449,6 +445,7 @@ func (r *RunSftp) GetLocalComplete(path string) {
 	r.LocalComplete = p
 }
 
+// CreatePrompt return prompt string.
 func (r *RunSftp) CreatePrompt() (p string, result bool) {
 	p = "lsftp>> "
 	return p, true

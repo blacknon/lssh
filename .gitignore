@@ -1,6 +1,7 @@
 # Meta files
 *.DS_Store
 *.sublime-*
+.vscode
 
 # Binary programs
 /lssh

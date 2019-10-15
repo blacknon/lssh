@@ -140,7 +140,7 @@ loop:
 	}
 }
 
-// ProgressPrinter is print out progress bar
+// ProgressPrinter return print out progress bar
 func (o *Output) ProgressPrinter(size int64, reader io.Reader, path string) {
 	// print header
 	oPrompt := ""
@@ -154,20 +154,30 @@ func (o *Output) ProgressPrinter(size int64, reader io.Reader, path string) {
 	path = strings.TrimSpace(path)
 
 	// set progress
-	bar := o.Progress.AddBar((size),
+	bar := o.Progress.AddBar(
+		// size
+		size,
+
+		// bar clear at complete
 		mpb.BarClearOnComplete(),
+
+		// prepend bar
 		mpb.PrependDecorators(
+			// name
 			name,
-			// どっちかがポイント？
-			// decor.OnComplete(decor.Name(path, decor.WCSyncSpaceR), fmt.Sprintf("%s done!", path)),
+			// path and complete message
 			decor.OnComplete(decor.Name(path), fmt.Sprintf("%s done!", path)),
-			// decor.OnComplete(decor.EwmaETA(decor.ET_STYLE_MMSS, 0, decor.WCSyncWidth), ""),
-			// decor.OnComplete(decor.EwmaETA(decor.ET_STYLE_MMSS, 0), ""),
-			decor.OnComplete(decor.EwmaSpeed(decor.UnitKiB, " % .2f", 60), ""),
+			// size
+			decor.OnComplete(decor.CountersKiloByte(" %.1f/%.1f", decor.WC{W: 5}), ""),
 		),
+
+		// append bar
 		mpb.AppendDecorators(
 			decor.OnComplete(decor.Percentage(decor.WC{W: 5}), ""),
 		),
+
+		// bar style
+		mpb.BarStyle("[=>-]<+"),
 	)
 
 	// set start, and max time
