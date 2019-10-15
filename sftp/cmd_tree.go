@@ -7,6 +7,12 @@
 
 package sftp
 
+// tree is remote tree command
 func (r *RunSftp) tree(args []string) {
+
+}
+
+// ltree is local tree command
+func (r *RunSftp) ltree(args []string) {
 
 }
