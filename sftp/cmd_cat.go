@@ -7,6 +7,8 @@
 
 package sftp
 
+// TODO(blacknon): 複数ホスト接続時に、diffオプションがあるとうれしい？(もしくは、別途diffコマンドを開発か)
+
 // cat is remote cat command
 func (r *RunSftp) cat(args []string) {
 
