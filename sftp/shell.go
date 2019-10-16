@@ -129,7 +129,7 @@ func (r *RunSftp) Completer(t prompt.Document) []prompt.Suggest {
 	if len(cmdline) == 1 {
 		suggest = []prompt.Suggest{
 			{Text: "bye", Description: "Quit lsftp"},
-			// {Text: "cat", Description: "Open file"},
+			{Text: "cat", Description: "Open file"},
 			{Text: "cd", Description: "Change remote directory to 'path'"},
 			{Text: "chgrp", Description: "Change group of file 'path' to 'grp'"},
 			{Text: "chown", Description: "Change owner of file 'path' to 'own'"},
@@ -161,6 +161,8 @@ func (r *RunSftp) Completer(t prompt.Document) []prompt.Suggest {
 	} else { // command pattern
 		switch cmdline[0] {
 		case "cd":
+			return r.PathComplete(true, 1, t)
+		case "cat":
 			return r.PathComplete(true, 1, t)
 		case "chgrp":
 			// TODO(blacknon): そのうち追加 ver0.6.1

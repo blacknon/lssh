@@ -74,6 +74,7 @@ type sftpLsData struct {
 	Path  string
 }
 
+// SortLsData is sort []os.FileInfo.
 func (r *RunSftp) SortLsData(c *cli.Context, files []os.FileInfo) {
 	// sort
 	switch {
