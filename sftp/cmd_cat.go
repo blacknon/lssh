@@ -9,6 +9,8 @@ package sftp
 
 import (
 	"fmt"
+	"os"
+	"path/filepath"
 
 	"github.com/blacknon/lssh/common"
 	"github.com/urfave/cli"
@@ -31,9 +33,34 @@ func (r *RunSftp) cat(args []string) {
 	app.EnableBashCompletion = true
 
 	app.Action = func(c *cli.Context) error {
-		argpath := c.Args().First()
+		// 1st arg only
+		path := c.Args().First()
 
-		//
+		// TODO: サーバ名とセットにする必要ありそう
+		var files []*sftp.File
+		for s, c := range r.Client {
+			client := c
+			go func() {
+				// set ftp client
+				ftp := client.Connect
+
+				// set arg path
+				if !filepath.IsAbs(path) {
+					path = filepath.Join(client.Pwd, path)
+				}
+
+				// open file
+				file, err := ftp.Open(path)
+				if err != nil {
+					fmt.Fprintf(os.Stderr, err)
+					return
+				}
+
+				// add file to files
+				// TODO: 足してく
+			}()
+		}
+
 		fmt.Println(argpath)
 		return nil
 	}
@@ -60,6 +87,7 @@ func (r *RunSftp) lcat(args []string) {
 	app.EnableBashCompletion = true
 
 	app.Action = func(c *cli.Context) error {
+		// 1st arg only
 		argpath := c.Args().First()
 
 		//
