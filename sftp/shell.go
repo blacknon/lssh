@@ -66,9 +66,7 @@ func (r *RunSftp) Executor(command string) {
 		r.chmod(cmdline)
 	case "chown":
 		r.chown(cmdline)
-
 	// case "copy":
-
 	case "df":
 		r.df(cmdline)
 	case "get":
@@ -79,16 +77,12 @@ func (r *RunSftp) Executor(command string) {
 		r.lls(cmdline)
 	case "lmkdir":
 		r.lmkdir(cmdline)
-
 	// case "ln":
-
 	case "lpwd":
 		r.lpwd(cmdline)
 	case "ls":
 		r.ls(cmdline)
-
 	// case "lumask":
-
 	case "mkdir":
 		r.mkdir(cmdline)
 	case "put":
@@ -112,6 +106,7 @@ func (r *RunSftp) Executor(command string) {
 }
 
 // Completer is sftp Shell mode function
+// TODO(blacknon): PATH補完については、flagを見て対象のコマンドラインの初回だけ行わせるようにする(プロンプトが切り替わる度にflagをfalse or trueにすることで対処？)
 func (r *RunSftp) Completer(t prompt.Document) []prompt.Suggest {
 	// result
 	var suggest []prompt.Suggest
