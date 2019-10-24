@@ -17,6 +17,8 @@ import (
 	"github.com/vbauerster/mpb"
 )
 
+// TODO(blacknon): Ctrl + Cでコマンドの処理をキャンセルできるようにする
+
 // RunSftp struct sftp run
 type RunSftp struct {
 	// select server
@@ -26,7 +28,11 @@ type RunSftp struct {
 	Config conf.Config
 
 	// Client
+	// TODO(blacknon): Clientと、ターゲットを分けて処理する(ホストをコマンド実行時に指定できるようにするため)
 	Client map[string]*SftpConnect
+
+	// Target
+	Target map[string]*SftpConnect
 
 	// ssh Run
 	Run *sshl.Run

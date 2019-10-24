@@ -9,8 +9,8 @@ package sftp
 
 import (
 	"fmt"
-	"os"
 	"path/filepath"
+	"time"
 
 	"github.com/blacknon/lssh/common"
 	"github.com/urfave/cli"
@@ -36,32 +36,37 @@ func (r *RunSftp) cat(args []string) {
 		// 1st arg only
 		path := c.Args().First()
 
-		// TODO: サーバ名とセットにする必要ありそう
-		var files []*sftp.File
-		for s, c := range r.Client {
-			client := c
-			go func() {
-				// set ftp client
-				ftp := client.Connect
+		for server, client := range r.Client {
+			// set ftp client
+			ftp := client.Connect
 
-				// set arg path
-				if !filepath.IsAbs(path) {
-					path = filepath.Join(client.Pwd, path)
-				}
+			// Create Output
+			client.Output.Create(server)
+			w := client.Output.NewWriter()
 
-				// open file
-				file, err := ftp.Open(path)
-				if err != nil {
-					fmt.Fprintf(os.Stderr, err)
-					return
-				}
+			// set arg path
+			if !filepath.IsAbs(path) {
+				path = filepath.Join(client.Pwd, path)
+			}
 
-				// add file to files
-				// TODO: 足してく
-			}()
+			// open file
+			f, err := ftp.Open(path)
+			if err != nil {
+				fmt.Fprintln(w, err)
+				return nil
+			}
+
+			// read file to Output.Writer
+			_, err = f.WriteTo(w)
+			if err != nil {
+				fmt.Fprintln(w, err)
+			}
+
 		}
 
-		fmt.Println(argpath)
+		// wait 0.3 sec
+		time.Sleep(300 * time.Millisecond)
+
 		return nil
 	}
 
