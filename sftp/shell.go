@@ -56,8 +56,8 @@ func (r *RunSftp) Executor(command string) {
 		os.Exit(0)
 	case "help", "?":
 
-	// case "cat":
-
+	case "cat":
+		r.cat(cmdline)
 	case "cd": // change remote directory
 		r.cd(cmdline)
 	case "chgrp":

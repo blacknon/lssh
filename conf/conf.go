@@ -141,7 +141,7 @@ type ServerConfig struct {
 	Note string `toml:"note"`
 }
 
-// Struct that stores Proxy server settings connected via http and socks5.
+//　ProxyConfig is that stores Proxy server settings connected via http and socks5.
 type ProxyConfig struct {
 	Addr      string `toml:"addr"`
 	Port      string `toml:"port"`
@@ -152,7 +152,7 @@ type ProxyConfig struct {
 	Note      string `toml:"note"`
 }
 
-// Structure to read OpenSSH configuration file.
+// OpenSshConfig is  read OpenSSH configuration file.
 //
 // WARN: This struct is not use...
 type OpenSshConfig struct {
