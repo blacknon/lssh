@@ -71,6 +71,8 @@ func (r *RunSftp) Executor(command string) {
 		r.df(cmdline)
 	case "get":
 		r.get(cmdline)
+	case "lcat":
+		r.lcat(cmdline)
 	case "lcd":
 		r.lcd(cmdline)
 	case "lls":
@@ -177,7 +179,8 @@ func (r *RunSftp) Completer(t prompt.Document) []prompt.Suggest {
 			case strings.Count(t.CurrentLineBeforeCursor(), " ") == 2: // local
 				return r.PathComplete(false, 2, t)
 			}
-
+		case "lcat":
+			return r.PathComplete(false, 1, t)
 		case "lcd":
 			return r.PathComplete(false, 1, t)
 		case "lls":
