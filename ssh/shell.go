@@ -196,6 +196,7 @@ func localrcShell(connect *sshlib.Connect, session *ssh.Session, localrcPath []s
 	}
 
 	// command
+	// TODO(blacknon): なんの処理してるのか、もうちょっとちゃんとコメントを書く(忘れちまったよ…)
 	cmd := fmt.Sprintf("bash --noprofile --rcfile <(echo %s|((base64 --help | grep -q coreutils) && base64 -d <(cat) || base64 -D <(cat) ))", rcData)
 
 	// decode command
