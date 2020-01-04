@@ -78,7 +78,7 @@ option(lssh)
 	    lssh - TUI list select and parallel ssh client command.
 	USAGE:
 	    lssh [options] [commands...]
-	
+
 	OPTIONS:
 	    --host servername, -H servername            connect servername.
 	    --file filepath, -F filepath                config filepath. (default: "/Users/blacknon/.lssh.conf")
@@ -97,20 +97,20 @@ option(lssh)
 	    --list, -l                                  print server list from config.
 	    --help, -h                                  print this help
 	    --version, -v                               print the version
-	
+
 	COPYRIGHT:
 	    blacknon(blacknon@orebibou.com)
-	
+
 	VERSION:
 	    0.6.0
-	
+
 	USAGE:
 	    # connect ssh
 	    lssh
-	
+
 	    # parallel run command in select server over ssh
 	    lssh -p command...
-	
+
 	    # parallel run command in select server over ssh, do it interactively.
 	    lssh -s
 
@@ -122,12 +122,12 @@ run command.
     lscp from... to
 
 option(lscp)
-	
+
 	NAME:
 	    lscp - TUI list select and parallel scp client command.
 	USAGE:
 	    lscp [options] (local|remote):from_path... (local|remote):to_path
-	
+
 	OPTIONS:
 	    --host value, -H value  connect servernames
 	    --list, -l              print server list from config
@@ -135,20 +135,20 @@ option(lscp)
 	    --permission, -p        copy file permission
 	    --help, -h              print this help
 	    --version, -v           print the version
-	
+
 	COPYRIGHT:
 	    blacknon(blacknon@orebibou.com)
-	
+
 	VERSION:
 	    0.6.0
-	
+
 	USAGE:
 	    # local to remote scp
 	    lscp /path/to/local... remote:/path/to/remote
-	
+
 	    # remote to local scp
 	    lscp remote:/path/to/remote... /path/to/local
-	
+
 	    # remote to remote scp
 	    lscp remote:/path/to/remote... remote:/path/to/local
 
@@ -165,18 +165,18 @@ option(lsftp)
 	    lsftp - TUI list select and parallel sftp client command.
 	USAGE:
 	    lsftp [options]
-	
+
 	OPTIONS:
 	    --file value, -f value  config file path (default: "/Users/blacknon/.lssh.conf")
 	    --help, -h              print this help
 	    --version, -v           print the version
-	
+
 	COPYRIGHT:
 	    blacknon(blacknon@orebibou.com)
-	
+
 	VERSION:
 	    0.6.0
-	
+
 	USAGE:
 	  # start lsftp shell
 	  lsftp
@@ -409,12 +409,12 @@ You can include server settings in another file.\
 	user = "user"
 	key = "~/.ssh/id_rsa"
 	pkcs11provider = "/usr/local/lib/opensc-pkcs11.so"
-	
+
 	[server.Server1]
 	addr = "172.16.200.1"
 	note = "TEST Server1"
 	local_rc = "yes"
-	
+
 	[server.Server2]
 	addr = "172.16.200.2"
 	note = "TEST Server2"
@@ -472,13 +472,13 @@ Besides this, you can also specify ProxyCommand like OpenSSH.
 	addr = "192.168.100.200"
 	key  = "/path/to/private_key"
 	note = "proxy server"
-	
+
 	[server.overProxyServer]
 	addr = "192.168.10.10"
 	key  = "/path/to/private_key"
 	note = "connect use ssh proxy"
 	proxy = "sshProxyServer"
-	
+
 	[server.overProxyServer2]
 	addr = "192.168.10.100"
 	key  = "/path/to/private_key"
