@@ -182,6 +182,8 @@ func (r *Run) getLogDirPath(server string) (dir string, err error) {
 
 // runLocalRcShell connect to remote shell using local bashrc
 func localrcShell(connect *sshlib.Connect, session *ssh.Session, localrcPath []string, decoder string) (err error) {
+	// TODO(blacknon): 受け付けるrcdataをzip化するオプションの追加
+
 	// set default bashrc
 	if len(localrcPath) == 0 {
 		localrcPath = []string{"~/.bashrc"}
@@ -194,6 +196,7 @@ func localrcShell(connect *sshlib.Connect, session *ssh.Session, localrcPath []s
 	}
 
 	// command
+	// TODO(blacknon): なんの処理してるのか、もうちょっとちゃんとコメントを書く(忘れちまったよ…)
 	cmd := fmt.Sprintf("bash --noprofile --rcfile <(echo %s|((base64 --help | grep -q coreutils) && base64 -d <(cat) || base64 -D <(cat) ))", rcData)
 
 	// decode command
