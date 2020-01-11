@@ -7,7 +7,7 @@ package sftp
 // sftp put/pull function
 // NOTE: リモートマシンからリモートマシンにコピーさせるような処理や、対象となるホストを個別に指定してコピーできるような仕組みをつくること！
 // TODO(blacknon): 転送時の進捗状況を表示するプログレスバーの表示はさせること
-func (r *RunSftp) cp(args []string) {
+func (r *RunSftp) copy(args []string) {
 	// finished := make(chan bool)
 
 	// // set target list

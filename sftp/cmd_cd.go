@@ -59,7 +59,8 @@ func (r *RunSftp) cd(args []string) {
 			continue
 		}
 
-		okcounter += 1
+		// add count
+		okcounter++
 	}
 
 	// check count okcounter

@@ -7,6 +7,8 @@
 
 package sftp
 
+// TODO(blacknon): 複数ホスト接続時に、diffオプションがあるとうれしい？(ファイルの存在有無などをdiffで確認できるといい感じだろうか？)
+
 import (
 	"fmt"
 	"io/ioutil"

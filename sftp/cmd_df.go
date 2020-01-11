@@ -10,7 +10,6 @@ package sftp
 import (
 	"fmt"
 	"os"
-	"path/filepath"
 	"strconv"
 	"text/tabwriter"
 
@@ -54,11 +53,7 @@ func (r *RunSftp) df(args []string) {
 			// set path
 			path := client.Pwd
 			if len(argpath) > 0 {
-				if !filepath.IsAbs(argpath) {
-					path = filepath.Join(path, argpath)
-				} else {
-					path = argpath
-				}
+
 			}
 
 			// get StatVFS
