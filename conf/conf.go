@@ -30,7 +30,7 @@ type Config struct {
 	Server   map[string]ServerConfig
 	Proxy    map[string]ProxyConfig
 
-	SshConfig map[string]OpenSshConfig
+	SSHConfig map[string]OpenSshConfig
 }
 
 // LogConfig store the contents about the terminal log.
@@ -46,7 +46,7 @@ type LogConfig struct {
 	Dir string `toml:"dirpath"`
 }
 
-// Structure for storing lssh-shell settings.
+// ShellConfig Structure for storing lssh-shell settings.
 type ShellConfig struct {
 	// prompt
 	Prompt  string `toml:"PROMPT"`  // lssh shell prompt
@@ -63,12 +63,12 @@ type ShellConfig struct {
 	PostCmd string `toml:"post_cmd"`
 }
 
-// Specify the configuration file to include (ServerConfig only).
+// IncludeConfig specify the configuration file to include (ServerConfig only).
 type IncludeConfig struct {
 	Path string `toml:"path"`
 }
 
-// Specify the configuration file to include (ServerConfig only).
+// IncludesConfig specify the configuration file to include (ServerConfig only).
 // Struct that can specify multiple files in array.
 type IncludesConfig struct {
 	// example:
@@ -79,7 +79,7 @@ type IncludesConfig struct {
 	Path []string `toml:"path"`
 }
 
-// Structure for holding SSH connection information
+// ServerConfig Structure for holding SSH connection information
 type ServerConfig struct {
 	// Connect basic Setting
 	Addr string `toml:"addr"`
@@ -141,7 +141,7 @@ type ServerConfig struct {
 	Note string `toml:"note"`
 }
 
-// Struct that stores Proxy server settings connected via http and socks5.
+//　ProxyConfig is that stores Proxy server settings connected via http and socks5.
 type ProxyConfig struct {
 	Addr      string `toml:"addr"`
 	Port      string `toml:"port"`
@@ -152,7 +152,7 @@ type ProxyConfig struct {
 	Note      string `toml:"note"`
 }
 
-// Structure to read OpenSSH configuration file.
+// OpenSshConfig is  read OpenSSH configuration file.
 //
 // WARN: This struct is not use...
 type OpenSshConfig struct {
@@ -174,7 +174,7 @@ func ReadConf(confPath string) (config Config) {
 	}
 
 	config.Server = map[string]ServerConfig{}
-	config.SshConfig = map[string]OpenSshConfig{}
+	config.SSHConfig = map[string]OpenSshConfig{}
 
 	// Read config file
 	_, err := toml.DecodeFile(confPath, &config)
@@ -190,7 +190,7 @@ func ReadConf(confPath string) (config Config) {
 	}
 
 	// Read Openssh configs
-	if len(config.SshConfig) == 0 {
+	if len(config.SSHConfig) == 0 {
 		openSshServerConfig, err := getOpenSshConfig("~/.ssh/config", "")
 		if err == nil {
 			// append data
@@ -200,7 +200,7 @@ func ReadConf(confPath string) (config Config) {
 			}
 		}
 	} else {
-		for _, sshConfig := range config.SshConfig {
+		for _, sshConfig := range config.SSHConfig {
 			openSshServerConfig, err := getOpenSshConfig(sshConfig.Path, sshConfig.Command)
 			if err == nil {
 				// append data
