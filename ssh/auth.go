@@ -2,6 +2,8 @@
 // Use of this source code is governed by an MIT license
 // that can be found in the LICENSE file.
 
+// TODO(blacknon): 鍵のパスフレーズの処理がうまく動作していない様子(bug)。修正する。
+
 package ssh
 
 import (
