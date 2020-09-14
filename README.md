@@ -60,8 +60,10 @@ brew install(Mac OS X)
 
 ## Config
 
-Please edit "~/.lssh.conf".\
-For details see [wiki](https://github.com/blacknon/lssh/wiki/Config).
+Default configuration file is either "~/.lssh.conf" or "~/.config/lssh/lssh.conf",
+the later being used if both exists.
+
+For details about configuration file content see [wiki](https://github.com/blacknon/lssh/wiki/Config).
 
 ## Usage
 

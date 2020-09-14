@@ -22,6 +22,9 @@ func Lssh() (app *cli.App) {
 	// Default config file path
 	usr, _ := user.Current()
 	defConf := usr.HomeDir + "/.lssh.conf"
+	if _, err := os.Stat(usr.HomeDir + "/.config/lssh/lssh.conf"); err == nil {
+		defConf = usr.HomeDir + "/.config/lssh/lssh.conf"
+	}
 
 	// Set help templete
 	cli.AppHelpTemplate = `NAME:
