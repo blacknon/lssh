@@ -82,7 +82,7 @@ USAGE:
 	app.Flags = []cli.Flag{
 		// common option
 		cli.StringSliceFlag{Name: "host,H", Usage: "connect `servername`."},
-		cli.StringFlag{Name: "file,F", Value: defConf, Usage: "config `filepath`."},
+		cli.StringFlag{Name: "file,F,f", Value: defConf, Usage: "config `filepath`."},
 
 		// port forward option
 		cli.StringFlag{Name: "L", Usage: "Local port forward mode.Specify a `[bind_address:]port:remote_address:port`."},

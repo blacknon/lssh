@@ -83,7 +83,7 @@ option(lssh)
 
 	OPTIONS:
 	    --host servername, -H servername            connect servername.
-	    --file filepath, -F filepath                config filepath. (default: "/Users/blacknon/.lssh.conf")
+	    --file filepath, -F filepath, -f filepath   config filepath. (default: "/Users/blacknon/.lssh.conf")
 	    -L [bind_address:]port:remote_address:port  Local port forward mode.Specify a [bind_address:]port:remote_address:port.
 	    -R [bind_address:]port:remote_address:port  Remote port forward mode.Specify a [bind_address:]port:remote_address:port.
 	    -D port                                     Dynamic port forward mode(Socks5). Specify a port.
