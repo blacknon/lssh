@@ -13,6 +13,7 @@ import (
 	"github.com/blacknon/go-sshlib"
 	"github.com/blacknon/lssh/common"
 	"golang.org/x/crypto/ssh"
+	"golang.org/x/crypto/ssh/terminal"
 )
 
 const SSH_AUTH_SOCK = "SSH_AUTH_SOCK"
@@ -42,7 +43,14 @@ func (r *Run) CreateAuthMethodMap() {
 
 		// Password
 		if config.Pass != "" {
-			r.registAuthMapPassword(server, config.Pass)
+			if config.Pass == "ask" {
+				fmt.Print("Enter password: ")
+				stdinPass, _ := terminal.ReadPassword(int(os.Stdin.Fd()));
+				fmt.Printf("\n")
+				r.registAuthMapPassword(server, strings.TrimSpace(string(stdinPass)))
+			} else {
+				r.registAuthMapPassword(server, config.Pass)
+			}
 		}
 
 		// Multiple Password
