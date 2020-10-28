@@ -124,8 +124,14 @@ type ServerConfig struct {
 	PortForwardLocal  string `toml:"port_forward_local"`  // port forward (local). "host:port"
 	PortForwardRemote string `toml:"port_forward_remote"` // port forward (remote). "host:port"
 
+	// local/remote port forwarding settings
+	// TODO(blacknon): 複数のLocal/Remote Port Forwardingの追加
+
 	// Dynamic Port Forwarding setting
 	DynamicPortForward string `toml:"dynamic_port_forward"` // ex.) "11080"
+
+	// Dynamic Port Forwarding settings
+	// TODO(blacknon): 複数のDynamic Forwardingの追加
 
 	// x11 forwarding setting
 	X11 bool `toml:"x11"`
