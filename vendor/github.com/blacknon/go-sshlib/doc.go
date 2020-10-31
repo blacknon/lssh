@@ -47,7 +47,7 @@ It is example code. simple connect ssh shell. You can also do tab completion, se
 		// con.ConnectSshAgent()
 
 		// Connect ssh server
-		err := con.CreateClient(host, user, port, []ssh.AuthMethod{authMethod})
+		err := con.CreateClient(host, port, user, []ssh.AuthMethod{authMethod})
 		if err != nil {
 			fmt.Println(err)
 			os.Exit(1)
@@ -104,7 +104,7 @@ Multple proxy by ssh connection is also available. Please refer to the sample co
 		proxyAuthMethod := sshlib.CreateAuthMethodPassword(password1)
 
 		// Connect proxy server
-		err := proxyCon.CreateClient(host1, user1, port1, []ssh.AuthMethod{proxyAuthMethod})
+		err := proxyCon.CreateClient(host1, port1, user1, []ssh.AuthMethod{proxyAuthMethod})
 		if err != nil {
 			fmt.Println(err)
 			os.Exit(1)
@@ -123,7 +123,7 @@ Multple proxy by ssh connection is also available. Please refer to the sample co
 		targetAuthMethod := sshlib.CreateAuthMethodPassword(password2)
 
 		// Connect target server
-		err = targetCon.CreateClient(host2, user2, port2, []ssh.AuthMethod{targetAuthMethod})
+		err = targetCon.CreateClient(host2, port2, user2, []ssh.AuthMethod{targetAuthMethod})
 		if err != nil {
 			fmt.Println(err)
 			os.Exit(1)

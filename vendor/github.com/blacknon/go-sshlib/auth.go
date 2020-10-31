@@ -2,6 +2,13 @@
 // Use of this source code is governed by an MIT license
 // that can be found in the LICENSE file.
 
+// TODO(blacknon):
+//     ↓等を読み解いて、Publickey offeringやknown_hostsのチェックを実装する(`v0.2.0`)。
+//     既存のライブラリ等はないので、自前でrequestを書く必要があるかも？
+//     かなりの手間がかかりそうなので、対応については相応に時間がかかりそう。
+//       - https://go.googlesource.com/crypto/+/master/ssh/client_auth.go
+//       - https://go.googlesource.com/crypto/+/master/ssh/tcpip.go
+
 package sshlib
 
 import (
@@ -10,6 +17,8 @@ import (
 	"regexp"
 	"strings"
 
+	"github.com/ScaleFT/sshkeys"
+	"github.com/miekg/pkcs11/p11"
 	"golang.org/x/crypto/ssh"
 	"golang.org/x/crypto/ssh/agent"
 )
@@ -48,9 +57,17 @@ func CreateSignerPublicKey(key, password string) (signer ssh.Signer, err error) 
 	return
 }
 
+// CreateSignerPublicKeyData return ssh.Signer from private key and password
 func CreateSignerPublicKeyData(keyData []byte, password string) (signer ssh.Signer, err error) {
 	if password != "" { // password is not empty
-		signer, err = ssh.ParsePrivateKeyWithPassphrase(keyData, []byte(password))
+		// Parse key data
+		data, err := sshkeys.ParseEncryptedRawPrivateKey(keyData, []byte(password))
+		if err != nil {
+			return signer, err
+		}
+
+		// Create ssh.Signer
+		signer, err = ssh.NewSignerFromKey(data)
 	} else { // password is empty
 		signer, err = ssh.ParsePrivateKey(keyData)
 	}
@@ -165,7 +182,7 @@ func CreateAuthMethodPKCS11(provider, pin string) (auth []ssh.AuthMethod, err er
 	return
 }
 
-// CreateSignerCertificate returns []ssh.Signer generated from PKCS11 token.
+// CreateSignerPKCS11 returns []ssh.Signer generated from PKCS11 token.
 // PIN is required to generate a Signer from a PKCS 11 token.
 //
 // WORNING: Does not work if multiple tokens are stuck at the same time.
@@ -173,103 +190,51 @@ func CreateSignerPKCS11(provider, pin string) (signers []ssh.Signer, err error) 
 	// get absolute path
 	provider = getAbsPath(provider)
 
-	// Create PKCS11 struct
-	p11 := new(PKCS11)
-	p11.Pkcs11Provider = provider
-	p11.PIN = pin
-
-	// Create pkcs11 ctx
-	err = p11.CreateCtx()
+	// Create p11.module
+	module, err := p11.OpenModule(provider)
 	if err != nil {
 		return
 	}
 
-	// Get token label
-	err = p11.GetTokenLabel()
+	// Get p11 Module's Slot
+	slots, err := module.Slots()
 	if err != nil {
 		return
 	}
+	c11array := []*C11{}
 
-	// Recreate ctx (pkcs11=>crypto11)
-	err = p11.RecreateCtx(p11.Pkcs11Provider)
-	if err != nil {
-		return
+	for _, slot := range slots {
+		tokenInfo, err := slot.TokenInfo()
+		if err != nil {
+			continue
+		}
+
+		c := &C11{
+			Label: tokenInfo.Label,
+			PIN:   pin,
+		}
+		c11array = append(c11array, c)
 	}
 
-	// Get KeyID
-	err = p11.GetKeyID()
-	if err != nil {
-		return
-	}
+	// Destroy Module
+	module.Destroy()
 
-	// Get crypto.Signer
-	cryptoSigners, err := p11.GetCryptoSigner()
-	if err != nil {
-		return
-	}
+	// for loop
+	for _, c11 := range c11array {
+		err := c11.CreateCtx(provider)
+		if err != nil {
+			continue
+		}
 
-	// Exchange crypto.signer to ssh.Signer
-	for _, cryptoSigner := range cryptoSigners {
-		signer, _ := ssh.NewSignerFromSigner(cryptoSigner)
-		signers = append(signers, signer)
-	}
+		sigs, err := c11.GetSigner()
+		if err != nil {
+			continue
+		}
 
-	return
-}
-
-// CreateSignerPKCS11Prompt rapper CreateSignerPKCS11.
-// Output a PIN input prompt if the PIN is not entered or incorrect.
-//
-// Only Support UNIX-like OS.
-func CreateSignerPKCS11Prompt(provider, pin string) (signers []ssh.Signer, err error) {
-	// get absolute path
-	provider = getAbsPath(provider)
-
-	// Create PKCS11 struct
-	p11 := new(PKCS11)
-	p11.Pkcs11Provider = provider
-	p11.PIN = pin
-
-	// Create pkcs11 ctx
-	err = p11.CreateCtx()
-	if err != nil {
-		return
-	}
-
-	// Get token label
-	err = p11.GetTokenLabel()
-	if err != nil {
-		return
-	}
-
-	// get PIN code
-	err = p11.GetPIN()
-	if err != nil {
-		return
-	}
-
-	// Recreate ctx (pkcs11=>crypto11)
-	err = p11.RecreateCtx(p11.Pkcs11Provider)
-	if err != nil {
-		return
-	}
-
-	// Get KeyID
-	err = p11.GetKeyID()
-	if err != nil {
-		return
-	}
-
-	// Get crypto.Signer
-	cryptoSigners, err := p11.GetCryptoSigner()
-	if err != nil {
-		return
-	}
-
-	// Exchange crypto.signer to ssh.Signer
-	for _, cryptoSigner := range cryptoSigners {
-		signer, _ := ssh.NewSignerFromSigner(cryptoSigner)
-		signers = append(signers, signer)
+		for _, sig := range sigs {
+			signer, _ := ssh.NewSignerFromSigner(sig)
+			signers = append(signers, signer)
+		}
 	}
 
 	return

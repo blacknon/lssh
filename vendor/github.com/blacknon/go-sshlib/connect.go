@@ -63,7 +63,7 @@ type Connect struct {
 	logFile string
 }
 
-// CreateClient
+// CreateClient set c.Client.
 func (c *Connect) CreateClient(host, port, user string, authMethods []ssh.AuthMethod) (err error) {
 	uri := net.JoinHostPort(host, port)
 
@@ -103,7 +103,7 @@ func (c *Connect) CreateClient(host, port, user string, authMethods []ssh.AuthMe
 	return
 }
 
-// CreateSession
+// CreateSession retrun ssh.Session
 func (c *Connect) CreateSession() (session *ssh.Session, err error) {
 	// Create session
 	session, err = c.Client.NewSession()
@@ -184,11 +184,11 @@ func RequestTty(session *ssh.Session) (err error) {
 
 	// Terminal resize goroutine.
 	winch := syscall.Signal(0x1c)
-	signal_chan := make(chan os.Signal, 1)
-	signal.Notify(signal_chan, winch)
+	signalchan := make(chan os.Signal, 1)
+	signal.Notify(signalchan, winch)
 	go func() {
 		for {
-			s := <-signal_chan
+			s := <-signalchan
 			switch s {
 			case winch:
 				fd := int(os.Stdout.Fd())
