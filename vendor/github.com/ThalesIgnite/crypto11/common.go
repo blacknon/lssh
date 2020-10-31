@@ -1,32 +1,58 @@
+// Copyright 2017 Thales e-Security, Inc
+//
+// Permission is hereby granted, free of charge, to any person obtaining
+// a copy of this software and associated documentation files (the
+// "Software"), to deal in the Software without restriction, including
+// without limitation the rights to use, copy, modify, merge, publish,
+// distribute, sublicense, and/or sell copies of the Software, and to
+// permit persons to whom the Software is furnished to do so, subject to
+// the following conditions:
+//
+// The above copyright notice and this permission notice shall be
+// included in all copies or substantial portions of the Software.
+//
+// THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
+// EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+// MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
+// NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE
+// LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION
+// OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
+// WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+
 package crypto11
 
 import (
 	"C"
 	"encoding/asn1"
-	"encoding/hex"
-	"errors"
 	"math/big"
 	"unsafe"
 
 	"github.com/miekg/pkcs11"
+	"github.com/pkg/errors"
 )
-
-// ErrMalformedDER represents a failure to decode an ASN.1-encoded message
-var ErrMalformedDER = errors.New("crypto11: malformed DER message")
-
-// ErrMalformedSignature represents a failure to decode a signature.  This
-// means the PKCS#11 library has returned an empty or odd-length byte
-// string.
-var ErrMalformedSignature = errors.New("crypto11xo: malformed signature")
-
-const labelLength = 64
 
 func ulongToBytes(n uint) []byte {
 	return C.GoBytes(unsafe.Pointer(&n), C.sizeof_ulong) // ugh!
 }
 
 func bytesToUlong(bs []byte) (n uint) {
-	return *(*uint)(unsafe.Pointer(&bs[0])) // ugh
+	sliceSize := len(bs)
+	if sliceSize == 0 {
+		return 0
+	}
+
+	value := *(*uint)(unsafe.Pointer(&bs[0]))
+	if sliceSize > C.sizeof_ulong {
+		return value
+	}
+
+	// truncate the value to the # of bits present in the byte slice since
+	// the unsafe pointer will always grab/convert ULONG # of bytes
+	var mask uint
+	for i := 0; i < sliceSize; i++ {
+		mask |= 0xff << uint(i * 8)
+	}
+	return value & mask
 }
 
 func concat(slices ...[]byte) []byte {
@@ -50,7 +76,7 @@ type dsaSignature struct {
 // Populate a dsaSignature from a raw byte sequence
 func (sig *dsaSignature) unmarshalBytes(sigBytes []byte) error {
 	if len(sigBytes) == 0 || len(sigBytes)%2 != 0 {
-		return ErrMalformedSignature
+		return errors.New("DSA signature length is invalid from token")
 	}
 	n := len(sigBytes) / 2
 	sig.R, sig.S = new(big.Int), new(big.Int)
@@ -62,9 +88,9 @@ func (sig *dsaSignature) unmarshalBytes(sigBytes []byte) error {
 // Populate a dsaSignature from DER encoding
 func (sig *dsaSignature) unmarshalDER(sigDER []byte) error {
 	if rest, err := asn1.Unmarshal(sigDER, sig); err != nil {
-		return err
+		return errors.WithMessage(err, "DSA signature contains invalid ASN.1 data")
 	} else if len(rest) > 0 {
-		return ErrMalformedDER
+		return errors.New("unexpected data found after DSA signature")
 	}
 	return nil
 }
@@ -75,16 +101,16 @@ func (sig *dsaSignature) marshalDER() ([]byte, error) {
 }
 
 // Compute *DSA signature and marshal the result in DER form
-func dsaGeneric(slot uint, key pkcs11.ObjectHandle, mechanism uint, digest []byte) ([]byte, error) {
+func (c *Context) dsaGeneric(key pkcs11.ObjectHandle, mechanism uint, digest []byte) ([]byte, error) {
 	var err error
 	var sigBytes []byte
 	var sig dsaSignature
 	mech := []*pkcs11.Mechanism{pkcs11.NewMechanism(mechanism, nil)}
-	err = withSession(slot, func(session *PKCS11Session) error {
-		if err = instance.ctx.SignInit(session.Handle, mech, key); err != nil {
+	err = c.withSession(func(session *pkcs11Session) error {
+		if err = c.ctx.SignInit(session.handle, mech, key); err != nil {
 			return err
 		}
-		sigBytes, err = instance.ctx.Sign(session.Handle, digest)
+		sigBytes, err = c.ctx.Sign(session.handle, digest)
 		return err
 	})
 	if err != nil {
@@ -96,20 +122,4 @@ func dsaGeneric(slot uint, key pkcs11.ObjectHandle, mechanism uint, digest []byt
 	}
 
 	return sig.marshalDER()
-}
-
-// Pick a random label for a key
-func generateKeyLabel() ([]byte, error) {
-	rawLabel := make([]byte, labelLength / 2)
-	var rand PKCS11RandReader
-	sz, err := rand.Read(rawLabel)
-	if err != nil {
-		return nil, err
-	}
-	if sz < len(rawLabel) {
-		return nil, ErrCannotGetRandomData
-	}
-	label := make([]byte, labelLength)
-	hex.Encode(label, rawLabel)
-	return label, nil
 }

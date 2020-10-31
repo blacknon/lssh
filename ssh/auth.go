@@ -239,7 +239,8 @@ func (r *Run) registAuthMapPKCS11(server, provider, pin string) (err error) {
 	authKey := AuthKey{AUTHKEY_PKCS11, provider}
 	if _, ok := r.authMethodMap[authKey]; !ok {
 		// Create Signer with key input
-		signers, err := sshlib.CreateSignerPKCS11Prompt(provider, pin)
+		// signers, err := sshlib.CreateSignerPKCS11Prompt(provider, pin)
+		signers, err := sshlib.CreateSignerPKCS11(provider, pin)
 		if err != nil {
 			return err
 		}
