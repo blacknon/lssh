@@ -18,11 +18,11 @@ import (
 	"golang.org/x/crypto/ssh/terminal"
 )
 
-// TODO(blacknon): 自動再接続機能の追加(v0.6.1)
+// TODO(blacknon): 自動再接続機能の追加(v1.0.0)
 //     autosshのように、接続が切れた際に自動的に再接続を試みる動作をさせたい
 //     パラメータでの有効・無効指定が必要になる。
 
-// TODO(blacknon): リバースでのsshfsの追加(v0.6.1以降？)
+// TODO(blacknon): リバースでのsshfsの追加(v1.0.0以降？)
 //     lsshfs実装後になるか？ssh接続時に、指定したフォルダにローカルの内容をマウントさせて読み取らせる。
 //     うまくやれれば、ローカルのスクリプトなどをそのままマウントさせて実行させたりできるかもしれない。
 //     Socketかなにかでトンネルさせて、あとは指定したディレクトリ配下をそのままFUSEでファイルシステムとして利用できるように書けばいける…？
@@ -32,6 +32,7 @@ import (
 //         - https://github.com/hanwen/go-fuse
 //         - https://gitlab.com/dns2utf8/revfs/
 
+// Run
 type Run struct {
 	ServerList []string
 	Conf       conf.Config
@@ -60,6 +61,9 @@ type Run struct {
 	IsNotBashrc bool
 
 	// local/remote Port Forwarding
+	PortForward []PortForward
+
+	// TODO(blacknon): Delete old keys
 	PortForwardMode   string // L or R
 	PortForwardLocal  string
 	PortForwardRemote string
@@ -91,7 +95,7 @@ type Run struct {
 	serverAuthMethodMap map[string][]ssh.AuthMethod
 }
 
-// Auth map key
+// AuthKey Auth map key struct.
 type AuthKey struct {
 	// auth type:
 	//   - password
@@ -109,6 +113,13 @@ type AuthKey struct {
 	//   - pkcs11(libpath)
 	//     ex.) /usr/local/lib/opensc-pkcs11.so
 	Value string
+}
+
+// PortForward
+type PortForward struct {
+	Mode   string // L or R.
+	Local  string // localhost:8080
+	Remote string // localhost:80
 }
 
 // use scp,sftp
