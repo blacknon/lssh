@@ -126,12 +126,11 @@ type ServerConfig struct {
 
 	// local/remote port forwarding settings
 	// TODO(blacknon): 複数のLocal/Remote Port Forwardingの追加
+	// {[`L`,`l`,`LOCAL`,`local`]|[`R`,`r`,`REMOTE`,`remote`]}:[localaddress]:[localport]:[remoteaddress]:[remoteport]
+	PortForwards []string `toml:"port_forwards"`
 
 	// Dynamic Port Forwarding setting
 	DynamicPortForward string `toml:"dynamic_port_forward"` // ex.) "11080"
-
-	// Dynamic Port Forwarding settings
-	// TODO(blacknon): 複数のDynamic Forwardingの追加
 
 	// x11 forwarding setting
 	X11 bool `toml:"x11"`
@@ -147,7 +146,7 @@ type ServerConfig struct {
 	Note string `toml:"note"`
 }
 
-//　ProxyConfig is that stores Proxy server settings connected via http and socks5.
+// ProxyConfig is that stores Proxy server settings connected via http and socks5.
 type ProxyConfig struct {
 	Addr      string `toml:"addr"`
 	Port      string `toml:"port"`
@@ -158,9 +157,7 @@ type ProxyConfig struct {
 	Note      string `toml:"note"`
 }
 
-// OpenSshConfig is  read OpenSSH configuration file.
-//
-// WARN: This struct is not use...
+// OpenSshConfig is read OpenSSH configuration file.
 type OpenSshConfig struct {
 	Path    string `toml:"path"` // This is preferred
 	Command string `toml:"command"`
