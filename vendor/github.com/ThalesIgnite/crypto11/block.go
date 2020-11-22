@@ -23,13 +23,14 @@ package crypto11
 
 import (
 	"fmt"
+
 	"github.com/miekg/pkcs11"
 )
 
 // cipher.Block ---------------------------------------------------------
 
 // BlockSize returns the cipher's block size in bytes.
-func (key *PKCS11SecretKey) BlockSize() int {
+func (key *SecretKey) BlockSize() int {
 	return key.Cipher.BlockSize
 }
 
@@ -39,14 +40,14 @@ func (key *PKCS11SecretKey) BlockSize() int {
 // Using this method for bulk operation is very inefficient, as it makes a round trip to the HSM
 // (which may be network-connected) for each block.
 // For more efficient operation, see NewCBCDecrypterCloser, NewCBCDecrypter or NewCBC.
-func (key *PKCS11SecretKey) Decrypt(dst, src []byte) {
+func (key *SecretKey) Decrypt(dst, src []byte) {
 	var result []byte
-	if err := withSession(key.Slot, func(session *PKCS11Session) (err error) {
+	if err := key.context.withSession(func(session *pkcs11Session) (err error) {
 		mech := []*pkcs11.Mechanism{pkcs11.NewMechanism(key.Cipher.ECBMech, nil)}
-		if err = session.Ctx.DecryptInit(session.Handle, mech, key.Handle); err != nil {
+		if err = session.ctx.DecryptInit(session.handle, mech, key.handle); err != nil {
 			return
 		}
-		if result, err = session.Ctx.Decrypt(session.Handle, src[:key.Cipher.BlockSize]); err != nil {
+		if result, err = session.ctx.Decrypt(session.handle, src[:key.Cipher.BlockSize]); err != nil {
 			return
 		}
 		if len(result) != key.Cipher.BlockSize {
@@ -67,14 +68,14 @@ func (key *PKCS11SecretKey) Decrypt(dst, src []byte) {
 // Using this method for bulk operation is very inefficient, as it makes a round trip to the HSM
 // (which may be network-connected) for each block.
 // For more efficient operation, see NewCBCEncrypterCloser, NewCBCEncrypter or NewCBC.
-func (key *PKCS11SecretKey) Encrypt(dst, src []byte) {
+func (key *SecretKey) Encrypt(dst, src []byte) {
 	var result []byte
-	if err := withSession(key.Slot, func(session *PKCS11Session) (err error) {
+	if err := key.context.withSession(func(session *pkcs11Session) (err error) {
 		mech := []*pkcs11.Mechanism{pkcs11.NewMechanism(key.Cipher.ECBMech, nil)}
-		if err = session.Ctx.EncryptInit(session.Handle, mech, key.Handle); err != nil {
+		if err = session.ctx.EncryptInit(session.handle, mech, key.handle); err != nil {
 			return
 		}
-		if result, err = session.Ctx.Encrypt(session.Handle, src[:key.Cipher.BlockSize]); err != nil {
+		if result, err = session.ctx.Encrypt(session.handle, src[:key.Cipher.BlockSize]); err != nil {
 			return
 		}
 		if len(result) != key.Cipher.BlockSize {

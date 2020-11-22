@@ -207,8 +207,6 @@ func readAuthority(hostname, display string) (
 			return name0, data0, nil
 		}
 	}
-
-	return
 }
 
 // getBytes use `readAuthority`
@@ -329,7 +327,7 @@ func (socks5Resolver) Resolve(ctx context.Context, name string) (context.Context
 	return ctx, nil, nil
 }
 
-// TCPDynamicForward forwarding tcp data. Like Dynamic port forward (ssh -D).
+// TCPDynamicForward forwarding tcp data. Like Dynamic forward (`ssh -D <port>`).
 // listen port Socks5 proxy server.
 func (c *Connect) TCPDynamicForward(address, port string) (err error) {
 	// Create Socks5 config
@@ -351,3 +349,11 @@ func (c *Connect) TCPDynamicForward(address, port string) (err error) {
 
 	return
 }
+
+// TODO(blacknon):
+//     OpenSsh独自の実装っぽいので、追加はちょっと厳しいかも？
+//     とりあえず調べてみる。
+//
+// TCPReverseDynamicForward reverse forwarding tcp data.
+// Like Openssh Reverse Dynamic forward (`ssh -R <port>`).
+// func (c *Connect) TCPReverseDynamicForward(address, port string) (err error) {}

@@ -66,6 +66,7 @@ const (
 	CKF_SO_PIN_LOCKED                    = 0x00400000
 	CKF_SO_PIN_TO_BE_CHANGED             = 0x00800000
 	CKF_ERROR_STATE                      = 0x01000000
+	CKF_EXCLUSIVE_SESSION                = 0x00000001
 	CKF_RW_SESSION                       = 0x00000002
 	CKF_SERIAL_SESSION                   = 0x00000004
 	CKK_RSA                              = 0x00000000
@@ -722,4 +723,15 @@ const (
 	CKF_USER_FRIENDLY_OTP                = 0x00000020
 	CKD_NULL                             = 0x00000001
 	CKD_SHA1_KDF                         = 0x00000002
+)
+
+// Special return values defined in PKCS#11 v2.40 section 3.2.
+const (
+	// CK_EFFECTIVELY_INFINITE may be returned in the CK_TOKEN_INFO fields ulMaxSessionCount and ulMaxRwSessionCount.
+	// It indicates there is no practical limit on the number of sessions.
+	CK_EFFECTIVELY_INFINITE = 0
+
+	// CK_UNAVAILABLE_INFORMATION may be returned for several fields within CK_TOKEN_INFO. It indicates
+	// the token is unable or unwilling to provide the requested information.
+	CK_UNAVAILABLE_INFORMATION = ^uint(0)
 )

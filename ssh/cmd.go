@@ -84,26 +84,27 @@ func (r *Run) cmd() (err error) {
 
 		// if single server, setup port forwarding.
 		if len(r.ServerList) == 1 {
-			// OverWrite port forward mode
-			if r.PortForwardMode != "" {
-				config.PortForwardMode = r.PortForwardMode
-			}
-
-			// Overwrite port forward address
-			if r.PortForwardLocal != "" && r.PortForwardRemote != "" {
-				config.PortForwardLocal = r.PortForwardLocal
-				config.PortForwardRemote = r.PortForwardRemote
-			}
+			// set port forwarding
+			config = r.setPortForwards(s, config)
 
 			// print header
-			r.printPortForward(config.PortForwardMode, config.PortForwardLocal, config.PortForwardRemote)
+			for _, fw := range config.Forwards {
+				r.printPortForward(fw.Mode, fw.Local, fw.Remote)
+			}
 
 			// Port Forwarding
-			switch config.PortForwardMode {
-			case "L", "":
-				c.TCPLocalForward(config.PortForwardLocal, config.PortForwardRemote)
-			case "R":
-				c.TCPRemoteForward(config.PortForwardLocal, config.PortForwardRemote)
+			for _, fw := range config.Forwards {
+				// port forwarding
+				switch fw.Mode {
+				case "L", "":
+					err = c.TCPLocalForward(fw.Local, fw.Remote)
+				case "R":
+					err = c.TCPRemoteForward(fw.Local, fw.Remote)
+				}
+
+				if err != nil {
+					fmt.Fprintln(os.Stderr, err)
+				}
 			}
 
 			// Dynamic Port Forwarding
