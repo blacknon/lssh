@@ -12,6 +12,7 @@ import (
 	"runtime"
 	"strings"
 
+	"github.com/blacknon/lssh/common"
 	"github.com/blacknon/lssh/conf"
 	"github.com/sevlyar/go-daemon"
 	"golang.org/x/crypto/ssh"
@@ -61,7 +62,7 @@ type Run struct {
 	IsNotBashrc bool
 
 	// local/remote Port Forwarding
-	PortForward []PortForward
+	PortForward []*conf.PortForward
 
 	// TODO(blacknon): Delete old keys
 	PortForwardMode   string // L or R
@@ -113,13 +114,6 @@ type AuthKey struct {
 	//   - pkcs11(libpath)
 	//     ex.) /usr/local/lib/opensc-pkcs11.so
 	Value string
-}
-
-// PortForward
-type PortForward struct {
-	Mode   string // L or R.
-	Local  string // localhost:8080
-	Remote string // localhost:80
 }
 
 // use scp,sftp
@@ -263,6 +257,68 @@ func (r *Run) printProxy(server string) {
 	// print header
 	header := strings.Join(array, " => ")
 	fmt.Fprintf(os.Stderr, "Proxy         :%s\n", header)
+}
+
+// setPortForwards is Add local/remote port forward to Run.PortForward
+func (r *Run) setPortForwards(server string, config conf.ServerConfig) (c conf.ServerConfig) {
+	// set config
+	c = config
+
+	// append single port forward settings (Backward compatibility).
+	if c.PortForwardLocal != "" && c.PortForwardRemote != "" {
+		fw := new(conf.PortForward)
+		fw.Mode = c.PortForwardMode
+		fw.Local = c.PortForwardLocal
+
+		c.Forwards = append(c.Forwards, fw)
+	}
+
+	// append port forwards from c, to r.PortForward
+	for _, f := range c.PortForwards {
+		var err error
+
+		// create forward
+		fw := new(conf.PortForward)
+
+		// split config forward settings
+		farray := strings.SplitN(f, ":", 2)
+
+		// check array count
+		if len(farray) == 1 {
+			fmt.Fprintf(os.Stderr, "port forward format is incorrect: %s: \"%s\"", server, f)
+			continue
+		}
+
+		//
+		mode := strings.ToLower(farray[0])
+		switch mode {
+		// local/remote port forward
+		case "local", "l":
+			fw.Mode = "L"
+			fw.Local, fw.Remote, err = common.ParseForwardPort(farray[1])
+
+		case "remote", "r":
+			fw.Mode = "R"
+			fw.Local, fw.Remote, err = common.ParseForwardPort(farray[1])
+
+		// other
+		default:
+			fmt.Fprintf(os.Stderr, "port forward format is incorrect: %s: \"%s\"", server, f)
+			continue
+		}
+
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "port forward format is incorrect: %s: \"%s\"", server, f)
+			continue
+		}
+
+		c.Forwards = append(c.Forwards, fw)
+	}
+
+	// append r.PortForward to c.Forwards
+	c.Forwards = append(c.Forwards, r.PortForward...)
+
+	return
 }
 
 // runCmdLocal exec command local machine.
