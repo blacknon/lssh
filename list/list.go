@@ -26,6 +26,7 @@ import (
 //     - 内部でのウィンドウの実装
 //         - 項目について、更新や閲覧ができるようにする
 //     - キーバインドの設定変更
+//     - Windowsでも動作するように修正する
 
 type ListInfo struct {
 	// Incremental search line prompt string
