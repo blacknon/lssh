@@ -32,16 +32,8 @@ func (r *Run) shell() (err error) {
 		return
 	}
 
-	// OverWrite port forward mode
-	if r.PortForwardMode != "" {
-		config.PortForwardMode = r.PortForwardMode
-	}
-
-	// OverWrite port forwarding address
-	if r.PortForwardLocal != "" && r.PortForwardRemote != "" {
-		config.PortForwardLocal = r.PortForwardLocal
-		config.PortForwardRemote = r.PortForwardRemote
-	}
+	// set port forwarding
+	config = r.setPortForwards(server, config)
 
 	// OverWrite dynamic port forwarding
 	if r.DynamicPortForward != "" {
@@ -60,7 +52,9 @@ func (r *Run) shell() (err error) {
 
 	// header
 	r.PrintSelectServer()
-	r.printPortForward(config.PortForwardMode, config.PortForwardLocal, config.PortForwardRemote)
+	for _, fw := range config.Forwards {
+		r.printPortForward(fw.Mode, fw.Local, fw.Remote)
+	}
 	r.printDynamicPortForward(config.DynamicPortForward)
 	r.printProxy(server)
 	if config.LocalRcUse == "yes" {
@@ -86,17 +80,17 @@ func (r *Run) shell() (err error) {
 	}
 
 	// Local/Remote Port Forwarding
-	if config.PortForwardLocal != "" && config.PortForwardRemote != "" {
+	for _, fw := range config.Forwards {
 		// port forwarding
-		switch config.PortForwardMode {
+		switch fw.Mode {
 		case "L", "":
-			err = connect.TCPLocalForward(config.PortForwardLocal, config.PortForwardRemote)
+			err = connect.TCPLocalForward(fw.Local, fw.Remote)
 		case "R":
-			err = connect.TCPRemoteForward(config.PortForwardLocal, config.PortForwardRemote)
+			err = connect.TCPRemoteForward(fw.Local, fw.Remote)
 		}
 
 		if err != nil {
-			fmt.Println(err)
+			fmt.Fprintln(os.Stderr, err)
 		}
 	}
 

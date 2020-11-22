@@ -11,6 +11,7 @@ import (
 	"sort"
 
 	"github.com/blacknon/lssh/check"
+	"github.com/blacknon/lssh/common"
 	"github.com/blacknon/lssh/conf"
 	"github.com/blacknon/lssh/list"
 	sshcmd "github.com/blacknon/lssh/ssh"
@@ -82,9 +83,9 @@ USAGE:
 		cli.StringFlag{Name: "file,F", Value: defConf, Usage: "config `filepath`."},
 
 		// port forward option
-		cli.StringSliceFlag{Name: "L", Usage: "Local port forward mode.Specify a `[bind_address:]port:remote_address:port`."},
-		cli.StringSliceFlag{Name: "R", Usage: "Remote port forward mode.Specify a `[bind_address:]port:remote_address:port`."},
-		cli.StringFlag{Name: "D", Usage: "Dynamic port forward mode(Socks5). Specify a `port`."},
+		cli.StringSliceFlag{Name: "L", Usage: "Local port forward mode.Specify a `[bind_address:]port:remote_address:port`. Only single connection works."},
+		cli.StringSliceFlag{Name: "R", Usage: "Remote port forward mode.Specify a `[bind_address:]port:remote_address:port`.  Only single connection works."},
+		cli.StringFlag{Name: "D", Usage: "Dynamic port forward mode(Socks5). Specify a `port`. Only single connection works."},
 
 		// Other bool
 		cli.BoolFlag{Name: "w", Usage: "Displays the server header when in command execution mode."},
@@ -198,25 +199,23 @@ USAGE:
 
 		// Set port forwards
 		var err error
-		var forwards []sshcmd.PortForward
+		var forwards []*conf.PortForward
 
-		// for c.StringSlice("L")
-		// switch {
-		// case c.String("L") != "":
-		// 	r.PortForwardMode = "L"
-		// 	forwardlocal, forwardremote, err = common.ParseForwardPort(c.String("L"))
+		// Set local port forwarding
+		for _, forwardargs := range c.StringSlice("L") {
+			f := new(conf.PortForward)
+			f.Mode = "L"
+			f.Local, f.Remote, err = common.ParseForwardPort(forwardargs)
+			forwards = append(forwards, f)
+		}
 
-		// case c.String("R") != "":
-		// 	r.PortForwardMode = "R"
-		// 	forwardlocal, forwardremote, err = common.ParseForwardPort(c.String("R"))
-
-		// case c.String("L") != "" && c.String("R") != "":
-		// 	r.PortForwardMode = "R"
-		// 	forwardlocal, forwardremote, err = common.ParseForwardPort(c.String("R"))
-
-		// default:
-		// 	r.PortForwardMode = ""
-		// }
+		// Set remote port forwarding
+		for _, forwardargs := range c.StringSlice("R") {
+			f := new(conf.PortForward)
+			f.Mode = "R"
+			f.Local, f.Remote, err = common.ParseForwardPort(forwardargs)
+			forwards = append(forwards, f)
+		}
 
 		// if err
 		if err != nil {
@@ -226,10 +225,7 @@ USAGE:
 		// is not execute
 		r.IsNone = c.Bool("not-execute")
 
-		// local/remote port forwarding address
-		r.PortForwardLocal = forwardlocal
-		r.PortForwardRemote = forwardremote
-
+		// Local/Remote port forwarding port
 		r.PortForward = forwards
 
 		// Dynamic port forwarding port

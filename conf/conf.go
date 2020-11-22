@@ -30,7 +30,7 @@ type Config struct {
 	Server   map[string]ServerConfig
 	Proxy    map[string]ProxyConfig
 
-	SSHConfig map[string]OpenSshConfig
+	SSHConfig map[string]OpenSSHConfig
 }
 
 // LogConfig store the contents about the terminal log.
@@ -125,9 +125,11 @@ type ServerConfig struct {
 	PortForwardRemote string `toml:"port_forward_remote"` // port forward (remote). "host:port"
 
 	// local/remote port forwarding settings
-	// TODO(blacknon): 複数のLocal/Remote Port Forwardingの追加
 	// {[`L`,`l`,`LOCAL`,`local`]|[`R`,`r`,`REMOTE`,`remote`]}:[localaddress]:[localport]:[remoteaddress]:[remoteport]
 	PortForwards []string `toml:"port_forwards"`
+
+	// local/remote Port Forwarding
+	Forwards []*PortForward
 
 	// Dynamic Port Forwarding setting
 	DynamicPortForward string `toml:"dynamic_port_forward"` // ex.) "11080"
@@ -157,11 +159,18 @@ type ProxyConfig struct {
 	Note      string `toml:"note"`
 }
 
-// OpenSshConfig is read OpenSSH configuration file.
-type OpenSshConfig struct {
+// OpenSSHConfig is read OpenSSH configuration file.
+type OpenSSHConfig struct {
 	Path    string `toml:"path"` // This is preferred
 	Command string `toml:"command"`
 	ServerConfig
+}
+
+// PortForward
+type PortForward struct {
+	Mode   string // L or R.
+	Local  string // localhost:8080
+	Remote string // localhost:80
 }
 
 // ReadConf load configuration file and return Config structure
@@ -177,7 +186,7 @@ func ReadConf(confPath string) (config Config) {
 	}
 
 	config.Server = map[string]ServerConfig{}
-	config.SSHConfig = map[string]OpenSshConfig{}
+	config.SSHConfig = map[string]OpenSSHConfig{}
 
 	// Read config file
 	_, err := toml.DecodeFile(confPath, &config)
@@ -192,22 +201,22 @@ func ReadConf(confPath string) (config Config) {
 		config.Server[key] = setValue
 	}
 
-	// Read Openssh configs
+	// Read OpensSH configs
 	if len(config.SSHConfig) == 0 {
-		openSshServerConfig, err := getOpenSshConfig("~/.ssh/config", "")
+		openSSHServerConfig, err := getOpenSSHConfig("~/.ssh/config", "")
 		if err == nil {
 			// append data
-			for key, value := range openSshServerConfig {
+			for key, value := range openSSHServerConfig {
 				value := serverConfigReduct(config.Common, value)
 				config.Server[key] = value
 			}
 		}
 	} else {
 		for _, sshConfig := range config.SSHConfig {
-			openSshServerConfig, err := getOpenSshConfig(sshConfig.Path, sshConfig.Command)
+			openSSHServerConfig, err := getOpenSSHConfig(sshConfig.Path, sshConfig.Command)
 			if err == nil {
 				// append data
-				for key, value := range openSshServerConfig {
+				for key, value := range openSSHServerConfig {
 					setCommon := serverConfigReduct(config.Common, sshConfig.ServerConfig)
 					value = serverConfigReduct(setCommon, value)
 					config.Server[key] = value
