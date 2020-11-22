@@ -16,7 +16,7 @@ import (
 	"github.com/c-bata/go-prompt/completer"
 )
 
-// TODO(blacknon): catコマンド相当の機能を追加する
+// TODO(blacknon): 補完処理が遅い・不安定になってるので対処する
 
 // sftp Shell mode function
 func (r *RunSftp) shell() {
@@ -162,9 +162,9 @@ func (r *RunSftp) Completer(t prompt.Document) []prompt.Suggest {
 		case "cat":
 			return r.PathComplete(true, 1, t)
 		case "chgrp":
-			// TODO(blacknon): そのうち追加 ver0.6.1
+			// TODO(blacknon): そのうち追加 ver0.6.2
 		case "chown":
-			// TODO(blacknon): そのうち追加 ver0.6.1
+			// TODO(blacknon): そのうち追加 ver0.6.2
 		case "df":
 			suggest = []prompt.Suggest{
 				{Text: "-h", Description: "print sizes in powers of 1024 (e.g., 1023M)"},
@@ -267,7 +267,7 @@ func (r *RunSftp) Completer(t prompt.Document) []prompt.Suggest {
 		case "rmdir":
 			return r.PathComplete(true, 1, t)
 		case "symlink":
-			// TODO(blacknon): そのうち追加 ver0.6.1
+			// TODO(blacknon): そのうち追加 ver0.6.2
 		// case "tree":
 
 		default:

@@ -17,7 +17,7 @@ import (
 	"github.com/vbauerster/mpb"
 )
 
-// TODO(blacknon): リファクタリング(v0.6.1)
+// TODO(blacknon): リファクタリング(v0.6.2)
 
 //
 func (r *RunSftp) get(args []string) {

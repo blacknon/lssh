@@ -2,8 +2,6 @@
 // Use of this source code is governed by an MIT license
 // that can be found in the LICENSE file.
 
-// TODO(blacknon): 鍵のパスフレーズの処理がうまく動作していない様子(bug)。修正する。
-
 package ssh
 
 import (
@@ -86,7 +84,6 @@ func (r *Run) CreateAuthMethodMap() {
 
 		// Public Key Command
 		if config.KeyCommand != "" {
-			// TODO(blacknon): keyCommandの追加
 			err := r.registAuthMapPublicKeyCommand(server, config.KeyCommand, config.KeyCommandPass)
 			if err != nil {
 				fmt.Fprintln(os.Stderr, err)
