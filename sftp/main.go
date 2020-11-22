@@ -17,6 +17,9 @@ import (
 	"github.com/vbauerster/mpb"
 )
 
+// TODO(blacknon): Ctrl + Cでコマンドの処理をキャンセルできるようにする
+
+// RunSftp struct sftp run
 type RunSftp struct {
 	// select server
 	SelectServer []string
@@ -25,7 +28,11 @@ type RunSftp struct {
 	Config conf.Config
 
 	// Client
+	// TODO(blacknon): Clientと、ターゲットを分けて処理する(ホストをコマンド実行時に指定できるようにするため)
 	Client map[string]*SftpConnect
+
+	// Target
+	Target map[string]*SftpConnect
 
 	// ssh Run
 	Run *sshl.Run
@@ -42,6 +49,7 @@ type RunSftp struct {
 	LocalComplete  []prompt.Suggest
 }
 
+// SftpConnect struct at sftp client
 type SftpConnect struct {
 	// ssh connect
 	Connect *sftp.Client
@@ -53,6 +61,7 @@ type SftpConnect struct {
 	Pwd string
 }
 
+// PathSet struct at path data
 type PathSet struct {
 	Base      string
 	PathSlice []string
@@ -62,6 +71,7 @@ var (
 	oprompt = "${SERVER} :: "
 )
 
+// Start sftp shell
 func (r *RunSftp) Start() {
 	// Create AuthMap
 	r.Run = new(sshl.Run)

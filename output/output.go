@@ -140,30 +140,44 @@ loop:
 	}
 }
 
-// ProgressPrinter
+// ProgressPrinter return print out progress bar
 func (o *Output) ProgressPrinter(size int64, reader io.Reader, path string) {
 	// print header
 	oPrompt := ""
 	name := decor.Name(oPrompt)
 	if len(o.ServerList) > 1 {
 		oPrompt = o.GetPrompt()
-		name = decor.Name(oPrompt, decor.WC{W: len(path) + 1, C: decor.DSyncWidth})
+		name = decor.Name(oPrompt, decor.WC{W: len(path) + 1})
 	}
 
 	// trim space
 	path = strings.TrimSpace(path)
 
 	// set progress
-	bar := o.Progress.AddBar((size),
+	bar := o.Progress.AddBar(
+		// size
+		size,
+
+		// bar clear at complete
 		mpb.BarClearOnComplete(),
+
+		// prepend bar
 		mpb.PrependDecorators(
+			// name
 			name,
-			decor.OnComplete(decor.Name(path, decor.WCSyncSpaceR), fmt.Sprintf("%s done!", path)),
-			decor.OnComplete(decor.EwmaETA(decor.ET_STYLE_MMSS, 0, decor.WCSyncWidth), ""),
+			// path and complete message
+			decor.OnComplete(decor.Name(path), fmt.Sprintf("%s done!", path)),
+			// size
+			decor.OnComplete(decor.CountersKiloByte(" %.1f/%.1f", decor.WC{W: 5}), ""),
 		),
+
+		// append bar
 		mpb.AppendDecorators(
 			decor.OnComplete(decor.Percentage(decor.WC{W: 5}), ""),
 		),
+
+		// bar style
+		mpb.BarStyle("[=>-]<+"),
 	)
 
 	// set start, and max time
@@ -197,6 +211,7 @@ func (o *Output) ProgressPrinter(size int64, reader io.Reader, path string) {
 	return
 }
 
+// OutColorStrings return color code
 func OutColorStrings(num int, inStrings string) (str string) {
 	// 1=Red,2=Yellow,3=Blue,4=Magenta,0=Cyan
 	color := 31 + num%5
@@ -205,7 +220,7 @@ func OutColorStrings(num int, inStrings string) (str string) {
 	return
 }
 
-// multiPipeReadWriter is PipeReader to []io.WriteCloser.
+// PushPipeWriter is PipeReader to []io.WriteCloser.
 func PushPipeWriter(isExit <-chan bool, output []io.WriteCloser, input io.Reader) {
 	rd := bufio.NewReader(input)
 loop:
@@ -243,7 +258,7 @@ loop:
 	}
 }
 
-// send input to ssh Session Stdin
+// PushInput is send input to ssh Session Stdin
 func PushInput(isExit <-chan bool, output []io.WriteCloser) {
 	rd := bufio.NewReader(os.Stdin)
 loop:

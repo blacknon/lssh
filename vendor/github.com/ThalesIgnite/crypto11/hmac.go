@@ -22,12 +22,10 @@
 package crypto11
 
 import (
-	"context"
 	"errors"
-	"fmt"
-	"github.com/miekg/pkcs11"
-	"github.com/youtube/vitess/go/pools"
 	"hash"
+
+	"github.com/miekg/pkcs11"
 )
 
 const (
@@ -58,10 +56,10 @@ const (
 
 type hmacImplementation struct {
 	// PKCS#11 session to use
-	session *PKCS11Session
+	session *pkcs11Session
 
 	// Signing key
-	key *PKCS11SecretKey
+	key *SecretKey
 
 	// Hash size
 	size int
@@ -109,8 +107,8 @@ var hmacInfos = map[int]*hmacInfo{
 	pkcs11.CKM_RIPEMD160_HMAC_GENERAL:  {20, 64, true},
 }
 
-// ErrHmacClosed is called if an HMAC is updated after it has finished.
-var ErrHmacClosed = errors.New("already called Sum()")
+// errHmacClosed is called if an HMAC is updated after it has finished.
+var errHmacClosed = errors.New("already called Sum()")
 
 // NewHMAC returns a new HMAC hash using the given PKCS#11 mechanism
 // and key.
@@ -122,9 +120,8 @@ var ErrHmacClosed = errors.New("already called Sum()")
 //
 // The Reset() method is not implemented.
 // After Sum() is called no new data may be added.
-func (key *PKCS11SecretKey) NewHMAC(mech int, length int) (h hash.Hash, err error) {
-	var hi hmacImplementation
-	hi = hmacImplementation{
+func (key *SecretKey) NewHMAC(mech int, length int) (hash.Hash, error) {
+	hi := hmacImplementation{
 		key: key,
 	}
 	var params []byte
@@ -140,36 +137,24 @@ func (key *PKCS11SecretKey) NewHMAC(mech int, length int) (h hash.Hash, err erro
 		hi.size = length
 	}
 	hi.mechDescription = []*pkcs11.Mechanism{pkcs11.NewMechanism(uint(mech), params)}
-	if err = hi.initialize(); err != nil {
-		return
+	if err := hi.initialize(); err != nil {
+		return nil, err
 	}
-	h = &hi
-	return
+	return &hi, nil
 }
 
 func (hi *hmacImplementation) initialize() (err error) {
-	// TODO refactor with newBlockModeCloser
-	sessionPool := pool.Get(hi.key.Slot)
-	if sessionPool == nil {
-		err = fmt.Errorf("crypto11: no session for slot %d", hi.key.Slot)
-		return
+	session, err := hi.key.context.getSession()
+	if err != nil {
+		return err
 	}
-	ctx := context.Background()
-	if instance.cfg.PoolWaitTimeout > 0 {
-		var cancel context.CancelFunc
-		ctx, cancel = context.WithTimeout(context.Background(), instance.cfg.PoolWaitTimeout)
-		defer cancel()
-	}
-	var session pools.Resource
-	if session, err = sessionPool.Get(ctx); err != nil {
-		return
-	}
-	hi.session = session.(*PKCS11Session)
+
+	hi.session = session
 	hi.cleanup = func() {
-		sessionPool.Put(session)
+		hi.key.context.pool.Put(session)
 		hi.session = nil
 	}
-	if err = hi.session.Ctx.SignInit(hi.session.Handle, hi.mechDescription, hi.key.Handle); err != nil {
+	if err = hi.session.ctx.SignInit(hi.session.handle, hi.mechDescription, hi.key.handle); err != nil {
 		hi.cleanup()
 		return
 	}
@@ -181,11 +166,11 @@ func (hi *hmacImplementation) initialize() (err error) {
 func (hi *hmacImplementation) Write(p []byte) (n int, err error) {
 	if hi.result != nil {
 		if len(p) > 0 {
-			err = ErrHmacClosed
+			err = errHmacClosed
 		}
 		return
 	}
-	if err = hi.session.Ctx.SignUpdate(hi.session.Handle, p); err != nil {
+	if err = hi.session.ctx.SignUpdate(hi.session.handle, p); err != nil {
 		return
 	}
 	hi.updates++
@@ -199,11 +184,11 @@ func (hi *hmacImplementation) Sum(b []byte) []byte {
 		if hi.updates == 0 {
 			// http://docs.oasis-open.org/pkcs11/pkcs11-base/v2.40/os/pkcs11-base-v2.40-os.html#_Toc322855304
 			// We must ensure that C_SignUpdate is called _at least once_.
-			if err = hi.session.Ctx.SignUpdate(hi.session.Handle, []byte{}); err != nil {
+			if err = hi.session.ctx.SignUpdate(hi.session.handle, []byte{}); err != nil {
 				panic(err)
 			}
 		}
-		hi.result, err = hi.session.Ctx.SignFinal(hi.session.Handle)
+		hi.result, err = hi.session.ctx.SignFinal(hi.session.handle)
 		hi.cleanup()
 		if err != nil {
 			panic(err)

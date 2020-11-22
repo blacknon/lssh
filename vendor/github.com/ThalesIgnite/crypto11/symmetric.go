@@ -22,6 +22,8 @@
 package crypto11
 
 import (
+	"errors"
+
 	"github.com/miekg/pkcs11"
 )
 
@@ -64,7 +66,7 @@ type SymmetricCipher struct {
 
 // CipherAES describes the AES cipher. Use this with the
 // GenerateSecretKey... functions.
-var CipherAES = SymmetricCipher{
+var CipherAES = &SymmetricCipher{
 	GenParams: []SymmetricGenParams{
 		{
 			KeyType: pkcs11.CKK_AES,
@@ -82,7 +84,7 @@ var CipherAES = SymmetricCipher{
 
 // CipherDES3 describes the three-key triple-DES cipher. Use this with the
 // GenerateSecretKey... functions.
-var CipherDES3 = SymmetricCipher{
+var CipherDES3 = &SymmetricCipher{
 	GenParams: []SymmetricGenParams{
 		{
 			KeyType: pkcs11.CKK_DES3,
@@ -104,7 +106,7 @@ var CipherDES3 = SymmetricCipher{
 // The spec promises that this mechanism can be used to perform HMAC
 // operations, although implementations vary;
 // CipherHMACSHA1 and so on may give better results.
-var CipherGeneric = SymmetricCipher{
+var CipherGeneric = &SymmetricCipher{
 	GenParams: []SymmetricGenParams{
 		{
 			KeyType: pkcs11.CKK_GENERIC_SECRET,
@@ -121,7 +123,7 @@ var CipherGeneric = SymmetricCipher{
 
 // CipherHMACSHA1 describes the CKK_SHA_1_HMAC key type. Use this with the
 // GenerateSecretKey... functions.
-var CipherHMACSHA1 = SymmetricCipher{
+var CipherHMACSHA1 = &SymmetricCipher{
 	GenParams: []SymmetricGenParams{
 		{
 			KeyType: pkcs11.CKK_SHA_1_HMAC,
@@ -142,7 +144,7 @@ var CipherHMACSHA1 = SymmetricCipher{
 
 // CipherHMACSHA224 describes the CKK_SHA224_HMAC key type. Use this with the
 // GenerateSecretKey... functions.
-var CipherHMACSHA224 = SymmetricCipher{
+var CipherHMACSHA224 = &SymmetricCipher{
 	GenParams: []SymmetricGenParams{
 		{
 			KeyType: pkcs11.CKK_SHA224_HMAC,
@@ -163,7 +165,7 @@ var CipherHMACSHA224 = SymmetricCipher{
 
 // CipherHMACSHA256 describes the CKK_SHA256_HMAC key type. Use this with the
 // GenerateSecretKey... functions.
-var CipherHMACSHA256 = SymmetricCipher{
+var CipherHMACSHA256 = &SymmetricCipher{
 	GenParams: []SymmetricGenParams{
 		{
 			KeyType: pkcs11.CKK_SHA256_HMAC,
@@ -184,7 +186,7 @@ var CipherHMACSHA256 = SymmetricCipher{
 
 // CipherHMACSHA384 describes the CKK_SHA384_HMAC key type. Use this with the
 // GenerateSecretKey... functions.
-var CipherHMACSHA384 = SymmetricCipher{
+var CipherHMACSHA384 = &SymmetricCipher{
 	GenParams: []SymmetricGenParams{
 		{
 			KeyType: pkcs11.CKK_SHA384_HMAC,
@@ -205,7 +207,7 @@ var CipherHMACSHA384 = SymmetricCipher{
 
 // CipherHMACSHA512 describes the CKK_SHA512_HMAC key type. Use this with the
 // GenerateSecretKey... functions.
-var CipherHMACSHA512 = SymmetricCipher{
+var CipherHMACSHA512 = &SymmetricCipher{
 	GenParams: []SymmetricGenParams{
 		{
 			KeyType: pkcs11.CKK_SHA512_HMAC,
@@ -226,108 +228,139 @@ var CipherHMACSHA512 = SymmetricCipher{
 
 // Ciphers is a map of PKCS#11 key types (CKK_...) to symmetric cipher information.
 var Ciphers = map[int]*SymmetricCipher{
-	pkcs11.CKK_AES:            &CipherAES,
-	pkcs11.CKK_DES3:           &CipherDES3,
-	pkcs11.CKK_GENERIC_SECRET: &CipherGeneric,
-	pkcs11.CKK_SHA_1_HMAC:     &CipherHMACSHA1,
-	pkcs11.CKK_SHA224_HMAC:    &CipherHMACSHA224,
-	pkcs11.CKK_SHA256_HMAC:    &CipherHMACSHA256,
-	pkcs11.CKK_SHA384_HMAC:    &CipherHMACSHA384,
-	pkcs11.CKK_SHA512_HMAC:    &CipherHMACSHA512,
+	pkcs11.CKK_AES:            CipherAES,
+	pkcs11.CKK_DES3:           CipherDES3,
+	pkcs11.CKK_GENERIC_SECRET: CipherGeneric,
+	pkcs11.CKK_SHA_1_HMAC:     CipherHMACSHA1,
+	pkcs11.CKK_SHA224_HMAC:    CipherHMACSHA224,
+	pkcs11.CKK_SHA256_HMAC:    CipherHMACSHA256,
+	pkcs11.CKK_SHA384_HMAC:    CipherHMACSHA384,
+	pkcs11.CKK_SHA512_HMAC:    CipherHMACSHA512,
 }
 
-// PKCS11SecretKey contains a reference to a loaded PKCS#11 symmetric key object.
+// SecretKey contains a reference to a loaded PKCS#11 symmetric key object.
 //
-// A *PKCS11SecretKey implements the cipher.Block interface, allowing it be used
+// A *SecretKey implements the cipher.Block interface, allowing it be used
 // as the argument to cipher.NewCBCEncrypter and similar methods.
 // For bulk operation this is very inefficient;
 // using NewCBCEncrypterCloser, NewCBCEncrypter or NewCBC from this package is
 // much faster.
-type PKCS11SecretKey struct {
-	PKCS11Object
+type SecretKey struct {
+	pkcs11Object
 
 	// Symmetric cipher information
 	Cipher *SymmetricCipher
 }
 
-// Key generation -------------------------------------------------------------
+// GenerateSecretKey creates an secret key of given length and type. The id parameter is used to
+// set CKA_ID and must be non-nil.
+func (c *Context) GenerateSecretKey(id []byte, bits int, cipher *SymmetricCipher) (*SecretKey, error) {
+	if c.closed.Get() {
+		return nil, errClosed
+	}
 
-// GenerateSecretKey creates an secret key of given length and type.
-//
-// The key will have a random label and ID.
-func GenerateSecretKey(bits int, cipher *SymmetricCipher) (*PKCS11SecretKey, error) {
-	return GenerateSecretKeyOnSlot(instance.slot, nil, nil, bits, cipher)
-}
-
-// GenerateSecretKeyOnSlot creates as symmetric key on a specified slot
-//
-// Either or both label and/or id can be nil, in which case random values will be generated.
-func GenerateSecretKeyOnSlot(slot uint, id []byte, label []byte, bits int, cipher *SymmetricCipher) (*PKCS11SecretKey, error) {
-	var k *PKCS11SecretKey
-	var err error
-	if err = ensureSessions(instance, slot); err != nil {
+	template, err := NewAttributeSetWithID(id)
+	if err != nil {
 		return nil, err
 	}
-	err = withSession(slot, func(session *PKCS11Session) error {
-		k, err = GenerateSecretKeyOnSession(session, slot, id, label, bits, cipher)
-		return err
-	})
-	return k, err
+	return c.GenerateSecretKeyWithAttributes(template, bits, cipher)
 }
 
-// GenerateSecretKeyOnSession creates a symmetric key of given type and
-// length, on a specified session.
-//
-// Either or both label and/or id can be nil, in which case random values will be generated.
-func GenerateSecretKeyOnSession(session *PKCS11Session, slot uint, id []byte, label []byte, bits int, cipher *SymmetricCipher) (key *PKCS11SecretKey, err error) {
-	// TODO refactor with the other key generation implementations
-	if label == nil {
-		if label, err = generateKeyLabel(); err != nil {
-			return nil, err
-		}
+// GenerateSecretKey creates an secret key of given length and type. The id and label parameters are used to
+// set CKA_ID and CKA_LABEL respectively and must be non-nil.
+func (c *Context) GenerateSecretKeyWithLabel(id, label []byte, bits int, cipher *SymmetricCipher) (*SecretKey, error) {
+	if c.closed.Get() {
+		return nil, errClosed
 	}
-	if id == nil {
-		if id, err = generateKeyLabel(); err != nil {
-			return nil, err
-		}
+
+	template, err := NewAttributeSetWithIDAndLabel(id, label)
+	if err != nil {
+		return nil, err
 	}
-	var privHandle pkcs11.ObjectHandle
-	// CKK_*_HMAC exists but there is no specific corresponding CKM_*_KEY_GEN
-	// mechanism. Therefore we attempt both CKM_GENERIC_SECRET_KEY_GEN and
-	// vendor-specific mechanisms.
-	for _, genMech := range cipher.GenParams {
-		secretKeyTemplate := []*pkcs11.Attribute{
+	return c.GenerateSecretKeyWithAttributes(template, bits, cipher)
+
+}
+
+// GenerateSecretKeyWithAttributes creates an secret key of given length and type. After this function returns, template
+// will contain the attributes applied to the key. If required attributes are missing, they will be set to a default
+// value.
+func (c *Context) GenerateSecretKeyWithAttributes(template AttributeSet, bits int, cipher *SymmetricCipher) (k *SecretKey, err error) {
+	if c.closed.Get() {
+		return nil, errClosed
+	}
+
+	err = c.withSession(func(session *pkcs11Session) error {
+
+		// CKK_*_HMAC exists but there is no specific corresponding CKM_*_KEY_GEN
+		// mechanism. Therefore we attempt both CKM_GENERIC_SECRET_KEY_GEN and
+		// vendor-specific mechanisms.
+
+		template.AddIfNotPresent([]*pkcs11.Attribute{
 			pkcs11.NewAttribute(pkcs11.CKA_CLASS, pkcs11.CKO_SECRET_KEY),
-			pkcs11.NewAttribute(pkcs11.CKA_KEY_TYPE, genMech.KeyType),
 			pkcs11.NewAttribute(pkcs11.CKA_TOKEN, true),
 			pkcs11.NewAttribute(pkcs11.CKA_SIGN, cipher.MAC),
 			pkcs11.NewAttribute(pkcs11.CKA_VERIFY, cipher.MAC),
-			pkcs11.NewAttribute(pkcs11.CKA_ENCRYPT, cipher.Encrypt),
-			pkcs11.NewAttribute(pkcs11.CKA_DECRYPT, cipher.Encrypt),
+			pkcs11.NewAttribute(pkcs11.CKA_ENCRYPT, cipher.Encrypt), // Not supported on CloudHSM
+			pkcs11.NewAttribute(pkcs11.CKA_DECRYPT, cipher.Encrypt), // Not supported on CloudHSM
 			pkcs11.NewAttribute(pkcs11.CKA_SENSITIVE, true),
 			pkcs11.NewAttribute(pkcs11.CKA_EXTRACTABLE, false),
-			pkcs11.NewAttribute(pkcs11.CKA_LABEL, label),
-			pkcs11.NewAttribute(pkcs11.CKA_ID, id),
-		}
+		})
 		if bits > 0 {
-			secretKeyTemplate = append(secretKeyTemplate, pkcs11.NewAttribute(pkcs11.CKA_VALUE_LEN, bits/8))
+			_ = template.Set(pkcs11.CKA_VALUE_LEN, bits/8) // safe for an int
 		}
-		mech := []*pkcs11.Mechanism{pkcs11.NewMechanism(genMech.GenMech, nil)}
-		privHandle, err = session.Ctx.GenerateKey(session.Handle, mech, secretKeyTemplate)
-		if err == nil {
-			break
+
+		for n, genMech := range cipher.GenParams {
+
+			_ = template.Set(CkaKeyType, genMech.KeyType)
+
+			mech := []*pkcs11.Mechanism{pkcs11.NewMechanism(genMech.GenMech, nil)}
+
+			privHandle, err := session.ctx.GenerateKey(session.handle, mech, template.ToSlice())
+			if err == nil {
+				k = &SecretKey{pkcs11Object{privHandle, c}, cipher}
+				return nil
+			}
+
+			// As a special case, AWS CloudHSM does not accept CKA_ENCRYPT and CKA_DECRYPT on a
+			// Generic Secret key. If we are in that special case, try again without those attributes.
+			if e, ok := err.(pkcs11.Error); ok && e == pkcs11.CKR_ARGUMENTS_BAD && genMech.GenMech == pkcs11.CKM_GENERIC_SECRET_KEY_GEN {
+				adjustedTemplate := template.Copy()
+				adjustedTemplate.Unset(CkaEncrypt)
+				adjustedTemplate.Unset(CkaDecrypt)
+
+				privHandle, err = session.ctx.GenerateKey(session.handle, mech, adjustedTemplate.ToSlice())
+				if err == nil {
+					// Store the actual attributes
+					template.cloneFrom(adjustedTemplate)
+
+					k = &SecretKey{pkcs11Object{privHandle, c}, cipher}
+					return nil
+				}
+			}
+
+			if n == len(cipher.GenParams)-1 {
+				// If we have tried all available gen params, we should return a sensible error. So we skip the
+				// retry logic below and return directly.
+				return err
+			}
+
+			// nShield returns CKR_TEMPLATE_INCONSISTENT if if doesn't like the CKK/CKM combination.
+			// AWS CloudHSM returns CKR_ATTRIBUTE_VALUE_INVALID in the same circumstances.
+			if e, ok := err.(pkcs11.Error); ok &&
+				e == pkcs11.CKR_TEMPLATE_INCONSISTENT || e == pkcs11.CKR_ATTRIBUTE_VALUE_INVALID {
+				continue
+			}
+
+			return err
 		}
-		// nShield returns this if if doesn't like the CKK/CKM combination.
-		if e, ok := err.(pkcs11.Error); ok && e == pkcs11.CKR_TEMPLATE_INCONSISTENT {
-			continue
-		}
-		if err != nil {
-			return
-		}
-	}
-	if err != nil {
-		return
-	}
-	key = &PKCS11SecretKey{PKCS11Object{privHandle, slot}, cipher}
+
+		// We can only get here if there were no GenParams
+		return errors.New("cipher must have GenParams")
+	})
 	return
+}
+
+// Delete deletes the secret key from the token.
+func (key *SecretKey) Delete() error {
+	return key.pkcs11Object.Delete()
 }

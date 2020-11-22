@@ -1,8 +1,6 @@
 #compdef lssh
 _lssh() {
     _arguments -s \
-        '(- *)'{-h,--help}'[print this help]' \
-        '(- *)'{-v,--version}'[print the version]' \
         '(-H --host)'{-H,--host}'[Connect servername]:_message' \
         '(-f --file)'{-f,--file}'+[Config file path]:include file:_files' \
         '-L[Local port forward mode.Specify a \[bind_address:\]port:remote_address:port]' \

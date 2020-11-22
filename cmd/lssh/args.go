@@ -47,10 +47,13 @@ USAGE:
     # connect ssh
     {{.Name}}
 
-    # parallel run command in select server over ssh
+    # run command selected server over ssh.
+    {{.Name}} command...
+
+    # run command parallel in selected server over ssh.
     {{.Name}} -p command...
 
-    # parallel run command in select server over ssh, do it interactively.
+    # run command parallel in selected server over ssh, do it in interactively shell.
     {{.Name}} -s
 `
 
@@ -60,20 +63,18 @@ USAGE:
 	app.Name = "lssh"
 	app.Usage = "TUI list select and parallel ssh client command."
 	app.Copyright = "blacknon(blacknon@orebibou.com)"
-	app.Version = "0.6.0"
+	app.Version = "0.6.1"
 
 	// TODO(blacknon): オプションの追加
 	//     -f       ... バックグラウンドでの接続(X11接続やport forwardingをバックグラウンドで実行する場合など)。
-	//                  「ssh -f」と同じ。 (v0.6.1)
+	//                  「ssh -f」と同じ。 (v0.7.0)
 	//                  (https://github.com/sevlyar/go-daemon)
-	//     -a       ... 自動接続モード(接続が切れてしまった場合、自動的に再接続を試みる)。autossh的なoptionとして追加。  (v0.6.1)
-	//     -A <num> ... 自動接続モード(接続が切れてしまった場合、自動的に再接続を試みる)。再試行の回数指定(デフォルトは3回?)。  (v0.6.1)
-	//     -w       ... コマンド実行時にサーバ名ヘッダの表示をする (v0.6.0)
-	//     -W       ... コマンド実行時にサーバ名ヘッダの表示をしない (v0.6.0)
+	//     -a       ... 自動接続モード(接続が切れてしまった場合、自動的に再接続を試みる)。autossh的なoptionとして追加。  (v0.7.0)
+	//     -A <num> ... 自動接続モード(接続が切れてしまった場合、自動的に再接続を試みる)。再試行の回数指定(デフォルトは3回?)。  (v0.7.0)
 	//     --read_profile
-	//              ... デフォルトではlocalrc読み込みでのshellではsshサーバ上のprofileは読み込まないが、このオプションを指定することで読み込まれるようになる (v0.6.1)
+	//              ... デフォルトではlocalrc読み込みでのshellではsshサーバ上のprofileは読み込まないが、このオプションを指定することで読み込まれるようになる (v0.7.0)
 
-	// TODO(blacknon): コマンドオプションの指定方法(特にポートフォワーディング)をOpenSSHに合わせる
+	// TODO(blacknon): ポートフォワーディングの指定を複数指定可能にする
 
 	// Set options
 	app.Flags = []cli.Flag{
@@ -82,11 +83,9 @@ USAGE:
 		cli.StringFlag{Name: "file,F", Value: defConf, Usage: "config `filepath`."},
 
 		// port forward option
-		cli.StringFlag{Name: "L", Usage: "Local port forward mode.Specify a `[bind_address:]port:remote_address:port`."},
-		cli.StringFlag{Name: "R", Usage: "Remote port forward mode.Specify a `[bind_address:]port:remote_address:port`."},
-		cli.StringFlag{Name: "D", Usage: "Dynamic port forward mode(Socks5). Specify a `port`."},
-		// cli.StringFlag{Name: "portforward-local", Usage: "port forwarding parameter, `address:port`. use local-forward or reverse-forward. (local port(ex. 127.0.0.1:8080))."},
-		// cli.StringFlag{Name: "portforward-remote", Usage: "port forwarding parameter, `address:port`. use local-forward or reverse-forward. (remote port(ex. 127.0.0.1:80))."},
+		cli.StringSliceFlag{Name: "L", Usage: "Local port forward mode.Specify a `[bind_address:]port:remote_address:port`. Only single connection works."},
+		cli.StringSliceFlag{Name: "R", Usage: "Remote port forward mode.Specify a `[bind_address:]port:remote_address:port`.  Only single connection works."},
+		cli.StringFlag{Name: "D", Usage: "Dynamic port forward mode(Socks5). Specify a `port`. Only single connection works."},
 
 		// Other bool
 		cli.BoolFlag{Name: "w", Usage: "Displays the server header when in command execution mode."},
@@ -198,25 +197,24 @@ USAGE:
 			r.DisableHeader = true
 		}
 
-		// local/remote port forwarding mode
+		// Set port forwards
 		var err error
-		var forwardlocal, forwardremote string
-		switch {
-		case c.String("L") != "":
-			r.PortForwardMode = "L"
-			forwardlocal, forwardremote, err = common.ParseForwardPort(c.String("L"))
+		var forwards []*conf.PortForward
 
-		case c.String("R") != "":
-			r.PortForwardMode = "R"
-			forwardlocal, forwardremote, err = common.ParseForwardPort(c.String("R"))
+		// Set local port forwarding
+		for _, forwardargs := range c.StringSlice("L") {
+			f := new(conf.PortForward)
+			f.Mode = "L"
+			f.Local, f.Remote, err = common.ParseForwardPort(forwardargs)
+			forwards = append(forwards, f)
+		}
 
-		case c.String("L") != "" && c.String("R") != "":
-			r.PortForwardMode = "R"
-			forwardlocal, forwardremote, err = common.ParseForwardPort(c.String("R"))
-
-		default:
-			r.PortForwardMode = ""
-
+		// Set remote port forwarding
+		for _, forwardargs := range c.StringSlice("R") {
+			f := new(conf.PortForward)
+			f.Mode = "R"
+			f.Local, f.Remote, err = common.ParseForwardPort(forwardargs)
+			forwards = append(forwards, f)
 		}
 
 		// if err
@@ -227,10 +225,8 @@ USAGE:
 		// is not execute
 		r.IsNone = c.Bool("not-execute")
 
-		// local/remote port forwarding address
-
-		r.PortForwardLocal = forwardlocal
-		r.PortForwardRemote = forwardremote
+		// Local/Remote port forwarding port
+		r.PortForward = forwards
 
 		// Dynamic port forwarding port
 		r.DynamicPortForward = c.String("D")
