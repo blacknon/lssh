@@ -7,6 +7,16 @@
 
 package sftp
 
+// TODO(blacknon):
+//   とりあえず、↓のライブラリ使って開発を実施する。
+//     - https://github.com/DiSiqueira/GoTree
+
+// tree is remote tree command
 func (r *RunSftp) tree(args []string) {
+
+}
+
+// ltree is local tree command
+func (r *RunSftp) ltree(args []string) {
 
 }

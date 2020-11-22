@@ -352,6 +352,9 @@ func ParseArgs(options []cli.Flag, args []string) []string {
 
 parseloop:
 	for i, arg := range args[1:] {
+		// delete space
+		arg = strings.TrimSpace(arg)
+
 		switch {
 		case !optionReg.MatchString(arg) && !isOptionArgs:
 			// not option arg, and sOptinArgs flag false
