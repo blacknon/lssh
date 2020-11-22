@@ -82,9 +82,9 @@ option(lssh)
 	OPTIONS:
 	    --host servername, -H servername            connect servername.
 	    --file filepath, -F filepath                config filepath. (default: "/Users/blacknon/.lssh.conf")
-	    -L [bind_address:]port:remote_address:port  Local port forward mode.Specify a [bind_address:]port:remote_address:port.
-	    -R [bind_address:]port:remote_address:port  Remote port forward mode.Specify a [bind_address:]port:remote_address:port.
-	    -D port                                     Dynamic port forward mode(Socks5). Specify a port.
+	    -L [bind_address:]port:remote_address:port  Local port forward mode.Specify a [bind_address:]port:remote_address:port. Only single connection works.
+	    -R [bind_address:]port:remote_address:port  Remote port forward mode.Specify a [bind_address:]port:remote_address:port.  Only single connection works.
+	    -D port                                     Dynamic port forward mode(Socks5). Specify a port. Only single connection works.
 	    -w                                          Displays the server header when in command execution mode.
 	    -W                                          Not displays the server header when in command execution mode.
 	    --not-execute, -N                           not execute remote command and shell.
@@ -102,17 +102,21 @@ option(lssh)
 	    blacknon(blacknon@orebibou.com)
 
 	VERSION:
-	    0.6.0
+	    0.6.1
 
 	USAGE:
 	    # connect ssh
 	    lssh
 
-	    # parallel run command in select server over ssh
+	    # run command selected server over ssh.
+	    lssh command...
+
+	    # run command parallel in selected server over ssh.
 	    lssh -p command...
 
-	    # parallel run command in select server over ssh, do it interactively.
+	    # run command parallel in selected server over ssh, do it in interactively shell.
 	    lssh -s
+
 
 
 ### lscp
@@ -123,34 +127,34 @@ run command.
 
 option(lscp)
 
-	NAME:
-	    lscp - TUI list select and parallel scp client command.
-	USAGE:
-	    lscp [options] (local|remote):from_path... (local|remote):to_path
+    NAME:
+        lscp - TUI list select and parallel scp client command.
+    USAGE:
+        lscp [options] (local|remote):from_path... (local|remote):to_path
 
-	OPTIONS:
-	    --host value, -H value  connect servernames
-	    --list, -l              print server list from config
-	    --file value, -f value  config file path (default: "/Users/blacknon/.lssh.conf")
-	    --permission, -p        copy file permission
-	    --help, -h              print this help
-	    --version, -v           print the version
+    OPTIONS:
+        --host value, -H value            connect servernames
+        --list, -l                        print server list from config
+        --file value, -f value, -F value  config file path (default: "/Users/blacknon/.lssh.conf")
+        --permission, -p                  copy file permission
+        --help, -h                        print this help
+        --version, -v                     print the version
 
-	COPYRIGHT:
-	    blacknon(blacknon@orebibou.com)
+    COPYRIGHT:
+        blacknon(blacknon@orebibou.com)
 
-	VERSION:
-	    0.6.0
+    VERSION:
+        0.6.1
 
-	USAGE:
-	    # local to remote scp
-	    lscp /path/to/local... remote:/path/to/remote
+    USAGE:
+        # local to remote scp
+        lscp /path/to/local... remote:/path/to/remote
 
-	    # remote to local scp
-	    lscp remote:/path/to/remote... /path/to/local
+        # remote to local scp
+        lscp remote:/path/to/remote... /path/to/local
 
-	    # remote to remote scp
-	    lscp remote:/path/to/remote... remote:/path/to/local
+        # remote to remote scp
+        lscp remote:/path/to/remote... remote:/path/to/local
 
 
 ### lsftp
@@ -161,25 +165,26 @@ run command.
 
 option(lsftp)
 
-	NAME:
-	    lsftp - TUI list select and parallel sftp client command.
-	USAGE:
-	    lsftp [options]
+    NAME:
+        lsftp - TUI list select and parallel sftp client command.
+    USAGE:
+        lsftp [options]
 
-	OPTIONS:
-	    --file value, -f value  config file path (default: "/Users/blacknon/.lssh.conf")
-	    --help, -h              print this help
-	    --version, -v           print the version
+    OPTIONS:
+        --file value, -f value, -F value  config file path (default: "/Users/blacknon/.lssh.conf")
+        --help, -h                        print this help
+        --version, -v                     print the version
 
-	COPYRIGHT:
-	    blacknon(blacknon@orebibou.com)
+    COPYRIGHT:
+        blacknon(blacknon@orebibou.com)
 
-	VERSION:
-	    0.6.0
+    VERSION:
+        0.6.1
 
-	USAGE:
-	  # start lsftp shell
-	  lsftp
+    USAGE:
+      # start lsftp shell
+      lsftp
+
 
 
 If you specify a command as an argument, you can select multiple hosts. Select host <kbd>Tab</kbd>, select all displayed hosts <kbd>Ctrl</kbd> + <kbd>a</kbd>.
