@@ -17,12 +17,12 @@ import (
 	"github.com/kevinburke/ssh_config"
 )
 
-// openOpenSshConfig open the OpenSsh configuration file, return *ssh_config.Config.
-func openOpenSshConfig(path, command string) (cfg *ssh_config.Config, err error) {
+// openOpenSSHConfig open the OpenSSH configuration file, return *ssh_config.Config.
+func openOpenSSHConfig(path, command string) (cfg *ssh_config.Config, err error) {
 	var rd io.Reader
 	switch {
 	case path != "": // 1st
-		// Read Openssh Config
+		// Read OpenSSH Config
 		sshConfigFile := common.GetFullPath(path)
 		rd, err = os.Open(sshConfigFile)
 	case command != "": // 2nd
@@ -41,12 +41,12 @@ func openOpenSshConfig(path, command string) (cfg *ssh_config.Config, err error)
 	return
 }
 
-// getOpenSshConfig loads the specified OpenSsh configuration file and returns it in conf.ServerConfig format
-func getOpenSshConfig(path, command string) (config map[string]ServerConfig, err error) {
+// getOpenSSHConfig loads the specified OpenSSH configuration file and returns it in conf.ServerConfig format
+func getOpenSSHConfig(path, command string) (config map[string]ServerConfig, err error) {
 	config = map[string]ServerConfig{}
 
-	// open openssh config
-	cfg, err := openOpenSshConfig(path, command)
+	// open openSSH config
+	cfg, err := openOpenSSHConfig(path, command)
 	if err != nil {
 		return
 	}
@@ -81,7 +81,7 @@ func getOpenSshConfig(path, command string) (config map[string]ServerConfig, err
 			Note:         "from:" + ele,
 		}
 
-		// TODO(blacknon): OpenSshの設定ファイルだと、Certificateは複数指定可能な模様。ただ、あまり一般的な使い方ではないようなので、現状は複数のファイルを受け付けるように作っていない。
+		// TODO(blacknon): OpenSSSH設定ファイルだと、Certificateは複数指定可能な模様。ただ、あまり一般的な使い方ではないようなので、現状は複数のファイルを受け付けるように作っていない。
 		key := ssh_config.Get(host, "IdentityFile")
 		cert := ssh_config.Get(host, "Certificate")
 		if cert != "" {
