@@ -2,6 +2,8 @@
 // Use of this source code is governed by an MIT license
 // that can be found in the LICENSE file.
 
+// TODO(blacknon): bugfix ... config側でportforwardを設定してる場合にうまく転送できずエラーになる。要修正。
+
 package ssh
 
 import (
