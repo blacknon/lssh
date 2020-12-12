@@ -128,7 +128,7 @@ type ServerConfig struct {
 	// {[`L`,`l`,`LOCAL`,`local`]|[`R`,`r`,`REMOTE`,`remote`]}:[localaddress]:[localport]:[remoteaddress]:[remoteport]
 	PortForwards []string `toml:"port_forwards"`
 
-	// local/remote Port Forwarding
+	// local/remote Port Forwarding slice.
 	Forwards []*PortForward
 
 	// Dynamic Port Forwarding setting
