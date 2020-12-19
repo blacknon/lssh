@@ -136,7 +136,7 @@ func (r *Run) Start() {
 
 	// Get stdin data(pipe)
 	// TODO(blacknon): os.StdinをReadAllで全部読み込んでから処理する方式だと、ストリームで処理出来ない
-	//                 (全部読み込み終わるまで待ってしまう)ので、Reader/Writerによるストリーム処理に切り替える(v0.6.0)
+	//                 (全部読み込み終わるまで待ってしまう)ので、Reader/Writerによるストリーム処理に切り替える(v0.7.0)
 	//                 => flagとして検知させて、あとはpushPipeWriterにos.Stdinを渡すことで対処する
 	if runtime.GOOS != "windows" {
 		stdin := 0
