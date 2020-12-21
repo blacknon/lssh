@@ -234,7 +234,7 @@ func (r *Run) registAuthMapAgent(server string) (err error) {
 //
 func (r *Run) registAuthMapPKCS11(server, provider, pin string) (err error) {
 	authKey := AuthKey{AUTHKEY_PKCS11, provider}
-	if _, ok := r.authMethodMap[authKey]; !ok {
+	if _, ok := r.authMethodMap[authKey]; !ok && !r.donedPKCS11 {
 		// Create Signer with key input
 		// TODO(blacknon): あとでいい感じに記述する(retry対応)
 		// signers, err := sshlib.CreateSignerPKCS11Prompt(provider, pin)
@@ -255,6 +255,9 @@ func (r *Run) registAuthMapPKCS11(server, provider, pin string) (err error) {
 
 	// Regist AuthMethod to serverAuthMethodMap from authMethodMap
 	r.serverAuthMethodMap[server] = append(r.serverAuthMethodMap[server], r.authMethodMap[authKey]...)
+
+	// set donedPKCS11
+	r.donedPKCS11 = true
 
 	return
 }
