@@ -210,7 +210,7 @@ func (r *Run) registAuthMapCertificate(server, cert string, signer ssh.Signer) (
 	return
 }
 
-//
+// registAuthMapAgent is Regist ssh-agent signature to r.AuthMethodMap.
 func (r *Run) registAuthMapAgent(server string) (err error) {
 	authKey := AuthKey{AUTHKEY_AGENT, SSH_AUTH_SOCK}
 	if _, ok := r.authMethodMap[authKey]; !ok {
@@ -231,7 +231,7 @@ func (r *Run) registAuthMapAgent(server string) (err error) {
 	return
 }
 
-//
+// registAuthMapPKCS11 is Regist PKCS11 signature to r.AuthMethodMap.
 func (r *Run) registAuthMapPKCS11(server, provider, pin string) (err error) {
 	authKey := AuthKey{AUTHKEY_PKCS11, provider}
 	if _, ok := r.authMethodMap[authKey]; !ok && !r.donedPKCS11 {
