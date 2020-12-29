@@ -180,9 +180,21 @@ func (cp *Scp) push() {
 
 //
 func (cp *Scp) pushPath(ftp *sftp.Client, ow *io.PipeWriter, output *output.Output, base, path string) (err error) {
-	// get rel path
+	var rpath string
+
+	// Set remote path
 	relpath, _ := filepath.Rel(base, path)
-	rpath := filepath.Join(cp.To.Path[0], relpath)
+	if common.IsDirPath(cp.To.Path[0]) || len(cp.From.Path) > 1 {
+		rpath = filepath.Join(cp.To.Path[0], relpath)
+	} else if len(cp.From.Path) == 1 {
+		rpath = filepath.Join(cp.To.Path[0], relpath)
+		dInfo, _ := os.Lstat(cp.From.Path[0])
+		if dInfo.IsDir() {
+			ftp.Mkdir(cp.To.Path[0])
+		}
+	} else {
+		rpath = filepath.Clean(cp.To.Path[0])
+	}
 
 	// get local file info
 	fInfo, _ := os.Lstat(path)
