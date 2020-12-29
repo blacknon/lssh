@@ -29,8 +29,8 @@ import (
 //     - %set <args..>      ... 指定されたオプションを設定する(Optionsにて管理) (v0.6.1)
 //     - %diff <num>        ... 指定されたnumの履歴をdiffする(multi diff)。できるかどうか要検討。 (v0.6.1以降)
 //                              できれば、vimdiffのように横に差分表示させるようにしたいものだけど…？
-//     - %get remote local  ... sftpプロトコルを利用して、ファイルやディレクトリを取得する (v0.6.1)
-//     - %put local remote  ... sftpプロトコルを利用して、ファイルやディレクトリを配置する (v0.6.1)
+//     - %get remote local  ... sftpプロトコルを利用して、ファイルやディレクトリを取得する (v0.6.3)
+//     - %put local remote  ... sftpプロトコルを利用して、ファイルやディレクトリを配置する (v0.6.3)
 
 // checkBuildInCommand return true if cmd is build-in command.
 func checkBuildInCommand(cmd string) (isBuildInCmd bool) {

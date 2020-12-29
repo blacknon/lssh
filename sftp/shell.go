@@ -135,6 +135,7 @@ func (r *RunSftp) Completer(t prompt.Document) []prompt.Suggest {
 			{Text: "exit", Description: "Quit lsftp"},
 			{Text: "get", Description: "Download file"},
 			{Text: "help", Description: "Display this help text"},
+			{Text: "lcat", Description: "Open local file"},
 			{Text: "lcd", Description: "Change local directory to 'path'"},
 			{Text: "lls", Description: "Display local directory listing"},
 			{Text: "lmkdir", Description: "Create local directory"},
@@ -160,6 +161,7 @@ func (r *RunSftp) Completer(t prompt.Document) []prompt.Suggest {
 		case "cd":
 			return r.PathComplete(true, 1, t)
 		case "cat":
+			// TODO(blacknon): ファイル容量が大きいと途中で止まるっぽい。
 			return r.PathComplete(true, 1, t)
 		case "chgrp":
 			// TODO(blacknon): そのうち追加 ver0.6.2
