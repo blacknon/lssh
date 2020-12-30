@@ -129,8 +129,8 @@ func (r *RunSftp) Completer(t prompt.Document) []prompt.Suggest {
 			{Text: "bye", Description: "Quit lsftp"},
 			{Text: "cat", Description: "Open file"},
 			{Text: "cd", Description: "Change remote directory to 'path'"},
-			{Text: "chgrp", Description: "Change group of file 'path' to 'grp'"},
-			{Text: "chown", Description: "Change owner of file 'path' to 'own'"},
+			// {Text: "chgrp", Description: "Change group of file 'path' to 'grp'"},
+			// {Text: "chown", Description: "Change owner of file 'path' to 'own'"},
 			// {Text: "copy", Description: "Copy to file from 'remote' or 'local' to 'remote' or 'local'"},
 			{Text: "df", Description: "Display statistics for current directory or filesystem containing 'path'"},
 			{Text: "exit", Description: "Quit lsftp"},
@@ -165,9 +165,9 @@ func (r *RunSftp) Completer(t prompt.Document) []prompt.Suggest {
 			// TODO(blacknon): ファイル容量が大きいと途中で止まるっぽい。
 			return r.PathComplete(true, 1, t)
 		case "chgrp":
-			// TODO(blacknon): そのうち追加 ver0.6.2
+			// TODO(blacknon): そのうち追加 ver0.6.3
 		case "chown":
-			// TODO(blacknon): そのうち追加 ver0.6.2
+			// TODO(blacknon): そのうち追加 ver0.6.3
 		case "df":
 			suggest = []prompt.Suggest{
 				{Text: "-h", Description: "print sizes in powers of 1024 (e.g., 1023M)"},
@@ -358,6 +358,7 @@ func (r *RunSftp) GetRemoteComplete(path string) {
 			// check rpath
 			stat, err := client.Connect.Stat(rpath)
 			if err != nil {
+				exit <- true
 				return
 			}
 
@@ -370,6 +371,7 @@ func (r *RunSftp) GetRemoteComplete(path string) {
 			// get path list
 			globlist, err := client.Connect.Glob(rpath)
 			if err != nil {
+				exit <- true
 				return
 			}
 
