@@ -256,7 +256,8 @@ func ReadConf(confPath string) (config Config) {
 			// Read include config file
 			_, err := toml.DecodeFile(path, &includeConf)
 			if err != nil {
-				panic(err)
+				fmt.Fprintf(os.Stderr, "err: Read config file error: ", err)
+				os.Exit(1)
 			}
 
 			// reduce common setting

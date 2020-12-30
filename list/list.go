@@ -126,9 +126,9 @@ func (l *ListInfo) getText() {
 
 	// Create list table
 	for _, key := range l.NameList {
-		name := key
-		conInfo := l.DataList.Server[key].User + "@" + l.DataList.Server[key].Addr
-		note := l.DataList.Server[key].Note
+		name := convNewline(key, "")
+		conInfo := convNewline(l.DataList.Server[key].User+"@"+l.DataList.Server[key].Addr, "")
+		note := convNewline(l.DataList.Server[key].Note, "")
 
 		fmt.Fprintln(tabWriterBuffer, name+"\t"+conInfo+"\t"+note)
 	}
@@ -191,4 +191,13 @@ func (l *ListInfo) View() {
 
 	l.getText()
 	l.keyEvent()
+}
+
+// convNewline is newline replace to nlcode
+func convNewline(str, nlcode string) string {
+	return strings.NewReplacer(
+		"\r\n", nlcode,
+		"\r", nlcode,
+		"\n", nlcode,
+	).Replace(str)
 }
