@@ -120,14 +120,27 @@ func (r *RunSftp) put(args []string) {
 
 //
 func (r *RunSftp) pushPath(client *SftpConnect, target, base, path string) (err error) {
-	// set arg path
-	rpath, _ := filepath.Rel(base, path)
-	switch {
-	case filepath.IsAbs(target):
-		rpath = filepath.Join(target, rpath)
-	case !filepath.IsAbs(target):
+	var rpath string
+
+	// set arg relpath
+	relpath, _ := filepath.Rel(base, path)
+
+	// check target is absolute path
+	if !filepath.IsAbs(target) {
 		target = filepath.Join(client.Pwd, target)
-		rpath = filepath.Join(target, rpath)
+	}
+
+	// set rpath
+	if common.IsDirPath(target) {
+		rpath = filepath.Join(target, relpath)
+	} else {
+		dInfo, _ := os.Lstat(path)
+		if dInfo.IsDir() {
+			rpath = filepath.Join(target, relpath)
+			client.Connect.Mkdir(target)
+		} else {
+			rpath = filepath.Clean(target)
+		}
 	}
 
 	// get local file info

@@ -2,8 +2,6 @@
 // Use of this source code is governed by an MIT license
 // that can be found in the LICENSE file.
 
-// TODO(blacknon): 鍵のパスフレーズの処理がうまく動作していない様子(bug)。修正する。
-
 package ssh
 
 import (
@@ -86,7 +84,6 @@ func (r *Run) CreateAuthMethodMap() {
 
 		// Public Key Command
 		if config.KeyCommand != "" {
-			// TODO(blacknon): keyCommandの追加
 			err := r.registAuthMapPublicKeyCommand(server, config.KeyCommand, config.KeyCommandPass)
 			if err != nil {
 				fmt.Fprintln(os.Stderr, err)
@@ -213,7 +210,7 @@ func (r *Run) registAuthMapCertificate(server, cert string, signer ssh.Signer) (
 	return
 }
 
-//
+// registAuthMapAgent is Regist ssh-agent signature to r.AuthMethodMap.
 func (r *Run) registAuthMapAgent(server string) (err error) {
 	authKey := AuthKey{AUTHKEY_AGENT, SSH_AUTH_SOCK}
 	if _, ok := r.authMethodMap[authKey]; !ok {
@@ -234,11 +231,12 @@ func (r *Run) registAuthMapAgent(server string) (err error) {
 	return
 }
 
-//
+// registAuthMapPKCS11 is Regist PKCS11 signature to r.AuthMethodMap.
 func (r *Run) registAuthMapPKCS11(server, provider, pin string) (err error) {
 	authKey := AuthKey{AUTHKEY_PKCS11, provider}
-	if _, ok := r.authMethodMap[authKey]; !ok {
+	if _, ok := r.authMethodMap[authKey]; !ok && !r.donedPKCS11 {
 		// Create Signer with key input
+		// TODO(blacknon): あとでいい感じに記述する(retry対応)
 		// signers, err := sshlib.CreateSignerPKCS11Prompt(provider, pin)
 		signers, err := sshlib.CreateSignerPKCS11(provider, pin)
 
@@ -257,6 +255,9 @@ func (r *Run) registAuthMapPKCS11(server, provider, pin string) (err error) {
 
 	// Regist AuthMethod to serverAuthMethodMap from authMethodMap
 	r.serverAuthMethodMap[server] = append(r.serverAuthMethodMap[server], r.authMethodMap[authKey]...)
+
+	// set donedPKCS11
+	r.donedPKCS11 = true
 
 	return
 }

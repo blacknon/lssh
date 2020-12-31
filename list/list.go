@@ -26,7 +26,9 @@ import (
 //     - 内部でのウィンドウの実装
 //         - 項目について、更新や閲覧ができるようにする
 //     - キーバインドの設定変更
+//     - Windowsでも動作するように修正する
 
+// ListInfo is Struct at view list.
 type ListInfo struct {
 	// Incremental search line prompt string
 	Prompt string
@@ -115,7 +117,7 @@ func (l *ListInfo) allToggle(allFlag bool) {
 	}
 }
 
-// Create view text (use text/tabwriter)
+// getText is create view text (use text/tabwriter)
 func (l *ListInfo) getText() {
 	buffer := &bytes.Buffer{}
 	tabWriterBuffer := new(tabwriter.Writer)
@@ -124,9 +126,9 @@ func (l *ListInfo) getText() {
 
 	// Create list table
 	for _, key := range l.NameList {
-		name := key
-		conInfo := l.DataList.Server[key].User + "@" + l.DataList.Server[key].Addr
-		note := l.DataList.Server[key].Note
+		name := convNewline(key, "")
+		conInfo := convNewline(l.DataList.Server[key].User+"@"+l.DataList.Server[key].Addr, "")
+		note := convNewline(l.DataList.Server[key].Note, "")
 
 		fmt.Fprintln(tabWriterBuffer, name+"\t"+conInfo+"\t"+note)
 	}
@@ -159,12 +161,12 @@ func (l *ListInfo) getFilterText() {
 		return
 	}
 
-	for i := 0; i < len(keywords); i += 1 {
+	for i := 0; i < len(keywords); i++ {
 		lowKeyword := regexp.QuoteMeta(strings.ToLower(keywords[i]))
 		re := regexp.MustCompile(lowKeyword)
 		tmpText = []string{}
 
-		for j := 0; j < len(r); j += 1 {
+		for j := 0; j < len(r); j++ {
 			line += string(r[j])
 			if re.MatchString(strings.ToLower(line)) {
 				tmpText = append(tmpText, line)
@@ -177,7 +179,7 @@ func (l *ListInfo) getFilterText() {
 	return
 }
 
-// View() display the list in TUI
+// View is display the list in TUI
 func (l *ListInfo) View() {
 	if err := termbox.Init(); err != nil {
 		panic(err)
@@ -189,4 +191,13 @@ func (l *ListInfo) View() {
 
 	l.getText()
 	l.keyEvent()
+}
+
+// convNewline is newline replace to nlcode
+func convNewline(str, nlcode string) string {
+	return strings.NewReplacer(
+		"\r\n", nlcode,
+		"\r", nlcode,
+		"\n", nlcode,
+	).Replace(str)
 }
