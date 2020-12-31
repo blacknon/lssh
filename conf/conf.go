@@ -128,7 +128,7 @@ type ServerConfig struct {
 	// {[`L`,`l`,`LOCAL`,`local`]|[`R`,`r`,`REMOTE`,`remote`]}:[localaddress]:[localport]:[remoteaddress]:[remoteport]
 	PortForwards []string `toml:"port_forwards"`
 
-	// local/remote Port Forwarding
+	// local/remote Port Forwarding slice.
 	Forwards []*PortForward
 
 	// Dynamic Port Forwarding setting
@@ -256,7 +256,8 @@ func ReadConf(confPath string) (config Config) {
 			// Read include config file
 			_, err := toml.DecodeFile(path, &includeConf)
 			if err != nil {
-				panic(err)
+				fmt.Fprintf(os.Stderr, "err: Read config file error: ", err)
+				os.Exit(1)
 			}
 
 			// reduce common setting

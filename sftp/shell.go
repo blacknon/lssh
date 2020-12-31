@@ -16,7 +16,8 @@ import (
 	"github.com/c-bata/go-prompt/completer"
 )
 
-// TODO(blacknon): catコマンド相当の機能を追加する
+// TODO(blacknon): 補完処理が遅い・不安定になってるので対処する
+// TODO(blacknon): 補完処理で、複数ホスト接続時に一部ホストにしか存在しないディレクトリを指定した場合、そこで処理が止まってしまう挙動を修正する
 
 // sftp Shell mode function
 func (r *RunSftp) shell() {
@@ -128,13 +129,14 @@ func (r *RunSftp) Completer(t prompt.Document) []prompt.Suggest {
 			{Text: "bye", Description: "Quit lsftp"},
 			{Text: "cat", Description: "Open file"},
 			{Text: "cd", Description: "Change remote directory to 'path'"},
-			{Text: "chgrp", Description: "Change group of file 'path' to 'grp'"},
-			{Text: "chown", Description: "Change owner of file 'path' to 'own'"},
+			// {Text: "chgrp", Description: "Change group of file 'path' to 'grp'"},
+			// {Text: "chown", Description: "Change owner of file 'path' to 'own'"},
 			// {Text: "copy", Description: "Copy to file from 'remote' or 'local' to 'remote' or 'local'"},
 			{Text: "df", Description: "Display statistics for current directory or filesystem containing 'path'"},
 			{Text: "exit", Description: "Quit lsftp"},
 			{Text: "get", Description: "Download file"},
 			{Text: "help", Description: "Display this help text"},
+			{Text: "lcat", Description: "Open local file"},
 			{Text: "lcd", Description: "Change local directory to 'path'"},
 			{Text: "lls", Description: "Display local directory listing"},
 			{Text: "lmkdir", Description: "Create local directory"},
@@ -160,11 +162,12 @@ func (r *RunSftp) Completer(t prompt.Document) []prompt.Suggest {
 		case "cd":
 			return r.PathComplete(true, 1, t)
 		case "cat":
+			// TODO(blacknon): ファイル容量が大きいと途中で止まるっぽい。
 			return r.PathComplete(true, 1, t)
 		case "chgrp":
-			// TODO(blacknon): そのうち追加 ver0.6.1
+			// TODO(blacknon): そのうち追加 ver0.6.3
 		case "chown":
-			// TODO(blacknon): そのうち追加 ver0.6.1
+			// TODO(blacknon): そのうち追加 ver0.6.3
 		case "df":
 			suggest = []prompt.Suggest{
 				{Text: "-h", Description: "print sizes in powers of 1024 (e.g., 1023M)"},
@@ -267,7 +270,7 @@ func (r *RunSftp) Completer(t prompt.Document) []prompt.Suggest {
 		case "rmdir":
 			return r.PathComplete(true, 1, t)
 		case "symlink":
-			// TODO(blacknon): そのうち追加 ver0.6.1
+			// TODO(blacknon): そのうち追加 ver0.6.2
 		// case "tree":
 
 		default:
@@ -355,6 +358,7 @@ func (r *RunSftp) GetRemoteComplete(path string) {
 			// check rpath
 			stat, err := client.Connect.Stat(rpath)
 			if err != nil {
+				exit <- true
 				return
 			}
 
@@ -367,6 +371,7 @@ func (r *RunSftp) GetRemoteComplete(path string) {
 			// get path list
 			globlist, err := client.Connect.Glob(rpath)
 			if err != nil {
+				exit <- true
 				return
 			}
 

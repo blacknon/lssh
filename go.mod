@@ -28,6 +28,8 @@ require (
 
 replace github.com/urfave/cli v1.22.0 => ../../urfave/cli
 
+replace github.com/blacknon/go-sshlib v1.22.0 => ../go-sshlib
+
 replace github.com/miekg/pkcs11 => github.com/blacknon/pkcs11 v1.0.4-0.20201018135904-6038e308f617
 
 go 1.13

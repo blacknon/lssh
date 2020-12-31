@@ -18,6 +18,8 @@ import (
 	"github.com/urfave/cli"
 )
 
+// TODO(blacknon): ディレクトリ指定時にエラーにする
+
 // cat is remote cat command
 func (r *RunSftp) cat(args []string) {
 	// create app
