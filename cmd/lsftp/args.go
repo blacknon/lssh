@@ -54,7 +54,7 @@ USAGE:
 	app.Version = "0.6.1"
 
 	app.Flags = []cli.Flag{
-		cli.StringFlag{Name: "file,f,F", Value: defConf, Usage: "config file path"},
+		cli.StringFlag{Name: "file,F", Value: defConf, Usage: "config file path"},
 		cli.BoolFlag{Name: "help,h", Usage: "print this help"},
 	}
 
