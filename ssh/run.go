@@ -94,6 +94,11 @@ type Run struct {
 	// ServerAuthMethodMap is
 	// Map of AuthMethod used by target server
 	serverAuthMethodMap map[string][]ssh.AuthMethod
+
+	// donedPKCS11 is　the value of panic measures (v0.6.2-).
+	// If error occurs and pkcs11 processing occurs more than once, the library will keep the token and Panic will occur.
+	// this value is so for countermeasures.
+	donedPKCS11 bool
 }
 
 // AuthKey Auth map key struct.
@@ -136,7 +141,7 @@ func (r *Run) Start() {
 
 	// Get stdin data(pipe)
 	// TODO(blacknon): os.StdinをReadAllで全部読み込んでから処理する方式だと、ストリームで処理出来ない
-	//                 (全部読み込み終わるまで待ってしまう)ので、Reader/Writerによるストリーム処理に切り替える(v0.6.0)
+	//                 (全部読み込み終わるまで待ってしまう)ので、Reader/Writerによるストリーム処理に切り替える(v0.7.0)
 	//                 => flagとして検知させて、あとはpushPipeWriterにos.Stdinを渡すことで対処する
 	if runtime.GOOS != "windows" {
 		stdin := 0

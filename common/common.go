@@ -395,3 +395,15 @@ parseloop:
 	}
 	return result
 }
+
+// IsDirPath identifies is the directory from the PATH string.
+func IsDirPath(path string) (isDir bool) {
+	dir := filepath.Dir(path)
+	path = filepath.Clean(path)
+
+	if dir == path {
+		isDir = true
+	}
+
+	return
+}

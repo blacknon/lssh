@@ -60,7 +60,7 @@ USAGE:
 	app.Name = "lscp"
 	app.Usage = "TUI list select and parallel scp client command."
 	app.Copyright = "blacknon(blacknon@orebibou.com)"
-	app.Version = "0.6.1"
+	app.Version = "0.6.2"
 
 	// options
 	// TODO(blacknon): オプションの追加(0.7.0)
@@ -68,7 +68,7 @@ USAGE:
 	app.Flags = []cli.Flag{
 		cli.StringSliceFlag{Name: "host,H", Usage: "connect servernames"},
 		cli.BoolFlag{Name: "list,l", Usage: "print server list from config"},
-		cli.StringFlag{Name: "file,f,F", Value: defConf, Usage: "config file path"},
+		cli.StringFlag{Name: "file,F", Value: defConf, Usage: "config file path"},
 		cli.BoolFlag{Name: "permission,p", Usage: "copy file permission"},
 		cli.BoolFlag{Name: "help,h", Usage: "print this help"},
 	}
