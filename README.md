@@ -74,48 +74,48 @@ run command.
 
 option(lssh)
 
-	NAME:
-	    lssh - TUI list select and parallel ssh client command.
-	USAGE:
-	    lssh [options] [commands...]
+    NAME:
+        lssh - TUI list select and parallel ssh client command.
+    USAGE:
+        lssh [options] [commands...]
 
-	OPTIONS:
-	    --host servername, -H servername            connect servername.
-	    --file filepath, -F filepath                config filepath. (default: "/Users/blacknon/.lssh.conf")
-	    -L [bind_address:]port:remote_address:port  Local port forward mode.Specify a [bind_address:]port:remote_address:port. Only single connection works.
-	    -R [bind_address:]port:remote_address:port  Remote port forward mode.Specify a [bind_address:]port:remote_address:port.  Only single connection works.
-	    -D port                                     Dynamic port forward mode(Socks5). Specify a port. Only single connection works.
-	    -w                                          Displays the server header when in command execution mode.
-	    -W                                          Not displays the server header when in command execution mode.
-	    --not-execute, -N                           not execute remote command and shell.
-	    --x11, -X                                   x11 forwarding(forward to ${DISPLAY}).
-	    --term, -t                                  run specified command at terminal.
-	    --parallel, -p                              run command parallel node(tail -F etc...).
-	    --localrc                                   use local bashrc shell.
-	    --not-localrc                               not use local bashrc shell.
-	    --pshell, -s                                use parallel-shell(pshell) (alpha).
-	    --list, -l                                  print server list from config.
-	    --help, -h                                  print this help
-	    --version, -v                               print the version
+    OPTIONS:
+        --host servername, -H servername            connect servername.
+        --file filepath, -F filepath                config filepath. (default: "~/.lssh.conf")
+        -L [bind_address:]port:remote_address:port  Local port forward mode.Specify a [bind_address:]port:remote_address:port. Only single connection works.
+        -R [bind_address:]port:remote_address:port  Remote port forward mode.Specify a [bind_address:]port:remote_address:port.  Only single connection works.
+        -D port                                     Dynamic port forward mode(Socks5). Specify a port. Only single connection works.
+        -w                                          Displays the server header when in command execution mode.
+        -W                                          Not displays the server header when in command execution mode.
+        --not-execute, -N                           not execute remote command and shell.
+        --x11, -X                                   x11 forwarding(forward to ${DISPLAY}).
+        --term, -t                                  run specified command at terminal.
+        --parallel, -p                              run command parallel node(tail -F etc...).
+        --localrc                                   use local bashrc shell.
+        --not-localrc                               not use local bashrc shell.
+        --pshell, -s                                use parallel-shell(pshell) (alpha).
+        --list, -l                                  print server list from config.
+        --help, -h                                  print this help
+        --version, -v                               print the version
 
-	COPYRIGHT:
-	    blacknon(blacknon@orebibou.com)
+    COPYRIGHT:
+        blacknon(blacknon@orebibou.com)
 
-	VERSION:
-	    0.6.1
+    VERSION:
+        0.6.2
 
-	USAGE:
-	    # connect ssh
-	    lssh
+    USAGE:
+        # connect ssh
+        lssh
 
-	    # run command selected server over ssh.
-	    lssh command...
+        # run command selected server over ssh.
+        lssh command...
 
-	    # run command parallel in selected server over ssh.
-	    lssh -p command...
+        # run command parallel in selected server over ssh.
+        lssh -p command...
 
-	    # run command parallel in selected server over ssh, do it in interactively shell.
-	    lssh -s
+        # run command parallel in selected server over ssh, do it in interactively shell.
+        lssh -s
 
 
 
@@ -133,18 +133,18 @@ option(lscp)
         lscp [options] (local|remote):from_path... (local|remote):to_path
 
     OPTIONS:
-        --host value, -H value            connect servernames
-        --list, -l                        print server list from config
-        --file value, -f value, -F value  config file path (default: "/Users/blacknon/.lssh.conf")
-        --permission, -p                  copy file permission
-        --help, -h                        print this help
-        --version, -v                     print the version
+        --host value, -H value  connect servernames
+        --list, -l              print server list from config
+        --file value, -F value  config file path (default: "~/.lssh.conf")
+        --permission, -p        copy file permission
+        --help, -h              print this help
+        --version, -v           print the version
 
     COPYRIGHT:
         blacknon(blacknon@orebibou.com)
 
     VERSION:
-        0.6.1
+        0.6.2
 
     USAGE:
         # local to remote scp
@@ -155,6 +155,7 @@ option(lscp)
 
         # remote to remote scp
         lscp remote:/path/to/remote... remote:/path/to/local
+
 
 
 ### lsftp
@@ -171,19 +172,20 @@ option(lsftp)
         lsftp [options]
 
     OPTIONS:
-        --file value, -f value, -F value  config file path (default: "/Users/blacknon/.lssh.conf")
-        --help, -h                        print this help
-        --version, -v                     print the version
+        --file value, -F value  config file path (default: "~/.lssh.conf")
+        --help, -h              print this help
+        --version, -v           print the version
 
     COPYRIGHT:
         blacknon(blacknon@orebibou.com)
 
     VERSION:
-        0.6.1
+        0.6.2
 
     USAGE:
       # start lsftp shell
       lsftp
+
 
 
 
