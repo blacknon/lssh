@@ -30,7 +30,7 @@ command to read a prepared list in advance and connect ssh/scp/sftp the selected
 
 ### compile
 
-compile gofile(tested go1.12.4).
+compile gofile(tested go1.15.5).
 
     GO111MODULE=auto go get -u github.com/blacknon/lssh/cmd/lssh
     GO111MODULE=auto go get -u github.com/blacknon/lssh/cmd/lscp
