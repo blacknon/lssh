@@ -61,6 +61,9 @@ type Connect struct {
 
 	// terminal log path
 	logFile string
+
+	// remove ansi code on terminal log.
+	logRemoveAnsiCode bool
 }
 
 // CreateClient set c.Client.

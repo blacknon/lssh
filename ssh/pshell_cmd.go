@@ -302,7 +302,7 @@ func (ps *pShell) executeRemotePipeLine(pline pipeLine, in *io.PipeReader, out *
 		// push input to pararell session
 		// (Only when input is os.Stdin and output is os.Stdout).
 		if stdout == os.Stdout {
-			go output.PushInput(exitInput, writers)
+			go output.PushInput(exitInput, writers, byte('\n'))
 		}
 	case *io.PipeReader:
 		go output.PushPipeWriter(exitInput, writers, stdin)
@@ -341,7 +341,7 @@ func (ps *pShell) executeRemotePipeLine(pline pipeLine, in *io.PipeReader, out *
 	// Print message `Please input enter` (Only when input is os.Stdin and output is os.Stdout).
 	// Note: This necessary for using Blocking.IO.
 	if stdin == os.Stdin && stdout == os.Stdout {
-		fmt.Fprintf(os.Stderr, "\n---\n%s\n", "Command exit. Please input Enter.")
+		fmt.Fprintf(os.Stderr, "\n---\n%s\n", "Command exit. Please input Enter key.")
 		exitInput <- true
 	}
 
