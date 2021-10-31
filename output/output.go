@@ -257,11 +257,12 @@ loop:
 }
 
 // PushInput is send input to ssh Session Stdin
-func PushInput(isExit <-chan bool, output []io.WriteCloser) {
+func PushInput(isExit <-chan bool, output []io.WriteCloser, inputChar byte) {
 	rd := bufio.NewReader(os.Stdin)
 loop:
 	for {
-		data, _ := rd.ReadBytes('\n')
+		data, _ := rd.ReadBytes(inputChar)
+
 		if len(data) > 0 {
 			for _, w := range output {
 				w.Write(data)
@@ -274,8 +275,8 @@ loop:
 		case <-time.After(10 * time.Millisecond):
 			continue
 		}
-	}
 
+	}
 	// close output
 	for _, w := range output {
 		w.Close()

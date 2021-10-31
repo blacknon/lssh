@@ -2,6 +2,8 @@
 // Use of this source code is governed by an MIT license
 // that can be found in the LICENSE file.
 
+// TODO(blacknon): Dynamic Port forwardingと同じような感じでhttp proxyを生やす関数を追加
+
 package sshlib
 
 import (
@@ -29,11 +31,11 @@ type x11Request struct {
 
 // X11Forward send x11-req to ssh server and do x11 forwarding.
 // Since the display number of the transfer destination and the PATH of the socket communication file
-// are checked from the local environment variable DISPLAY, this does not work if it is not set.
+// are checked from the local environmsdent variable DISPLAY, this does not work if it is not set.
 //
 // Also, the value of COOKIE transfers the local value as it is. This will be addressed in the future.
 func (c *Connect) X11Forward(session *ssh.Session) (err error) {
-	display := getX11Display()
+	display := getX11Display(os.Getenv("DISPLAY"))
 
 	_, xAuth, err := readAuthority("", display)
 	if err != io.EOF && err != nil {
@@ -77,32 +79,20 @@ func (c *Connect) X11Forward(session *ssh.Session) (err error) {
 }
 
 // x11Connect return net.Conn x11 socket.
-func x11Connect() (conn net.Conn, err error) {
-	display := os.Getenv("DISPLAY")
-	display0 := display
-	colonIdx := strings.LastIndex(display, ":")
-	dotIdx := strings.LastIndex(display, ".")
-
-	if colonIdx < 0 {
-		err = errors.New("bad display string: " + display0)
-		return
-	}
-
+func x11Connect(display string) (conn net.Conn, err error) {
 	var conDisplay string
 	if display[0] == '/' { // PATH type socket
 		conDisplay = display
 	} else { // /tmp/.X11-unix/X0
-		conDisplay = "/tmp/.X11-unix/X" + display[colonIdx+1:dotIdx]
+		conDisplay = "/tmp/.X11-unix/X" + getX11Display(display)
 	}
 
-	// fmt.Println(conDisplay)
-	conn, err = net.Dial("unix", conDisplay)
-	return
+	return net.Dial("unix", conDisplay)
 }
 
 // x11forwarder forwarding socket x11 data.
 func x11forwarder(channel ssh.Channel) {
-	conn, err := x11Connect()
+	conn, err := x11Connect(os.Getenv("DISPLAY"))
 
 	if err != nil {
 		return
@@ -127,8 +117,7 @@ func x11forwarder(channel ssh.Channel) {
 }
 
 // getX11Display return X11 display number from env $DISPLAY
-func getX11Display() string {
-	display := os.Getenv("DISPLAY")
+func getX11Display(display string) string {
 	colonIdx := strings.LastIndex(display, ":")
 	dotIdx := strings.LastIndex(display, ".")
 
@@ -136,8 +125,8 @@ func getX11Display() string {
 		return "0"
 	}
 
-	if len(display) > dotIdx {
-		return "0"
+	if dotIdx < 0 {
+		dotIdx = len(display)
 	}
 
 	return display[colonIdx+1 : dotIdx]
