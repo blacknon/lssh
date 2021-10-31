@@ -1,5 +1,7 @@
 package prompt
 
+import "github.com/c-bata/go-prompt/internal/debug"
+
 /*
 
 ========
@@ -112,7 +114,7 @@ var emacsKeyBindings = []KeyBind{
 		Fn: func(buf *Buffer) {
 			consoleWriter.EraseScreen()
 			consoleWriter.CursorGoTo(0, 0)
-			consoleWriter.Flush()
+			debug.AssertNoError(consoleWriter.Flush())
 		},
 	},
 }

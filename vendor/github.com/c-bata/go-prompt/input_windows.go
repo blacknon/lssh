@@ -3,13 +3,12 @@
 package prompt
 
 import (
-	"bytes"
 	"errors"
 	"syscall"
 	"unicode/utf8"
 	"unsafe"
 
-	"github.com/mattn/go-tty"
+	tty "github.com/mattn/go-tty"
 )
 
 const maxReadBytes = 1024
@@ -36,16 +35,6 @@ func (p *WindowsParser) Setup() error {
 // TearDown should be called after stopping input
 func (p *WindowsParser) TearDown() error {
 	return p.tty.Close()
-}
-
-// GetKey returns Key correspond to input byte codes.
-func (p *WindowsParser) GetKey(b []byte) Key {
-	for _, k := range asciiSequences {
-		if bytes.Compare(k.ASCIICode, b) == 0 {
-			return k.Key
-		}
-	}
-	return NotDefined
 }
 
 // Read returns byte array.

@@ -3,12 +3,10 @@
 package prompt
 
 import (
-	"bytes"
-	"log"
 	"syscall"
-	"unsafe"
 
-	"github.com/pkg/term/termios"
+	"github.com/c-bata/go-prompt/internal/term"
+	"golang.org/x/sys/unix"
 )
 
 const maxReadBytes = 1024
@@ -23,11 +21,9 @@ type PosixParser struct {
 func (t *PosixParser) Setup() error {
 	// Set NonBlocking mode because if syscall.Read block this goroutine, it cannot receive data from stopCh.
 	if err := syscall.SetNonblock(t.fd, true); err != nil {
-		log.Println("[ERROR] Cannot set non blocking mode.")
 		return err
 	}
-	if err := t.setRawMode(); err != nil {
-		log.Println("[ERROR] Cannot set raw mode.")
+	if err := term.SetRaw(t.fd); err != nil {
 		return err
 	}
 	return nil
@@ -36,11 +32,9 @@ func (t *PosixParser) Setup() error {
 // TearDown should be called after stopping input
 func (t *PosixParser) TearDown() error {
 	if err := syscall.SetNonblock(t.fd, false); err != nil {
-		log.Println("[ERROR] Cannot set blocking mode.")
 		return err
 	}
-	if err := t.resetRawMode(); err != nil {
-		log.Println("[ERROR] Cannot reset from raw mode.")
+	if err := term.Restore(); err != nil {
 		return err
 	}
 	return nil
@@ -56,61 +50,11 @@ func (t *PosixParser) Read() ([]byte, error) {
 	return buf[:n], nil
 }
 
-func (t *PosixParser) setRawMode() error {
-	x := t.origTermios.Lflag
-	if x &^= syscall.ICANON; x != 0 && x == t.origTermios.Lflag {
-		// fd is already raw mode
-		return nil
-	}
-	var n syscall.Termios
-	if err := termios.Tcgetattr(uintptr(t.fd), &t.origTermios); err != nil {
-		return err
-	}
-	n = t.origTermios
-	// "&^=" used like: https://play.golang.org/p/8eJw3JxS4O
-	n.Lflag &^= syscall.ECHO | syscall.ICANON | syscall.IEXTEN | syscall.ISIG
-	n.Cc[syscall.VMIN] = 1
-	n.Cc[syscall.VTIME] = 0
-	termios.Tcsetattr(uintptr(t.fd), termios.TCSANOW, &n)
-	return nil
-}
-
-func (t *PosixParser) resetRawMode() error {
-	if t.origTermios.Lflag == 0 {
-		return nil
-	}
-	return termios.Tcsetattr(uintptr(t.fd), termios.TCSANOW, &t.origTermios)
-}
-
-// GetKey returns Key correspond to input byte codes.
-func (t *PosixParser) GetKey(b []byte) Key {
-	for _, k := range asciiSequences {
-		if bytes.Equal(k.ASCIICode, b) {
-			return k.Key
-		}
-	}
-	return NotDefined
-}
-
-// winsize is winsize struct got from the ioctl(2) system call.
-type ioctlWinsize struct {
-	Row uint16
-	Col uint16
-	X   uint16 // pixel value
-	Y   uint16 // pixel value
-}
-
 // GetWinSize returns WinSize object to represent width and height of terminal.
 func (t *PosixParser) GetWinSize() *WinSize {
-	ws := &ioctlWinsize{}
-	retCode, _, errno := syscall.Syscall(
-		syscall.SYS_IOCTL,
-		uintptr(t.fd),
-		uintptr(syscall.TIOCGWINSZ),
-		uintptr(unsafe.Pointer(ws)))
-
-	if int(retCode) == -1 {
-		panic(errno)
+	ws, err := unix.IoctlGetWinsize(t.fd, unix.TIOCGWINSZ)
+	if err != nil {
+		panic(err)
 	}
 	return &WinSize{
 		Row: ws.Row,

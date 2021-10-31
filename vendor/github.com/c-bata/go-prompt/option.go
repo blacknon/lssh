@@ -37,6 +37,14 @@ func OptionPrefix(x string) Option {
 	}
 }
 
+// OptionInitialBufferText to set the initial buffer text
+func OptionInitialBufferText(x string) Option {
+	return func(p *Prompt) error {
+		p.buf.InsertText(x, false, true)
+		return nil
+	}
+}
+
 // OptionCompletionWordSeparator to set word separators. Enable only ' ' if empty.
 func OptionCompletionWordSeparator(x string) Option {
 	return func(p *Prompt) error {
@@ -206,6 +214,14 @@ func OptionSwitchKeyBindMode(m KeyBindMode) Option {
 	}
 }
 
+// OptionCompletionOnDown allows for Down arrow key to trigger completion.
+func OptionCompletionOnDown() Option {
+	return func(p *Prompt) error {
+		p.completionOnDown = true
+		return nil
+	}
+}
+
 // SwitchKeyBindMode to set a key bind mode.
 // Deprecated: Please use OptionSwitchKeyBindMode.
 var SwitchKeyBindMode = OptionSwitchKeyBindMode
@@ -230,6 +246,22 @@ func OptionAddASCIICodeBind(b ...ASCIICodeBind) Option {
 func OptionShowCompletionAtStart() Option {
 	return func(p *Prompt) error {
 		p.completion.showAtStart = true
+		return nil
+	}
+}
+
+// OptionBreakLineCallback to run a callback at every break line
+func OptionBreakLineCallback(fn func(*Document)) Option {
+	return func(p *Prompt) error {
+		p.renderer.breakLineCallback = fn
+		return nil
+	}
+}
+
+// OptionSetExitCheckerOnInput set an exit function which checks if go-prompt exits its Run loop
+func OptionSetExitCheckerOnInput(fn ExitChecker) Option {
+	return func(p *Prompt) error {
+		p.exitChecker = fn
 		return nil
 	}
 }
