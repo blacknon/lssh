@@ -12,7 +12,7 @@ import (
 	"golang.org/x/crypto/ssh"
 )
 
-// Cmd connect and run command over ssh.
+// Command connect and run command over ssh.
 // Output data is processed by channel because it is executed in parallel. If specification is troublesome, it is good to generate and process session from ssh package.
 func (c *Connect) Command(command string) (err error) {
 	// create session

@@ -7,7 +7,11 @@ import (
 )
 
 func Open() (*TTY, error) {
-	return open()
+	return open("/dev/tty")
+}
+
+func OpenDevice(path string) (*TTY, error) {
+	return open(path)
 }
 
 func (tty *TTY) Raw() (func() error, error) {
