@@ -2,18 +2,21 @@ package prompt
 
 import (
 	"bytes"
-	"io/ioutil"
-	"log"
 	"os"
 	"time"
-)
 
-const (
-	envDebugLogPath = "GO_PROMPT_LOG_PATH"
+	"github.com/c-bata/go-prompt/internal/debug"
 )
 
 // Executor is called when user input something text.
 type Executor func(string)
+
+// ExitChecker is called after user input to check if prompt must stop and exit go-prompt Run loop.
+// User input means: selecting/typing an entry, then, if said entry content matches the ExitChecker function criteria:
+// - immediate exit (if breakline is false) without executor called
+// - exit after typing <return> (meaning breakline is true), and the executor is called first, before exit.
+// Exit means exit go-prompt (not the overall Go program)
+type ExitChecker func(in string, breakline bool) bool
 
 // Completer should return the suggest item from Document.
 type Completer func(Document) []Suggest
@@ -29,6 +32,9 @@ type Prompt struct {
 	keyBindings       []KeyBind
 	ASCIICodeBindings []ASCIICodeBind
 	keyBindMode       KeyBindMode
+	completionOnDown  bool
+	exitChecker       ExitChecker
+	skipTearDown      bool
 }
 
 // Exec is the struct contains user input context.
@@ -38,16 +44,9 @@ type Exec struct {
 
 // Run starts prompt.
 func (p *Prompt) Run() {
-	if l := os.Getenv(envDebugLogPath); l == "" {
-		log.SetOutput(ioutil.Discard)
-	} else if f, err := os.OpenFile(l, os.O_WRONLY|os.O_CREATE|os.O_APPEND, 0666); err != nil {
-		log.SetOutput(ioutil.Discard)
-	} else {
-		defer f.Close()
-		log.SetOutput(f)
-		log.Println("[INFO] Logging is enabled.")
-	}
-
+	p.skipTearDown = false
+	defer debug.Teardown()
+	debug.Log("start prompt")
 	p.setUp()
 	defer p.tearDown()
 
@@ -81,14 +80,19 @@ func (p *Prompt) Run() {
 
 				// Unset raw mode
 				// Reset to Blocking mode because returned EAGAIN when still set non-blocking mode.
-				p.in.TearDown()
+				debug.AssertNoError(p.in.TearDown())
 				p.executor(e.input)
 
 				p.completion.Update(*p.buf.Document())
+
 				p.renderer.Render(p.buf, p.completion)
 
+				if p.exitChecker != nil && p.exitChecker(e.input, true) {
+					p.skipTearDown = true
+					return
+				}
 				// Set raw mode
-				p.in.Setup()
+				debug.AssertNoError(p.in.Setup())
 				go p.readBuffer(bufCh, stopReadBufCh)
 				go p.handleSignals(exitCh, winSizeCh, stopHandleSignalCh)
 			} else {
@@ -109,8 +113,8 @@ func (p *Prompt) Run() {
 }
 
 func (p *Prompt) feed(b []byte) (shouldExit bool, exec *Exec) {
-	key := p.in.GetKey(b)
-
+	key := GetKey(b)
+	p.buf.lastKeyStroke = key
 	// completion
 	completing := p.completion.Completing()
 	p.handleCompletionKeyBinding(key, completing)
@@ -120,7 +124,6 @@ func (p *Prompt) feed(b []byte) (shouldExit bool, exec *Exec) {
 		p.renderer.BreakLine(p.buf)
 
 		exec = &Exec{input: p.buf.Text()}
-		log.Printf("[History] %s", p.buf.Text())
 		p.buf = NewBuffer()
 		if exec.input != "" {
 			p.history.Add(exec.input)
@@ -154,14 +157,14 @@ func (p *Prompt) feed(b []byte) (shouldExit bool, exec *Exec) {
 		p.buf.InsertText(string(b), false, true)
 	}
 
-	p.handleKeyBinding(key)
+	shouldExit = p.handleKeyBinding(key)
 	return
 }
 
 func (p *Prompt) handleCompletionKeyBinding(key Key, completing bool) {
 	switch key {
 	case Down:
-		if completing {
+		if completing || p.completionOnDown {
 			p.completion.Next()
 		}
 	case Tab, ControlI:
@@ -184,7 +187,8 @@ func (p *Prompt) handleCompletionKeyBinding(key Key, completing bool) {
 	}
 }
 
-func (p *Prompt) handleKeyBinding(key Key) {
+func (p *Prompt) handleKeyBinding(key Key) bool {
+	shouldExit := false
 	for i := range commonKeyBindings {
 		kb := commonKeyBindings[i]
 		if kb.Key == key {
@@ -208,12 +212,16 @@ func (p *Prompt) handleKeyBinding(key Key) {
 			kb.Fn(p.buf)
 		}
 	}
+	if p.exitChecker != nil && p.exitChecker(p.buf.Text(), false) {
+		shouldExit = true
+	}
+	return shouldExit
 }
 
 func (p *Prompt) handleASCIICodeBinding(b []byte) bool {
 	checked := false
 	for _, kb := range p.ASCIICodeBindings {
-		if bytes.Compare(kb.ASCIICode, b) == 0 {
+		if bytes.Equal(kb.ASCIICode, b) {
 			kb.Fn(p.buf)
 			checked = true
 		}
@@ -223,16 +231,8 @@ func (p *Prompt) handleASCIICodeBinding(b []byte) bool {
 
 // Input just returns user input text.
 func (p *Prompt) Input() string {
-	if l := os.Getenv(envDebugLogPath); l == "" {
-		log.SetOutput(ioutil.Discard)
-	} else if f, err := os.OpenFile(l, os.O_WRONLY|os.O_CREATE|os.O_APPEND, 0666); err != nil {
-		log.SetOutput(ioutil.Discard)
-	} else {
-		defer f.Close()
-		log.SetOutput(f)
-		log.Println("[INFO] Logging is enabled.")
-	}
-
+	defer debug.Teardown()
+	debug.Log("start prompt")
 	p.setUp()
 	defer p.tearDown()
 
@@ -267,11 +267,11 @@ func (p *Prompt) Input() string {
 }
 
 func (p *Prompt) readBuffer(bufCh chan []byte, stopCh chan struct{}) {
-	log.Printf("[INFO] readBuffer start")
+	debug.Log("start reading buffer")
 	for {
 		select {
 		case <-stopCh:
-			log.Print("[INFO] stop readBuffer")
+			debug.Log("stop reading buffer")
 			return
 		default:
 			if b, err := p.in.Read(); err == nil && !(len(b) == 1 && b[0] == 0) {
@@ -283,12 +283,14 @@ func (p *Prompt) readBuffer(bufCh chan []byte, stopCh chan struct{}) {
 }
 
 func (p *Prompt) setUp() {
-	p.in.Setup()
+	debug.AssertNoError(p.in.Setup())
 	p.renderer.Setup()
 	p.renderer.UpdateWinSize(p.in.GetWinSize())
 }
 
 func (p *Prompt) tearDown() {
-	p.in.TearDown()
+	if !p.skipTearDown {
+		debug.AssertNoError(p.in.TearDown())
+	}
 	p.renderer.TearDown()
 }

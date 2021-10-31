@@ -3,7 +3,6 @@
 package prompt
 
 import (
-	"log"
 	"syscall"
 )
 
@@ -24,7 +23,6 @@ func (w *PosixWriter) Flush() error {
 	for {
 		n, err := syscall.Write(w.fd, w.buffer[offset:])
 		if err != nil {
-			log.Printf("[DEBUG] flush error: %s", err)
 			if retry < flushMaxRetryCount {
 				retry++
 				continue
@@ -43,6 +41,9 @@ func (w *PosixWriter) Flush() error {
 var _ ConsoleWriter = &PosixWriter{}
 
 var (
+	// NewStandardOutputWriter returns ConsoleWriter object to write to stdout.
+	// This generates VT100 escape sequences because almost terminal emulators
+	// in POSIX OS built on top of a VT100 specification.
 	// Deprecated: Please use NewStdoutWriter
 	NewStandardOutputWriter = NewStdoutWriter
 )

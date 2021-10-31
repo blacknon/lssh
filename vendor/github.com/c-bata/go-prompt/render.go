@@ -3,7 +3,8 @@ package prompt
 import (
 	"runtime"
 
-	"github.com/mattn/go-runewidth"
+	"github.com/c-bata/go-prompt/internal/debug"
+	runewidth "github.com/mattn/go-runewidth"
 )
 
 // Render to render prompt information from state of Buffer.
@@ -11,6 +12,7 @@ type Render struct {
 	out                ConsoleWriter
 	prefix             string
 	livePrefixCallback func() (prefix string, useLivePrefix bool)
+	breakLineCallback  func(*Document)
 	title              string
 	row                uint16
 	col                uint16
@@ -40,7 +42,7 @@ type Render struct {
 func (r *Render) Setup() {
 	if r.title != "" {
 		r.out.SetTitle(r.title)
-		r.out.Flush()
+		debug.AssertNoError(r.out.Flush())
 	}
 }
 
@@ -63,7 +65,7 @@ func (r *Render) renderPrefix() {
 func (r *Render) TearDown() {
 	r.out.ClearTitle()
 	r.out.EraseDown()
-	r.out.Flush()
+	debug.AssertNoError(r.out.Flush())
 }
 
 func (r *Render) prepareArea(lines int) {
@@ -73,14 +75,12 @@ func (r *Render) prepareArea(lines int) {
 	for i := 0; i < lines; i++ {
 		r.out.ScrollUp()
 	}
-	return
 }
 
 // UpdateWinSize called when window size is changed.
 func (r *Render) UpdateWinSize(ws *WinSize) {
 	r.row = ws.Row
 	r.col = ws.Col
-	return
 }
 
 func (r *Render) renderWindowTooSmall() {
@@ -88,7 +88,6 @@ func (r *Render) renderWindowTooSmall() {
 	r.out.EraseScreen()
 	r.out.SetColor(DarkRed, White, false)
 	r.out.WriteStr("Your console window is too small...")
-	return
 }
 
 func (r *Render) renderCompletion(buf *Buffer, completions *CompletionManager) {
@@ -165,7 +164,6 @@ func (r *Render) renderCompletion(buf *Buffer, completions *CompletionManager) {
 
 	r.out.CursorUp(windowHeight)
 	r.out.SetColor(DefaultColor, DefaultColor, false)
-	return
 }
 
 // Render renders to the console.
@@ -175,7 +173,7 @@ func (r *Render) Render(buffer *Buffer, completion *CompletionManager) {
 	if r.col == 0 {
 		return
 	}
-	defer r.out.Flush()
+	defer func() { debug.AssertNoError(r.out.Flush()) }()
 	r.move(r.previousCursor, 0)
 
 	line := buffer.Text()
@@ -233,7 +231,10 @@ func (r *Render) BreakLine(buffer *Buffer) {
 	r.out.SetColor(r.inputTextColor, r.inputBGColor, false)
 	r.out.WriteStr(buffer.Document().Text + "\n")
 	r.out.SetColor(DefaultColor, DefaultColor, false)
-	r.out.Flush()
+	debug.AssertNoError(r.out.Flush())
+	if r.breakLineCallback != nil {
+		r.breakLineCallback(buffer.Document())
+	}
 
 	r.previousCursor = 0
 }

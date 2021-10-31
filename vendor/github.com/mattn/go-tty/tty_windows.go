@@ -4,8 +4,8 @@ package tty
 
 import (
 	"context"
-	"os"
 	"errors"
+	"os"
 	"syscall"
 	"unsafe"
 
@@ -142,7 +142,7 @@ func readConsoleInput(fd uintptr, record *inputRecord) (err error) {
 	return nil
 }
 
-func open() (*TTY, error) {
+func open(path string) (*TTY, error) {
 	tty := new(TTY)
 	if false && isatty.IsTerminal(os.Stdin.Fd()) {
 		tty.in = os.Stdin

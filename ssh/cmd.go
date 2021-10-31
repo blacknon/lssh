@@ -135,7 +135,7 @@ func (r *Run) cmd() (err error) {
 		if r.isStdinPipe {
 			go output.PushPipeWriter(exitInput, writers, os.Stdin)
 		} else {
-			go output.PushInput(exitInput, writers)
+			go output.PushInput(exitInput, writers, byte('\n'))
 		}
 	case !r.IsParallel && len(r.ServerList) > 1:
 		if r.isStdinPipe {

@@ -1,10 +1,10 @@
 package prompt
 
 import (
-	"log"
 	"strings"
 
-	"github.com/mattn/go-runewidth"
+	"github.com/c-bata/go-prompt/internal/debug"
+	runewidth "github.com/mattn/go-runewidth"
 )
 
 const (
@@ -44,7 +44,7 @@ func (c *CompletionManager) GetSelectedSuggestion() (s Suggest, ok bool) {
 	if c.selected == -1 {
 		return Suggest{}, false
 	} else if c.selected < -1 {
-		log.Printf("[ERROR] shoud be reached here, selected=%d", c.selected)
+		debug.Assert(false, "must not reach here")
 		c.selected = -1
 		return Suggest{}, false
 	}
@@ -61,13 +61,11 @@ func (c *CompletionManager) Reset() {
 	c.selected = -1
 	c.verticalScroll = 0
 	c.Update(*NewDocument())
-	return
 }
 
 // Update to update the suggestions.
 func (c *CompletionManager) Update(in Document) {
 	c.tmp = c.completer(in)
-	return
 }
 
 // Previous to select the previous suggestion item.
@@ -77,7 +75,6 @@ func (c *CompletionManager) Previous() {
 	}
 	c.selected--
 	c.update()
-	return
 }
 
 // Next to select the next suggestion item.
@@ -87,7 +84,6 @@ func (c *CompletionManager) Next() {
 	}
 	c.selected++
 	c.update()
-	return
 }
 
 // Completing returns whether the CompletionManager selects something one.
@@ -136,7 +132,6 @@ func formatTexts(o []string, max int, prefix, suffix string) (new []string, widt
 		return n, 0
 	}
 	if min >= max {
-		log.Println("[WARN] formatTexts: max is lower than length of prefix and suffix.")
 		return n, 0
 	}
 	if lenPrefix+width+lenSuffix > max {
