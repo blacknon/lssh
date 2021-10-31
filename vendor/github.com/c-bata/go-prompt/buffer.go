@@ -1,8 +1,9 @@
 package prompt
 
 import (
-	"log"
 	"strings"
+
+	"github.com/c-bata/go-prompt/internal/debug"
 )
 
 // Buffer emulates the console buffer.
@@ -12,6 +13,7 @@ type Buffer struct {
 	cursorPosition  int
 	cacheDocument   *Document
 	preferredColumn int // Remember the original column for the next up/down movement.
+	lastKeyStroke   Key
 }
 
 // Text returns string of the current line.
@@ -29,6 +31,7 @@ func (b *Buffer) Document() (d *Document) {
 			cursorPosition: b.cursorPosition,
 		}
 	}
+	b.cacheDocument.lastKey = b.lastKeyStroke
 	return b.cacheDocument
 }
 
@@ -63,30 +66,16 @@ func (b *Buffer) InsertText(v string, overwrite bool, moveCursor bool) {
 // (When doing this, make sure that the cursor_position is valid for this text.
 // text/cursor_position should be consistent at any time, otherwise set a Document instead.)
 func (b *Buffer) setText(v string) {
-	if b.cursorPosition > len([]rune(v)) {
-		log.Print("[ERROR] The length of input value should be shorter than the position of cursor.")
-	}
-	o := b.workingLines[b.workingIndex]
+	debug.Assert(b.cursorPosition <= len([]rune(v)), "length of input should be shorter than cursor position")
 	b.workingLines[b.workingIndex] = v
-
-	if o != v {
-		// Text is changed.
-		// TODO: Call callback function triggered by text changed. And also history search text should reset.
-		// https://github.com/jonathanslenders/python-prompt-toolkit/blob/master/prompt_toolkit/buffer.py#L380-L384
-	}
 }
 
 // Set cursor position. Return whether it changed.
 func (b *Buffer) setCursorPosition(p int) {
-	o := b.cursorPosition
 	if p > 0 {
 		b.cursorPosition = p
 	} else {
 		b.cursorPosition = 0
-	}
-	if p != o {
-		// Cursor position is changed.
-		// TODO: Call a onCursorPositionChanged function.
 	}
 }
 
@@ -100,14 +89,12 @@ func (b *Buffer) setDocument(d *Document) {
 func (b *Buffer) CursorLeft(count int) {
 	l := b.Document().GetCursorLeftPosition(count)
 	b.cursorPosition += l
-	return
 }
 
 // CursorRight move to right on the current line.
 func (b *Buffer) CursorRight(count int) {
 	l := b.Document().GetCursorRightPosition(count)
 	b.cursorPosition += l
-	return
 }
 
 // CursorUp move cursor to the previous line.
@@ -138,9 +125,7 @@ func (b *Buffer) CursorDown(count int) {
 
 // DeleteBeforeCursor delete specified number of characters before cursor and return the deleted text.
 func (b *Buffer) DeleteBeforeCursor(count int) (deleted string) {
-	if count <= 0 {
-		log.Print("[ERROR] The count argument on DeleteBeforeCursor should grater than 0.")
-	}
+	debug.Assert(count >= 0, "count should be positive")
 	r := []rune(b.Text())
 
 	if b.cursorPosition > 0 {
