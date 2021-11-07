@@ -44,6 +44,9 @@ type LogConfig struct {
 
 	// Specifies the directory for creating terminal logs.
 	Dir string `toml:"dirpath"`
+
+	// Logging with remove ANSI code.
+	RemoveAnsiCode bool `toml:"remove_ansi_code"`
 }
 
 // ShellConfig Structure for storing lssh-shell settings.
