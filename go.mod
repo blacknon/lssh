@@ -14,8 +14,8 @@ require (
 	github.com/stretchr/testify v1.5.1
 	github.com/urfave/cli v1.21.0
 	github.com/vbauerster/mpb v3.4.0+incompatible
-	golang.org/x/crypto v0.0.0-20201124201722-c8d3bf9c5392
-	golang.org/x/net v0.0.0-20201110031124-69a78807bb2b
+	golang.org/x/crypto v0.0.0-20210921155107-089bfa567519
+	golang.org/x/net v0.0.0-20211029224645-99673261e6eb
 	mvdan.cc/sh v2.6.3+incompatible
 )
 
@@ -40,14 +40,14 @@ require (
 	github.com/pmezard/go-difflib v1.0.0 // indirect
 	github.com/rivo/uniseg v0.2.0 // indirect
 	github.com/thales-e-security/pool v0.0.2 // indirect
-	golang.org/x/sys v0.0.0-20210927094055-39ccf1dd6fa6 // indirect
-	golang.org/x/term v0.0.0-20201117132131-f5c789dd3221 // indirect
+	golang.org/x/sys v0.0.0-20211031064116-611d5d643895 // indirect
+	golang.org/x/term v0.0.0-20210927222741-03fcf44c2211 // indirect
 	gopkg.in/yaml.v2 v2.2.2 // indirect
 )
 
 replace github.com/urfave/cli v1.22.0 => ../../urfave/cli
 
-// replace github.com/blacknon/go-sshlib v1.22.0 => ../go-sshlib
+replace github.com/blacknon/go-sshlib v0.1.4 => ../go-sshlib
 
 replace github.com/miekg/pkcs11 => github.com/blacknon/pkcs11 v1.0.4-0.20201018135904-6038e308f617
 
