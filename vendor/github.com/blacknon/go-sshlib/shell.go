@@ -12,18 +12,12 @@ import (
 	"io"
 	"log"
 	"os"
-	"regexp"
-	"strings"
 	"time"
 
 	"github.com/lunixbochs/vtclean"
 	"golang.org/x/crypto/ssh"
 	"golang.org/x/crypto/ssh/terminal"
 )
-
-const ansi = "[\u001B\u009B][[\\]()#;?]*(?:(?:(?:[a-zA-Z\\d]*(?:;[a-zA-Z\\d]*)*)?\u0007)|(?:(?:\\d{1,4}(?:;\\d{0,4})*)?[\\dA-PRZcf-ntqry=><~]))"
-
-var re = regexp.MustCompile(ansi)
 
 // Shell connect login shell over ssh.
 func (c *Connect) Shell(session *ssh.Session) (err error) {
@@ -173,8 +167,6 @@ func (c *Connect) logger(session *ssh.Session) (err error) {
 						continue
 					} else {
 						printLine := string(append(preLine, line...))
-
-						printLine = strings.Trim(printLine, "\r")
 
 						if c.logTimestamp {
 							timestamp := time.Now().Format("2006/01/02 15:04:05 ") // yyyy/mm/dd HH:MM:SS
