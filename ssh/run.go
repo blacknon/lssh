@@ -170,14 +170,14 @@ func (r *Run) Start() {
 // use ssh login header.
 func (r *Run) PrintSelectServer() {
 	serverListStr := strings.Join(r.ServerList, ",")
-	fmt.Fprintf(os.Stderr, "Select Server :%s\n", serverListStr)
+	fmt.Fprintf(os.Stderr, "Select Server  : %s\n", serverListStr)
 }
 
 // printRunCommand is printout run command.
 // use ssh command run header.
 func (r *Run) printRunCommand() {
 	runCmdStr := strings.Join(r.ExecCmd, " ")
-	fmt.Fprintf(os.Stderr, "Run Command   :%s\n", runCmdStr)
+	fmt.Fprintf(os.Stderr, "Run Command    : %s\n", runCmdStr)
 }
 
 // printPortForward is printout port forwarding.
@@ -194,8 +194,8 @@ func (r *Run) printPortForward(m, forwardLocal, forwardRemote string) {
 			arrow = "<= "
 		}
 
-		fmt.Fprintf(os.Stderr, "Port Forward  :%s\n", mode)
-		fmt.Fprintf(os.Stderr, "               local[%s] %s remote[%s]\n", forwardLocal, arrow, forwardRemote)
+		fmt.Fprintf(os.Stderr, "Port Forward   : %s\n", mode)
+		fmt.Fprintf(os.Stderr, "                 local[%s] %s remote[%s]\n", forwardLocal, arrow, forwardRemote)
 	}
 }
 
@@ -203,8 +203,8 @@ func (r *Run) printPortForward(m, forwardLocal, forwardRemote string) {
 // use ssh command run header. only use shell().
 func (r *Run) printDynamicPortForward(port string) {
 	if port != "" {
-		fmt.Fprintf(os.Stderr, "DynamicForward:%s\n", port)
-		fmt.Fprintf(os.Stderr, "               %s\n", "connect Socks5.")
+		fmt.Fprintf(os.Stderr, "DynamicForward : %s\n", port)
+		fmt.Fprintf(os.Stderr, "                 %s\n", "connect Socks5.")
 	}
 }
 
@@ -251,7 +251,7 @@ func (r *Run) printProxy(server string) {
 
 	// print header
 	header := strings.Join(array, " => ")
-	fmt.Fprintf(os.Stderr, "Proxy         :%s\n", header)
+	fmt.Fprintf(os.Stderr, "Proxy          : %s\n", header)
 }
 
 // runCmdLocal exec command local machine.
