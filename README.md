@@ -74,49 +74,48 @@ run command.
 
 option(lssh)
 
-    NAME:
-        lssh - TUI list select and parallel ssh client command.
-    USAGE:
-        lssh [options] [commands...]
+	NAME:
+	    lssh - TUI list select and parallel ssh client command.
+	USAGE:
+	    lssh [options] [commands...]
 
-    OPTIONS:
-        --host servername, -H servername            connect servername.
-        --file filepath, -F filepath                config filepath. (default: "~/.lssh.conf")
-        -L [bind_address:]port:remote_address:port  Local port forward mode.Specify a [bind_address:]port:remote_address:port. Only single connection works.
-        -R [bind_address:]port:remote_address:port  Remote port forward mode.Specify a [bind_address:]port:remote_address:port.  Only single connection works.
-        -D port                                     Dynamic port forward mode(Socks5). Specify a port. Only single connection works.
-        -w                                          Displays the server header when in command execution mode.
-        -W                                          Not displays the server header when in command execution mode.
-        --not-execute, -N                           not execute remote command and shell.
-        --x11, -X                                   x11 forwarding(forward to ${DISPLAY}).
-        --term, -t                                  run specified command at terminal.
-        --parallel, -p                              run command parallel node(tail -F etc...).
-        --localrc                                   use local bashrc shell.
-        --not-localrc                               not use local bashrc shell.
-        --pshell, -s                                use parallel-shell(pshell) (alpha).
-        --list, -l                                  print server list from config.
-        --help, -h                                  print this help
-        --version, -v                               print the version
+	OPTIONS:
+	    --host servername, -H servername            connect servername.
+	    --file filepath, -F filepath                config filepath. (default: "/Users/uesugi/.lssh.conf")
+	    -L [bind_address:]port:remote_address:port  Local port forward mode.Specify a [bind_address:]port:remote_address:port. Only single connection works.
+	    -R [bind_address:]port:remote_address:port  Remote port forward mode.Specify a [bind_address:]port:remote_address:port.  Only single connection works.
+	    -D port                                     Dynamic port forward mode(Socks5). Specify a port. Only single connection works.
+	    -w                                          Displays the server header when in command execution mode.
+	    -W                                          Not displays the server header when in command execution mode.
+	    --not-execute, -N                           not execute remote command and shell.
+	    --x11, -X                                   x11 forwarding(forward to ${DISPLAY}).
+	    --term, -t                                  run specified command at terminal.
+	    --parallel, -p                              run command parallel node(tail -F etc...).
+	    --localrc                                   use local bashrc shell.
+	    --not-localrc                               not use local bashrc shell.
+	    --pshell, -s                                use parallel-shell(pshell) (alpha).
+	    --list, -l                                  print server list from config.
+	    --help, -h                                  print this help
+	    --version, -v                               print the version
 
-    COPYRIGHT:
-        blacknon(blacknon@orebibou.com)
+	COPYRIGHT:
+	    blacknon(blacknon@orebibou.com)
 
-    VERSION:
-        0.6.2
+	VERSION:
+	    0.6.4
 
-    USAGE:
-        # connect ssh
-        lssh
+	USAGE:
+	    # connect ssh
+	    lssh
 
-        # run command selected server over ssh.
-        lssh command...
+	    # run command selected server over ssh.
+	    lssh command...
 
-        # run command parallel in selected server over ssh.
-        lssh -p command...
+	    # run command parallel in selected server over ssh.
+	    lssh -p command...
 
-        # run command parallel in selected server over ssh, do it in interactively shell.
-        lssh -s
-
+	    # run command parallel in selected server over ssh, do it in interactively shell.
+	    lssh -s
 
 
 ### lscp
@@ -127,35 +126,34 @@ run command.
 
 option(lscp)
 
-    NAME:
-        lscp - TUI list select and parallel scp client command.
-    USAGE:
-        lscp [options] (local|remote):from_path... (local|remote):to_path
+	NAME:
+	    lscp - TUI list select and parallel scp client command.
+	USAGE:
+	    lscp [options] (local|remote):from_path... (local|remote):to_path
 
-    OPTIONS:
-        --host value, -H value  connect servernames
-        --list, -l              print server list from config
-        --file value, -F value  config file path (default: "~/.lssh.conf")
-        --permission, -p        copy file permission
-        --help, -h              print this help
-        --version, -v           print the version
+	OPTIONS:
+	    --host value, -H value  connect servernames
+	    --list, -l              print server list from config
+	    --file value, -F value  config file path (default: "/Users/uesugi/.lssh.conf")
+	    --permission, -p        copy file permission
+	    --help, -h              print this help
+	    --version, -v           print the version
 
-    COPYRIGHT:
-        blacknon(blacknon@orebibou.com)
+	COPYRIGHT:
+	    blacknon(blacknon@orebibou.com)
 
-    VERSION:
-        0.6.2
+	VERSION:
+	    0.6.4
 
-    USAGE:
-        # local to remote scp
-        lscp /path/to/local... remote:/path/to/remote
+	USAGE:
+	    # local to remote scp
+	    lscp /path/to/local... remote:/path/to/remote
 
-        # remote to local scp
-        lscp remote:/path/to/remote... /path/to/local
+	    # remote to local scp
+	    lscp remote:/path/to/remote... /path/to/local
 
-        # remote to remote scp
-        lscp remote:/path/to/remote... remote:/path/to/local
-
+	    # remote to remote scp
+	    lscp remote:/path/to/remote... remote:/path/to/local
 
 
 ### lsftp
@@ -166,27 +164,25 @@ run command.
 
 option(lsftp)
 
-    NAME:
-        lsftp - TUI list select and parallel sftp client command.
-    USAGE:
-        lsftp [options]
+	NAME:
+	    lsftp - TUI list select and parallel sftp client command.
+	USAGE:
+	    lsftp [options]
 
-    OPTIONS:
-        --file value, -F value  config file path (default: "~/.lssh.conf")
-        --help, -h              print this help
-        --version, -v           print the version
+	OPTIONS:
+	    --file value, -F value  config file path (default: "/Users/uesugi/.lssh.conf")
+	    --help, -h              print this help
+	    --version, -v           print the version
 
-    COPYRIGHT:
-        blacknon(blacknon@orebibou.com)
+	COPYRIGHT:
+	    blacknon(blacknon@orebibou.com)
 
-    VERSION:
-        0.6.2
+	VERSION:
+	    0.6.4
 
-    USAGE:
-      # start lsftp shell
-      lsftp
-
-
+	USAGE:
+	  # start lsftp shell
+	  lsftp
 
 
 If you specify a command as an argument, you can select multiple hosts. Select host <kbd>Tab</kbd>, select all displayed hosts <kbd>Ctrl</kbd> + <kbd>a</kbd>.
@@ -377,7 +373,7 @@ You can select multiple connection destinations.
 </details>
 
 
-### 5. include ~/.ssh/config file.
+### 6. include ~/.ssh/config file.
 <details>
 
 Load and use `~/.ssh/config` by default.\
@@ -392,7 +388,7 @@ Alternatively, you can specify and read the path as follows: In addition to the 
 
 </details>
 
-### 6. include other ServerConfig file.
+### 7. include other ServerConfig file.
 <details>
 
 You can include server settings in another file.\
@@ -434,7 +430,7 @@ The priority of setting values ​​is as follows.
 
 </details>
 
-### 7. Supported Proxy
+### 8. Supported Proxy
 <details>
 
 Supports multiple proxy.
@@ -505,7 +501,7 @@ Besides this, you can also specify ProxyCommand like OpenSSH.
 </details>
 
 
-### 8. Available authentication method
+### 9. Available authentication method
 <details>
 
 * Password auth
@@ -587,7 +583,7 @@ Besides this, you can also specify ProxyCommand like OpenSSH.
 </details>
 
 
-### 9. Port forwarding
+### 10. Port forwarding
 <details>
 
 Supported Local/Remote/Dynamic port forwarding.\
