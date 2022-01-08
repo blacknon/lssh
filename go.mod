@@ -2,7 +2,7 @@ module github.com/blacknon/lssh
 
 require (
 	github.com/BurntSushi/toml v0.3.1
-	github.com/blacknon/go-sshlib v0.1.4
+	github.com/blacknon/go-sshlib v0.1.5
 	github.com/blacknon/textcol v0.0.1
 	github.com/c-bata/go-prompt v0.2.5
 	github.com/dustin/go-humanize v1.0.0
@@ -47,6 +47,6 @@ require (
 
 // replace github.com/urfave/cli v1.22.0 => ../../urfave/cli
 
-// replace github.com/blacknon/go-sshlib v0.1.4 => ../go-sshlib
+replace github.com/blacknon/go-sshlib v0.1.5 => ../go-sshlib
 
 go 1.17
