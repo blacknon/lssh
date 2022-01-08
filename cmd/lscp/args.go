@@ -1,4 +1,4 @@
-// Copyright (c) 2019 Blacknon. All rights reserved.
+// Copyright (c) 2021 Blacknon. All rights reserved.
 // Use of this source code is governed by an MIT license
 // that can be found in the LICENSE file.
 
@@ -60,7 +60,7 @@ USAGE:
 	app.Name = "lscp"
 	app.Usage = "TUI list select and parallel scp client command."
 	app.Copyright = "blacknon(blacknon@orebibou.com)"
-	app.Version = "0.6.2"
+	app.Version = "0.6.4"
 
 	// options
 	// TODO(blacknon): オプションの追加(0.7.0)

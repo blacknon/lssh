@@ -1,4 +1,4 @@
-// Copyright (c) 2019 Blacknon. All rights reserved.
+// Copyright (c) 2021 Blacknon. All rights reserved.
 // Use of this source code is governed by an MIT license
 // that can be found in the LICENSE file.
 
@@ -12,17 +12,12 @@ import (
 	"io"
 	"log"
 	"os"
-	"regexp"
 	"time"
 
 	"github.com/lunixbochs/vtclean"
 	"golang.org/x/crypto/ssh"
 	"golang.org/x/crypto/ssh/terminal"
 )
-
-const ansi = "[\u001B\u009B][[\\]()#;?]*(?:(?:(?:[a-zA-Z\\d]*(?:;[a-zA-Z\\d]*)*)?\u0007)|(?:(?:\\d{1,4}(?:;\\d{0,4})*)?[\\dA-PRZcf-ntqry=><~]))"
-
-var re = regexp.MustCompile(ansi)
 
 // Shell connect login shell over ssh.
 func (c *Connect) Shell(session *ssh.Session) (err error) {
@@ -164,6 +159,7 @@ func (c *Connect) logger(session *ssh.Session) (err error) {
 			preLine := []byte{}
 			for {
 				if buf.Len() > 0 {
+					// get line
 					line, err := buf.ReadBytes('\n')
 
 					if err == io.EOF {
@@ -171,7 +167,6 @@ func (c *Connect) logger(session *ssh.Session) (err error) {
 						continue
 					} else {
 						printLine := string(append(preLine, line...))
-						// fmt.Fprintf(logfile, printLine)
 
 						if c.logTimestamp {
 							timestamp := time.Now().Format("2006/01/02 15:04:05 ") // yyyy/mm/dd HH:MM:SS

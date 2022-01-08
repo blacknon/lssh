@@ -1,4 +1,4 @@
-// Copyright (c) 2019 Blacknon. All rights reserved.
+// Copyright (c) 2021 Blacknon. All rights reserved.
 // Use of this source code is governed by an MIT license
 // that can be found in the LICENSE file.
 
@@ -44,6 +44,9 @@ type LogConfig struct {
 
 	// Specifies the directory for creating terminal logs.
 	Dir string `toml:"dirpath"`
+
+	// Logging with remove ANSI code.
+	RemoveAnsiCode bool `toml:"remove_ansi_code"`
 }
 
 // ShellConfig Structure for storing lssh-shell settings.
