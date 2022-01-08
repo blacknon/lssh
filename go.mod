@@ -45,8 +45,4 @@ require (
 	gopkg.in/yaml.v2 v2.2.2 // indirect
 )
 
-// replace github.com/urfave/cli v1.22.0 => ../../urfave/cli
-
-replace github.com/blacknon/go-sshlib v0.1.5 => ../go-sshlib
-
 go 1.17
