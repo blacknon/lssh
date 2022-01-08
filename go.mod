@@ -2,7 +2,7 @@ module github.com/blacknon/lssh
 
 require (
 	github.com/BurntSushi/toml v0.3.1
-	github.com/blacknon/go-sshlib v0.1.4
+	github.com/blacknon/go-sshlib v0.1.5
 	github.com/blacknon/textcol v0.0.1
 	github.com/c-bata/go-prompt v0.2.5
 	github.com/dustin/go-humanize v1.0.0
@@ -14,8 +14,8 @@ require (
 	github.com/stretchr/testify v1.5.1
 	github.com/urfave/cli v1.21.0
 	github.com/vbauerster/mpb v3.4.0+incompatible
-	golang.org/x/crypto v0.0.0-20201124201722-c8d3bf9c5392
-	golang.org/x/net v0.0.0-20201110031124-69a78807bb2b
+	golang.org/x/crypto v0.0.0-20211215153901-e495a2d5b3d3
+	golang.org/x/net v0.0.0-20220107192237-5cfca573fb4d
 	mvdan.cc/sh v2.6.3+incompatible
 )
 
@@ -34,21 +34,15 @@ require (
 	github.com/mattn/go-colorable v0.1.7 // indirect
 	github.com/mattn/go-isatty v0.0.12 // indirect
 	github.com/mattn/go-tty v0.0.3 // indirect
-	github.com/miekg/pkcs11 v1.0.3 // indirect
+	github.com/miekg/pkcs11 v1.1.1 // indirect
 	github.com/pkg/errors v0.9.1 // indirect
 	github.com/pkg/term v1.1.0 // indirect
 	github.com/pmezard/go-difflib v1.0.0 // indirect
 	github.com/rivo/uniseg v0.2.0 // indirect
 	github.com/thales-e-security/pool v0.0.2 // indirect
-	golang.org/x/sys v0.0.0-20210927094055-39ccf1dd6fa6 // indirect
-	golang.org/x/term v0.0.0-20201117132131-f5c789dd3221 // indirect
-	gopkg.in/yaml.v2 v2.2.2 // indirect
+	golang.org/x/sys v0.0.0-20211216021012-1d35b9e2eb4e // indirect
+	golang.org/x/term v0.0.0-20210927222741-03fcf44c2211 // indirect
+	gopkg.in/yaml.v2 v2.2.8 // indirect
 )
-
-replace github.com/urfave/cli v1.22.0 => ../../urfave/cli
-
-// replace github.com/blacknon/go-sshlib v1.22.0 => ../go-sshlib
-
-replace github.com/miekg/pkcs11 => github.com/blacknon/pkcs11 v1.0.4-0.20201018135904-6038e308f617
 
 go 1.17

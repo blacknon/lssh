@@ -1,4 +1,4 @@
-// Copyright (c) 2019 Blacknon. All rights reserved.
+// Copyright (c) 2021 Blacknon. All rights reserved.
 // Use of this source code is governed by an MIT license
 // that can be found in the LICENSE file.
 
@@ -122,7 +122,13 @@ func (r *Run) shell() (err error) {
 		logConf := r.Conf.Log
 		if logConf.Enable {
 			logPath := r.getLogPath(server)
-			connect.SetLog(logPath, logConf.Timestamp)
+
+			// Check logging with remove ANSI code flag.
+			if logConf.RemoveAnsiCode {
+				connect.SetLogWithRemoveAnsiCode(logPath, logConf.Timestamp)
+			} else {
+				connect.SetLog(logPath, logConf.Timestamp)
+			}
 		}
 
 		// TODO(blacknon): local rc file add

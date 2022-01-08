@@ -1,4 +1,4 @@
-// Copyright (c) 2019 Blacknon. All rights reserved.
+// Copyright (c) 2021 Blacknon. All rights reserved.
 // Use of this source code is governed by an MIT license
 // that can be found in the LICENSE file.
 
@@ -65,7 +65,7 @@ USAGE:
 	app.Name = "lssh"
 	app.Usage = "TUI list select and parallel ssh client command."
 	app.Copyright = "blacknon(blacknon@orebibou.com)"
-	app.Version = "0.6.2"
+	app.Version = "0.6.4"
 
 	// TODO(blacknon): オプションの追加
 	//     -f       ... バックグラウンドでの接続(X11接続やport forwardingをバックグラウンドで実行する場合など)。
