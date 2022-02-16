@@ -136,11 +136,11 @@ jobs:
     steps:
       - uses: actions/checkout@v1
 
-      - id: package_version
-        name: Get version.
+      - name: Get version
+        id: package_version
         shell: bash
         run: |
-          VERSION="$(cargo run --example version)"
+          VERSION="$(go run ./cmd/lssh/ --version | awk '{print $NF}')"
           echo "::set-output name=version::$VERSION"
 
       - id: create-release
