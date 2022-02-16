@@ -108,34 +108,46 @@ type ServerConfig struct {
 	PKCS11Provider  string   `toml:"pkcs11provider"` // PKCS11 Provider PATH
 	PKCS11PIN       string   `toml:"pkcs11pin"`      // PKCS11 PIN code
 
-	// pre | post command setting
-	PreCmd  string `toml:"pre_cmd"`
+	// pre execute command
+	PreCmd string `toml:"pre_cmd"`
+
+	// post execute command
 	PostCmd string `toml:"post_cmd"`
 
 	// proxy setting
-	ProxyType    string `toml:"proxy_type"`
-	Proxy        string `toml:"proxy"`
-	ProxyCommand string `toml:"proxy_cmd"` // OpenSSH type proxy setting
+	ProxyType string `toml:"proxy_type"`
+
+	Proxy string `toml:"proxy"`
+
+	// OpenSSH type proxy setting
+	ProxyCommand string `toml:"proxy_cmd"`
 
 	// local rcfile setting
-	LocalRcUse       string   `toml:"local_rc"` // yes|no (default: yes)
+	// yes|no (default: yes)
+	LocalRcUse       string   `toml:"local_rc"`
 	LocalRcPath      []string `toml:"local_rc_file"`
 	LocalRcDecodeCmd string   `toml:"local_rc_decode_cmd"`
 
-	// local/remote port forwarding setting
-	PortForwardMode   string `toml:"port_forward"`        // [`L`,`l`,`LOCAL`,`local`]|[`R`,`r`,`REMOTE`,`remote`]
-	PortForwardLocal  string `toml:"port_forward_local"`  // port forward (local). "host:port"
-	PortForwardRemote string `toml:"port_forward_remote"` // port forward (remote). "host:port"
+	// local/remote port forwarding setting.
+	// ex. [`L`,`l`,`LOCAL`,`local`]|[`R`,`r`,`REMOTE`,`remote`]
+	PortForwardMode string `toml:"port_forward"`
+
+	// port forward (local). "host:port"
+	PortForwardLocal string `toml:"port_forward_local"`
+
+	// port forward (remote). "host:port"
+	PortForwardRemote string `toml:"port_forward_remote"`
 
 	// local/remote port forwarding settings
-	// {[`L`,`l`,`LOCAL`,`local`]|[`R`,`r`,`REMOTE`,`remote`]}:[localaddress]:[localport]:[remoteaddress]:[remoteport]
+	// ex. {[`L`,`l`,`LOCAL`,`local`]|[`R`,`r`,`REMOTE`,`remote`]}:[localaddress]:[localport]:[remoteaddress]:[remoteport]
 	PortForwards []string `toml:"port_forwards"`
 
 	// local/remote Port Forwarding slice.
 	Forwards []*PortForward
 
 	// Dynamic Port Forwarding setting
-	DynamicPortForward string `toml:"dynamic_port_forward"` // ex.) "11080"
+	// ex.) "11080"
+	DynamicPortForward string `toml:"dynamic_port_forward"`
 
 	// x11 forwarding setting
 	X11 bool `toml:"x11"`
@@ -177,7 +189,8 @@ type PortForward struct {
 }
 
 // ReadConf load configuration file and return Config structure
-// TODO(blacknon): リファクタリング！(v0.6.1) 外出しや処理のまとめなど
+// TODO(blacknon): リファクタリング！(v0.6.5) 外出しや処理のまとめなど
+// TODO(blacknon): ~/.lssh.confがなくても、openssh用のファイルがアレばそれをみるように処理
 func ReadConf(confPath string) (config Config) {
 	// user path
 	usr, _ := user.Current()
