@@ -297,17 +297,7 @@ func (ps *pShell) executeRemotePipeLine(pline pipeLine, in *io.PipeReader, out *
 	}
 
 	// multi input-writer
-	switch stdin.(type) {
-	case *os.File:
-		// push input to pararell session
-		// (Only when input is os.Stdin and output is os.Stdout).
-		if stdout == os.Stdout {
-			// go output.PushInput(exitInput, writers, byte('\n'))
-			go output.PushInput(exitInput, writers, stdin)
-		}
-	case *io.PipeReader:
-		go output.PushInput(exitInput, writers, stdin)
-	}
+	go output.PushInput(exitInput, writers, stdin)
 
 	// run command
 	for _, s := range sessions {
@@ -336,14 +326,14 @@ func (ps *pShell) executeRemotePipeLine(pline pipeLine, in *io.PipeReader, out *
 	// wait
 	ps.wait(len(sessions), exit)
 
-	// wait time (0.500 sec)
+	// wait time (0.050 sec)
 	time.Sleep(500 * time.Millisecond)
 
 	// send exit
 	ch <- true
 
 	// exit input.
-	if stdin == os.Stdin && stdout == os.Stdout {
+	if stdin == os.Stdin {
 		exitInput <- true
 	}
 
@@ -352,6 +342,9 @@ func (ps *pShell) executeRemotePipeLine(pline pipeLine, in *io.PipeReader, out *
 	case *io.PipeWriter:
 		out.CloseWithError(io.ErrClosedPipe)
 	}
+
+	// wait time (0.050 sec)
+	time.Sleep(500 * time.Millisecond)
 
 	return
 }
