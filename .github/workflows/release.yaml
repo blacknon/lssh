@@ -201,6 +201,6 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           upload_url: ${{ steps.upload-url.outputs.url }}
-          asset_path: ./build-${{ matrix.goos }}_${{ matrix.goarch }}/lssh_${{ needs.create-release.outputs.version }}_{{ matrix.goos }}_${{ matrix.goarch }}_{{ matrix.ext }}
-          asset_name: lssh_${{ needs.create-release.outputs.version }}_{{ matrix.goos }}_${{ matrix.goarch }}_{{ matrix.ext }}
+          asset_path: ./build-${{ matrix.goos }}_${{ matrix.goarch }}/lssh_${{ steps.package_version.outputs.version }}_${{ matrix.goos }}_${{ matrix.goarch }}.${{ matrix.ext }}
+          asset_name: lssh_${{ steps.package_version.outputs.version }}_${{ matrix.goos }}_${{ matrix.goarch }}.${{ matrix.ext }}
           asset_content_type: application/octet-stream
