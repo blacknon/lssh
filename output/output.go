@@ -221,34 +221,32 @@ func OutColorStrings(num int, inStrings string) (str string) {
 // PushInput is Reader([io.PipeReader, os.Stdin]) to []io.WriteCloser.
 func PushInput(isExit <-chan bool, output []io.WriteCloser, input io.Reader) {
 	rd := bufio.NewReader(input)
+
 loop:
 	for {
 		buf := make([]byte, 1024)
 		size, err := rd.Read(buf)
 
-		if size > 0 {
-			d := buf[:size]
-
-			// write
-			for _, w := range output {
-				w.Write(d)
-			}
-		}
-
-		if input != os.Stdin {
-			switch err {
-			case nil:
-				continue
-			case io.ErrClosedPipe, io.EOF:
-				break loop
-			}
-		}
-
 		select {
 		case <-isExit:
 			break loop
 		case <-time.After(10 * time.Millisecond):
-			continue
+			if size > 0 {
+				d := buf[:size]
+
+				// write
+				for _, w := range output {
+					w.Write(d)
+				}
+			}
+
+			if input != os.Stdin {
+				switch err {
+				case io.ErrClosedPipe, io.EOF:
+					break loop
+				}
+			}
+
 		}
 	}
 

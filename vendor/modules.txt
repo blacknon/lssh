@@ -22,7 +22,7 @@ github.com/blacknon/go-sshlib
 # github.com/blacknon/textcol v0.0.1
 ## explicit
 github.com/blacknon/textcol
-# github.com/c-bata/go-prompt v0.2.6
+# github.com/c-bata/go-prompt v0.2.5
 ## explicit; go 1.14
 github.com/c-bata/go-prompt
 github.com/c-bata/go-prompt/completer
@@ -78,7 +78,7 @@ github.com/pkg/errors
 # github.com/pkg/sftp v1.10.1
 ## explicit; go 1.12
 github.com/pkg/sftp
-# github.com/pkg/term v1.2.0-beta.2
+# github.com/pkg/term v1.1.0
 ## explicit; go 1.14
 github.com/pkg/term/termios
 # github.com/pmezard/go-difflib v1.0.0
