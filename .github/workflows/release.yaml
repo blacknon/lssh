@@ -13,7 +13,6 @@ on:
   push:
     branches:
       - master
-      - develop
 
 jobs:
   # build rust binary
@@ -77,7 +76,7 @@ jobs:
           ## sed -i is not used due to difference between macOS and Linux
           perl -i -pe s/___VERSION___/${{ steps.package_version.outputs.version }}/ ./package/.tar2package.yml
           ## tar czvf "$_TAR" -C "$PWD/package" completion bin man .tar2package.yml
-          tar czvf "$_TAR" -C "$PWD/package" completion bin  .tar2package.yml
+          tar czvf "$_TAR" -C "$PWD/package" completion bin .tar2package.yml
 
       # use: https://github.com/greymd/tar2package
       - name: Build rpm
