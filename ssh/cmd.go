@@ -132,11 +132,8 @@ func (r *Run) cmd() (err error) {
 	var stdinData []byte
 	switch {
 	case r.IsParallel && len(r.ServerList) > 1:
-		if r.isStdinPipe {
-			go output.PushPipeWriter(exitInput, writers, os.Stdin)
-		} else {
-			go output.PushInput(exitInput, writers, byte('\n'))
-		}
+		go output.PushInput(exitInput, writers, os.Stdin)
+
 	case !r.IsParallel && len(r.ServerList) > 1:
 		if r.isStdinPipe {
 			stdinData, _ = ioutil.ReadAll(os.Stdin)
