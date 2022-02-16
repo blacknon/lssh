@@ -1,0 +1,10 @@
+name : lssh
+cmdname : lssh
+summary : List selection type alternative ssh/scp/sftp client.
+description : List selection type alternative ssh/scp/sftp client. parallel connect ssh, local bashrc use connext etc.
+version : ___VERSION___
+changelog : See https://github.com/blacknon/lssh/releases
+url : https://github.com/blacknon/lssh
+author : blacknon
+email : blacknon@orebibou.com
+libdir : null
