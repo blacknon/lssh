@@ -8,7 +8,15 @@ TUI list select ssh/scp/sftp client tools.
 
 ## Description
 
-command to read a prepared list in advance and connect ssh/scp/sftp the selected host. List file is set in yaml format. When selecting a host, you can filter by keywords. Can execute commands concurrently to multiple hosts. Supported multiple ssh proxy, http/socks5 proxy, x11 forward, and port forwarding.
+This command utility to read a prepared list in advance and connect ssh/scp/sftp the selected host.
+List file is set in yaml format.
+When selecting a host, you can filter by keywords.
+Can execute commands concurrently to multiple hosts.
+
+lssh also has a shell (parallel shell) that connects to multiple hosts at the same time and pipes the execution results of local commands and remote hosts.
+In addition, lsftp also has a shell that can be connected in parallel.
+
+Supported multiple ssh proxy, http/socks5 proxy, x11 forward, and port forwarding.
 
 ## Features
 
@@ -102,7 +110,7 @@ option(lssh)
 	    blacknon(blacknon@orebibou.com)
 
 	VERSION:
-	    0.6.4
+	    0.6.5
 
 	USAGE:
 	    # connect ssh
@@ -143,7 +151,7 @@ option(lscp)
 	    blacknon(blacknon@orebibou.com)
 
 	VERSION:
-	    0.6.4
+	    0.6.5
 
 	USAGE:
 	    # local to remote scp
@@ -178,7 +186,7 @@ option(lsftp)
 	    blacknon(blacknon@orebibou.com)
 
 	VERSION:
-	    0.6.4
+	    0.6.5
 
 	USAGE:
 	  # start lsftp shell

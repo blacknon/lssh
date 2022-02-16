@@ -218,8 +218,8 @@ func OutColorStrings(num int, inStrings string) (str string) {
 	return
 }
 
-// PushPipeWriter is PipeReader to []io.WriteCloser.
-func PushPipeWriter(isExit <-chan bool, output []io.WriteCloser, input io.Reader) {
+// PushInput is Reader([io.PipeReader, os.Stdin]) to []io.WriteCloser.
+func PushInput(isExit <-chan bool, output []io.WriteCloser, input io.Reader) {
 	rd := bufio.NewReader(input)
 loop:
 	for {
@@ -235,37 +235,12 @@ loop:
 			}
 		}
 
-		switch err {
-		case nil:
-			continue
-		case io.ErrClosedPipe, io.EOF:
-			break loop
-		}
-
-		select {
-		case <-isExit:
-			break loop
-		case <-time.After(10 * time.Millisecond):
-			continue
-		}
-	}
-
-	// close output
-	for _, w := range output {
-		w.Close()
-	}
-}
-
-// PushInput is send input to ssh Session Stdin
-func PushInput(isExit <-chan bool, output []io.WriteCloser, inputChar byte) {
-	rd := bufio.NewReader(os.Stdin)
-loop:
-	for {
-		data, _ := rd.ReadBytes(inputChar)
-
-		if len(data) > 0 {
-			for _, w := range output {
-				w.Write(data)
+		if input != os.Stdin {
+			switch err {
+			case nil:
+				continue
+			case io.ErrClosedPipe, io.EOF:
+				break loop
 			}
 		}
 
@@ -275,8 +250,8 @@ loop:
 		case <-time.After(10 * time.Millisecond):
 			continue
 		}
-
 	}
+
 	// close output
 	for _, w := range output {
 		w.Close()
