@@ -59,16 +59,18 @@ jobs:
 
       - name: Build binary
         run: |
-          go build ./cmd/lssh
-          go build ./cmd/lscp
-          go build ./cmd/lsftp
+          go build ./cmd/lssh.${{ matrix.goos }}_${{ matrix.goarch }}
+          go build ./cmd/lscp.${{ matrix.goos }}_${{ matrix.goarch }}
+          go build ./cmd/lsftp.${{ matrix.goos }}_${{ matrix.goarch }}
 
       - name: Create package file
         if: ${{ (matrix.ext == 'tar.gz') || (matrix.ext == 'rpm') || (matrix.ext == 'deb') }}
         run: |
           _TAR=lssh_${{ steps.package_version.outputs.version }}_${{ matrix.goos }}_${{ matrix.goarch }}.tar.gz
           mkdir -p package/bin
-          mv {lssh,lscp,lsftp} package/bin
+          mv lssh.${{ matrix.goos }}_${{ matrix.goarch }} package/bin/lssh
+          mv lscp.${{ matrix.goos }}_${{ matrix.goarch }} package/bin/lscp
+          mv lsftp.${{ matrix.goos }}_${{ matrix.goarch }} package/bin/lsftp
           ## mkdir -p package/man
           ## cp man/lssh.1 package/man
           cp -r completion package/
