@@ -83,8 +83,8 @@ jobs:
         if: matrix.ext == 'rpm'
         run: |
           _TAR=lssh_${{ steps.package_version.outputs.version }}_${{ matrix.goos }}_${{ matrix.goarch }}.tar.gz
-          docker run -i "greymd/tar2rpm:1.0.1" < "$_TAR" > lssh_${{ steps.package_version.outputs.version }}_{{ matrix.goos }}_${{ matrix.goarch }}.rpm
-          echo ::set-output name=sha256::$( sha256sum lssh_${{ steps.package_version.outputs.version }}_{{ matrix.goos }}_${{ matrix.goarch }}.rpm | awk '{print $1}' )
+          docker run -i "greymd/tar2rpm:1.0.1" < "$_TAR" > lssh_${{ steps.package_version.outputs.version }}_${{ matrix.goos }}_${{ matrix.goarch }}.rpm
+          echo ::set-output name=sha256::$( sha256sum lssh_${{ steps.package_version.outputs.version }}_${{ matrix.goos }}_${{ matrix.goarch }}.rpm | awk '{print $1}' )
 
       # use: https://github.com/greymd/tar2package
       - name: Build deb
@@ -92,8 +92,8 @@ jobs:
         if: matrix.ext == 'deb'
         run: |
           _TAR=lssh_${{ steps.package_version.outputs.version }}_${{ matrix.goos }}_${{ matrix.goarch }}.tar.gz
-          docker run -i "greymd/tar2deb:1.0.1" < "$_TAR" > lssh_${{ steps.package_version.outputs.version }}_{{ matrix.goos }}_${{ matrix.goarch }}.deb
-          echo ::set-output name=sha256::$( sha256sum lssh_${{ steps.package_version.outputs.version }}_{{ matrix.goos }}_${{ matrix.goarch }}.deb | awk '{print $1}' )
+          docker run -i "greymd/tar2deb:1.0.1" < "$_TAR" > lssh_${{ steps.package_version.outputs.version }}_${{ matrix.goos }}_${{ matrix.goarch }}.deb
+          echo ::set-output name=sha256::$( sha256sum lssh_${{ steps.package_version.outputs.version }}_${{ matrix.goos }}_${{ matrix.goarch }}.deb | awk '{print $1}' )
 
       - name: README for rpm
         if: matrix.ext == 'rpm'
