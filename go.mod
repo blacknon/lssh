@@ -6,12 +6,13 @@ require (
 	github.com/blacknon/textcol v0.0.1
 	github.com/c-bata/go-prompt v0.2.5
 	github.com/dustin/go-humanize v1.0.0
+	github.com/kballard/go-shellquote v0.0.0-20180428030007-95032a82bc51
 	github.com/kevinburke/ssh_config v0.0.0-20190724205821-6cfae18c12b8
 	github.com/mattn/go-runewidth v0.0.13
 	github.com/nsf/termbox-go v0.0.0-20190325093121-288510b9734e
-	github.com/pkg/sftp v1.10.1
+	github.com/pkg/sftp v1.13.4
 	github.com/sevlyar/go-daemon v0.1.5
-	github.com/stretchr/testify v1.5.1
+	github.com/stretchr/testify v1.7.0
 	github.com/urfave/cli v1.21.0
 	github.com/vbauerster/mpb v3.4.0+incompatible
 	golang.org/x/crypto v0.0.0-20211215153901-e495a2d5b3d3
@@ -42,7 +43,7 @@ require (
 	github.com/thales-e-security/pool v0.0.2 // indirect
 	golang.org/x/sys v0.0.0-20211216021012-1d35b9e2eb4e // indirect
 	golang.org/x/term v0.0.0-20210927222741-03fcf44c2211 // indirect
-	gopkg.in/yaml.v2 v2.2.8 // indirect
+	gopkg.in/yaml.v3 v3.0.0-20200313102051-9f266ea9e77c // indirect
 )
 
 go 1.17

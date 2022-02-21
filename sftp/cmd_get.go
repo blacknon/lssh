@@ -9,6 +9,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"strings"
 	"sync"
 	"time"
 
@@ -23,7 +24,6 @@ import (
 func (r *RunSftp) get(args []string) {
 	// create app
 	app := cli.NewApp()
-	// app.UseShortOptionHandling = true
 
 	// set help message
 	app.CustomAppHelpTemplate = helptext
@@ -92,7 +92,7 @@ func (r *RunSftp) get(args []string) {
 				client.Output.Create(server)
 
 				// local target
-				target, _ = filepath.Abs(target)
+				targetdir, _ = filepath.Abs(targetdir)
 
 				err = r.pullPath(client, source, targetdir)
 
@@ -140,8 +140,14 @@ func (r *RunSftp) pullPath(client *SftpConnect, path, target string) (err error)
 	// expantion path
 	epath, _ := client.Connect.Glob(rpath)
 
+	if len(epath) == 0 {
+		fmt.Fprintf(ow, "Error: File Not founds.\n")
+		return
+	}
+
 	// for walk
 	for _, ep := range epath {
+
 		walker := client.Connect.Walk(ep)
 
 		for walker.Step() {
@@ -153,13 +159,17 @@ func (r *RunSftp) pullPath(client *SftpConnect, path, target string) (err error)
 
 			p := walker.Path()
 			relpath, _ := filepath.Rel(base, p)
-			stat := walker.Stat()
+			relpath = strings.Replace(relpath, "../", "", 1)
+			if strings.Contains(relpath, "/") {
+				os.MkdirAll(filepath.Join(target, filepath.Dir(relpath)), 0755)
+			}
 
+			stat := walker.Stat()
 			localpath := filepath.Join(target, relpath)
 
 			//
 			if stat.IsDir() { // is directory
-				os.Mkdir(localpath, 0755)
+				os.MkdirAll(localpath, 0755)
 			} else { // is not directory
 				// get size
 				size := stat.Size()
