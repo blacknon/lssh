@@ -5,6 +5,12 @@
 /*
 conf is a package used to read configuration file (~/.lssh.conf).
 */
+
+// TODO(blacknon): 各種クラウドの踏み台経由でのアクセスに対応する
+//                 - AWS SSM(セッションマネージャー)
+//                 - Azure Bastion
+//                 - GCP(gcloud compute ssh)
+
 package conf
 
 import (

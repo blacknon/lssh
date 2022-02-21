@@ -131,9 +131,14 @@ func (r *RunSftp) pushPath(client *SftpConnect, target, base, path string) (err 
 	}
 
 	// set rpath
-	if common.IsDirPath(target) {
-		rpath = filepath.Join(target, relpath)
-	} else {
+	lstat, err := client.Connect.Lstat(target)
+	if err == nil {
+		if lstat.IsDir() {
+			rpath = filepath.Join(target, relpath)
+		}
+	}
+
+	if len(rpath) == 0 {
 		dInfo, _ := os.Lstat(path)
 		if dInfo.IsDir() {
 			rpath = filepath.Join(target, relpath)
