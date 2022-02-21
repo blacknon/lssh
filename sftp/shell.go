@@ -8,12 +8,14 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"regexp"
 	"sort"
 	"strings"
 	"sync"
 
 	"github.com/c-bata/go-prompt"
 	"github.com/c-bata/go-prompt/completer"
+	"github.com/kballard/go-shellquote"
 )
 
 // TODO(blacknon): 補完処理が遅い・不安定になってるので対処する
@@ -47,9 +49,14 @@ func (r *RunSftp) shell() {
 func (r *RunSftp) Executor(command string) {
 	// trim space
 	command = strings.TrimSpace(command)
+	if len(command) == 0 {
+		return
+	}
+	// re-escape
+	reescape := regexp.MustCompile(`(\\)`)
+	command = reescape.ReplaceAllString(command, `\\$1`)
 
-	// parse command
-	cmdline := strings.Split(command, " ")
+	cmdline, _ := shellquote.Split(command)
 
 	// switch command
 	switch cmdline[0] {
@@ -378,6 +385,11 @@ func (r *RunSftp) GetRemoteComplete(path string) {
 			// set glob list
 			for _, p := range globlist {
 				p = filepath.Base(p)
+
+				// escape blob
+				re := regexp.MustCompile(`([][ )(\\])`)
+				p = re.ReplaceAllString(p, "\\$1")
+
 				sm.Lock()
 				m[p] = append(m[p], server)
 				sm.Unlock()

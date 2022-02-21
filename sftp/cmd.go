@@ -7,14 +7,13 @@
 package sftp
 
 import (
-	"os"
 	"sort"
 
 	"github.com/urfave/cli"
 )
 
 // FileInfos is []os.FileInfo.
-type FileInfos []os.FileInfo
+type FileInfos []sftpFileInfo
 
 // ByName is sort by name
 type ByName struct{ FileInfos }
@@ -75,7 +74,7 @@ type sftpLsData struct {
 }
 
 // SortLsData is sort []os.FileInfo.
-func (r *RunSftp) SortLsData(c *cli.Context, files []os.FileInfo) {
+func (r *RunSftp) SortLsData(c *cli.Context, files []sftpFileInfo) {
 	// sort
 	switch {
 	case c.Bool("f"): // do not sort

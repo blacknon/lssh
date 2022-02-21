@@ -11,6 +11,7 @@ package sftp
 
 import (
 	"fmt"
+	"io/fs"
 	"io/ioutil"
 	"os"
 	"path/filepath"
@@ -27,38 +28,74 @@ import (
 	"github.com/urfave/cli"
 )
 
+type FileInfo interface {
+	fs.FileInfo
+}
+
+type sftpFileInfo struct {
+	FileInfo
+	Dir string
+}
+
 // sftpLs
 type sftpLs struct {
 	Client *SftpConnect
-	Files  []os.FileInfo
+	Files  []sftpFileInfo
 	Passwd string
 	Groups string
 }
 
 // getRemoteLsData
-func (r *RunSftp) getRemoteLsData(client *SftpConnect, path string) (lsdata sftpLs, err error) {
-	// get symlink
-	p, err := client.Connect.ReadLink(path)
-	if err == nil {
-		path = p
-	}
+func (r *RunSftp) getRemoteLsData(client *SftpConnect, pathList []string) (lsdata sftpLs, err error) {
+	data := []sftpFileInfo{}
+	for _, elpath := range pathList {
+		re := regexp.MustCompile(`/$`)
+		elpath = re.ReplaceAllString(elpath, "")
 
-	// get stat
-	lstat, err := client.Connect.Lstat(path)
-	if err != nil {
-		return
-	}
+		// get glob
+		epath, _ := client.Connect.Glob(elpath)
 
-	// get path data
-	var data []os.FileInfo
-	if lstat.IsDir() {
-		// get directory list data
-		data, err = client.Connect.ReadDir(path)
-		if err != nil {
-			return
+		for _, path := range epath {
+			// get symlink
+			p, err := client.Connect.ReadLink(path)
+			if err == nil {
+				path = p
+			}
+
+			// get stat
+			lstat, err := client.Connect.Lstat(path)
+			if err != nil {
+				continue
+			}
+
+			// get path data
+			if lstat.IsDir() {
+				// get directory list data
+				lsdata, err := client.Connect.ReadDir(path)
+				if err != nil {
+					continue
+				}
+
+				for _, d := range lsdata {
+					dir := path
+					fi := sftpFileInfo{
+						FileInfo: d,
+						Dir:      dir,
+					}
+
+					data = append(data, fi)
+				}
+
+			} else {
+				dir := filepath.Dir(path)
+				fi := sftpFileInfo{
+					FileInfo: lstat,
+					Dir:      dir,
+				}
+
+				data = append(data, fi)
+			}
 		}
-	} else {
-		data = []os.FileInfo{lstat}
 	}
 
 	// read /etc/passwd
@@ -125,7 +162,7 @@ func (r *RunSftp) ls(args []string) (err error) {
 	// action
 	app.Action = func(c *cli.Context) error {
 		// argpath
-		argpath := c.Args().First()
+		argData := c.Args()
 
 		// get directory files data
 		exit := make(chan bool)
@@ -140,18 +177,24 @@ func (r *RunSftp) ls(args []string) (err error) {
 				client.Output.Create(server)
 				w := client.Output.NewWriter()
 
-				// set path
-				path := client.Pwd
-				if len(argpath) > 0 {
-					if !filepath.IsAbs(argpath) {
-						path = filepath.Join(path, argpath)
-					} else {
-						path = argpath
+				// for argData
+				pathList := []string{}
+				if len(argData) > 0 {
+					pathList = argData
+					for i, path := range pathList {
+						// set path
+						if len(path) > 0 {
+							if !filepath.IsAbs(path) {
+								pathList[i] = filepath.Join(client.Pwd, pathList[i])
+							}
+						}
 					}
+				} else {
+					pathList = append(pathList, client.Pwd)
 				}
 
 				// get ls data
-				data, err := r.getRemoteLsData(client, path)
+				data, err := r.getRemoteLsData(client, pathList)
 				if err != nil {
 					fmt.Fprintf(w, "Error: %s\n", err)
 					exit <- true
@@ -161,7 +204,7 @@ func (r *RunSftp) ls(args []string) (err error) {
 				// if `a` flag disable, delete Hidden files...
 				if !c.Bool("a") {
 					// hidden delete data slice
-					hddata := []os.FileInfo{}
+					hddata := []sftpFileInfo{}
 
 					// regex
 					rgx := regexp.MustCompile(`^\.`)
@@ -172,11 +215,11 @@ func (r *RunSftp) ls(args []string) (err error) {
 						}
 					}
 
+					// sort
+					r.SortLsData(c, hddata)
+
 					data.Files = hddata
 				}
-
-				// sort
-				r.SortLsData(c, data.Files)
 
 				// write lsdata
 				m.Lock()
@@ -263,7 +306,7 @@ func (r *RunSftp) ls(args []string) (err error) {
 					data.Group = group
 					data.Size = sizestr
 					data.Time = timestr
-					data.Path = f.Name()
+					data.Path = filepath.Join(f.Dir, f.Name())
 
 					// append data
 					datas = append(datas, data)
@@ -293,7 +336,8 @@ func (r *RunSftp) ls(args []string) (err error) {
 				w := data.Client.Output.NewWriter()
 
 				for _, f := range data.Files {
-					name := f.Name()
+					name := filepath.Join(f.Dir, f.Name())
+
 					fmt.Fprintf(w, "%s\n", name)
 				}
 			}

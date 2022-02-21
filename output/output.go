@@ -142,11 +142,10 @@ loop:
 func (o *Output) ProgressPrinter(size int64, reader io.Reader, path string) {
 	// print header
 	oPrompt := ""
-	name := decor.Name(oPrompt)
 	if len(o.ServerList) > 1 {
 		oPrompt = o.GetPrompt()
-		name = decor.Name(oPrompt, decor.WC{W: len(path) + 1})
 	}
+	name := decor.Name(oPrompt)
 
 	// trim space
 	path = strings.TrimSpace(path)
