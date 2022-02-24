@@ -53,13 +53,13 @@ func (r *RunSftp) df(args []string) {
 			// set path
 			path := client.Pwd
 			if len(argpath) > 0 {
-
+				path = argpath
 			}
 
 			// get StatVFS
 			stat, err := ftp.StatVFS(path)
 			if err != nil {
-				fmt.Println(err)
+				fmt.Fprintf(os.Stderr, "Error: %s: %s\n", server, err)
 				continue
 			}
 			stats[server] = stat

@@ -23,7 +23,6 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
-	"time"
 
 	"github.com/urfave/cli"
 	"golang.org/x/crypto/ssh/terminal"
@@ -183,10 +182,6 @@ func GetPassPhrase(msg string) (input string, err error) {
 	return
 }
 
-func init() {
-	rand.Seed(time.Now().UnixNano())
-}
-
 // NewSHA1Hash generates a new SHA1 hash based on
 // a random number of characters.
 func NewSHA1Hash(n ...int) string {
@@ -316,6 +311,20 @@ func ParseForwardPort(value string) (local, remote string, err error) {
 	default:
 		err = errors.New("Could not parse.")
 	}
+
+	return
+}
+
+// ParseHostPath return host and path, from host:/path/to/dir/file.
+func ParseHostPath(value string) (host []string, path string) {
+	if !strings.Contains(value, ":") {
+		path = value
+		return
+	}
+
+	parseValue := strings.SplitN(value, ":", 2)
+	host = strings.Split(parseValue[0], ",")
+	path = parseValue[1]
 
 	return
 }

@@ -131,6 +131,10 @@ func (r *RunSftp) getRemoteLsData(client *SftpConnect, pathList []string) (lsdat
 	return
 }
 
+func (r *RunSftp) executeRemoteLs(clients []*SftpConnect) {
+
+}
+
 // ls exec and print out remote ls data.
 func (r *RunSftp) ls(args []string) (err error) {
 	// create app
@@ -154,7 +158,7 @@ func (r *RunSftp) ls(args []string) (err error) {
 	}
 	app.Name = "ls"
 	app.Usage = "lsftp build-in command: ls [remote machine ls]"
-	app.ArgsUsage = "[PATH]"
+	app.ArgsUsage = "[PATH]..."
 	app.HideHelp = true
 	app.HideVersion = true
 	app.EnableBashCompletion = true
