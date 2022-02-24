@@ -79,7 +79,7 @@ func (r *RunSftp) get(args []string) {
 			client := c
 
 			targetDestinationDir := destination
-			if len(r.Client) > 1 {
+			if len(targetmap) > 1 {
 				targetDestinationDir = filepath.Join(targetDestinationDir, server)
 				// mkdir local target directory
 				err = os.MkdirAll(targetDestinationDir, 0755)
