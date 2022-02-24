@@ -9,6 +9,7 @@ import (
 	"os"
 	"sync"
 
+	"github.com/blacknon/lssh/common"
 	"github.com/blacknon/lssh/conf"
 	"github.com/blacknon/lssh/output"
 	sshl "github.com/blacknon/lssh/ssh"
@@ -55,6 +56,13 @@ type SftpConnect struct {
 
 	// Current Directory
 	Pwd string
+}
+
+type TargetConnectMap struct {
+	SftpConnect
+
+	// Target Path list
+	Path []string
 }
 
 // PathSet struct at path data
@@ -138,4 +146,46 @@ func (r *RunSftp) createSftpConnect(targets []string) (result map[string]*SftpCo
 	}
 
 	return result
+}
+
+//
+func (r *RunSftp) createTargetMap(srcTargetMap map[string]*TargetConnectMap, pathline string) (targetMap map[string]*TargetConnectMap) {
+	// sftp target host
+	targetMap = srcTargetMap
+
+	// get r.Client keys
+	servers := make([]string, 0, len(r.Client))
+	for k := range r.Client {
+		servers = append(servers, k)
+	}
+
+	// parse pathline
+	targetList, path := common.ParseHostPath(pathline)
+
+	if len(targetList) == 0 {
+		targetList = servers
+	}
+
+	// check exist server.
+	for _, t := range targetList {
+		if !common.Contains(servers, t) {
+			fmt.Fprintf(os.Stderr, "Error: host %s not found.\n", t)
+			continue
+		}
+	}
+
+	// create targetMap
+	for server, client := range r.Client {
+		if common.Contains(targetList, server) {
+			if _, ok := targetMap[server]; !ok {
+				targetMap[server] = &TargetConnectMap{}
+				targetMap[server].SftpConnect = *client
+			}
+
+			// append path
+			targetMap[server].Path = append(targetMap[server].Path, path)
+		}
+	}
+
+	return targetMap
 }
