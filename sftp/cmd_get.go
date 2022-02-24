@@ -48,7 +48,7 @@ func (r *RunSftp) get(args []string) {
 		r.ProgressWG = new(sync.WaitGroup)
 		r.Progress = mpb.New(mpb.WithWaitGroup(r.ProgressWG))
 
-		// set path
+		// set pathlist
 		argsSize := len(c.Args()) - 1
 		source := c.Args()[:argsSize]
 		destination := c.Args()[1]
@@ -67,9 +67,14 @@ func (r *RunSftp) get(args []string) {
 			return nil
 		}
 
+		targetmap := map[string]*TargetConnectMap{}
+		for _, spath := range source {
+			targetmap = r.createTargetMap(targetmap, spath)
+		}
+
 		// get directory data, copy remote to local
 		exit := make(chan bool)
-		for s, c := range r.Client {
+		for s, c := range targetmap {
 			server := s
 			client := c
 
@@ -92,14 +97,14 @@ func (r *RunSftp) get(args []string) {
 				// create output
 				client.Output.Create(server)
 
-				err = r.pullPath(client, source[0], targetDestinationDir)
+				err = r.pullPath(client, targetDestinationDir)
 
 				exit <- true
 			}()
 		}
 
 		// wait exit
-		for i := 0; i < len(r.Client); i++ {
+		for i := 0; i < len(targetmap); i++ {
 			<-exit
 		}
 		close(exit)
@@ -121,86 +126,83 @@ func (r *RunSftp) get(args []string) {
 }
 
 //
-func (r *RunSftp) execGet() {
+func (r *RunSftp) pullPath(client *TargetConnectMap, targetdir string) (err error) {
+	for _, path := range client.Path {
+		// set arg path
+		var rpath string
+		switch {
+		case filepath.IsAbs(path):
+			rpath = path
+		case !filepath.IsAbs(path):
+			rpath = filepath.Join(client.Pwd, path)
+		}
+		base := filepath.Dir(rpath)
 
-}
+		// get writer
+		ow := client.Output.NewWriter()
 
-//
-func (r *RunSftp) pullPath(client *SftpConnect, path, target string) (err error) {
-	// set arg path
-	var rpath string
-	switch {
-	case filepath.IsAbs(path):
-		rpath = path
-	case !filepath.IsAbs(path):
-		rpath = filepath.Join(client.Pwd, path)
-	}
-	base := filepath.Dir(rpath)
+		// expantion path
+		epath, _ := client.Connect.Glob(rpath)
 
-	// get writer
-	ow := client.Output.NewWriter()
+		if len(epath) == 0 {
+			fmt.Fprintf(ow, "Error: File Not founds.\n")
+			return
+		}
 
-	// expantion path
-	epath, _ := client.Connect.Glob(rpath)
+		// for walk
+		for _, ep := range epath {
 
-	if len(epath) == 0 {
-		fmt.Fprintf(ow, "Error: File Not founds.\n")
-		return
-	}
+			walker := client.Connect.Walk(ep)
 
-	// for walk
-	for _, ep := range epath {
-
-		walker := client.Connect.Walk(ep)
-
-		for walker.Step() {
-			err := walker.Err()
-			if err != nil {
-				fmt.Fprintf(ow, "Error: %s\n", err)
-				continue
-			}
-
-			p := walker.Path()
-			relpath, _ := filepath.Rel(base, p)
-			relpath = strings.Replace(relpath, "../", "", 1)
-			if strings.Contains(relpath, "/") {
-				os.MkdirAll(filepath.Join(target, filepath.Dir(relpath)), 0755)
-			}
-
-			stat := walker.Stat()
-			localpath := filepath.Join(target, relpath)
-
-			//
-			if stat.IsDir() { // is directory
-				os.MkdirAll(localpath, 0755)
-			} else { // is not directory
-				// get size
-				size := stat.Size()
-
-				// open remote file
-				remotefile, err := client.Connect.Open(p)
+			for walker.Step() {
+				err := walker.Err()
 				if err != nil {
 					fmt.Fprintf(ow, "Error: %s\n", err)
 					continue
 				}
 
-				// open local file
-				localfile, err := os.OpenFile(localpath, os.O_RDWR|os.O_CREATE, 0644)
-				if err != nil {
-					fmt.Fprintf(ow, "Error: %s\n", err)
-					continue
+				p := walker.Path()
+				relpath, _ := filepath.Rel(base, p)
+				relpath = strings.Replace(relpath, "../", "", 1)
+				if strings.Contains(relpath, "/") {
+					os.MkdirAll(filepath.Join(targetdir, filepath.Dir(relpath)), 0755)
 				}
 
-				// set tee reader
-				rd := io.TeeReader(remotefile, localfile)
+				stat := walker.Stat()
+				localpath := filepath.Join(targetdir, relpath)
 
-				r.ProgressWG.Add(1)
-				client.Output.ProgressPrinter(size, rd, p)
-			}
+				//
+				if stat.IsDir() { // is directory
+					os.MkdirAll(localpath, 0755)
+				} else { // is not directory
+					// get size
+					size := stat.Size()
 
-			// set mode
-			if r.Permission {
-				os.Chmod(localpath, stat.Mode())
+					// open remote file
+					remotefile, err := client.Connect.Open(p)
+					if err != nil {
+						fmt.Fprintf(ow, "Error: %s\n", err)
+						continue
+					}
+
+					// open local file
+					localfile, err := os.OpenFile(localpath, os.O_RDWR|os.O_CREATE, 0644)
+					if err != nil {
+						fmt.Fprintf(ow, "Error: %s\n", err)
+						continue
+					}
+
+					// set tee reader
+					rd := io.TeeReader(remotefile, localfile)
+
+					r.ProgressWG.Add(1)
+					client.Output.ProgressPrinter(size, rd, p)
+				}
+
+				// set mode
+				if r.Permission {
+					os.Chmod(localpath, stat.Mode())
+				}
 			}
 		}
 	}
