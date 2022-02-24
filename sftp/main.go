@@ -28,16 +28,12 @@ type RunSftp struct {
 	Config conf.Config
 
 	// Client
-	// TODO(blacknon): Clientと、ターゲットを分けて処理する(ホストをコマンド実行時に指定できるようにするため)
 	Client map[string]*SftpConnect
-
-	// Target
-	Target map[string]*SftpConnect
 
 	// ssh Run
 	Run *sshl.Run
 
-	// now not use. delete at 0.6.1
+	//
 	Permission bool
 
 	// progress bar

@@ -20,6 +20,7 @@ import (
 
 // TODO(blacknon): 補完処理が遅い・不安定になってるので対処する
 // TODO(blacknon): 補完処理で、複数ホスト接続時に一部ホストにしか存在しないディレクトリを指定した場合、そこで処理が止まってしまう挙動を修正する
+// TODO(blacknon): 全コマンドで、`hostname:/path/to...`でホストを指定できるようにし、補完処理についても動くようにする
 
 // sftp Shell mode function
 func (r *RunSftp) shell() {
@@ -176,11 +177,19 @@ func (r *RunSftp) Completer(t prompt.Document) []prompt.Suggest {
 		case "chown":
 			// TODO(blacknon): そのうち追加 ver0.6.3
 		case "df":
-			suggest = []prompt.Suggest{
-				{Text: "-h", Description: "print sizes in powers of 1024 (e.g., 1023M)"},
-				{Text: "-i", Description: "list inode information instead of block usage"},
+			// switch options or path
+			switch {
+			case contains([]string{"-"}, char):
+				suggest = []prompt.Suggest{
+					{Text: "-h", Description: "print sizes in powers of 1024 (e.g., 1023M)"},
+					{Text: "-i", Description: "list inode information instead of block usage"},
+				}
+				return prompt.FilterHasPrefix(suggest, t.GetWordBeforeCursor(), false)
+
+			default:
+				return r.PathComplete(true, 1, t)
 			}
-			return prompt.FilterHasPrefix(suggest, t.GetWordBeforeCursor(), false)
+
 		case "get":
 			// TODO(blacknon): オプションを追加したら引数の数から減らす処理が必要
 			switch {
