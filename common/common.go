@@ -36,6 +36,28 @@ func IsExist(filename string) bool {
 	return err == nil
 }
 
+//
+func Contains(list interface{}, elem interface{}) bool {
+	listV := reflect.ValueOf(list)
+
+	if listV.Kind() == reflect.Slice {
+		for i := 0; i < listV.Len(); i++ {
+			item := listV.Index(i).Interface()
+			// check conver
+			if !reflect.TypeOf(elem).ConvertibleTo(reflect.TypeOf(item)) {
+				continue
+			}
+			// convert type
+			target := reflect.ValueOf(elem).Convert(reflect.TypeOf(item)).Interface()
+			// check
+			if ok := reflect.DeepEqual(item, target); ok {
+				return true
+			}
+		}
+	}
+	return false
+}
+
 // MapReduce sets map1 value to map2 if map1 and map2 have same key, and value
 // of map2 is zero value. Available interface type is string or []string or
 // bool.

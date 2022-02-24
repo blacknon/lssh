@@ -39,97 +39,73 @@ type sftpFileInfo struct {
 
 // sftpLs
 type sftpLs struct {
-	Client *SftpConnect
+	Client *TargetConnectMap
 	Files  []sftpFileInfo
 	Passwd string
 	Groups string
 }
 
-// getRemoteLsData
-func (r *RunSftp) getRemoteLsData(client *SftpConnect, path string) (lsdata sftpLs, err error) {
-	data := []sftpFileInfo{}
-	re := regexp.MustCompile(`.+/$`)
-	path = re.ReplaceAllString(path, "")
+// ls exec and print out remote ls data.
+func (r *RunSftp) ls(args []string) (err error) {
+	// create app
+	app := cli.NewApp()
+	// app.UseShortOptionHandling = true
 
-	// get glob
-	epath, _ := client.Connect.Glob(path)
+	// set help message
+	app.CustomAppHelpTemplate = helptext
 
-	for _, path := range epath {
-		// get symlink
-		p, err := client.Connect.ReadLink(path)
-		if err == nil {
-			path = p
-		}
+	// set parameter
+	app.Flags = []cli.Flag{
+		cli.BoolFlag{Name: "1", Usage: "list one file per line"},
+		cli.BoolFlag{Name: "a", Usage: "do not ignore entries starting with"},
+		cli.BoolFlag{Name: "f", Usage: "do not sort"},
+		cli.BoolFlag{Name: "h", Usage: "with -l, print sizes like 1K 234M 2G etc."},
+		cli.BoolFlag{Name: "l", Usage: "use a long listing format"},
+		cli.BoolFlag{Name: "n", Usage: "list numeric user and group IDs"},
+		cli.BoolFlag{Name: "r", Usage: "reverse order while sorting"},
+		cli.BoolFlag{Name: "S", Usage: "sort by file size, largest first"},
+		cli.BoolFlag{Name: "t", Usage: "sort by modification time, newest first"},
+	}
+	app.Name = "ls"
+	app.Usage = "lsftp build-in command: ls [remote machine ls]"
+	app.ArgsUsage = "[host,host...:][PATH]..."
+	app.HideHelp = true
+	app.HideVersion = true
+	app.EnableBashCompletion = true
 
-		// get stat
-		lstat, err := client.Connect.Lstat(path)
-		if err != nil {
-			continue
-		}
+	// action
+	app.Action = func(c *cli.Context) error {
+		// argpath
+		argData := c.Args()
 
-		// get path data
-		if lstat.IsDir() {
-			// get directory list data
-			lsdata, err := client.Connect.ReadDir(path)
-			if err != nil {
-				continue
+		targetmap := map[string]*TargetConnectMap{}
+
+		if len(argData) > 0 {
+			for _, arg := range argData {
+				// sftp target host
+				targetmap = r.createTargetMap(targetmap, arg)
 			}
-
-			for _, d := range lsdata {
-				dir := path
-				fi := sftpFileInfo{
-					FileInfo: d,
-					Dir:      dir,
-				}
-
-				data = append(data, fi)
-			}
-
 		} else {
-			dir := filepath.Dir(path)
-			fi := sftpFileInfo{
-				FileInfo: lstat,
-				Dir:      dir,
+			for server, client := range r.Client {
+				// sftp target host
+				targetmap[server] = &TargetConnectMap{}
+				targetmap[server].SftpConnect = *client
 			}
-
-			data = append(data, fi)
 		}
+
+		r.executeRemoteLs(c, targetmap)
+
+		return nil
 	}
 
-	// read /etc/passwd
-	passwdFile, err := client.Connect.Open("/etc/passwd")
-	if err != nil {
-		return
-	}
-	passwdByte, err := ioutil.ReadAll(passwdFile)
-	if err != nil {
-		return
-	}
-	passwd := string(passwdByte)
-
-	// read /etc/group
-	groupFile, err := client.Connect.Open("/etc/group")
-	if err != nil {
-		return
-	}
-	groupByte, err := ioutil.ReadAll(groupFile)
-	if err != nil {
-		return
-	}
-	groups := string(groupByte)
-
-	// set lsdata
-	lsdata = sftpLs{
-		Client: client,
-		Files:  data,
-		Passwd: passwd,
-		Groups: groups,
-	}
+	// parse short options
+	args = common.ParseArgs(app.Flags, args)
+	app.Run(args)
 
 	return
 }
 
-func (r *RunSftp) executeRemoteLs(c *cli.Context, clients map[string]*SftpConnect, path string) {
+func (r *RunSftp) executeRemoteLs(c *cli.Context, clients map[string]*TargetConnectMap) {
 	lsdata := map[string]sftpLs{}
 	exit := make(chan bool)
 	m := new(sync.Mutex)
@@ -142,16 +118,18 @@ func (r *RunSftp) executeRemoteLs(c *cli.Context, clients map[string]*SftpConnec
 			client.Output.Create(server)
 			w := client.Output.NewWriter()
 
-			if len(path) > 0 {
-				if !filepath.IsAbs(path) {
-					path = filepath.Join(client.Pwd, path)
+			if len(client.Path) > 0 {
+				for i, path := range client.Path {
+					if !filepath.IsAbs(path) {
+						client.Path[i] = filepath.Join(client.Pwd, path)
+					}
 				}
 			} else {
-				path = client.Pwd
+				client.Path = append(client.Path, client.Pwd)
 			}
 
 			// get ls data
-			data, err := r.getRemoteLsData(client, path)
+			data, err := r.getRemoteLsData(client)
 			if err != nil {
 				fmt.Fprintf(w, "Error: %s\n", err)
 				exit <- true
@@ -318,74 +296,89 @@ func (r *RunSftp) executeRemoteLs(c *cli.Context, clients map[string]*SftpConnec
 	}
 }
 
-// ls exec and print out remote ls data.
-func (r *RunSftp) ls(args []string) (err error) {
-	// create app
-	app := cli.NewApp()
-	// app.UseShortOptionHandling = true
+// getRemoteLsData
+func (r *RunSftp) getRemoteLsData(client *TargetConnectMap) (lsdata sftpLs, err error) {
+	data := []sftpFileInfo{}
+	re := regexp.MustCompile(`(.+)/$`)
 
-	// set help message
-	app.CustomAppHelpTemplate = helptext
+	for _, path := range client.Path {
+		path = re.ReplaceAllString(path, "$1")
 
-	// set parameter
-	app.Flags = []cli.Flag{
-		cli.BoolFlag{Name: "1", Usage: "list one file per line"},
-		cli.BoolFlag{Name: "a", Usage: "do not ignore entries starting with"},
-		cli.BoolFlag{Name: "f", Usage: "do not sort"},
-		cli.BoolFlag{Name: "h", Usage: "with -l, print sizes like 1K 234M 2G etc."},
-		cli.BoolFlag{Name: "l", Usage: "use a long listing format"},
-		cli.BoolFlag{Name: "n", Usage: "list numeric user and group IDs"},
-		cli.BoolFlag{Name: "r", Usage: "reverse order while sorting"},
-		cli.BoolFlag{Name: "S", Usage: "sort by file size, largest first"},
-		cli.BoolFlag{Name: "t", Usage: "sort by modification time, newest first"},
-	}
-	app.Name = "ls"
-	app.Usage = "lsftp build-in command: ls [remote machine ls]"
-	app.ArgsUsage = "[host,host...:][PATH]..."
-	app.HideHelp = true
-	app.HideVersion = true
-	app.EnableBashCompletion = true
+		// get glob
+		epath, _ := client.Connect.Glob(path)
 
-	// action
-	app.Action = func(c *cli.Context) error {
-		// argpath
-		argData := c.Args()
+		for _, path := range epath {
+			// get symlink
+			p, err := client.Connect.ReadLink(path)
+			if err == nil {
+				path = p
+			}
 
-		if len(argData) > 0 {
-			for _, arg := range argData {
-				// sftp target host
-				target := r.Client
+			// get stat
+			lstat, err := client.Connect.Lstat(path)
+			if err != nil {
+				continue
+			}
 
-				// parse `host:/path/to`
-				host, path := common.ParseHostPath(arg)
-				if len(host) > 0 {
-					// init target
-					target = map[string]*SftpConnect{}
-
-					// copy from r.Client to target
-					for _, h := range host {
-						if _, ok := r.Client[h]; ok {
-							target[h] = r.Client[h]
-						} else {
-							fmt.Fprintf(os.Stderr, "Error: host %s not found.\n", h)
-							continue
-						}
-					}
+			// get path data
+			if lstat.IsDir() {
+				// get directory list data
+				lsdata, err := client.Connect.ReadDir(path)
+				if err != nil {
+					continue
 				}
 
-				r.executeRemoteLs(c, target, path)
-			}
-		} else {
-			target := r.Client
-			r.executeRemoteLs(c, target, "")
-		}
+				for _, d := range lsdata {
+					dir := path
+					fi := sftpFileInfo{
+						FileInfo: d,
+						Dir:      dir,
+					}
 
-		return nil
+					data = append(data, fi)
+				}
+
+			} else {
+				dir := filepath.Dir(path)
+				fi := sftpFileInfo{
+					FileInfo: lstat,
+					Dir:      dir,
+				}
+
+				data = append(data, fi)
+			}
+		}
 	}
 
-	// parse short options
-	args = common.ParseArgs(app.Flags, args)
-	app.Run(args)
+	// read /etc/passwd
+	passwdFile, err := client.Connect.Open("/etc/passwd")
+	if err != nil {
+		return
+	}
+	passwdByte, err := ioutil.ReadAll(passwdFile)
+	if err != nil {
+		return
+	}
+	passwd := string(passwdByte)
+
+	// read /etc/group
+	groupFile, err := client.Connect.Open("/etc/group")
+	if err != nil {
+		return
+	}
+	groupByte, err := ioutil.ReadAll(groupFile)
+	if err != nil {
+		return
+	}
+	groups := string(groupByte)
+
+	// set lsdata
+	lsdata = sftpLs{
+		Client: client,
+		Files:  data,
+		Passwd: passwd,
+		Groups: groups,
+	}
 
 	return
 }
