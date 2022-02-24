@@ -57,7 +57,7 @@ func (r *RunSftp) cat(args []string) {
 			f, err := ftp.Open(path)
 			if err != nil {
 				fmt.Fprintln(w, err)
-				return nil
+				continue
 			}
 
 			// read file to Output.Writer
