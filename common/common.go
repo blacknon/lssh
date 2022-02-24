@@ -64,6 +64,18 @@ func MapReduce(map1, map2 map[string]interface{}) map[string]interface{} {
 	return map2
 }
 
+// MapMerge merges multiple Maps
+func MapMerge(m ...map[string]interface{}) map[string]interface{} {
+	ans := make(map[string]interface{}, 0)
+
+	for _, c := range m {
+		for k, v := range c {
+			ans[k] = v
+		}
+	}
+	return ans
+}
+
 // StructToMap returns a map that converted struct to map.
 // Keys of map are set from public field of struct.
 //
