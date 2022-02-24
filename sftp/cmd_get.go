@@ -31,7 +31,7 @@ func (r *RunSftp) get(args []string) {
 	// set parameter
 	app.Name = "get"
 	app.Usage = "lsftp build-in command: get"
-	app.ArgsUsage = "[source(remote) target(local)]"
+	app.ArgsUsage = "[source(remote)...] target(local)"
 	app.HideHelp = true
 	app.HideVersion = true
 	app.EnableBashCompletion = true
@@ -39,8 +39,8 @@ func (r *RunSftp) get(args []string) {
 	// action
 	app.Action = func(c *cli.Context) error {
 		if len(c.Args()) != 2 {
-			fmt.Println("Requires two arguments")
-			fmt.Println("get source(remote) target(local)")
+			fmt.Println("Requires over two arguments")
+			fmt.Println("get source(remote)... target(local)")
 			return nil
 		}
 
@@ -49,18 +49,19 @@ func (r *RunSftp) get(args []string) {
 		r.Progress = mpb.New(mpb.WithWaitGroup(r.ProgressWG))
 
 		// set path
-		source := c.Args()[0]
-		target := c.Args()[1]
+		argsSize := len(c.Args()) - 1
+		source := c.Args()[:argsSize]
+		destination := c.Args()[1]
 
-		// get target directory abs
-		target, err := filepath.Abs(target)
+		// get destination directory abs
+		destination, err := filepath.Abs(destination)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "Error: %s\n", err)
 			return nil
 		}
 
-		// mkdir local target directory
-		err = os.MkdirAll(target, 0755)
+		// mkdir local destination directory
+		err = os.MkdirAll(destination, 0755)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "Error: %s\n", err)
 			return nil
@@ -72,11 +73,11 @@ func (r *RunSftp) get(args []string) {
 			server := s
 			client := c
 
-			targetdir := target
+			targetDestinationDir := destination
 			if len(r.Client) > 1 {
-				targetdir = filepath.Join(target, server)
+				targetDestinationDir = filepath.Join(targetDestinationDir, server)
 				// mkdir local target directory
-				err = os.MkdirAll(targetdir, 0755)
+				err = os.MkdirAll(targetDestinationDir, 0755)
 				if err != nil {
 					fmt.Fprintf(os.Stderr, "Error: %s\n", err)
 					return nil
@@ -91,10 +92,7 @@ func (r *RunSftp) get(args []string) {
 				// create output
 				client.Output.Create(server)
 
-				// local target
-				targetdir, _ = filepath.Abs(targetdir)
-
-				err = r.pullPath(client, source, targetdir)
+				err = r.pullPath(client, source[0], targetDestinationDir)
 
 				exit <- true
 			}()
@@ -120,6 +118,11 @@ func (r *RunSftp) get(args []string) {
 	app.Run(args)
 
 	return
+}
+
+//
+func (r *RunSftp) execGet() {
+
 }
 
 //
