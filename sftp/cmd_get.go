@@ -18,8 +18,6 @@ import (
 	"github.com/vbauerster/mpb"
 )
 
-// TODO(blacknon): リファクタリング(v0.6.2)
-
 //
 func (r *RunSftp) get(args []string) {
 	// create app
@@ -31,14 +29,14 @@ func (r *RunSftp) get(args []string) {
 	// set parameter
 	app.Name = "get"
 	app.Usage = "lsftp build-in command: get"
-	app.ArgsUsage = "[source(remote)...] target(local)"
+	app.ArgsUsage = "source(remote)... target(local)"
 	app.HideHelp = true
 	app.HideVersion = true
 	app.EnableBashCompletion = true
 
 	// action
 	app.Action = func(c *cli.Context) error {
-		if len(c.Args()) != 2 {
+		if len(c.Args()) < 2 {
 			fmt.Println("Requires over two arguments")
 			fmt.Println("get source(remote)... target(local)")
 			return nil
@@ -51,7 +49,7 @@ func (r *RunSftp) get(args []string) {
 		// set pathlist
 		argsSize := len(c.Args()) - 1
 		source := c.Args()[:argsSize]
-		destination := c.Args()[1]
+		destination := c.Args()[argsSize]
 
 		// get destination directory abs
 		destination, err := filepath.Abs(destination)
@@ -97,7 +95,7 @@ func (r *RunSftp) get(args []string) {
 				// create output
 				client.Output.Create(server)
 
-				err = r.pullPath(client, targetDestinationDir)
+				err = r.pullData(client, targetDestinationDir)
 
 				exit <- true
 			}()
@@ -126,7 +124,7 @@ func (r *RunSftp) get(args []string) {
 }
 
 //
-func (r *RunSftp) pullPath(client *TargetConnectMap, targetdir string) (err error) {
+func (r *RunSftp) pullData(client *TargetConnectMap, targetdir string) (err error) {
 	for _, path := range client.Path {
 		// set arg path
 		var rpath string
