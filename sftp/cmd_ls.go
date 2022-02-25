@@ -298,14 +298,25 @@ func (r *RunSftp) executeRemoteLs(c *cli.Context, clients map[string]*TargetConn
 
 // getRemoteLsData
 func (r *RunSftp) getRemoteLsData(client *TargetConnectMap) (lsdata sftpLs, err error) {
+	w := client.Output.NewWriter()
+
 	data := []sftpFileInfo{}
 	re := regexp.MustCompile(`(.+)/$`)
 
-	for _, path := range client.Path {
-		path = re.ReplaceAllString(path, "$1")
+	for _, ep := range client.Path {
+		ep = re.ReplaceAllString(ep, "$1")
 
 		// get glob
-		epath, _ := client.Connect.Glob(path)
+		epath, err := client.Connect.Glob(ep)
+		if err != nil {
+			fmt.Fprintf(w, "Error: %s\n", err)
+			continue
+		}
+
+		if len(epath) == 0 {
+			fmt.Fprintf(w, "Error: %s not found.\n", ep)
+			continue
+		}
 
 		for _, path := range epath {
 			// get symlink
@@ -317,6 +328,7 @@ func (r *RunSftp) getRemoteLsData(client *TargetConnectMap) (lsdata sftpLs, err 
 			// get stat
 			lstat, err := client.Connect.Lstat(path)
 			if err != nil {
+				fmt.Fprintf(w, "Error: %s\n", err)
 				continue
 			}
 
@@ -325,6 +337,7 @@ func (r *RunSftp) getRemoteLsData(client *TargetConnectMap) (lsdata sftpLs, err 
 				// get directory list data
 				lsdata, err := client.Connect.ReadDir(path)
 				if err != nil {
+					fmt.Fprintf(w, "Error: %s\n", err)
 					continue
 				}
 
