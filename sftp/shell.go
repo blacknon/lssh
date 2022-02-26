@@ -19,8 +19,6 @@ import (
 )
 
 // TODO(blacknon): 補完処理が遅い・不安定になってるので対処する
-// TODO(blacknon): 補完処理で、複数ホスト接続時に一部ホストにしか存在しないディレクトリを指定した場合、そこで処理が止まってしまう挙動を修正する
-// TODO(blacknon): 全コマンドで、`hostname:/path/to...`でホストを指定できるようにし、補完処理についても動くようにする
 
 // sftp Shell mode function
 func (r *RunSftp) shell() {
