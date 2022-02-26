@@ -31,16 +31,21 @@ func (r *RunSftp) cat(args []string) {
 
 	app.Name = "cat"
 	app.Usage = "lsftp build-in command: cat [remote machine cat]"
-	app.ArgsUsage = "[PATH]"
+	app.ArgsUsage = "PATH..."
 	app.HideHelp = true
 	app.HideVersion = true
 	app.EnableBashCompletion = true
 
 	app.Action = func(c *cli.Context) error {
 		// 1st arg only
-		path := c.Args().First()
+		pathlist := c.Args()
 
-		for server, client := range r.Client {
+		targetmap := map[string]*TargetConnectMap{}
+		for _, p := range pathlist {
+			targetmap = r.createTargetMap(targetmap, p)
+		}
+
+		for server, client := range targetmap {
 			// set ftp client
 			ftp := client.Connect
 
@@ -48,25 +53,26 @@ func (r *RunSftp) cat(args []string) {
 			client.Output.Create(server)
 			w := client.Output.NewWriter()
 
-			// set arg path
-			if !filepath.IsAbs(path) {
-				path = filepath.Join(client.Pwd, path)
+			for _, path := range client.Path {
+				// set arg path
+				if !filepath.IsAbs(path) {
+					path = filepath.Join(client.Pwd, path)
+				}
+
+				// open file
+				f, err := ftp.Open(path)
+				if err != nil {
+					fmt.Fprintln(w, err)
+					continue
+				}
+
+				// read file to Output.Writer
+				_, err = f.WriteTo(w)
+
+				if err != nil {
+					fmt.Fprintln(w, err)
+				}
 			}
-
-			// open file
-			f, err := ftp.Open(path)
-			if err != nil {
-				fmt.Fprintln(w, err)
-				continue
-			}
-
-			// read file to Output.Writer
-			_, err = f.WriteTo(w)
-
-			if err != nil {
-				fmt.Fprintln(w, err)
-			}
-
 		}
 
 		// wait 0.3 sec
