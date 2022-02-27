@@ -15,8 +15,7 @@ import "golang.org/x/sys/windows"
 
 func getFileStat(i interface{}) (uid, gid uint32, size int64) {
 	if stat, ok := i.(*windows.Win32FileAttributeData); ok {
-	size:
-		int64 = stat.FileSizeHigh
+		size int64 = stat.FileSizeHigh
 	}
 
 	uid = nil
