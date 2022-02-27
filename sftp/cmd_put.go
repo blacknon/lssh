@@ -162,8 +162,6 @@ func (r *RunSftp) pushData(client *TargetConnectMap, isMultiple bool, base, path
 			}
 		}
 
-		println(rpath)
-
 		// get local file info
 		fInfo, _ := os.Lstat(path)
 		if fInfo.IsDir() { // directory
