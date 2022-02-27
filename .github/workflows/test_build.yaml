@@ -12,7 +12,8 @@ name: Build Test Job.
 on:
   push:
     branches:
-      - "topic/issue_#85_lsftpの機能強化"
+      # - "topic/*"
+      - "develop"
 
 jobs:
   # build rust binary
