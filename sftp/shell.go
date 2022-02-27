@@ -167,7 +167,10 @@ func (r *RunSftp) Completer(t prompt.Document) []prompt.Suggest {
 	} else { // command pattern
 		switch cmdline[0] {
 		case "cd":
-			return r.PathComplete(true, false, t)
+			switch {
+			case strings.Count(t.CurrentLineBeforeCursor(), " ") == 1:
+				return r.PathComplete(true, false, t)
+			}
 		case "cat":
 			// TODO(blacknon): ファイル容量が大きいと途中で止まるっぽい。
 			return r.PathComplete(true, false, t)
