@@ -18,8 +18,8 @@ func getFileStat(i interface{}) (uid, gid uint32, size int64) {
 		size int64 = stat.FileSizeHigh
 	}
 
-	uid = nil
-	gid = nil
+	uid = 0
+	gid = 0
 
 	return
 }
