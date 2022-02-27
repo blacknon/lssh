@@ -342,7 +342,7 @@ func (r *RunSftp) getRemoteLsData(client *TargetConnectMap) (lsdata sftpLs, err 
 				}
 
 				if len(lsdata) == 0 {
-					dir := path
+					dir := filepath.Dir(path)
 					fi := sftpFileInfo{
 						FileInfo: lstat,
 						Dir:      dir,
