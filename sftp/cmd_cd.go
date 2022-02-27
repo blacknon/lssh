@@ -27,15 +27,18 @@ func (r *RunSftp) cd(args []string) {
 		return
 	}
 
+	targetmap := map[string]*TargetConnectMap{}
+	targetmap = r.createTargetMap(targetmap, args[1])
+
 	// check directory
 	var okcounter int
-	for server, client := range r.Client {
+	for server, client := range targetmap {
 		// get output
 		client.Output.Create(server)
 		w := client.Output.NewWriter()
 
 		// set arg path
-		path = args[1]
+		path = client.Path[0]
 		var err error
 		if !filepath.IsAbs(path) {
 			path = filepath.Join(client.Pwd, path)
@@ -59,18 +62,16 @@ func (r *RunSftp) cd(args []string) {
 			continue
 		}
 
+		// set pwd
+		r.Client[server].Pwd = path
+
 		// add count
 		okcounter++
 	}
 
 	// check count okcounter
-	if okcounter != len(r.Client) {
+	if okcounter != len(targetmap) {
 		return
-	}
-
-	// set pwd
-	for _, c := range r.Client {
-		c.Pwd = path
 	}
 
 	return
