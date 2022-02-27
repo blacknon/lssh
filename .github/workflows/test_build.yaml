@@ -1,0 +1,63 @@
+# Copyright (c) 2021 Blacknon. All rights reserved.
+# Use of this source code is governed by an MIT license
+# that can be found in the LICENSE file.
+# reference:
+#   - https://motemen.hatenablog.com/entry/2019/11/github-actions-crossbuild-rust
+#     - https://github.com/motemen/lssh/blob/97d3745dcc8931a1d75217573d5ca60705be632f/.github/workflows/release.yml
+#   - https://github.com/greymd/teip/blob/master/.github/workflows/release.yml
+
+
+name: Release Job.
+
+on:
+  push:
+    branches:
+      - "topic/issue_#85_lsftpの機能強化"
+
+jobs:
+  # build rust binary
+  build:
+    strategy:
+      matrix:
+        include:
+          - goos: linux
+            goarch: amd64
+            os: ubuntu-latest
+            ext: tar.gz
+          # - goos: linux
+          #   goarch: amd64
+          #   os: ubuntu-latest
+          #   ext: rpm
+          # - goos: linux
+          #   goarch: amd64
+          #   os: ubuntu-latest
+          #   ext: deb
+          - goos: darwin
+            goarch: amd64
+            os: macos-latest
+            ext: tar.gz
+          - goos: windows
+            goarch: amd64
+            os: windows-latest
+            ext: zip
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v1
+
+      - name: Set up Go 1.17
+        uses: actions/setup-go@v1
+        with:
+          go-version: 1.17
+
+      - name: Get version
+        id: package_version
+        shell: bash
+        run: |
+          VERSION="$(go run ./cmd/lssh/ --version | awk '{print $NF}')"
+          echo "::set-output name=version::$VERSION"
+
+      - name: Build binary
+        run: |
+          go build -o lssh.${{ matrix.goos }}_${{ matrix.goarch }} ./cmd/lssh
+          go build -o lscp.${{ matrix.goos }}_${{ matrix.goarch }} ./cmd/lscp
+          go build -o lsftp.${{ matrix.goos }}_${{ matrix.goarch }} ./cmd/lsftp
