@@ -7,7 +7,7 @@
 #   - https://github.com/greymd/teip/blob/master/.github/workflows/release.yml
 
 
-name: Release Job.
+name: Build Test Job.
 
 on:
   push:
@@ -60,4 +60,4 @@ jobs:
         run: |
           go build -o lssh.${{ matrix.goos }}_${{ matrix.goarch }} ./cmd/lssh
           go build -o lscp.${{ matrix.goos }}_${{ matrix.goarch }} ./cmd/lscp
-          go build -o lsftp.${{ matrix.goos }}_${{ matrix.goarch }} ./cmd/lsftp
+          # go build -o lsftp.${{ matrix.goos }}_${{ matrix.goarch }} ./cmd/lsftp
