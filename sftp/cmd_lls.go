@@ -20,7 +20,6 @@ import (
 	"github.com/blacknon/textcol"
 	"github.com/dustin/go-humanize"
 	"github.com/urfave/cli"
-	"golang.org/x/sys/unix"
 )
 
 // lls exec and print out local ls data.
@@ -111,11 +110,7 @@ func (r *RunSftp) lls(args []string) (err error) {
 
 				if runtime.GOOS != "windows" {
 					system := f.Sys()
-					if stat, ok := system.(*unix.Stat_t); ok {
-						uid = stat.Uid
-						gid = stat.Gid
-						size = stat.Size
-					}
+					uid, gid, size = getFileStat(system)
 				}
 
 				// Switch with or without -n option.
