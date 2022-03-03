@@ -35,7 +35,6 @@ func (r *RunSftp) shell() {
 		prompt.OptionLivePrefix(r.CreatePrompt),
 		prompt.OptionInputTextColor(prompt.Green),
 		prompt.OptionPrefixTextColor(prompt.Blue),
-		// prompt.OptionCompletionWordSeparator(completer.FilePathCompletionSeparator), // test
 		prompt.OptionCompletionWordSeparator(" /\\,:"),
 	)
 
@@ -169,11 +168,11 @@ func (r *RunSftp) Completer(t prompt.Document) []prompt.Suggest {
 		case "cd":
 			switch {
 			case strings.Count(t.CurrentLineBeforeCursor(), " ") == 1:
-				return r.PathComplete(true, false, t)
+				return r.PathComplete(true, false, false, t)
 			}
 		case "cat":
 			// TODO(blacknon): ファイル容量が大きいと途中で止まるっぽい。
-			return r.PathComplete(true, false, t)
+			return r.PathComplete(true, false, false, t)
 		case "chgrp":
 			// TODO(blacknon): そのうち追加 ver0.6.3
 		case "chown":
@@ -189,21 +188,21 @@ func (r *RunSftp) Completer(t prompt.Document) []prompt.Suggest {
 				return prompt.FilterHasPrefix(suggest, t.GetWordBeforeCursor(), false)
 
 			default:
-				return r.PathComplete(true, false, t)
+				return r.PathComplete(true, false, false, t)
 			}
 
 		case "get":
 			// TODO(blacknon): オプションを追加したら引数の数から減らす処理が必要
 			switch {
 			case strings.Count(t.CurrentLineBeforeCursor(), " ") == 1: // remote
-				return r.PathComplete(true, false, t)
+				return r.PathComplete(true, false, false, t)
 			case strings.Count(t.CurrentLineBeforeCursor(), " ") >= 2: // remote and local
-				return r.PathComplete(true, true, t)
+				return r.PathComplete(true, true, false, t)
 			}
 		case "lcat":
-			return r.PathComplete(false, true, t)
+			return r.PathComplete(false, true, false, t)
 		case "lcd":
-			return r.PathComplete(false, true, t)
+			return r.PathComplete(false, true, false, t)
 		case "lls":
 			// switch options or path
 			switch {
@@ -222,7 +221,7 @@ func (r *RunSftp) Completer(t prompt.Document) []prompt.Suggest {
 				return prompt.FilterHasPrefix(suggest, t.GetWordBeforeCursor(), false)
 
 			default:
-				return r.PathComplete(false, true, t)
+				return r.PathComplete(false, true, false, t)
 			}
 		case "lmkdir":
 			switch {
@@ -233,7 +232,7 @@ func (r *RunSftp) Completer(t prompt.Document) []prompt.Suggest {
 				return prompt.FilterHasPrefix(suggest, t.GetWordBeforeCursor(), false)
 
 			default:
-				return r.PathComplete(false, true, t)
+				return r.PathComplete(false, true, false, t)
 			}
 
 		// case "ln":
@@ -256,7 +255,7 @@ func (r *RunSftp) Completer(t prompt.Document) []prompt.Suggest {
 				return prompt.FilterHasPrefix(suggest, t.GetWordBeforeCursor(), false)
 
 			default:
-				return r.PathComplete(true, false, t)
+				return r.PathComplete(true, false, false, t)
 			}
 
 		// case "lumask":
@@ -268,25 +267,30 @@ func (r *RunSftp) Completer(t prompt.Document) []prompt.Suggest {
 				}
 
 			default:
-				return r.PathComplete(true, false, t)
+				return r.PathComplete(true, false, false, t)
 			}
 
 		case "put":
 			// TODO(blacknon): オプションを追加したら引数の数から減らす処理が必要
 			switch {
 			case strings.Count(t.CurrentLineBeforeCursor(), " ") == 1: // local
-				return r.PathComplete(false, true, t)
+				return r.PathComplete(false, true, false, t)
 			case strings.Count(t.CurrentLineBeforeCursor(), " ") >= 2: // local and remote
-				return r.PathComplete(true, true, t)
+				return r.PathComplete(true, true, false, t)
 			}
 		case "pwd":
 		case "quit":
 		case "rename":
-			return r.PathComplete(true, false, t)
+			switch {
+			case strings.Count(t.CurrentLineBeforeCursor(), " ") == 1: // remote
+				return r.PathComplete(true, false, false, t)
+			case strings.Count(t.CurrentLineBeforeCursor(), " ") == 2: // remote(not set server)
+				return r.PathComplete(true, false, true, t)
+			}
 		case "rm":
-			return r.PathComplete(true, false, t)
+			return r.PathComplete(true, false, false, t)
 		case "rmdir":
-			return r.PathComplete(true, false, t)
+			return r.PathComplete(true, false, false, t)
 		case "symlink":
 			// TODO(blacknon): そのうち追加 ver0.6.2
 		// case "tree":
@@ -300,7 +304,7 @@ func (r *RunSftp) Completer(t prompt.Document) []prompt.Suggest {
 }
 
 // PathComplete return path complete data
-func (r *RunSftp) PathComplete(remote, local bool, t prompt.Document) []prompt.Suggest {
+func (r *RunSftp) PathComplete(remote, local, useTargetmap bool, t prompt.Document) []prompt.Suggest {
 	// suggest
 	var suggest []prompt.Suggest
 
@@ -330,19 +334,18 @@ func (r *RunSftp) PathComplete(remote, local bool, t prompt.Document) []prompt.S
 		// update r.RemoteComplete
 		switch {
 		// host set
-		// case contains([]string{","}, char) && strings.Count(t.CurrentLineBeforeCursor(), " ") == 0:
 		case contains([]string{","}, char):
-			confirmRemote = r.GetRemoteComplete(true, false, t.GetWordBeforeCursor())
+			confirmRemote = r.GetRemoteComplete(true, false, useTargetmap, t.GetWordBeforeCursor())
 
 		case contains([]string{":"}, char):
-			confirmRemote = r.GetRemoteComplete(false, true, t.GetWordBeforeCursor())
+			confirmRemote = r.GetRemoteComplete(false, true, useTargetmap, t.GetWordBeforeCursor())
 
 		// char is slach or
 		case contains([]string{"/"}, char):
-			confirmRemote = r.GetRemoteComplete(false, true, t.GetWordBeforeCursor())
+			confirmRemote = r.GetRemoteComplete(false, true, useTargetmap, t.GetWordBeforeCursor())
 
 		case contains([]string{" "}, char):
-			confirmRemote = r.GetRemoteComplete(true, true, t.GetWordBeforeCursor())
+			confirmRemote = r.GetRemoteComplete(true, true, useTargetmap, t.GetWordBeforeCursor())
 
 		}
 		suggest = append(suggest, r.RemoteComplete...)
@@ -362,7 +365,7 @@ func (r *RunSftp) PathComplete(remote, local bool, t prompt.Document) []prompt.S
 }
 
 // GetRemoteComplete set r.RemoteComplete
-func (r *RunSftp) GetRemoteComplete(ishost, ispath bool, path string) (confirmRemote bool) {
+func (r *RunSftp) GetRemoteComplete(ishost, ispath, useTargetmap bool, path string) (confirmRemote bool) {
 	// confirm remote
 	confirmRemote = false
 
@@ -398,6 +401,9 @@ func (r *RunSftp) GetRemoteComplete(ishost, ispath bool, path string) (confirmRe
 		s = append(s, suggest)
 	}
 
+	// sort s
+	sort.SliceStable(s, func(i, j int) bool { return s[i].Text < s[j].Text })
+
 	// If it is confirmed that it is a completion of the host name
 	// create suggest(hostname)
 	if ishost && !ispath {
@@ -408,14 +414,20 @@ func (r *RunSftp) GetRemoteComplete(ishost, ispath bool, path string) (confirmRe
 
 	// parse path
 	parsedservers, parsedPath := common.ParseHostPath(path)
-	if len(parsedservers) == 0 {
-		targetmap = r.Client
-	}
-
-	for server, client := range r.Client {
-		if common.Contains(parsedservers, server) {
-			targetmap[server] = client
+	if !useTargetmap {
+		if len(parsedservers) == 0 {
+			parsedservers = servers
 		}
+
+		for server, client := range r.Client {
+			if common.Contains(parsedservers, server) {
+				targetmap[server] = client
+			}
+		}
+
+		r.TargetClient = targetmap
+	} else {
+		targetmap = r.TargetClient
 	}
 
 	// connect client...
@@ -494,6 +506,8 @@ func (r *RunSftp) GetRemoteComplete(ishost, ispath bool, path string) (confirmRe
 
 	// set suggest to struct
 	if ispath && !ishost {
+		r.RemoteComplete = p
+	} else if useTargetmap {
 		r.RemoteComplete = p
 	} else {
 		r.RemoteComplete = p

@@ -32,7 +32,7 @@ type RunSftp struct {
 	Client map[string]*SftpConnect
 
 	// Complete select client
-	SelectedClient map[string]*SftpConnect
+	TargetClient map[string]*SftpConnect
 
 	// ssh Run
 	Run *sshl.Run
