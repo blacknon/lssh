@@ -23,7 +23,6 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
-	"time"
 
 	"github.com/urfave/cli"
 	"golang.org/x/crypto/ssh/terminal"
@@ -35,6 +34,28 @@ var characterRunes = []rune("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXY
 func IsExist(filename string) bool {
 	_, err := os.Stat(filename)
 	return err == nil
+}
+
+//
+func Contains(list interface{}, elem interface{}) bool {
+	listV := reflect.ValueOf(list)
+
+	if listV.Kind() == reflect.Slice {
+		for i := 0; i < listV.Len(); i++ {
+			item := listV.Index(i).Interface()
+			// check conver
+			if !reflect.TypeOf(elem).ConvertibleTo(reflect.TypeOf(item)) {
+				continue
+			}
+			// convert type
+			target := reflect.ValueOf(elem).Convert(reflect.TypeOf(item)).Interface()
+			// check
+			if ok := reflect.DeepEqual(item, target); ok {
+				return true
+			}
+		}
+	}
+	return false
 }
 
 // MapReduce sets map1 value to map2 if map1 and map2 have same key, and value
@@ -63,6 +84,18 @@ func MapReduce(map1, map2 map[string]interface{}) map[string]interface{} {
 	}
 
 	return map2
+}
+
+// MapMerge merges multiple Maps
+func MapMerge(m ...map[string]interface{}) map[string]interface{} {
+	ans := make(map[string]interface{}, 0)
+
+	for _, c := range m {
+		for k, v := range c {
+			ans[k] = v
+		}
+	}
+	return ans
 }
 
 // StructToMap returns a map that converted struct to map.
@@ -181,10 +214,6 @@ func GetPassPhrase(msg string) (input string, err error) {
 	input = string(result)
 	fmt.Println()
 	return
-}
-
-func init() {
-	rand.Seed(time.Now().UnixNano())
 }
 
 // NewSHA1Hash generates a new SHA1 hash based on
@@ -316,6 +345,20 @@ func ParseForwardPort(value string) (local, remote string, err error) {
 	default:
 		err = errors.New("Could not parse.")
 	}
+
+	return
+}
+
+// ParseHostPath return host and path, from host:/path/to/dir/file.
+func ParseHostPath(value string) (host []string, path string) {
+	if !strings.Contains(value, ":") {
+		path = value
+		return
+	}
+
+	parseValue := strings.SplitN(value, ":", 2)
+	host = strings.Split(parseValue[0], ",")
+	path = parseValue[1]
 
 	return
 }

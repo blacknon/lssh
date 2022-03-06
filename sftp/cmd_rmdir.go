@@ -27,25 +27,31 @@ func (r *RunSftp) rmdir(args []string) {
 
 	// action
 	app.Action = func(c *cli.Context) error {
-		if len(c.Args()) != 1 {
+		if len(c.Args()) < 1 {
 			fmt.Println("Requires one arguments")
-			fmt.Println("rmdir [path]")
+			fmt.Println("rmdir path...")
 			return nil
 		}
 
-		for server, client := range r.Client {
+		targetmap := map[string]*TargetConnectMap{}
+		for _, p := range c.Args() {
+			targetmap = r.createTargetMap(targetmap, p)
+		}
+
+		for server, client := range targetmap {
 			// get writer
 			client.Output.Create(server)
 			w := client.Output.NewWriter()
 
 			// remove directory
-			err := client.Connect.RemoveDirectory(c.Args()[0])
-			if err != nil {
-				fmt.Fprintf(w, "%s\n", err)
-				return nil
+			for _, path := range client.Path {
+				err := client.Connect.RemoveDirectory(path)
+				if err != nil {
+					fmt.Fprintf(w, "%s\n", err)
+					continue
+				}
+				fmt.Fprintf(w, "remove dir: %s\n", path)
 			}
-
-			fmt.Fprintf(w, "remove dir: %s\n", c.Args()[0])
 		}
 
 		return nil

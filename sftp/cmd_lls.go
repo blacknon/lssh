@@ -12,8 +12,8 @@ import (
 	"io/ioutil"
 	"os"
 	pkguser "os/user"
+	"runtime"
 	"strconv"
-	"syscall"
 	"text/tabwriter"
 
 	"github.com/blacknon/lssh/common"
@@ -108,11 +108,9 @@ func (r *RunSftp) lls(args []string) (err error) {
 				timestamp := f.ModTime()
 				timestr = timestamp.Format("2006 01-02 15:04:05")
 
-				sys := f.Sys()
-				if stat, ok := sys.(*syscall.Stat_t); ok {
-					uid = stat.Uid
-					gid = stat.Gid
-					size = stat.Size
+				if runtime.GOOS != "windows" {
+					system := f.Sys()
+					uid, gid, size = getFileStat(system)
 				}
 
 				// Switch with or without -n option.

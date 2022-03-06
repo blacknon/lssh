@@ -34,20 +34,24 @@ func (r *RunSftp) rename(args []string) {
 			return nil
 		}
 
+		// parse old path, with server...
+		oldname := c.Args()[0]
+		targetmap := map[string]*TargetConnectMap{}
+		targetmap = r.createTargetMap(targetmap, oldname)
+
 		exit := make(chan bool)
-		for s, cl := range r.Client {
+		for s, cl := range targetmap {
 			server := s
 			client := cl
 
-			oldname := c.Args()[0]
 			newname := c.Args()[1]
-
 			go func() {
 				// get writer
 				client.Output.Create(server)
 				w := client.Output.NewWriter()
 
 				// get current directory
+				oldname := client.Path[0]
 				err := client.Connect.Rename(oldname, newname)
 				if err != nil {
 					fmt.Fprintf(w, "%s\n", err)
@@ -61,7 +65,7 @@ func (r *RunSftp) rename(args []string) {
 			}()
 		}
 
-		for i := 0; i < len(r.Client); i++ {
+		for i := 0; i < len(targetmap); i++ {
 			<-exit
 		}
 

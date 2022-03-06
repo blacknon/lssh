@@ -122,3 +122,7 @@ func TestGetMaxLength(t *testing.T) {
 // TODO
 // func TestGetFilesBase64(t *testing.T) {
 // }
+
+// func TestParseHostPath(t *testing.T) {
+// 	type TestData
+// }

@@ -161,7 +161,9 @@ func (r *Run) pshell() (err error) {
 	}
 
 	// set signal
-	signal.Notify(ps.Signal, syscall.SIGTERM, syscall.SIGINT)
+	// TODO: Windows対応
+	//   - 参考: https://cad-san.hatenablog.com/entry/2017/01/09/170213
+	signal.Notify(ps.Signal, syscall.SIGTERM, syscall.SIGINT, os.Interrupt)
 
 	// old history list
 	var historyCommand []string
