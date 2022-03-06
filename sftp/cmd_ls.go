@@ -136,25 +136,32 @@ func (r *RunSftp) executeRemoteLs(c *cli.Context, clients map[string]*TargetConn
 				return
 			}
 
-			// if `a` flag disable, delete Hidden files...
 			if !c.Bool("a") {
-				// hidden delete data slice
-				hddata := []sftpFileInfo{}
+			}
 
-				// regex
-				rgx := regexp.MustCompile(`^\.`)
+			// hidden delete data slice
+			hddata := []sftpFileInfo{}
 
-				for _, f := range data.Files {
+			// regex
+			rgx := regexp.MustCompile(`^\.`)
+
+			for _, f := range data.Files {
+				// if `a` flag disable, delete Hidden files...
+				if !c.Bool("a") {
 					if !rgx.MatchString(f.Name()) {
 						hddata = append(hddata, f)
 					}
+					continue
 				}
 
-				// sort
-				r.SortLsData(c, hddata)
+				hddata = append(hddata, f)
 
-				data.Files = hddata
 			}
+
+			// sort
+			r.SortLsData(c, hddata)
+
+			data.Files = hddata
 
 			// write lsdata
 			m.Lock()
