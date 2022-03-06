@@ -136,8 +136,9 @@ func (r *RunSftp) Completer(t prompt.Document) []prompt.Suggest {
 			{Text: "bye", Description: "Quit lsftp"},
 			{Text: "cat", Description: "Open file"},
 			{Text: "cd", Description: "Change remote directory to 'path'"},
-			// {Text: "chgrp", Description: "Change group of file 'path' to 'grp'"},
-			// {Text: "chown", Description: "Change owner of file 'path' to 'own'"},
+			{Text: "chgrp", Description: "Change group of file 'path' to 'grp'"},
+			{Text: "chmod", Description: "Change mode of file 'path' to 'mode'"},
+			{Text: "chown", Description: "Change owner of file 'path' to 'own'"},
 			// {Text: "copy", Description: "Copy to file from 'remote' or 'local' to 'remote' or 'local'"},
 			{Text: "df", Description: "Display statistics for current directory or filesystem containing 'path'"},
 			{Text: "exit", Description: "Quit lsftp"},
@@ -175,9 +176,23 @@ func (r *RunSftp) Completer(t prompt.Document) []prompt.Suggest {
 			// TODO(blacknon): ファイル容量が大きいと途中で止まるっぽい。
 			return r.PathComplete(true, false, false, t)
 		case "chgrp":
-			// TODO(blacknon): そのうち追加 ver0.6.3
+			switch {
+			case strings.Count(t.CurrentLineBeforeCursor(), " ") >= 2:
+				return r.PathComplete(true, false, false, t)
+			}
+		case "chmod":
+			switch {
+			case strings.Count(t.CurrentLineBeforeCursor(), " ") == 1:
+				return prompt.FilterHasPrefix(r.CreateModeComplete(), t.GetWordBeforeCursor(), false)
+
+			case strings.Count(t.CurrentLineBeforeCursor(), " ") >= 2:
+				return r.PathComplete(true, false, false, t)
+			}
 		case "chown":
-			// TODO(blacknon): そのうち追加 ver0.6.3
+			switch {
+			case strings.Count(t.CurrentLineBeforeCursor(), " ") >= 2:
+				return r.PathComplete(true, false, false, t)
+			}
 		case "df":
 			// switch options or path
 			switch {
@@ -566,6 +581,27 @@ func (r *RunSftp) GetLocalComplete(path string) {
 	}
 
 	r.LocalComplete = p
+}
+
+// CreateModeComplete return file permission modes suggest
+func (r *RunSftp) CreateModeComplete() (p []prompt.Suggest) {
+	modelist := DupPermutationsRecursive0(8, 3)
+
+	for _, mode := range modelist {
+		// create suggest(path)
+		data := strings.Trim(strings.Join(strings.Fields(fmt.Sprint(mode)), ""), "[]")
+
+		// create suggest
+		suggest := prompt.Suggest{
+			Text:        data,
+			Description: "",
+		}
+
+		// append ps.Complete
+		p = append(p, suggest)
+	}
+
+	return
 }
 
 // CreatePrompt return prompt string.
