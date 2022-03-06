@@ -26,7 +26,7 @@ func (r *RunSftp) chmod(args []string) {
 	app.CustomAppHelpTemplate = helptext
 	app.Name = "chmod"
 	app.Usage = "lsftp build-in command: chmod [remote machine chmod]"
-	app.ArgsUsage = "[perm path]"
+	app.ArgsUsage = "perm path..."
 	app.HideHelp = true
 	app.HideVersion = true
 	app.EnableBashCompletion = true
