@@ -33,29 +33,29 @@ func (r *RunSftp) chmod(args []string) {
 
 	// action
 	app.Action = func(c *cli.Context) error {
-		if len(c.Args()) != 2 {
-			fmt.Println("Requires two arguments")
-			fmt.Println("chmod mode path")
+		if len(c.Args()) <= 1 {
+			fmt.Println("Requires over two arguments")
+			fmt.Println("chmod mode path...")
 			return nil
 		}
 
+		mode := c.Args()[0]
+		pathlist := c.Args()[1:]
+
+		targetmap := map[string]*TargetConnectMap{}
+		for _, p := range pathlist {
+			targetmap = r.createTargetMap(targetmap, p)
+		}
+
 		exit := make(chan bool)
-		for s, cl := range r.Client {
+		for s, cl := range targetmap {
 			server := s
 			client := cl
-
-			mode := c.Args()[0]
-			path := c.Args()[1]
 
 			go func() {
 				// get writer
 				client.Output.Create(server)
 				w := client.Output.NewWriter()
-
-				// set arg path
-				if !filepath.IsAbs(path) {
-					path = filepath.Join(client.Pwd, path)
-				}
 
 				// get mode
 				modeint, err := strconv.ParseUint(mode, 8, 32)
@@ -66,21 +66,30 @@ func (r *RunSftp) chmod(args []string) {
 				}
 				filemode := os.FileMode(modeint)
 
-				// set filemode
-				err = client.Connect.Chmod(path, filemode)
-				if err != nil {
-					fmt.Fprintf(w, "%s\n", err)
-					exit <- true
-					return
+				for _, path := range client.Path {
+
+					// set arg path
+					if !filepath.IsAbs(path) {
+						path = filepath.Join(client.Pwd, path)
+					}
+
+					// set filemode
+					err = client.Connect.Chmod(path, filemode)
+					if err != nil {
+						fmt.Fprintf(w, "%s\n", err)
+						exit <- true
+						return
+					}
+
+					fmt.Fprintf(w, "chmod: set %s's permission as %o(%s)\n", path, filemode.Perm(), filemode.String())
 				}
 
-				fmt.Fprintf(w, "chmod: set %s's permission as %o(%s)\n", path, filemode.Perm(), filemode.String())
 				exit <- true
 				return
 			}()
 		}
 
-		for i := 0; i < len(r.Client); i++ {
+		for i := 0; i < len(targetmap); i++ {
 			<-exit
 		}
 
