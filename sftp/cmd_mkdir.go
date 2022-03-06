@@ -31,7 +31,7 @@ func (r *RunSftp) mkdir(args []string) {
 	app.CustomAppHelpTemplate = helptext
 	app.Name = "mkdir"
 	app.Usage = "lsftp build-in command: mkdir [remote machine mkdir]"
-	app.ArgsUsage = "[path]"
+	app.ArgsUsage = "path..."
 	app.HideHelp = true
 	app.HideVersion = true
 	app.EnableBashCompletion = true
@@ -39,47 +39,54 @@ func (r *RunSftp) mkdir(args []string) {
 	// action
 	app.Action = func(c *cli.Context) error {
 		// TODO(blacknon): 複数のディレクトリ受付(v0.6.2以降)
-		if len(c.Args()) != 1 {
-			fmt.Println("Requires one arguments")
-			fmt.Println("mkdir [path]")
+		if len(c.Args()) < 1 {
+			fmt.Println("Requires more one arguments")
+			fmt.Println("mkdir path...")
 			return nil
 		}
 
+		targetmap := map[string]*TargetConnectMap{}
+		for _, p := range c.Args() {
+			targetmap = r.createTargetMap(targetmap, p)
+		}
+
 		exit := make(chan bool)
-		for s, cl := range r.Client {
+		for s, cl := range targetmap {
 			server := s
 			client := cl
-			path := c.Args()[0]
 
 			go func() {
 				// get writer
 				client.Output.Create(server)
 				w := client.Output.NewWriter()
 
-				// set arg path
-				if !filepath.IsAbs(path) {
-					path = filepath.Join(client.Pwd, path)
+				for _, path := range client.Path {
+					// set arg path
+					if !filepath.IsAbs(path) {
+						path = filepath.Join(client.Pwd, path)
+					}
+
+					// create directory
+					var err error
+					if c.Bool("p") {
+						err = client.Connect.MkdirAll(path)
+					} else {
+						err = client.Connect.Mkdir(path)
+					}
+
+					// check error
+					if err != nil {
+						fmt.Fprintf(w, "%s\n", err)
+					}
+
+					fmt.Fprintf(w, "make directory: %s\n", path)
 				}
 
-				// create directory
-				var err error
-				if c.Bool("p") {
-					err = client.Connect.MkdirAll(path)
-				} else {
-					err = client.Connect.Mkdir(path)
-				}
-
-				// check error
-				if err != nil {
-					fmt.Fprintf(w, "%s\n", err)
-				}
-
-				fmt.Fprintf(w, "make directory: %s\n", path)
 				exit <- true
 			}()
 		}
 
-		for i := 0; i < len(r.Client); i++ {
+		for i := 0; i < len(targetmap); i++ {
 			<-exit
 		}
 
@@ -116,22 +123,25 @@ func (r *RunSftp) lmkdir(args []string) {
 	// action
 	app.Action = func(c *cli.Context) error {
 		// TODO(blacknon): 複数のディレクトリ受付(v0.6.2以降)
-		if len(c.Args()) != 1 {
-			fmt.Println("Requires one arguments")
-			fmt.Println("lmkdir [path]")
+		if len(c.Args()) < 1 {
+			fmt.Println("Requires more one arguments")
+			fmt.Println("lmkdir path...")
 			return nil
 		}
 
-		path := c.Args()[0]
+		pathlist := c.Args()
 		var err error
-		if c.Bool("p") {
-			err = os.MkdirAll(path, 0755)
-		} else {
-			err = os.Mkdir(path, 0755)
-		}
 
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "%s\n", err)
+		for _, path := range pathlist {
+			if c.Bool("p") {
+				err = os.MkdirAll(path, 0755)
+			} else {
+				err = os.Mkdir(path, 0755)
+			}
+
+			if err != nil {
+				fmt.Fprintf(os.Stderr, "%s\n", err)
+			}
 		}
 
 		return nil
