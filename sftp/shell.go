@@ -86,7 +86,8 @@ func (r *RunSftp) Executor(command string) {
 		r.lls(cmdline)
 	case "lmkdir":
 		r.lmkdir(cmdline)
-	// case "ln":
+	case "ln":
+		r.ln(cmdline)
 	case "lpwd":
 		r.lpwd(cmdline)
 	case "ls":
@@ -146,7 +147,7 @@ func (r *RunSftp) Completer(t prompt.Document) []prompt.Suggest {
 			{Text: "lcd", Description: "Change local directory to 'path'"},
 			{Text: "lls", Description: "Display local directory listing"},
 			{Text: "lmkdir", Description: "Create local directory"},
-			// {Text: "ln", Description: "Link remote file (-s for symlink)"},
+			{Text: "ln", Description: "Link remote file (-s for symlink)"},
 			{Text: "lpwd", Description: "Print local working directory"},
 			{Text: "ls", Description: "Display remote directory listing"},
 			// {Text: "lumask", Description: "Set local umask to 'umask'"},
@@ -235,7 +236,14 @@ func (r *RunSftp) Completer(t prompt.Document) []prompt.Suggest {
 				return r.PathComplete(false, true, false, t)
 			}
 
-		// case "ln":
+		case "ln":
+			switch {
+			case strings.Count(t.CurrentLineBeforeCursor(), " ") == 1: // with select server
+				return r.PathComplete(true, false, false, t)
+			case strings.Count(t.CurrentLineBeforeCursor(), " ") == 2: // not with select server
+				return r.PathComplete(true, false, true, t)
+			}
+
 		case "lpwd":
 		case "ls":
 			// switch options or path
@@ -282,9 +290,9 @@ func (r *RunSftp) Completer(t prompt.Document) []prompt.Suggest {
 		case "quit":
 		case "rename":
 			switch {
-			case strings.Count(t.CurrentLineBeforeCursor(), " ") == 1: // remote
+			case strings.Count(t.CurrentLineBeforeCursor(), " ") == 1: // with select server
 				return r.PathComplete(true, false, false, t)
-			case strings.Count(t.CurrentLineBeforeCursor(), " ") == 2: // remote(not set server)
+			case strings.Count(t.CurrentLineBeforeCursor(), " ") == 2: // not with select server
 				return r.PathComplete(true, false, true, t)
 			}
 		case "rm":
@@ -292,6 +300,12 @@ func (r *RunSftp) Completer(t prompt.Document) []prompt.Suggest {
 		case "rmdir":
 			return r.PathComplete(true, false, false, t)
 		case "symlink":
+			switch {
+			case strings.Count(t.CurrentLineBeforeCursor(), " ") == 1: // with select server
+				return r.PathComplete(true, false, false, t)
+			case strings.Count(t.CurrentLineBeforeCursor(), " ") == 2: // not with select server
+				return r.PathComplete(true, false, true, t)
+			}
 			// TODO(blacknon): そのうち追加 ver0.6.2
 		// case "tree":
 
