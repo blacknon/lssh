@@ -36,18 +36,23 @@ func (r *RunSftp) symlink(args []string) {
 			return nil
 		}
 
+		// parse old path, with server...
+		source := c.Args()[0]
+		targetmap := map[string]*TargetConnectMap{}
+		targetmap = r.createTargetMap(targetmap, source)
+		target := c.Args()[1]
+
 		exit := make(chan bool)
-		for s, cl := range r.Client {
+		for s, cl := range targetmap {
 			server := s
 			client := cl
-
-			source := c.Args()[0]
-			target := c.Args()[1]
 
 			go func() {
 				// get writer
 				client.Output.Create(server)
 				w := client.Output.NewWriter()
+
+				source := client.Path[0]
 
 				// set arg path
 				if !filepath.IsAbs(source) {
@@ -70,7 +75,7 @@ func (r *RunSftp) symlink(args []string) {
 			}()
 		}
 
-		for i := 0; i < len(r.Client); i++ {
+		for i := 0; i < len(targetmap); i++ {
 			<-exit
 		}
 
