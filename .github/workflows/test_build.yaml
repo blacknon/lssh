@@ -62,3 +62,17 @@ jobs:
           go build -o lssh.${{ matrix.goos }}_${{ matrix.goarch }} ./cmd/lssh
           go build -o lscp.${{ matrix.goos }}_${{ matrix.goarch }} ./cmd/lscp
           go build -o lsftp.${{ matrix.goos }}_${{ matrix.goarch }} ./cmd/lsftp
+
+      - name: Upload artifact
+        if: matrix.ext == 'tar.gz'
+        uses: actions/upload-artifact@v1
+        with:
+          name: build-${{ matrix.goos }}_${{ matrix.goarch }}
+          path: lssh_${{ steps.package_version.outputs.version }}_${{ matrix.goos }}_${{ matrix.goarch }}.tar.gz
+
+      - name: Upload artifact
+        if: matrix.ext == 'zip'
+        uses: actions/upload-artifact@v1
+        with:
+          name: build-${{ matrix.goos }}_${{ matrix.goarch }}
+          path: lssh_${{ steps.package_version.outputs.version }}_${{ matrix.goos }}_${{ matrix.goarch }}.zip
