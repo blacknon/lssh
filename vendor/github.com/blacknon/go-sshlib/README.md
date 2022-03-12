@@ -6,6 +6,7 @@ go-sshlib
 ## About
 
 A library to handle ssh easily with Golang.It can do multiple proxy, x11 forwarding, etc.
+Supported on Linux, macOS and Windows.
 
 * This program refactors the processing performed by lssh(https://github.com/blacknon/lssh) so that it can be treated as a library.
 
@@ -19,7 +20,7 @@ A library to handle ssh easily with Golang.It can do multiple proxy, x11 forward
 
 ## Example
 
-    // Copyright (c) 2019 Blacknon. All rights reserved.
+    // Copyright (c) 2022 Blacknon. All rights reserved.
     // Use of this source code is governed by an MIT license
     // that can be found in the LICENSE file.
 
@@ -84,4 +85,3 @@ A library to handle ssh easily with Golang.It can do multiple proxy, x11 forward
         // Start ssh shell
         con.Shell(session)
     }
-

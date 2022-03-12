@@ -46,6 +46,31 @@ type Connect struct {
 	// Forward ssh agent flag.
 	ForwardAgent bool
 
+	// CheckKnownHosts if true, check knownhosts.
+	CheckKnownHosts bool
+
+	// OverwriteKnownHosts if true, if the knownhost is different, check whether to overwrite.
+	OverwriteKnownHosts bool
+
+	// KnownHostsFiles is list of knownhosts files path.
+	KnownHostsFiles []string
+
+	// TextAskWriteKnownHosts defines a confirmation message when writing a knownhost.
+	// We are using Go's template engine and have the following variables available.
+	// - Address ... ssh server hostname
+	// - RemoteAddr ... ssh server address
+	// - Fingerprint ... ssh PublicKey fingerprint
+	TextAskWriteKnownHosts string
+
+	// TextAskOverwriteKnownHosts defines a confirmation message when over-writing a knownhost.
+	// We are using Go's template engine and have the following variables available.
+	// - Address ... ssh server hostname
+	// - RemoteAddr ... ssh server address
+	// - OldKeyText ... old ssh PublicKey text.
+	//                  ex: /home/user/.ssh/known_hosts:17: ecdsa-sha2-nistp256 AAAAE2VjZHN...bJklasnFtkFSDyOjTFSv2g=
+	// - NewFingerprint ... new ssh PublicKey fingerprint
+	TextAskOverwriteKnownHosts string
+
 	// ssh-agent interface.
 	// agent.Agent or agent.ExtendedAgent
 	Agent AgentInterface
@@ -77,10 +102,19 @@ func (c *Connect) CreateClient(host, port, user string, authMethods []ssh.AuthMe
 
 	// Create new ssh.ClientConfig{}
 	config := &ssh.ClientConfig{
-		User:            user,
-		Auth:            authMethods,
-		HostKeyCallback: ssh.InsecureIgnoreHostKey(),
-		Timeout:         time.Duration(timeout) * time.Second,
+		User:    user,
+		Auth:    authMethods,
+		Timeout: time.Duration(timeout) * time.Second,
+	}
+
+	if c.CheckKnownHosts {
+		if len(c.KnownHostsFiles) == 0 {
+			// append default files
+			c.KnownHostsFiles = append(c.KnownHostsFiles, "~/.ssh/known_hosts")
+		}
+		config.HostKeyCallback = c.verifyAndAppendNew
+	} else {
+		config.HostKeyCallback = ssh.InsecureIgnoreHostKey()
 	}
 
 	// check Dialer
@@ -172,14 +206,18 @@ func RequestTty(session *ssh.Session) (err error) {
 	}
 
 	// Get terminal window size
-	fd := int(os.Stdin.Fd())
+	fd := int(os.Stdout.Fd())
 	width, hight, err := terminal.GetSize(fd)
 	if err != nil {
 		return
 	}
 
-	// TODO(blacknon): 環境変数から取得する方式だと、Windowsでうまく動作するか不明なので確認して対処する
+	// Get env `TERM`
 	term := os.Getenv("TERM")
+	if len(term) == 0 {
+		term = "xterm"
+	}
+
 	if err = session.RequestPty(term, hight, width, modes); err != nil {
 		session.Close()
 		return
