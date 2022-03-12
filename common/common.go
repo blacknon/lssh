@@ -9,10 +9,13 @@ package common
 
 import (
 	"bufio"
+	"bytes"
+	"compress/gzip"
 	"crypto/sha1"
 	"encoding/base64"
 	"errors"
 	"fmt"
+	"io"
 	"io/ioutil"
 	"log"
 	"math/rand"
@@ -29,6 +32,12 @@ import (
 )
 
 var characterRunes = []rune("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789")
+
+// enum
+const (
+	ARCHIVE_NONE = iota
+	ARCHIVE_GZIP
+)
 
 // IsExist returns existence of file.
 func IsExist(filename string) bool {
@@ -166,7 +175,7 @@ func GetMaxLength(list []string) (MaxLength int) {
 }
 
 // GetFilesBase64 returns a base64 encoded string of file content of paths.
-func GetFilesBase64(paths []string) (result string, err error) {
+func GetFilesBase64(paths []string, iscompress int) (result string, err error) {
 	var data []byte
 	for _, path := range paths {
 
@@ -188,7 +197,15 @@ func GetFilesBase64(paths []string) (result string, err error) {
 		data = append(data, '\n')
 	}
 
-	result = base64.StdEncoding.EncodeToString(data)
+	switch iscompress {
+	case ARCHIVE_NONE:
+		result = base64.StdEncoding.EncodeToString(data)
+
+	case ARCHIVE_GZIP:
+		data, err = StringCompression(ARCHIVE_GZIP, data)
+		result = base64.StdEncoding.EncodeToString(data)
+	}
+
 	return result, err
 }
 
@@ -447,6 +464,27 @@ func IsDirPath(path string) (isDir bool) {
 	if dir == path {
 		isDir = true
 	}
+
+	return
+}
+
+// StringCompression compresses bytes in the specified mode.
+func StringCompression(mode int, data []byte) (result []byte, err error) {
+	// create buffer
+	buf := new(bytes.Buffer)
+
+	switch mode {
+	case ARCHIVE_GZIP:
+		zw := gzip.NewWriter(buf)
+		defer zw.Close()
+
+		r := bytes.NewReader(data)
+
+		_, err = io.Copy(zw, r)
+		zw.Flush()
+	}
+
+	result = buf.Bytes()
 
 	return
 }
