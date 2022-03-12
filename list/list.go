@@ -5,6 +5,7 @@
 /*
 list package creates a TUI list based on the contents specified in a structure, and returns the selected row.
 */
+
 package list
 
 import (
@@ -134,11 +135,11 @@ func (l *ListInfo) getText() {
 	}
 
 	tabWriterBuffer.Flush()
-	line, err := buffer.ReadString('\n')
+	line, err := buffer.ReadString(LineBreak)
 	for err == nil {
 		str := strings.Replace(line, "\t", " ", -1)
 		l.DataText = append(l.DataText, str)
-		line, err = buffer.ReadString('\n')
+		line, err = buffer.ReadString(LineBreak)
 	}
 }
 
