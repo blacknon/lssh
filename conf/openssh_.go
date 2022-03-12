@@ -17,8 +17,8 @@ import (
 	"github.com/kevinburke/ssh_config"
 )
 
-// openOpenSSHConfig open the OpenSSH configuration file, return *ssh_config.Config.
-func openOpenSSHConfig(path, command string) (cfg *ssh_config.Config, err error) {
+// readOpenSSHConfig open the OpenSSH configuration file, return *ssh_config.Config.
+func readOpenSSHConfig(path, command string) (cfg *ssh_config.Config, err error) {
 	var rd io.Reader
 	switch {
 	case path != "": // 1st
@@ -46,7 +46,7 @@ func getOpenSSHConfig(path, command string) (config map[string]ServerConfig, err
 	config = map[string]ServerConfig{}
 
 	// open openSSH config
-	cfg, err := openOpenSSHConfig(path, command)
+	cfg, err := readOpenSSHConfig(path, command)
 	if err != nil {
 		return
 	}
@@ -70,7 +70,6 @@ func getOpenSSHConfig(path, command string) (config map[string]ServerConfig, err
 	}
 
 	// append ServerConfig
-	// TODO(blacknon): port forwardingとx11の設定も読み込むよう処理を追加！！
 	for _, host := range hostList {
 		serverConfig := ServerConfig{
 			Addr:         ssh_config.Get(host, "HostName"),
