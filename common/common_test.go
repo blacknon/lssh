@@ -5,6 +5,7 @@
 package common
 
 import (
+	"fmt"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -126,3 +127,24 @@ func TestGetMaxLength(t *testing.T) {
 // func TestParseHostPath(t *testing.T) {
 // 	type TestData
 // }
+
+//
+func TestStringCompression(t *testing.T) {
+	type TestData struct {
+		desc string
+		src  string
+		mode int
+	}
+
+	src := "Lorem Ipsum is simply dummy text of the printing and typesetting industry. Lorem Ipsum has been the industry's standard dummy text ever since the 1500s, when an unknown printer took a galley of type and scrambled it to make a type specimen book. It has survived not only five centuries, but also the leap into electronic typesetting, remaining essentially unchanged. It was popularised in the 1960s with the release of Letraset sheets containing Lorem Ipsum passages, and more recently with desktop publishing software like Aldus PageMaker including versions of Lorem Ipsum."
+
+	tds := []TestData{
+		{desc: "", src: src, mode: ARCHIVE_GZIP},
+	}
+	for _, v := range tds {
+		fmt.Println(v.src)
+		arc, _ := StringCompression(v.mode, []byte(v.src))
+		fmt.Println(arc)
+	}
+
+}

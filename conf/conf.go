@@ -130,9 +130,19 @@ type ServerConfig struct {
 
 	// local rcfile setting
 	// yes|no (default: yes)
-	LocalRcUse       string   `toml:"local_rc"`
-	LocalRcPath      []string `toml:"local_rc_file"`
-	LocalRcDecodeCmd string   `toml:"local_rc_decode_cmd"`
+	LocalRcUse string `toml:"local_rc"`
+
+	//
+	LocalRcPath []string `toml:"local_rc_file"`
+
+	// If LocalRcCompress is true, gzip the localrc file to base64
+	LocalRcCompress bool `toml:"local_rc_compress"`
+
+	//
+	LocalRcDecodeCmd string `toml:"local_rc_decode_cmd"`
+
+	//
+	LocalRcUncompressCmd string `toml:"local_rc_uncompress_cmd"`
 
 	// local/remote port forwarding setting.
 	// ex. [`L`,`l`,`LOCAL`,`local`]|[`R`,`r`,`REMOTE`,`remote`]
