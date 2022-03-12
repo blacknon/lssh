@@ -2,8 +2,6 @@
 // Use of this source code is governed by an MIT license
 // that can be found in the LICENSE file.
 
-// TODO(blacknon): Windowsでもshellを使えるようにする(どうやってやるのかは不明)
-
 package sshlib
 
 import (
@@ -86,44 +84,6 @@ func (c *Connect) CmdShell(session *ssh.Session, command string) (err error) {
 	return
 }
 
-func (c *Connect) setupShell(session *ssh.Session) (err error) {
-	// set FD
-	session.Stdin = os.Stdin
-	session.Stdout = os.Stdout
-	session.Stderr = os.Stderr
-
-	// Logging
-	if c.logging {
-		err = c.logger(session)
-		if err != nil {
-			log.Println(err)
-		}
-	}
-	err = nil
-
-	// Request tty
-	err = RequestTty(session)
-	if err != nil {
-		return err
-	}
-
-	// x11 forwarding
-	if c.ForwardX11 {
-		err = c.X11Forward(session)
-		if err != nil {
-			log.Println(err)
-		}
-	}
-	err = nil
-
-	// ssh agent forwarding
-	if c.ForwardAgent {
-		c.ForwardSshAgent(session)
-	}
-
-	return
-}
-
 // SetLog set up terminal log logging.
 // This only happens in Connect.Shell().
 func (c *Connect) SetLog(path string, timestamp bool) {
@@ -140,7 +100,6 @@ func (c *Connect) SetLogWithRemoveAnsiCode(path string, timestamp bool) {
 }
 
 // logger is logging terminal log to c.logFile
-// TODO(blacknon): Writerを利用した処理方法に変更する(v0.1.1)
 func (c *Connect) logger(session *ssh.Session) (err error) {
 	logfile, err := os.OpenFile(c.logFile, os.O_WRONLY|os.O_APPEND|os.O_CREATE, 0600)
 	if err != nil {
@@ -193,4 +152,43 @@ func (c *Connect) logger(session *ssh.Session) (err error) {
 	}
 
 	return err
+}
+
+func (c *Connect) setupShell(session *ssh.Session) (err error) {
+	// set FD
+	stdin := GetStdin()
+	session.Stdin = stdin
+	session.Stdout = os.Stdout
+	session.Stderr = os.Stderr
+
+	// Logging
+	if c.logging {
+		err = c.logger(session)
+		if err != nil {
+			log.Println(err)
+		}
+	}
+	err = nil
+
+	// Request tty
+	err = RequestTty(session)
+	if err != nil {
+		return err
+	}
+
+	// x11 forwarding
+	if c.ForwardX11 {
+		err = c.X11Forward(session)
+		if err != nil {
+			log.Println(err)
+		}
+	}
+	err = nil
+
+	// ssh agent forwarding
+	if c.ForwardAgent {
+		c.ForwardSshAgent(session)
+	}
+
+	return
 }
