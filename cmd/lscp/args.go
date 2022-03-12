@@ -114,7 +114,7 @@ USAGE:
 		check.CheckTypeError(isFromInRemote, isFromInLocal, isToRemote, len(hosts))
 
 		// Get config data
-		data := conf.ReadConf(confpath)
+		data := conf.Read(confpath)
 
 		// Get Server Name List (and sort List)
 		names := conf.GetNameList(data)
