@@ -66,7 +66,7 @@ func TestCheckFormatServerConf(t *testing.T) {
 		},
 	}
 	for _, v := range tds {
-		got := checkFormatServerConf(v.c)
+		got := v.c.checkFormatServerConf()
 		assert.Equal(t, v.expect, got, v.desc)
 	}
 }
