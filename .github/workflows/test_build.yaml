@@ -12,7 +12,7 @@ name: Build Test Job.
 on:
   push:
     branches:
-      - "topic/*"
+      # - "topic/*"
       - "develop"
 
 jobs:
