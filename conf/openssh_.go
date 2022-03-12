@@ -70,7 +70,6 @@ func getOpenSSHConfig(path, command string) (config map[string]ServerConfig, err
 	}
 
 	// append ServerConfig
-	// TODO(blacknon): port forwardingとx11の設定も読み込むよう処理を追加！！
 	for _, host := range hostList {
 		serverConfig := ServerConfig{
 			Addr:         ssh_config.Get(host, "HostName"),
