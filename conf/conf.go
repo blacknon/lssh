@@ -18,26 +18,12 @@ import (
 	"encoding/hex"
 	"fmt"
 	"os"
-	"os/user"
 	"strings"
 	"time"
 
 	"github.com/BurntSushi/toml"
 	"github.com/blacknon/lssh/common"
 )
-
-// Config is Struct that stores the entire configuration file
-type Config struct {
-	Log      LogConfig
-	Shell    ShellConfig
-	Include  map[string]IncludeConfig
-	Includes IncludesConfig
-	Common   ServerConfig
-	Server   map[string]ServerConfig
-	Proxy    map[string]ProxyConfig
-
-	SSHConfig map[string]OpenSSHConfig
-}
 
 // LogConfig store the contents about the terminal log.
 // The log file name is created in "YYYYmmdd_HHMMSS_servername.log" of the specified directory.
@@ -79,6 +65,7 @@ type IncludeConfig struct {
 
 // IncludesConfig specify the configuration file to include (ServerConfig only).
 // Struct that can specify multiple files in array.
+// TODO: ワイルドカード指定可能にする
 type IncludesConfig struct {
 	// example:
 	// 	path = [
@@ -132,16 +119,16 @@ type ServerConfig struct {
 	// yes|no (default: yes)
 	LocalRcUse string `toml:"local_rc"`
 
-	//
+	// LocalRcPath
 	LocalRcPath []string `toml:"local_rc_file"`
 
 	// If LocalRcCompress is true, gzip the localrc file to base64
 	LocalRcCompress bool `toml:"local_rc_compress"`
 
-	//
+	// LocalRcDecodeCmd is localrc decode command. run remote machine.
 	LocalRcDecodeCmd string `toml:"local_rc_decode_cmd"`
 
-	//
+	// LocalRcUncompressCmd is localrc un compress command. run remote machine.
 	LocalRcUncompressCmd string `toml:"local_rc_uncompress_cmd"`
 
 	// local/remote port forwarding setting.
@@ -161,9 +148,13 @@ type ServerConfig struct {
 	// local/remote Port Forwarding slice.
 	Forwards []*PortForward
 
-	// Dynamic Port Forwarding setting
+	// Dynamic Port Forward setting
 	// ex.) "11080"
 	DynamicPortForward string `toml:"dynamic_port_forward"`
+
+	// Reverse Dynamic Port Forward setting
+	// ex.) "11080"
+	ReverseDynamicPortForward string `toml:"reverse_dynamic_port_forward"`
 
 	// x11 forwarding setting
 	X11 bool `toml:"x11"`
@@ -204,66 +195,65 @@ type PortForward struct {
 	Remote string // localhost:80
 }
 
-// ReadConf load configuration file and return Config structure
-// TODO(blacknon): リファクタリング！(v0.6.5) 外出しや処理のまとめなど
-// TODO(blacknon): ~/.lssh.confがなくても、openssh用のファイルがアレばそれをみるように処理
-func ReadConf(confPath string) (config Config) {
-	// user path
-	usr, _ := user.Current()
+// Config is Struct that stores the entire configuration file.
+type Config struct {
+	Log      LogConfig
+	Shell    ShellConfig
+	Include  map[string]IncludeConfig
+	Includes IncludesConfig
+	Common   ServerConfig
+	Server   map[string]ServerConfig
+	Proxy    map[string]ProxyConfig
 
-	if !common.IsExist(confPath) {
-		fmt.Printf("Config file(%s) Not Found.\nPlease create file.\n\n", confPath)
-		fmt.Printf("sample: %s\n", "https://raw.githubusercontent.com/blacknon/lssh/master/example/config.tml")
-		os.Exit(1)
-	}
+	SSHConfig map[string]OpenSSHConfig
+}
 
-	config.Server = map[string]ServerConfig{}
-	config.SSHConfig = map[string]OpenSSHConfig{}
-
-	// Read config file
-	_, err := toml.DecodeFile(confPath, &config)
-	if err != nil {
-		fmt.Println(err)
-		os.Exit(1)
-	}
-
+//
+func (c *Config) ReduceCommon() {
 	// reduce common setting (in .lssh.conf servers)
-	for key, value := range config.Server {
-		setValue := serverConfigReduct(config.Common, value)
-		config.Server[key] = setValue
+	for key, value := range c.Server {
+		setValue := serverConfigReduct(c.Common, value)
+		c.Server[key] = setValue
 	}
+}
 
-	// Read OpensSH configs
-	if len(config.SSHConfig) == 0 {
+//
+func (c *Config) ReadOpenSSHConfig() {
+	if len(c.SSHConfig) == 0 {
 		openSSHServerConfig, err := getOpenSSHConfig("~/.ssh/config", "")
 		if err == nil {
 			// append data
 			for key, value := range openSSHServerConfig {
-				value := serverConfigReduct(config.Common, value)
-				config.Server[key] = value
+				value := serverConfigReduct(c.Common, value)
+				c.Server[key] = value
 			}
 		}
 	} else {
-		for _, sshConfig := range config.SSHConfig {
-			openSSHServerConfig, err := getOpenSSHConfig(sshConfig.Path, sshConfig.Command)
+		for _, sc := range c.SSHConfig {
+			openSSHServerConfig, err := getOpenSSHConfig(sc.Path, sc.Command)
 			if err == nil {
 				// append data
 				for key, value := range openSSHServerConfig {
-					setCommon := serverConfigReduct(config.Common, sshConfig.ServerConfig)
+					setCommon := serverConfigReduct(c.Common, sc.ServerConfig)
 					value = serverConfigReduct(setCommon, value)
-					config.Server[key] = value
+					c.Server[key] = value
 				}
 			}
 		}
 	}
+}
 
-	// for append includes to include.path
-	if config.Includes.Path != nil {
-		if config.Include == nil {
-			config.Include = map[string]IncludeConfig{}
+//
+func (c *Config) ReadIncludeFiles() {
+	if c.Includes.Path != nil {
+		if c.Include == nil {
+			c.Include = map[string]IncludeConfig{}
 		}
 
-		for _, includePath := range config.Includes.Path {
+		for _, includePath := range c.Includes.Path {
+			// get abs path
+			includePath = common.GetFullPath(includePath)
+
 			unixTime := time.Now().Unix()
 			keyString := strings.Join([]string{string(unixTime), includePath}, "_")
 
@@ -272,18 +262,18 @@ func ReadConf(confPath string) (config Config) {
 			hasher.Write([]byte(keyString))
 			key := string(hex.EncodeToString(hasher.Sum(nil)))
 
-			// append config.Include[key]
-			config.Include[key] = IncludeConfig{strings.Replace(includePath, "~", usr.HomeDir, 1)}
+			// append c.Include[key]
+			c.Include[key] = IncludeConfig{includePath}
 		}
 	}
 
 	// Read include files
-	if config.Include != nil {
-		for _, v := range config.Include {
+	if c.Include != nil {
+		for _, v := range c.Include {
 			var includeConf Config
 
 			// user path
-			path := strings.Replace(v.Path, "~", usr.HomeDir, 1)
+			path := common.GetFullPath(v.Path)
 
 			// Read include config file
 			_, err := toml.DecodeFile(path, &includeConf)
@@ -293,29 +283,16 @@ func ReadConf(confPath string) (config Config) {
 			}
 
 			// reduce common setting
-			setCommon := serverConfigReduct(config.Common, includeConf.Common)
-
-			// map init
-			if len(config.Server) == 0 {
-				config.Server = map[string]ServerConfig{}
-			}
+			setCommon := serverConfigReduct(c.Common, includeConf.Common)
 
 			// add include file serverconf
 			for key, value := range includeConf.Server {
 				// reduce common setting
 				setValue := serverConfigReduct(setCommon, value)
-				config.Server[key] = setValue
+				c.Server[key] = setValue
 			}
 		}
 	}
-
-	// Check Config Parameter
-	checkAlertFlag := checkFormatServerConf(config)
-	if !checkAlertFlag {
-		os.Exit(1)
-	}
-
-	return
 }
 
 // checkFormatServerConf checkes format of server config.
@@ -324,26 +301,60 @@ func ReadConf(confPath string) (config Config) {
 // having a value. No checking a validity of each fields.
 //
 // See also: checkFormatServerConfAuth function.
-func checkFormatServerConf(c Config) (isFormat bool) {
-	isFormat = true
+func (c *Config) checkFormatServerConf() (ok bool) {
+	ok = true
 	for k, v := range c.Server {
 		// Address Set Check
 		if v.Addr == "" {
 			fmt.Printf("%s: 'addr' is not set.\n", k)
-			isFormat = false
+			ok = false
 		}
 
 		// User Set Check
 		if v.User == "" {
 			fmt.Printf("%s: 'user' is not set.\n", k)
-			isFormat = false
+			ok = false
 		}
 
 		if !checkFormatServerConfAuth(v) {
 			fmt.Printf("%s: Authentication information is not set.\n", k)
-			isFormat = false
+			ok = false
 		}
 	}
+	return
+}
+
+// ReadConf load configuration file and return Config structure
+// TODO(blacknon): リファクタリング！(v0.6.5) 外出しや処理のまとめなど
+func Read(confPath string) (c Config) {
+	c.Server = map[string]ServerConfig{}
+	c.SSHConfig = map[string]OpenSSHConfig{}
+
+	// TODO(blacknon): ~/.lssh.confがなくても、openssh用のファイルがアレばそれをみるように処理
+	if common.IsExist(confPath) {
+		// Read config file
+		_, err := toml.DecodeFile(confPath, &c)
+		if err != nil {
+			fmt.Println(err)
+			os.Exit(1)
+		}
+	}
+
+	// reduce common setting (in .lssh.conf servers)
+	c.ReduceCommon()
+
+	// Read OpensSH configs
+	c.ReadOpenSSHConfig()
+
+	// for append includes to include.path
+	c.ReadIncludeFiles()
+
+	// Check Config Parameter
+	ok := c.checkFormatServerConf()
+	if !ok {
+		os.Exit(1)
+	}
+
 	return
 }
 
@@ -351,25 +362,25 @@ func checkFormatServerConf(c Config) (isFormat bool) {
 //
 // Note: Checking Pass, Key, Cert, AgentAuth, PKCS11Use, PKCS11Provider, Keys or
 // Passes having a value. No checking a validity of each fields.
-func checkFormatServerConfAuth(c ServerConfig) (isFormat bool) {
-	isFormat = false
+func checkFormatServerConfAuth(c ServerConfig) (ok bool) {
+	ok = false
 	if c.Pass != "" || c.Key != "" || c.Cert != "" {
-		isFormat = true
+		ok = true
 	}
 
 	if c.AgentAuth == true {
-		isFormat = true
+		ok = true
 	}
 
 	if c.PKCS11Use == true {
 		_, err := os.Stat(c.PKCS11Provider)
 		if err == nil {
-			isFormat = true
+			ok = true
 		}
 	}
 
 	if len(c.Keys) > 0 || len(c.Passes) > 0 {
-		isFormat = true
+		ok = true
 	}
 
 	return
