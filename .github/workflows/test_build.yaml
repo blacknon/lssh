@@ -63,6 +63,32 @@ jobs:
           go build -o lscp.${{ matrix.goos }}_${{ matrix.goarch }} ./cmd/lscp
           go build -o lsftp.${{ matrix.goos }}_${{ matrix.goarch }} ./cmd/lsftp
 
+      - name: Create package file
+        if: ${{ (matrix.ext == 'tar.gz') || (matrix.ext == 'rpm') || (matrix.ext == 'deb') }}
+        run: |
+          _TAR=lssh_${{ steps.package_version.outputs.version }}_${{ matrix.goos }}_${{ matrix.goarch }}.tar.gz
+          mkdir -p package/bin
+          mv lssh.${{ matrix.goos }}_${{ matrix.goarch }} package/bin/lssh
+          mv lscp.${{ matrix.goos }}_${{ matrix.goarch }} package/bin/lscp
+          mv lsftp.${{ matrix.goos }}_${{ matrix.goarch }} package/bin/lsftp
+          ## mkdir -p package/man
+          ## cp man/lssh.1 package/man
+          cp -r completion package/
+          ## sed -i is not used due to difference between macOS and Linux
+          perl -i -pe s/___VERSION___/${{ steps.package_version.outputs.version }}/ ./package/.tar2package.yml
+          ## tar czvf "$_TAR" -C "$PWD/package" completion bin man .tar2package.yml
+          tar czvf "$_TAR" -C "$PWD/package" completion bin .tar2package.yml
+
+      - name: Create package file(Windows)
+        if: matrix.ext == 'zip'
+        run: |
+          mkdir package/bin
+          move lssh.${{ matrix.goos }}_${{ matrix.goarch }} package/bin/lssh
+          move lscp.${{ matrix.goos }}_${{ matrix.goarch }} package/bin/lscp
+          move lsftp.${{ matrix.goos }}_${{ matrix.goarch }} package/bin/lsftp
+          powershell Compress-Archive package windows.zip
+
+
       - name: Upload artifact
         if: matrix.ext == 'tar.gz'
         uses: actions/upload-artifact@v1
