@@ -161,9 +161,13 @@ type ServerConfig struct {
 	// local/remote Port Forwarding slice.
 	Forwards []*PortForward
 
-	// Dynamic Port Forwarding setting
+	// Dynamic Port Forward setting
 	// ex.) "11080"
 	DynamicPortForward string `toml:"dynamic_port_forward"`
+
+	// Reverse Dynamic Port Forward setting
+	// ex.) "11080"
+	ReverseDynamicPortForward string `toml:"reverse_dynamic_port_forward"`
 
 	// x11 forwarding setting
 	X11 bool `toml:"x11"`
