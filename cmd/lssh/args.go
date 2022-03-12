@@ -116,7 +116,7 @@ USAGE:
 		confpath := c.String("file")
 
 		// Get config data
-		data := conf.ReadConf(confpath)
+		data := conf.Read(confpath)
 
 		// Set `exec command` or `shell` flag
 		isMulti := false
