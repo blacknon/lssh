@@ -26,7 +26,7 @@ import (
 	"github.com/blacknon/lssh/common"
 )
 
-// Config is Struct that stores the entire configuration file
+// Config is Struct that stores the entire configuration file.
 type Config struct {
 	Log      LogConfig
 	Shell    ShellConfig
@@ -132,16 +132,16 @@ type ServerConfig struct {
 	// yes|no (default: yes)
 	LocalRcUse string `toml:"local_rc"`
 
-	//
+	// LocalRcPath
 	LocalRcPath []string `toml:"local_rc_file"`
 
 	// If LocalRcCompress is true, gzip the localrc file to base64
 	LocalRcCompress bool `toml:"local_rc_compress"`
 
-	//
+	// LocalRcDecodeCmd is localrc decode command. run remote machine.
 	LocalRcDecodeCmd string `toml:"local_rc_decode_cmd"`
 
-	//
+	// LocalRcUncompressCmd is localrc un compress command. run remote machine.
 	LocalRcUncompressCmd string `toml:"local_rc_uncompress_cmd"`
 
 	// local/remote port forwarding setting.
