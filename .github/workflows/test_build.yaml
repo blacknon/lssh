@@ -86,7 +86,7 @@ jobs:
           move lssh.${{ matrix.goos }}_${{ matrix.goarch }} package/bin/lssh
           move lscp.${{ matrix.goos }}_${{ matrix.goarch }} package/bin/lscp
           move lsftp.${{ matrix.goos }}_${{ matrix.goarch }} package/bin/lsftp
-          powershell Compress-Archive package windows.zip
+          powershell Compress-Archive package lssh_${{ steps.package_version.outputs.version }}_${{ matrix.goos }}_${{ matrix.goarch }}.zip
 
 
       - name: Upload artifact
