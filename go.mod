@@ -9,7 +9,7 @@ require (
 	github.com/kballard/go-shellquote v0.0.0-20180428030007-95032a82bc51
 	github.com/kevinburke/ssh_config v0.0.0-20190724205821-6cfae18c12b8
 	github.com/mattn/go-runewidth v0.0.13
-	github.com/nsf/termbox-go v0.0.0-20190325093121-288510b9734e
+	github.com/nsf/termbox-go v1.1.1
 	github.com/pkg/sftp v1.13.4
 	github.com/sevlyar/go-daemon v0.1.5
 	github.com/stretchr/testify v1.7.0
