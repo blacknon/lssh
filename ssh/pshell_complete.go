@@ -1,4 +1,4 @@
-// Copyright (c) 2021 Blacknon. All rights reserved.
+// Copyright (c) 2022 Blacknon. All rights reserved.
 // Use of this source code is governed by an MIT license
 // that can be found in the LICENSE file.
 
@@ -214,6 +214,7 @@ func (ps *pShell) GetPathComplete(remote bool, word string) (p []prompt.Suggest)
 				for sc.Scan() {
 					sm.Lock()
 					path := filepath.Base(sc.Text())
+					path = filepath.ToSlash(path)
 					m[path] = append(m[path], con.Name)
 					sm.Unlock()
 				}
