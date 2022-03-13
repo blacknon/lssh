@@ -137,14 +137,7 @@ func (l *ListInfo) getText() {
 	tabWriterBuffer.Flush()
 	line, err := buffer.ReadString('\n')
 	for err == nil {
-		// trim Carriage Return
-		if strings.HasSuffix(line, "\r") {
-			line = strings.TrimRight(line, "\r")
-		}
-
-		if strings.HasPrefix(line, "\r") {
-			line = strings.TrimLeft(line, "\r")
-		}
+		line = convNewline(line, "")
 
 		str := strings.Replace(line, "\t", " ", -1)
 		l.DataText = append(l.DataText, str)
