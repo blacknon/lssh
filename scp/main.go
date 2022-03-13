@@ -197,7 +197,6 @@ func (cp *Scp) pushPath(ftp *sftp.Client, ow *io.PipeWriter, output *output.Outp
 	} else {
 		rpath = filepath.Clean(cp.To.Path[0])
 	}
-	rpath = filepath.ToSlash(rpath)
 
 	// get local file info
 	fInfo, _ := os.Lstat(p)
@@ -241,7 +240,6 @@ func (cp *Scp) pushFile(lf io.Reader, ftp *sftp.Client, output *output.Output, p
 	// set path
 	dir := filepath.Dir(path)
 	dir = filepath.ToSlash(dir)
-	fmt.Println(dir) // debug
 
 	// mkdir all
 	err = ftp.MkdirAll(dir)
