@@ -1,4 +1,4 @@
-// Copyright (c) 2021 Blacknon. All rights reserved.
+// Copyright (c) 2022 Blacknon. All rights reserved.
 // Use of this source code is governed by an MIT license
 // that can be found in the LICENSE file.
 
@@ -8,7 +8,9 @@ import (
 	"bufio"
 	"bytes"
 	"os/exec"
+	libpath "path"
 	"path/filepath"
+	"runtime"
 	"sort"
 	"strconv"
 	"strings"
@@ -213,7 +215,9 @@ func (ps *pShell) GetPathComplete(remote bool, word string) (p []prompt.Suggest)
 				sc := bufio.NewScanner(buf)
 				for sc.Scan() {
 					sm.Lock()
-					path := filepath.Base(sc.Text())
+
+					path := libpath.Base(sc.Text())
+
 					m[path] = append(m[path], con.Name)
 					sm.Unlock()
 				}
@@ -242,16 +246,18 @@ func (ps *pShell) GetPathComplete(remote bool, word string) (p []prompt.Suggest)
 		}
 
 	case !remote: // is local machine
-		sgt, _ := exec.Command("bash", "-c", command).Output()
-		rd := strings.NewReader(string(sgt))
-		sc := bufio.NewScanner(rd)
-		for sc.Scan() {
-			suggest := prompt.Suggest{
-				Text: filepath.Base(sc.Text()),
-				// Text:        sc.Text(),
-				Description: "local path.",
+		if runtime.GOOS != "windows" {
+			sgt, _ := exec.Command("bash", "-c", command).Output()
+			rd := strings.NewReader(string(sgt))
+			sc := bufio.NewScanner(rd)
+			for sc.Scan() {
+				suggest := prompt.Suggest{
+					Text: filepath.Base(sc.Text()),
+					// Text:        sc.Text(),
+					Description: "local path.",
+				}
+				p = append(p, suggest)
 			}
-			p = append(p, suggest)
 		}
 	}
 

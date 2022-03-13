@@ -1,4 +1,4 @@
-// Copyright (c) 2021 Blacknon. All rights reserved.
+// Copyright (c) 2022 Blacknon. All rights reserved.
 // Use of this source code is governed by an MIT license
 // that can be found in the LICENSE file.
 
@@ -16,13 +16,21 @@ import (
 	"github.com/blacknon/go-sshlib"
 	"github.com/blacknon/lssh/output"
 	"github.com/c-bata/go-prompt"
-	"github.com/c-bata/go-prompt/completer"
 )
 
 // TODO(blacknon): 接続が切れた場合の再接続処理、および再接続ができなかった場合のsliceからの削除対応の追加(v0.6.1)
 // TODO(blacknon): pShellのログ(実行コマンド及び出力結果)をログとしてファイルに記録する機能の追加(v0.6.1)
 // TODO(blacknon): グループ化(`()`で囲んだりする)や三項演算子への対応(v0.6.1)
 // TODO(blacknon): `サーバ名:command...` で、指定したサーバでのみコマンドを実行させる機能の追加(v0.6.1)
+
+// TODO(blacknon):
+//     出力をvim diffに食わせてdiffを得られるようにしたい => 変数かプロセス置換か、なにかしらの方法でローカルコマンド実行時にssh経由で得られた出力を食わせる方法を実装する？
+//     => 多分、プロセス置換が良いんだと思う(プロセス置換時にssh先でコマンドを実行できるように、かつ実行したデータを個別にファイルとして扱えるようにしたい)
+//        ```bash
+//        !vim diff <(cat /etc/passwd)
+//        => !vim diff host1:/etc/passwd host2:/etc/passwd ....
+//        ```
+//     やるなら普通に一時ファイルに書き出すのが良さそう(/tmp 配下とか。一応、ちゃんと権限周り気をつけないといかんね、というのと消さないといかんね、というお気持ち)
 
 // Pshell is Parallel-Shell struct
 type pShell struct {
@@ -152,7 +160,9 @@ func (r *Run) pshell() (err error) {
 	}
 
 	// set signal
-	signal.Notify(ps.Signal, syscall.SIGTERM, syscall.SIGINT)
+	// TODO: Windows対応
+	//   - 参考: https://cad-san.hatenablog.com/entry/2017/01/09/170213
+	signal.Notify(ps.Signal, syscall.SIGTERM, syscall.SIGINT, os.Interrupt)
 
 	// old history list
 	var historyCommand []string
@@ -175,7 +185,7 @@ func (r *Run) pshell() (err error) {
 		prompt.OptionLivePrefix(ps.CreatePrompt),
 		prompt.OptionInputTextColor(prompt.Green),
 		prompt.OptionPrefixTextColor(prompt.Blue),
-		prompt.OptionCompletionWordSeparator(completer.FilePathCompletionSeparator), // test
+		prompt.OptionCompletionWordSeparator("/: \\"), // test
 	)
 
 	// start go-prompt

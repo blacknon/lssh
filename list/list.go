@@ -1,10 +1,11 @@
-// Copyright (c) 2021 Blacknon. All rights reserved.
+// Copyright (c) 2022 Blacknon. All rights reserved.
 // Use of this source code is governed by an MIT license
 // that can be found in the LICENSE file.
 
 /*
 list package creates a TUI list based on the contents specified in a structure, and returns the selected row.
 */
+
 package list
 
 import (
@@ -136,6 +137,8 @@ func (l *ListInfo) getText() {
 	tabWriterBuffer.Flush()
 	line, err := buffer.ReadString('\n')
 	for err == nil {
+		line = convNewline(line, "")
+
 		str := strings.Replace(line, "\t", " ", -1)
 		l.DataText = append(l.DataText, str)
 		line, err = buffer.ReadString('\n')

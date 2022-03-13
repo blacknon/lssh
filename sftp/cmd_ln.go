@@ -1,4 +1,4 @@
-// Copyright (c) 2021 Blacknon. All rights reserved.
+// Copyright (c) 2022 Blacknon. All rights reserved.
 // Use of this source code is governed by an MIT license
 // that can be found in the LICENSE file.
 
@@ -9,6 +9,7 @@ package sftp
 
 import (
 	"fmt"
+	"path/filepath"
 
 	"github.com/blacknon/lssh/common"
 	"github.com/urfave/cli"
@@ -39,16 +40,48 @@ func (r *RunSftp) ln(args []string) (err error) {
 			return nil
 		}
 
-		// for s, cl := range r.Client {
-		// 	server := s
-		// 	client := cl
+		// parse old path, with server...
+		source := c.Args()[0]
+		targetmap := map[string]*TargetConnectMap{}
+		targetmap = r.createTargetMap(targetmap, source)
+		target := c.Args()[1]
 
-		// 	go func() {
-		// 		// get writer
-		// 		client.Output.Create(server)
-		// 		w := client.Output.NewWriter()
-		// 	}()
-		// }
+		exit := make(chan bool)
+		for s, cl := range targetmap {
+			server := s
+			client := cl
+
+			go func() {
+				// get writer
+				client.Output.Create(server)
+				w := client.Output.NewWriter()
+
+				source := client.Path[0]
+
+				// set arg path
+				if !filepath.IsAbs(source) {
+					source = filepath.Join(client.Pwd, source)
+				}
+
+				if !filepath.IsAbs(target) {
+					target = filepath.Join(client.Pwd, target)
+				}
+
+				err := client.Connect.Link(source, target)
+				if err != nil {
+					fmt.Fprintf(w, "%s\n", err)
+					exit <- true
+					return
+				}
+
+				exit <- true
+				return
+			}()
+		}
+
+		for i := 0; i < len(targetmap); i++ {
+			<-exit
+		}
 
 		return nil
 	}

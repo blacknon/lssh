@@ -1,4 +1,4 @@
-// Copyright (c) 2021 Blacknon. All rights reserved.
+// Copyright (c) 2022 Blacknon. All rights reserved.
 // Use of this source code is governed by an MIT license
 // that can be found in the LICENSE file.
 
@@ -32,16 +32,16 @@ func (r *RunSftp) put(args []string) {
 	// set parameter
 	app.Name = "put"
 	app.Usage = "lsftp build-in command: put"
-	app.ArgsUsage = "[source(local) target(remote)]"
+	app.ArgsUsage = "source(local)... target(remote)"
 	app.HideHelp = true
 	app.HideVersion = true
 	app.EnableBashCompletion = true
 
 	// action
 	app.Action = func(c *cli.Context) error {
-		if len(c.Args()) != 2 {
-			fmt.Println("Requires two arguments")
-			fmt.Println("put source(local) target(remote)")
+		if len(c.Args()) < 2 {
+			fmt.Println("Requires over two arguments")
+			fmt.Println("put source(local)... target(remote)")
 			return nil
 		}
 
@@ -50,27 +50,34 @@ func (r *RunSftp) put(args []string) {
 		r.Progress = mpb.New(mpb.WithWaitGroup(r.ProgressWG))
 
 		// set path
-		source := c.Args()[0]
-		target := c.Args()[1]
+		argsSize := len(c.Args()) - 1
+		source := c.Args()[:argsSize]
+		destination := c.Args()[argsSize]
 
-		// get local host directory walk data
 		pathset := []PathSet{}
-		data, err := common.WalkDir(source)
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "%s\n", err)
-			return nil
+
+		for _, l := range source {
+			// get local host directory walk data
+			data, err := common.WalkDir(l)
+			if err != nil {
+				fmt.Fprintf(os.Stderr, "%s\n", err)
+				return nil
+			}
+
+			sort.Strings(data)
+			dataset := PathSet{
+				Base:      filepath.Dir(l),
+				PathSlice: data,
+			}
+			pathset = append(pathset, dataset)
 		}
 
-		sort.Strings(data)
-		dataset := PathSet{
-			Base:      filepath.Dir(source),
-			PathSlice: data,
-		}
-		pathset = append(pathset, dataset)
+		targetmap := map[string]*TargetConnectMap{}
+		targetmap = r.createTargetMap(targetmap, destination)
 
 		// parallel push data
 		exit := make(chan bool)
-		for s, c := range r.Client {
+		for s, c := range targetmap {
 			server := s
 			client := c
 			go func() {
@@ -81,13 +88,19 @@ func (r *RunSftp) put(args []string) {
 				// create output
 				client.Output.Create(server)
 
+				// check source multiple
+				isMultiple := false
+				if len(pathset) > 1 {
+					isMultiple = true
+				}
+
 				// push path
 				for _, p := range pathset {
 					base := p.Base
 					data := p.PathSlice
 
 					for _, path := range data {
-						r.pushPath(client, target, base, path)
+						r.pushData(client, isMultiple, base, path)
 					}
 				}
 
@@ -97,7 +110,7 @@ func (r *RunSftp) put(args []string) {
 		}
 
 		// wait exit
-		for i := 0; i < len(r.Client); i++ {
+		for i := 0; i < len(targetmap); i++ {
 			<-exit
 		}
 		close(exit)
@@ -119,63 +132,70 @@ func (r *RunSftp) put(args []string) {
 }
 
 //
-func (r *RunSftp) pushPath(client *SftpConnect, target, base, path string) (err error) {
+func (r *RunSftp) pushData(client *TargetConnectMap, isMultiple bool, base, path string) (err error) {
 	var rpath string
 
 	// set arg relpath
 	relpath, _ := filepath.Rel(base, path)
 
-	// check target is absolute path
-	if !filepath.IsAbs(target) {
-		target = filepath.Join(client.Pwd, target)
-	}
-
-	// set rpath
-	if common.IsDirPath(target) {
-		rpath = filepath.Join(target, relpath)
-	} else {
-		dInfo, _ := os.Lstat(path)
-		if dInfo.IsDir() {
-			rpath = filepath.Join(target, relpath)
-			client.Connect.Mkdir(target)
-		} else {
-			rpath = filepath.Clean(target)
+	for _, target := range client.Path {
+		// check target is absolute path
+		if !filepath.IsAbs(target) {
+			target = filepath.Join(client.Pwd, target)
 		}
-	}
 
-	// get local file info
-	fInfo, _ := os.Lstat(path)
-	if fInfo.IsDir() { // directory
-		client.Connect.Mkdir(rpath)
-	} else { //file
-		// open local file
-		localfile, err := os.Open(path)
-		if err != nil {
-			return err
+		// set rpath
+		lstat, err := client.Connect.Lstat(target)
+		if err == nil {
+			if lstat.IsDir() {
+				rpath = filepath.Join(target, relpath)
+			}
 		}
-		defer localfile.Close()
 
-		// get file size
-		lstat, _ := os.Lstat(path)
-		size := lstat.Size()
-
-		// copy file
-		err = r.pushFile(client, localfile, rpath, size)
-		if err != nil {
-			return err
+		if len(rpath) == 0 {
+			dInfo, _ := os.Lstat(path)
+			if dInfo.IsDir() || isMultiple {
+				rpath = filepath.Join(target, relpath)
+				client.Connect.Mkdir(target)
+			} else {
+				rpath = filepath.Clean(target)
+			}
 		}
-	}
 
-	// set mode
-	if r.Permission {
-		client.Connect.Chmod(rpath, fInfo.Mode())
+		// get local file info
+		fInfo, _ := os.Lstat(path)
+		if fInfo.IsDir() { // directory
+			client.Connect.Mkdir(rpath)
+		} else { //file
+			// open local file
+			localfile, err := os.Open(path)
+			if err != nil {
+				return err
+			}
+			defer localfile.Close()
+
+			// get file size
+			lstat, _ := os.Lstat(path)
+			size := lstat.Size()
+
+			// copy file
+			err = r.pushFile(client, localfile, rpath, size)
+			if err != nil {
+				return err
+			}
+		}
+
+		// set mode
+		if r.Permission {
+			client.Connect.Chmod(rpath, fInfo.Mode())
+		}
 	}
 
 	return
 }
 
 // pushfile put file to path.
-func (r *RunSftp) pushFile(client *SftpConnect, localfile io.Reader, path string, size int64) (err error) {
+func (r *RunSftp) pushFile(client *TargetConnectMap, localfile io.Reader, path string, size int64) (err error) {
 	// mkdir all
 	dir := filepath.Dir(path)
 	err = client.Connect.MkdirAll(dir)

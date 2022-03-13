@@ -1,4 +1,4 @@
-// Copyright (c) 2021 Blacknon. All rights reserved.
+// Copyright (c) 2022 Blacknon. All rights reserved.
 // Use of this source code is governed by an MIT license
 // that can be found in the LICENSE file.
 
@@ -65,13 +65,22 @@ type Run struct {
 	PortForward []*conf.PortForward
 
 	// TODO(blacknon): Delete old keys
-	PortForwardMode   string // L or R
-	PortForwardLocal  string
+	// L or R
+	PortForwardMode string
+
+	//
+	PortForwardLocal string
+
+	//
 	PortForwardRemote string
 
 	// Dynamic Port Forwarding
 	// set localhost port num (ex. 11080).
 	DynamicPortForward string
+
+	// Reverse Dynamic Port Forwarding
+	// set remotehost port num (ex. 11080).
+	ReverseDynamicPortForward string
 
 	// Exec command
 	ExecCmd []string
@@ -215,6 +224,15 @@ func (r *Run) printDynamicPortForward(port string) {
 	if port != "" {
 		fmt.Fprintf(os.Stderr, "DynamicForward:%s\n", port)
 		fmt.Fprintf(os.Stderr, "               %s\n", "connect Socks5.")
+	}
+}
+
+// printReverseDynamicPortForward is printout port forwarding.
+// use ssh command run header. only use shell().
+func (r *Run) printReverseDynamicPortForward(port string) {
+	if port != "" {
+		fmt.Fprintf(os.Stderr, "ReverseDynamicForward:%s\n", port)
+		fmt.Fprintf(os.Stderr, "                      %s\n", "connect Socks5.")
 	}
 }
 

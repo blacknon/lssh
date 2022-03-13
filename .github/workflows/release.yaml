@@ -36,10 +36,10 @@ jobs:
             goarch: amd64
             os: macos-latest
             ext: tar.gz
-          # - goos: windows
-          #   goarch: amd64
-          #   os: windows-latest
-          #   ext: zip
+          - goos: windows
+            goarch: amd64
+            os: windows-latest
+            ext: zip
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v1
@@ -77,6 +77,15 @@ jobs:
           perl -i -pe s/___VERSION___/${{ steps.package_version.outputs.version }}/ ./package/.tar2package.yml
           ## tar czvf "$_TAR" -C "$PWD/package" completion bin man .tar2package.yml
           tar czvf "$_TAR" -C "$PWD/package" completion bin .tar2package.yml
+
+      - name: Create package file(Windows)
+        if: matrix.ext == 'zip'
+        run: |
+          mkdir package/bin
+          move lssh.${{ matrix.goos }}_${{ matrix.goarch }} package/bin/lssh.exe
+          move lscp.${{ matrix.goos }}_${{ matrix.goarch }} package/bin/lscp.exe
+          move lsftp.${{ matrix.goos }}_${{ matrix.goarch }} package/bin/lsftp.exe
+          powershell Compress-Archive package lssh_${{ steps.package_version.outputs.version }}_${{ matrix.goos }}_${{ matrix.goarch }}.zip
 
       # use: https://github.com/greymd/tar2package
       - name: Build rpm
@@ -126,6 +135,13 @@ jobs:
         with:
           name: build-${{ matrix.goos }}_${{ matrix.goarch }}
           path: lssh_${{ steps.package_version.outputs.version }}_${{ matrix.goos }}_${{ matrix.goarch }}.tar.gz
+
+      - name: Upload artifact
+        if: matrix.ext == 'zip'
+        uses: actions/upload-artifact@v1
+        with:
+          name: build-${{ matrix.goos }}_${{ matrix.goarch }}
+          path: lssh_${{ steps.package_version.outputs.version }}_${{ matrix.goos }}_${{ matrix.goarch }}.zip
 
   # create package release
   create-release:
@@ -182,6 +198,11 @@ jobs:
             goarch: amd64
             os: macos-latest
             ext: tar.gz
+          - goos: windows
+            goarch: amd64
+            os: windows-latest
+            ext: zip
+
     needs: [create-release]
     runs-on: ubuntu-latest
     steps:

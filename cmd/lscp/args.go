@@ -1,4 +1,4 @@
-// Copyright (c) 2021 Blacknon. All rights reserved.
+// Copyright (c) 2022 Blacknon. All rights reserved.
 // Use of this source code is governed by an MIT license
 // that can be found in the LICENSE file.
 
@@ -60,7 +60,7 @@ USAGE:
 	app.Name = "lscp"
 	app.Usage = "TUI list select and parallel scp client command."
 	app.Copyright = "blacknon(blacknon@orebibou.com)"
-	app.Version = "0.6.6"
+	app.Version = "0.6.7"
 
 	// options
 	// TODO(blacknon): オプションの追加(0.7.0)
@@ -114,7 +114,7 @@ USAGE:
 		check.CheckTypeError(isFromInRemote, isFromInLocal, isToRemote, len(hosts))
 
 		// Get config data
-		data := conf.ReadConf(confpath)
+		data := conf.Read(confpath)
 
 		// Get Server Name List (and sort List)
 		names := conf.GetNameList(data)
