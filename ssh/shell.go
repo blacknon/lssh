@@ -42,6 +42,11 @@ func (r *Run) shell() (err error) {
 		config.DynamicPortForward = r.DynamicPortForward
 	}
 
+	// OverWrite reverse dynamic port forwarding
+	if r.ReverseDynamicPortForward != "" {
+		config.ReverseDynamicPortForward = r.ReverseDynamicPortForward
+	}
+
 	// OverWrite local bashrc use
 	if r.IsBashrc {
 		config.LocalRcUse = "yes"
@@ -58,6 +63,7 @@ func (r *Run) shell() (err error) {
 		r.printPortForward(fw.Mode, fw.Local, fw.Remote)
 	}
 	r.printDynamicPortForward(config.DynamicPortForward)
+	r.printReverseDynamicPortForward(config.ReverseDynamicPortForward)
 	r.printProxy(server)
 	if config.LocalRcUse == "yes" {
 		fmt.Fprintf(os.Stderr, "Information   :This connect use local bashrc.\n")
@@ -99,6 +105,11 @@ func (r *Run) shell() (err error) {
 	// Dynamic Port Forwarding
 	if config.DynamicPortForward != "" {
 		go connect.TCPDynamicForward("localhost", config.DynamicPortForward)
+	}
+
+	// Reverse Dynamic Port Forwarding
+	if config.ReverseDynamicPortForward != "" {
+		go connect.TCPReverseDynamicForward("localhost", config.ReverseDynamicPortForward)
 	}
 
 	// switch check Not-execute flag
