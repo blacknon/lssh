@@ -83,9 +83,9 @@ jobs:
         if: matrix.ext == 'zip'
         run: |
           mkdir package/bin
-          move lssh.${{ matrix.goos }}_${{ matrix.goarch }} package/bin/lssh
-          move lscp.${{ matrix.goos }}_${{ matrix.goarch }} package/bin/lscp
-          move lsftp.${{ matrix.goos }}_${{ matrix.goarch }} package/bin/lsftp
+          move lssh.${{ matrix.goos }}_${{ matrix.goarch }} package/bin/lssh.exe
+          move lscp.${{ matrix.goos }}_${{ matrix.goarch }} package/bin/lscp.exe
+          move lsftp.${{ matrix.goos }}_${{ matrix.goarch }} package/bin/lsftp.exe
           powershell Compress-Archive package lssh_${{ steps.package_version.outputs.version }}_${{ matrix.goos }}_${{ matrix.goarch }}.zip
 
       - name: Upload artifact
