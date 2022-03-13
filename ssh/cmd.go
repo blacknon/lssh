@@ -87,6 +87,26 @@ func (r *Run) cmd() (err error) {
 			// set port forwarding
 			config = r.setPortForwards(s, config)
 
+			// OverWrite dynamic port forwarding
+			if r.DynamicPortForward != "" {
+				config.DynamicPortForward = r.DynamicPortForward
+			}
+
+			// OverWrite reverse dynamic port forwarding
+			if r.ReverseDynamicPortForward != "" {
+				config.ReverseDynamicPortForward = r.ReverseDynamicPortForward
+			}
+
+			// OverWrite local bashrc use
+			if r.IsBashrc {
+				config.LocalRcUse = "yes"
+			}
+
+			// OverWrite local bashrc not use
+			if r.IsNotBashrc {
+				config.LocalRcUse = "no"
+			}
+
 			// print header
 			for _, fw := range config.Forwards {
 				r.printPortForward(fw.Mode, fw.Local, fw.Remote)
@@ -111,6 +131,12 @@ func (r *Run) cmd() (err error) {
 			if config.DynamicPortForward != "" {
 				r.printDynamicPortForward(config.DynamicPortForward)
 				go c.TCPDynamicForward("localhost", config.DynamicPortForward)
+			}
+
+			// Reverse Dynamic Port Forwarding
+			if config.ReverseDynamicPortForward != "" {
+				r.printReverseDynamicPortForward(config.ReverseDynamicPortForward)
+				go c.TCPReverseDynamicForward("localhost", config.ReverseDynamicPortForward)
 			}
 
 			// if tty

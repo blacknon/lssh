@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"os"
 	"os/user"
+	"regexp"
 	"sort"
 
 	"github.com/blacknon/lssh/check"
@@ -214,8 +215,14 @@ USAGE:
 		for _, forwardargs := range c.StringSlice("R") {
 			f := new(conf.PortForward)
 			f.Mode = "R"
-			f.Local, f.Remote, err = common.ParseForwardPort(forwardargs)
-			forwards = append(forwards, f)
+
+			// If only numbers are passed as arguments, treat as Reverse Dynamic Port Forward
+			if regexp.MustCompile(`^[0-9]+$`).Match([]byte(forwardargs)) {
+				r.ReverseDynamicPortForward = forwardargs
+			} else {
+				f.Local, f.Remote, err = common.ParseForwardPort(forwardargs)
+				forwards = append(forwards, f)
+			}
 		}
 
 		// if err
