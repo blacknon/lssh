@@ -35,7 +35,8 @@ func (c *Connect) Command(command string) (err error) {
 		w, _ := c.Session.StdinPipe()
 		go io.Copy(w, c.Stdin)
 	} else {
-		c.Session.Stdin = os.Stdin
+		stdin := GetStdin()
+		c.Session.Stdin = stdin
 	}
 
 	if c.Stdout != nil {

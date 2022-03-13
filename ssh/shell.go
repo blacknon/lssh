@@ -1,4 +1,4 @@
-// Copyright (c) 2021 Blacknon. All rights reserved.
+// Copyright (c) 2022 Blacknon. All rights reserved.
 // Use of this source code is governed by an MIT license
 // that can be found in the LICENSE file.
 
@@ -42,6 +42,11 @@ func (r *Run) shell() (err error) {
 		config.DynamicPortForward = r.DynamicPortForward
 	}
 
+	// OverWrite reverse dynamic port forwarding
+	if r.ReverseDynamicPortForward != "" {
+		config.ReverseDynamicPortForward = r.ReverseDynamicPortForward
+	}
+
 	// OverWrite local bashrc use
 	if r.IsBashrc {
 		config.LocalRcUse = "yes"
@@ -58,6 +63,7 @@ func (r *Run) shell() (err error) {
 		r.printPortForward(fw.Mode, fw.Local, fw.Remote)
 	}
 	r.printDynamicPortForward(config.DynamicPortForward)
+	r.printReverseDynamicPortForward(config.ReverseDynamicPortForward)
 	r.printProxy(server)
 	if config.LocalRcUse == "yes" {
 		fmt.Fprintf(os.Stderr, "Information   :This connect use local bashrc.\n")
@@ -101,6 +107,11 @@ func (r *Run) shell() (err error) {
 		go connect.TCPDynamicForward("localhost", config.DynamicPortForward)
 	}
 
+	// Reverse Dynamic Port Forwarding
+	if config.ReverseDynamicPortForward != "" {
+		go connect.TCPReverseDynamicForward("localhost", config.ReverseDynamicPortForward)
+	}
+
 	// switch check Not-execute flag
 	// TODO(blacknon): Backgroundフラグを実装したら追加
 	switch {
@@ -133,7 +144,7 @@ func (r *Run) shell() (err error) {
 
 		// TODO(blacknon): local rc file add
 		if config.LocalRcUse == "yes" {
-			err = localrcShell(connect, session, config.LocalRcPath, config.LocalRcDecodeCmd)
+			err = localrcShell(connect, session, config.LocalRcPath, config.LocalRcDecodeCmd, config.LocalRcCompress, config.LocalRcUncompressCmd)
 		} else {
 			// Connect shell
 			err = connect.Shell(session)
@@ -182,35 +193,6 @@ func (r *Run) getLogDirPath(server string) (dir string, err error) {
 	return
 }
 
-// runLocalRcShell connect to remote shell using local bashrc
-func localrcShell(connect *sshlib.Connect, session *ssh.Session, localrcPath []string, decoder string) (err error) {
-	// TODO(blacknon): 受け付けるrcdataをzip化するオプションの追加
-
-	// set default bashrc
-	if len(localrcPath) == 0 {
-		localrcPath = []string{"~/.bashrc"}
-	}
-
-	// get bashrc base64 data
-	rcData, err := common.GetFilesBase64(localrcPath)
-	if err != nil {
-		return
-	}
-
-	// command
-	// TODO(blacknon): なんの処理してるのか、もうちょっとちゃんとコメントを書く(忘れちまったよ…)
-	cmd := fmt.Sprintf("bash --noprofile --rcfile <(echo %s|((base64 --help | grep -q coreutils) && base64 -d <(cat) || base64 -D <(cat) ))", rcData)
-
-	// decode command
-	if decoder != "" {
-		cmd = fmt.Sprintf("bash --noprofile --rcfile <(echo %s | %s)", rcData, decoder)
-	}
-
-	connect.CmdShell(session, cmd)
-
-	return
-}
-
 // noneExecute is not execute command and shell.
 func (r *Run) noneExecute() (err error) {
 loop:
@@ -220,4 +202,46 @@ loop:
 			continue loop
 		}
 	}
+}
+
+// localRcShell connect to remote shell using local bashrc
+func localrcShell(connect *sshlib.Connect, session *ssh.Session, localrcPath []string, decoder string, compress bool, uncompress string) (err error) {
+	// var
+	var cmd string
+
+	// TODO(blacknon): 受け付けるrcdataをzip化するオプションの追加
+
+	// set default bashrc
+	if len(localrcPath) == 0 {
+		localrcPath = []string{"~/.bashrc"}
+	}
+
+	// get bashrc base64 data
+	// rcData, err := common.GetFilesBase64(localrcPath, common.ARCHIVE_NONE)
+	rcData, _ := common.GetFilesBase64(localrcPath, common.ARCHIVE_GZIP)
+
+	// set default uncompress command
+	if uncompress == "" {
+		uncompress = "gzip -d"
+	}
+
+	// switch
+	switch {
+	case !compress && decoder != "":
+		cmd = fmt.Sprintf("bash --noprofile --rcfile <(echo %s | %s)", rcData, decoder)
+
+	case !compress && decoder == "":
+		cmd = fmt.Sprintf("bash --noprofile --rcfile <(echo %s | ( (base64 --help | grep -q coreutils) && base64 -d <(cat) || base64 -D <(cat) ) )", rcData)
+
+	case compress && decoder != "":
+		cmd = fmt.Sprintf("bash --noprofile --rcfile <(echo %s | %s | %s)", rcData, decoder, uncompress)
+
+	case compress && decoder == "":
+		cmd = fmt.Sprintf("bash --noprofile --rcfile <(echo %s | ( (base64 --help | grep -q coreutils) && base64 -d <(cat) || base64 -D <(cat) ) | %s)", rcData, uncompress)
+
+	}
+
+	connect.CmdShell(session, cmd)
+
+	return
 }

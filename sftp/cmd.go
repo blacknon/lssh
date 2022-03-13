@@ -1,4 +1,4 @@
-// Copyright (c) 2021 Blacknon. All rights reserved.
+// Copyright (c) 2022 Blacknon. All rights reserved.
 // Use of this source code is governed by an MIT license
 // that can be found in the LICENSE file.
 
@@ -7,14 +7,13 @@
 package sftp
 
 import (
-	"os"
 	"sort"
 
 	"github.com/urfave/cli"
 )
 
 // FileInfos is []os.FileInfo.
-type FileInfos []os.FileInfo
+type FileInfos []sftpFileInfo
 
 // ByName is sort by name
 type ByName struct{ FileInfos }
@@ -75,7 +74,7 @@ type sftpLsData struct {
 }
 
 // SortLsData is sort []os.FileInfo.
-func (r *RunSftp) SortLsData(c *cli.Context, files []os.FileInfo) {
+func (r *RunSftp) SortLsData(c *cli.Context, files []sftpFileInfo) {
 	// sort
 	switch {
 	case c.Bool("f"): // do not sort

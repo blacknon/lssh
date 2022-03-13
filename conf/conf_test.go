@@ -1,4 +1,4 @@
-// Copyright (c) 2021 Blacknon. All rights reserved.
+// Copyright (c) 2022 Blacknon. All rights reserved.
 // Use of this source code is governed by an MIT license
 // that can be found in the LICENSE file.
 
@@ -66,7 +66,7 @@ func TestCheckFormatServerConf(t *testing.T) {
 		},
 	}
 	for _, v := range tds {
-		got := checkFormatServerConf(v.c)
+		got := v.c.checkFormatServerConf()
 		assert.Equal(t, v.expect, got, v.desc)
 	}
 }

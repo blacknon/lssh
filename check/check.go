@@ -1,3 +1,7 @@
+// Copyright (c) 2022 Blacknon. All rights reserved.
+// Use of this source code is governed by an MIT license
+// that can be found in the LICENSE file.
+
 /*
 check is a package used mainly for check processing required by lssh, content check of configuration file.
 */

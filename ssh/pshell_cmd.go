@@ -1,4 +1,4 @@
-// Copyright (c) 2021 Blacknon. All rights reserved.
+// Copyright (c) 2022 Blacknon. All rights reserved.
 // Use of this source code is governed by an MIT license
 // that can be found in the LICENSE file.
 
@@ -12,6 +12,7 @@ import (
 	"os/exec"
 	"reflect"
 	"regexp"
+	"runtime"
 	"strconv"
 	"strings"
 	"sync"
@@ -376,7 +377,12 @@ func (ps *pShell) executeLocalPipeLine(pline pipeLine, in *io.PipeReader, out *i
 	command := strings.Join(pline.Args, " ")
 
 	// execute command
-	cmd := exec.Command("sh", "-c", command)
+	var cmd *exec.Cmd
+	if runtime.GOOS == "windows" {
+		cmd = exec.Command("powershell.exe", "-c", command)
+	} else {
+		cmd = exec.Command("sh", "-c", command)
+	}
 
 	// set stdin, stdout, stderr
 	cmd.Stdin = stdin

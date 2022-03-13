@@ -21,24 +21,42 @@ Supported multiple ssh proxy, http/socks5 proxy, x11 forward, and port forwardin
 ## Features
 
 * List selection type ssh client.
+* It can run on **Linux**, **macOS** and **Windows**.
 * Pure Go.
-* Commands can be executed by ssh connection in parallel.
-* Supported ssh multiple proxy, http/socks5 proxy.
-* Supported ssh-agent.
-* Supported Port forward, x11 forward.
+* Commands can be executed by ssh connection in **parallel**.
+* There is a shell function that connects to multiple hosts in parallel for interactive operation and connects with local commands via pipes.
+* Supported multiple proxy, **ssh**, **http**, and **socks5** proxy. It's supported multi-stage proxy.
+* Supported **ssh-agent**.
+* Supported **Local** and **Remote Port forward**, **Dynamic Forward**, **Reverse Dynamic Forward** and **x11 forward**.
 * Can use bashrc of local machine at ssh connection destination.
+* It supports various authentication methods. Password, Public key, Certificate and PKCS11(Yubikey etc.).
+* Can read the OpenSSH config (~/.ssh/config) and use it as it is.
 
 ## Demo
 
+### run MacOSX
+
 <p align="center">
-<img src="./images/lssh.gif" />
+<img src="./images/lssh_macosx.gif" />
+</p>
+
+### run Linux(Manjaro)
+
+<p align="center">
+<img src="./images/lssh_linux.gif" />
+</p>
+
+### run Windows(Windows 10)
+
+<p align="center">
+<img src="./images/lssh_windows.gif" />
 </p>
 
 ## Install
 
 ### compile
 
-compile gofile(tested go1.15.5).
+compile gofile(tested go1.17.6).
 
     GO111MODULE=auto go get -u github.com/blacknon/lssh/cmd/lssh
     GO111MODULE=auto go get -u github.com/blacknon/lssh/cmd/lscp
@@ -110,7 +128,7 @@ option(lssh)
 	    blacknon(blacknon@orebibou.com)
 
 	VERSION:
-	    0.6.5
+	    0.6.7
 
 	USAGE:
 	    # connect ssh
@@ -151,7 +169,7 @@ option(lscp)
 	    blacknon(blacknon@orebibou.com)
 
 	VERSION:
-	    0.6.5
+	    0.6.7
 
 	USAGE:
 	    # local to remote scp
@@ -186,7 +204,7 @@ option(lsftp)
 	    blacknon(blacknon@orebibou.com)
 
 	VERSION:
-	    0.6.5
+	    0.6.7
 
 	USAGE:
 	  # start lsftp shell
@@ -219,6 +237,7 @@ You can connect using a local bashrc file (if ssh login shell is bash).
 	key  = "/path/to/private_key"
 	note = "Use local bashrc files."
 	local_rc = 'yes'
+	local_rc_compress = true # gzip compress localrc file data
 	local_rc_file = [
          "~/dotfiles/.bashrc"
         ,"~/dotfiles/bash_prompt"
@@ -602,7 +621,7 @@ You can specify from the command line or from the configuration file.
     lssh -L 8080:localhost:80 # local port forwarding
     lssh -R 80:localhost:8080 # remote port forwarding
     lssh -D 10080             # dynamic port forwarding
-
+    lssh -R 10080             # Reverse Dynamic port forwarding
 
 #### config file
 
@@ -622,6 +641,22 @@ You can specify from the command line or from the configuration file.
 	port_forward_local = "localhost:80"
 	port_forward_remote = "localhost:8080"
 	note = "remote port forwawrd example"
+
+	[server.DynamicForward]
+	addr = "dynamicforward.local"
+	user = "user"
+	agentauth = true
+	dynamic_port_forward = "11080"
+	note = "dynamic forwawrd example"
+
+	[server.ReverseDynamicForward]
+	addr = "reversedynamicforward.local"
+	user = "user"
+	agentauth = true
+	reverse_dynamic_port_forward = "11080"
+	note = "reverse dynamic forwawrd example"
+
+
 
 If OpenSsh config is loaded, it will be loaded as it is.
 

@@ -1,4 +1,4 @@
-// Copyright (c) 2021 Blacknon. All rights reserved.
+// Copyright (c) 2022 Blacknon. All rights reserved.
 // Use of this source code is governed by an MIT license
 // that can be found in the LICENSE file.
 
@@ -142,11 +142,10 @@ loop:
 func (o *Output) ProgressPrinter(size int64, reader io.Reader, path string) {
 	// print header
 	oPrompt := ""
-	name := decor.Name(oPrompt)
 	if len(o.ServerList) > 1 {
 		oPrompt = o.GetPrompt()
-		name = decor.Name(oPrompt, decor.WC{W: len(path) + 1})
 	}
+	name := decor.Name(oPrompt)
 
 	// trim space
 	path = strings.TrimSpace(path)
