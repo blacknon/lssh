@@ -29,7 +29,6 @@ github.com/blacknon/textcol
 # github.com/c-bata/go-prompt v0.2.5
 ## explicit; go 1.14
 github.com/c-bata/go-prompt
-github.com/c-bata/go-prompt/completer
 github.com/c-bata/go-prompt/internal/bisect
 github.com/c-bata/go-prompt/internal/debug
 github.com/c-bata/go-prompt/internal/strings
