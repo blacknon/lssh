@@ -142,6 +142,10 @@ func (l *ListInfo) getText() {
 			line = strings.TrimRight(line, "\r")
 		}
 
+		if strings.HasPrefix(line, "\r") {
+			line = strings.TrimLeft(line, "\r")
+		}
+
 		str := strings.Replace(line, "\t", " ", -1)
 		l.DataText = append(l.DataText, str)
 		line, err = buffer.ReadString('\n')
