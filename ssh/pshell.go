@@ -16,7 +16,6 @@ import (
 	"github.com/blacknon/go-sshlib"
 	"github.com/blacknon/lssh/output"
 	"github.com/c-bata/go-prompt"
-	"github.com/c-bata/go-prompt/completer"
 )
 
 // TODO(blacknon): 接続が切れた場合の再接続処理、および再接続ができなかった場合のsliceからの削除対応の追加(v0.6.1)
@@ -186,7 +185,7 @@ func (r *Run) pshell() (err error) {
 		prompt.OptionLivePrefix(ps.CreatePrompt),
 		prompt.OptionInputTextColor(prompt.Green),
 		prompt.OptionPrefixTextColor(prompt.Blue),
-		prompt.OptionCompletionWordSeparator(completer.FilePathCompletionSeparator), // test
+		prompt.OptionCompletionWordSeparator("/: \\"), // test
 	)
 
 	// start go-prompt
