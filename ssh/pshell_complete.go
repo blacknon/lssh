@@ -218,6 +218,7 @@ func (ps *pShell) GetPathComplete(remote bool, word string) (p []prompt.Suggest)
 					var path string
 					path = filepath.Base(sc.Text())
 					if runtime.GOOS == "windows" {
+						path = filepath.Join("/", path)
 						path = filepath.ToSlash(path)
 					}
 					m[path] = append(m[path], con.Name)
