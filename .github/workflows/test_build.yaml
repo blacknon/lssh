@@ -88,7 +88,6 @@ jobs:
           move lsftp.${{ matrix.goos }}_${{ matrix.goarch }} package/bin/lsftp
           powershell Compress-Archive package lssh_${{ steps.package_version.outputs.version }}_${{ matrix.goos }}_${{ matrix.goarch }}.zip
 
-
       - name: Upload artifact
         if: matrix.ext == 'tar.gz'
         uses: actions/upload-artifact@v1
