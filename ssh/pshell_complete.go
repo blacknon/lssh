@@ -216,10 +216,9 @@ func (ps *pShell) GetPathComplete(remote bool, word string) (p []prompt.Suggest)
 					sm.Lock()
 
 					var path string
-					if runtime.GOOS != "windows" {
-						path = filepath.Base(sc.Text())
-					} else {
-						path = sc.Text()
+					path = filepath.Base(sc.Text())
+					if runtime.GOOS == "windows" {
+						path = filepath.ToSlash(path)
 					}
 					m[path] = append(m[path], con.Name)
 					sm.Unlock()
