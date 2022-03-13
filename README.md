@@ -223,6 +223,7 @@ You can connect using a local bashrc file (if ssh login shell is bash).
 	key  = "/path/to/private_key"
 	note = "Use local bashrc files."
 	local_rc = 'yes'
+	local_rc_compress = true # gzip compress localrc file data
 	local_rc_file = [
          "~/dotfiles/.bashrc"
         ,"~/dotfiles/bash_prompt"
