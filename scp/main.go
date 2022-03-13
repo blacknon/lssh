@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"path"
 	"path/filepath"
 	"sort"
 	"sync"
@@ -130,8 +131,9 @@ func (cp *Scp) push() {
 		}
 
 		sort.Strings(data)
+
 		dataset := PathSet{
-			Base:      filepath.Dir(p),
+			Base:      path.Dir(p),
 			PathSlice: data,
 		}
 
@@ -179,11 +181,11 @@ func (cp *Scp) push() {
 }
 
 //
-func (cp *Scp) pushPath(ftp *sftp.Client, ow *io.PipeWriter, output *output.Output, base, path string) (err error) {
+func (cp *Scp) pushPath(ftp *sftp.Client, ow *io.PipeWriter, output *output.Output, base, p string) (err error) {
 	var rpath string
 
 	// Set remote path
-	relpath, _ := filepath.Rel(base, path)
+	relpath, _ := filepath.Rel(base, p)
 	if common.IsDirPath(cp.To.Path[0]) || len(cp.From.Path) > 1 {
 		rpath = filepath.Join(cp.To.Path[0], relpath)
 	} else if len(cp.From.Path) == 1 {
@@ -195,14 +197,15 @@ func (cp *Scp) pushPath(ftp *sftp.Client, ow *io.PipeWriter, output *output.Outp
 	} else {
 		rpath = filepath.Clean(cp.To.Path[0])
 	}
+	rpath = filepath.ToSlash(rpath)
 
 	// get local file info
-	fInfo, _ := os.Lstat(path)
+	fInfo, _ := os.Lstat(p)
 	if fInfo.IsDir() { // directory
 		ftp.Mkdir(rpath)
 	} else { //file
 		// open local file
-		lf, err := os.Open(path)
+		lf, err := os.Open(p)
 		if err != nil {
 			fmt.Fprintf(ow, "%s\n", err)
 			return err
@@ -210,7 +213,7 @@ func (cp *Scp) pushPath(ftp *sftp.Client, ow *io.PipeWriter, output *output.Outp
 		defer lf.Close()
 
 		// get file size
-		lstat, _ := os.Lstat(path)
+		lstat, _ := os.Lstat(p)
 		size := lstat.Size()
 
 		// copy file
@@ -235,9 +238,13 @@ func (cp *Scp) pushFile(lf io.Reader, ftp *sftp.Client, output *output.Output, p
 	// get output writer
 	ow := output.NewWriter()
 
-	// mkdir all
+	// set path
 	dir := filepath.Dir(path)
+	dir = filepath.ToSlash(dir)
+
+	// mkdir all
 	err = ftp.MkdirAll(dir)
+
 	if err != nil {
 		fmt.Fprintf(ow, "%s\n", err)
 		return
@@ -394,6 +401,7 @@ func (cp *Scp) pullPath(client *ScpConnect) {
 		os.MkdirAll(baseDir, 0755)
 	}
 	baseDir, _ = filepath.Abs(baseDir)
+	baseDir = filepath.ToSlash(baseDir)
 
 	// walk remote path
 	for _, path := range cp.From.Path {
@@ -408,6 +416,7 @@ func (cp *Scp) pullPath(client *ScpConnect) {
 			for walker.Step() {
 				// basedir
 				remoteBase := filepath.Dir(gp)
+				remoteBase = filepath.ToSlash(remoteBase)
 
 				err := walker.Err()
 				if err != nil {
