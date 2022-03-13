@@ -1,4 +1,4 @@
-// Copyright (c) 2021 Blacknon. All rights reserved.
+// Copyright (c) 2022 Blacknon. All rights reserved.
 // Use of this source code is governed by an MIT license
 // that can be found in the LICENSE file.
 
@@ -9,10 +9,13 @@ package common
 
 import (
 	"bufio"
+	"bytes"
+	"compress/gzip"
 	"crypto/sha1"
 	"encoding/base64"
 	"errors"
 	"fmt"
+	"io"
 	"io/ioutil"
 	"log"
 	"math/rand"
@@ -23,7 +26,6 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
-	"time"
 
 	"github.com/urfave/cli"
 	"golang.org/x/crypto/ssh/terminal"
@@ -31,10 +33,38 @@ import (
 
 var characterRunes = []rune("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789")
 
+// enum
+const (
+	ARCHIVE_NONE = iota
+	ARCHIVE_GZIP
+)
+
 // IsExist returns existence of file.
 func IsExist(filename string) bool {
 	_, err := os.Stat(filename)
 	return err == nil
+}
+
+//
+func Contains(list interface{}, elem interface{}) bool {
+	listV := reflect.ValueOf(list)
+
+	if listV.Kind() == reflect.Slice {
+		for i := 0; i < listV.Len(); i++ {
+			item := listV.Index(i).Interface()
+			// check conver
+			if !reflect.TypeOf(elem).ConvertibleTo(reflect.TypeOf(item)) {
+				continue
+			}
+			// convert type
+			target := reflect.ValueOf(elem).Convert(reflect.TypeOf(item)).Interface()
+			// check
+			if ok := reflect.DeepEqual(item, target); ok {
+				return true
+			}
+		}
+	}
+	return false
 }
 
 // MapReduce sets map1 value to map2 if map1 and map2 have same key, and value
@@ -63,6 +93,18 @@ func MapReduce(map1, map2 map[string]interface{}) map[string]interface{} {
 	}
 
 	return map2
+}
+
+// MapMerge merges multiple Maps
+func MapMerge(m ...map[string]interface{}) map[string]interface{} {
+	ans := make(map[string]interface{}, 0)
+
+	for _, c := range m {
+		for k, v := range c {
+			ans[k] = v
+		}
+	}
+	return ans
 }
 
 // StructToMap returns a map that converted struct to map.
@@ -133,7 +175,7 @@ func GetMaxLength(list []string) (MaxLength int) {
 }
 
 // GetFilesBase64 returns a base64 encoded string of file content of paths.
-func GetFilesBase64(paths []string) (result string, err error) {
+func GetFilesBase64(paths []string, iscompress int) (result string, err error) {
 	var data []byte
 	for _, path := range paths {
 
@@ -155,7 +197,15 @@ func GetFilesBase64(paths []string) (result string, err error) {
 		data = append(data, '\n')
 	}
 
-	result = base64.StdEncoding.EncodeToString(data)
+	switch iscompress {
+	case ARCHIVE_NONE:
+		result = base64.StdEncoding.EncodeToString(data)
+
+	case ARCHIVE_GZIP:
+		data, err = StringCompression(ARCHIVE_GZIP, data)
+		result = base64.StdEncoding.EncodeToString(data)
+	}
+
 	return result, err
 }
 
@@ -181,10 +231,6 @@ func GetPassPhrase(msg string) (input string, err error) {
 	input = string(result)
 	fmt.Println()
 	return
-}
-
-func init() {
-	rand.Seed(time.Now().UnixNano())
 }
 
 // NewSHA1Hash generates a new SHA1 hash based on
@@ -320,6 +366,20 @@ func ParseForwardPort(value string) (local, remote string, err error) {
 	return
 }
 
+// ParseHostPath return host and path, from host:/path/to/dir/file.
+func ParseHostPath(value string) (host []string, path string) {
+	if !strings.Contains(value, ":") {
+		path = value
+		return
+	}
+
+	parseValue := strings.SplitN(value, ":", 2)
+	host = strings.Split(parseValue[0], ",")
+	path = parseValue[1]
+
+	return
+}
+
 // ParseArgs return os.Args parse short options (ex.) [-la] => [-l,-a] )
 //
 // TODO(blacknon): Migrate to github.com/urfave/cli version 1.22.
@@ -404,6 +464,27 @@ func IsDirPath(path string) (isDir bool) {
 	if dir == path {
 		isDir = true
 	}
+
+	return
+}
+
+// StringCompression compresses bytes in the specified mode.
+func StringCompression(mode int, data []byte) (result []byte, err error) {
+	// create buffer
+	buf := new(bytes.Buffer)
+
+	switch mode {
+	case ARCHIVE_GZIP:
+		zw := gzip.NewWriter(buf)
+		defer zw.Close()
+
+		r := bytes.NewReader(data)
+
+		_, err = io.Copy(zw, r)
+		zw.Flush()
+	}
+
+	result = buf.Bytes()
 
 	return
 }

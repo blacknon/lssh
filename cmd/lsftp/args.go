@@ -1,4 +1,4 @@
-// Copyright (c) 2021 Blacknon. All rights reserved.
+// Copyright (c) 2022 Blacknon. All rights reserved.
 // Use of this source code is governed by an MIT license
 // that can be found in the LICENSE file.
 
@@ -51,7 +51,7 @@ USAGE:
 	app.Name = "lsftp"
 	app.Usage = "TUI list select and parallel sftp client command."
 	app.Copyright = "blacknon(blacknon@orebibou.com)"
-	app.Version = "0.6.6"
+	app.Version = "0.6.7"
 
 	app.Flags = []cli.Flag{
 		cli.StringFlag{Name: "file,F", Value: defConf, Usage: "config file path"},
@@ -72,7 +72,7 @@ USAGE:
 		confpath := c.String("file")
 
 		// Get config data
-		data := conf.ReadConf(confpath)
+		data := conf.Read(confpath)
 
 		// Get Server Name List (and sort List)
 		names := conf.GetNameList(data)

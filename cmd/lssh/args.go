@@ -1,4 +1,4 @@
-// Copyright (c) 2021 Blacknon. All rights reserved.
+// Copyright (c) 2022 Blacknon. All rights reserved.
 // Use of this source code is governed by an MIT license
 // that can be found in the LICENSE file.
 
@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"os"
 	"os/user"
+	"regexp"
 	"sort"
 
 	"github.com/blacknon/lssh/check"
@@ -65,7 +66,7 @@ USAGE:
 	app.Name = "lssh"
 	app.Usage = "TUI list select and parallel ssh client command."
 	app.Copyright = "blacknon(blacknon@orebibou.com)"
-	app.Version = "0.6.6"
+	app.Version = "0.6.7"
 
 	// TODO(blacknon): オプションの追加
 	//     -f       ... バックグラウンドでの接続(X11接続やport forwardingをバックグラウンドで実行する場合など)。
@@ -116,7 +117,7 @@ USAGE:
 		confpath := c.String("file")
 
 		// Get config data
-		data := conf.ReadConf(confpath)
+		data := conf.Read(confpath)
 
 		// Set `exec command` or `shell` flag
 		isMulti := false
@@ -214,8 +215,14 @@ USAGE:
 		for _, forwardargs := range c.StringSlice("R") {
 			f := new(conf.PortForward)
 			f.Mode = "R"
-			f.Local, f.Remote, err = common.ParseForwardPort(forwardargs)
-			forwards = append(forwards, f)
+
+			// If only numbers are passed as arguments, treat as Reverse Dynamic Port Forward
+			if regexp.MustCompile(`^[0-9]+$`).Match([]byte(forwardargs)) {
+				r.ReverseDynamicPortForward = forwardargs
+			} else {
+				f.Local, f.Remote, err = common.ParseForwardPort(forwardargs)
+				forwards = append(forwards, f)
+			}
 		}
 
 		// if err
