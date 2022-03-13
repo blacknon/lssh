@@ -16,6 +16,7 @@ import (
 func drawLine(x, y int, str string, colorNum int, backColorNum int) {
 	color := termbox.Attribute(colorNum + 1)
 	backColor := termbox.Attribute(backColorNum + 1)
+
 	// View Multi-Byte
 	for _, char := range str {
 		termbox.SetCell(x, y, char, color, backColor)
