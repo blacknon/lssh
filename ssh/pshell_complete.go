@@ -9,6 +9,7 @@ import (
 	"bytes"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"sort"
 	"strconv"
 	"strings"
@@ -213,8 +214,13 @@ func (ps *pShell) GetPathComplete(remote bool, word string) (p []prompt.Suggest)
 				sc := bufio.NewScanner(buf)
 				for sc.Scan() {
 					sm.Lock()
-					path := filepath.Base(sc.Text())
-					path = filepath.ToSlash(path)
+
+					var path string
+					if runtime.GOOS != "windows" {
+						path = filepath.Base(sc.Text())
+					} else {
+						path = sc.Text()
+					}
 					m[path] = append(m[path], con.Name)
 					sm.Unlock()
 				}
