@@ -34,8 +34,22 @@ Supported multiple ssh proxy, http/socks5 proxy, x11 forward, and port forwardin
 
 ## Demo
 
+### run MacOSX
+
 <p align="center">
-<img src="./images/lssh.gif" />
+<img src="./images/lssh_macosx.gif" />
+</p>
+
+### run Linux(Manjaro)
+
+<p align="center">
+<img src="./images/lssh_linux.gif" />
+</p>
+
+### run Windows(Windows 10)
+
+<p align="center">
+<img src="./images/lssh_windows.gif" />
 </p>
 
 ## Install
