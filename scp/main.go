@@ -240,8 +240,8 @@ func (cp *Scp) pushFile(lf io.Reader, ftp *sftp.Client, output *output.Output, p
 
 	// set path
 	dir := filepath.Dir(path)
-	fmt.Println(dir) // debug
 	dir = filepath.ToSlash(dir)
+	fmt.Println(dir) // debug
 
 	// mkdir all
 	err = ftp.MkdirAll(dir)
