@@ -1,4 +1,3 @@
-[![TravisCI](https://travis-ci.org/blacknon/lssh.svg?branch=master)](https://travis-ci.org/blacknon/lssh)
 [![Go Report Card](https://goreportcard.com/badge/github.com/blacknon/lssh)](https://goreportcard.com/report/github.com/blacknon/lssh)
 
 lssh
