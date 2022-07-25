@@ -186,6 +186,32 @@ func (r *Run) pshell() (err error) {
 		prompt.OptionInputTextColor(prompt.Green),
 		prompt.OptionPrefixTextColor(prompt.Blue),
 		prompt.OptionCompletionWordSeparator("/: \\"), // test
+		// Keybind
+		// Alt+Backspace
+		prompt.OptionAddASCIICodeBind(prompt.ASCIICodeBind{
+			ASCIICode: []byte{0x1b, 0x7f},
+			Fn:        prompt.DeleteWord,
+		}),
+		// Opt+LeftArrow
+		prompt.OptionAddASCIICodeBind(prompt.ASCIICodeBind{
+			ASCIICode: []byte{0x1b, 0x62},
+			Fn:        prompt.GoLeftWord,
+		}),
+		// Opt+RightArrow
+		prompt.OptionAddASCIICodeBind(prompt.ASCIICodeBind{
+			ASCIICode: []byte{0x1b, 0x66},
+			Fn:        prompt.GoRightWord,
+		}),
+		// Alt+LeftArrow
+		prompt.OptionAddASCIICodeBind(prompt.ASCIICodeBind{
+			ASCIICode: []byte{0x1b, 0x1b, 0x5B, 0x44},
+			Fn:        prompt.GoLeftWord,
+		}),
+		// Alt+RightArrow
+		prompt.OptionAddASCIICodeBind(prompt.ASCIICodeBind{
+			ASCIICode: []byte{0x1b, 0x1b, 0x5B, 0x43},
+			Fn:        prompt.GoRightWord,
+		}),
 	)
 
 	// start go-prompt
