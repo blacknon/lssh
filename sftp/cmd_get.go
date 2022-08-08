@@ -18,6 +18,8 @@ import (
 	"github.com/vbauerster/mpb"
 )
 
+// TODO: umaskの適用をする.
+
 //
 func (r *RunSftp) get(args []string) {
 	// create app
@@ -125,6 +127,9 @@ func (r *RunSftp) get(args []string) {
 
 //
 func (r *RunSftp) pullData(client *TargetConnectMap, targetdir string) (err error) {
+	// set pullfile Permission.
+	filePerm := GeneratePermWithUmask([]string{"0", "6", "6", "6"}, r.LocalUmask)
+
 	for _, path := range client.Path {
 		// set arg path
 		var rpath string
@@ -184,7 +189,7 @@ func (r *RunSftp) pullData(client *TargetConnectMap, targetdir string) (err erro
 					}
 
 					// open local file
-					localfile, err := os.OpenFile(localpath, os.O_RDWR|os.O_CREATE, 0644)
+					localfile, err := os.OpenFile(localpath, os.O_RDWR|os.O_CREATE, filePerm)
 					if err != nil {
 						fmt.Fprintf(ow, "Error: %s\n", err)
 						continue

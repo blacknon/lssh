@@ -40,6 +40,9 @@ type RunSftp struct {
 	//
 	Permission bool
 
+	// local umask. [000-777]
+	LocalUmask []string
+
 	// progress bar
 	Progress   *mpb.Progress
 	ProgressWG *sync.WaitGroup
@@ -85,6 +88,9 @@ func (r *RunSftp) Start() {
 	r.Run.ServerList = r.SelectServer
 	r.Run.Conf = r.Config
 	r.Run.CreateAuthMethodMap()
+
+	// Default local umask(022).
+	r.LocalUmask = []string{"0", "2", "2"}
 
 	// Create Sftp Connect
 	r.Client = r.createSftpConnect(r.Run.ServerList)
