@@ -124,7 +124,8 @@ func (r *RunSftp) Executor(command string) {
 		r.lpwd(cmdline)
 	case "ls":
 		r.ls(cmdline)
-	// case "lumask":
+	case "lumask":
+		r.lumask(cmdline)
 	case "mkdir":
 		r.mkdir(cmdline)
 	case "put":
@@ -183,7 +184,7 @@ func (r *RunSftp) Completer(t prompt.Document) []prompt.Suggest {
 			{Text: "ln", Description: "Link remote file (-s for symlink)"},
 			{Text: "lpwd", Description: "Print local working directory"},
 			{Text: "ls", Description: "Display remote directory listing"},
-			// {Text: "lumask", Description: "Set local umask to 'umask'"},
+			{Text: "lumask", Description: "Set local umask to 'umask'"},
 			{Text: "mkdir", Description: "Create remote directory"},
 			{Text: "put", Description: "Upload file"},
 			{Text: "pwd", Description: "Display remote working directory"},
@@ -193,6 +194,7 @@ func (r *RunSftp) Completer(t prompt.Document) []prompt.Suggest {
 			{Text: "rmdir", Description: "Remove remote directory"},
 			{Text: "symlink", Description: "Create symbolic link"},
 			// {Text: "tree", Description: "Tree view remote directory"},
+			// {Text: "ltree", Description: "Tree view local directory"},
 			// {Text: "!command", Description: "Execute 'command' in local shell"},
 			{Text: "!", Description: "Escape to local shell"},
 			{Text: "?", Description: "Display this help text"},
@@ -313,7 +315,11 @@ func (r *RunSftp) Completer(t prompt.Document) []prompt.Suggest {
 				return r.PathComplete(true, false, false, t)
 			}
 
-		// case "lumask":
+		case "lumask":
+			switch {
+			case strings.Count(t.CurrentLineBeforeCursor(), " ") == 1:
+				return prompt.FilterHasPrefix(r.CreateModeComplete(), t.GetWordBeforeCursor(), false)
+			}
 		case "mkdir":
 			switch {
 			case contains([]string{"-"}, char):
