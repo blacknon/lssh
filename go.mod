@@ -5,6 +5,7 @@ require (
 	github.com/blacknon/go-sshlib v0.1.10
 	github.com/blacknon/textcol v0.0.1
 	github.com/c-bata/go-prompt v0.2.5
+	github.com/disiqueira/gotree v1.0.0
 	github.com/dustin/go-humanize v1.0.0
 	github.com/kballard/go-shellquote v0.0.0-20180428030007-95032a82bc51
 	github.com/kevinburke/ssh_config v0.0.0-20190724205821-6cfae18c12b8

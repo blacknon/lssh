@@ -141,6 +141,8 @@ func (r *RunSftp) Executor(command string) {
 	case "symlink":
 		r.symlink(cmdline)
 	// case "tree":
+	case "ltree":
+		r.ltree(cmdline)
 	// case "!": // ! or !command...
 	case "": // none command...
 	default:
@@ -194,7 +196,7 @@ func (r *RunSftp) Completer(t prompt.Document) []prompt.Suggest {
 			{Text: "rmdir", Description: "Remove remote directory"},
 			{Text: "symlink", Description: "Create symbolic link"},
 			// {Text: "tree", Description: "Tree view remote directory"},
-			// {Text: "ltree", Description: "Tree view local directory"},
+			{Text: "ltree", Description: "Tree view local directory"},
 			// {Text: "!command", Description: "Execute 'command' in local shell"},
 			{Text: "!", Description: "Escape to local shell"},
 			{Text: "?", Description: "Display this help text"},
@@ -361,7 +363,8 @@ func (r *RunSftp) Completer(t prompt.Document) []prompt.Suggest {
 			}
 			// TODO(blacknon): そのうち追加 ver0.6.2
 		// case "tree":
-
+		case "ltree":
+			return r.PathComplete(false, true, false, t)
 		default:
 		}
 	}
