@@ -13,7 +13,9 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/blacknon/lssh/common"
 	"github.com/disiqueira/gotree"
+	"github.com/urfave/cli"
 )
 
 // TODO(blacknon):
@@ -22,31 +24,114 @@ import (
 
 // tree is remote tree command
 func (r *RunSftp) tree(args []string) (err error) {
-	return nil
+	// create app
+	app := cli.NewApp()
+
+	// set help message
+	app.CustomAppHelpTemplate = helptext
+
+	// set parameter
+	app.Flags = []cli.Flag{
+		cli.BoolFlag{Name: "s", Usage: "list one file per line"},
+		cli.BoolFlag{Name: "h", Usage: "do not ignore entries starting with"},
+	}
+	app.Name = "tree"
+	app.Usage = "lsftp build-in command: ltree [remote machine tree]"
+	app.ArgsUsage = "[host,host...:][PATH]..."
+	app.HideHelp = true
+	app.HideVersion = true
+	app.EnableBashCompletion = true
+
+	// action
+	app.Action = func(c *cli.Context) error {
+		// argpath
+		argData := c.Args()
+
+		pathList := []string{"./"}
+
+		if len(argData) > 0 {
+			pathList = []string{}
+			for _, arg := range argData {
+				// sftp target host
+				pathList = append(pathList, arg)
+			}
+		}
+
+		for _, path := range pathList {
+			// get dirctory tree data.
+			dirTree, err := buildDirTree(nil, path)
+			if err != nil {
+				fmt.Fprintf(os.Stderr, "%s\n", err)
+				return nil
+			}
+
+			fmt.Println(dirTree.Print())
+		}
+
+		return nil
+	}
+
+	// parse short options
+	args = common.ParseArgs(app.Flags, args)
+	app.Run(args)
+
+	return
 }
 
 // ltree is local tree command
 func (r *RunSftp) ltree(args []string) (err error) {
-	// tree default path
-	pathList := []string{"./"}
+	// create app
+	app := cli.NewApp()
 
-	// TODO: argsの値がある場合、pathListを上書きさせる
-	if len(args) > 1 {
-		pathList = args[1:]
+	// set help message
+	app.CustomAppHelpTemplate = helptext
+
+	// set parameter
+	app.Flags = []cli.Flag{
+		cli.BoolFlag{Name: "s", Usage: "list one file per line"},
+		cli.BoolFlag{Name: "h", Usage: "do not ignore entries starting with"},
 	}
+	app.Name = "ltree"
+	app.Usage = "lsftp build-in command: ltree [local machine tree]"
+	app.ArgsUsage = "[PATH]..."
+	app.HideHelp = true
+	app.HideVersion = true
+	app.EnableBashCompletion = true
 
-	for _, path := range pathList {
-		// get dirctory tree data.
-		dirTree, err := buildDirTree(nil, path)
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "%s\n", err)
-			return nil
+	// action
+	app.Action = func(c *cli.Context) error {
+		// argpath
+		argData := c.Args()
+
+		pathList := []string{"./"}
+
+		if len(argData) > 0 {
+			pathList = []string{}
+			for _, arg := range argData {
+				// sftp target host
+				pathList = append(pathList, arg)
+			}
 		}
 
-		fmt.Println(dirTree.Print())
+		for _, path := range pathList {
+			// get dirctory tree data.
+			dirTree, err := buildDirTree(nil, path)
+			if err != nil {
+				fmt.Fprintf(os.Stderr, "%s\n", err)
+				return nil
+			}
+
+			fmt.Println(dirTree.Print())
+		}
+
+		return nil
 	}
 
-	return nil
+	// parse short options
+	args = common.ParseArgs(app.Flags, args)
+	app.Run(args)
+
+	return
 }
 
 //
