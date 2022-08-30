@@ -109,17 +109,25 @@ func (r *RunSftp) lcat(args []string) {
 		// 1st arg only
 		path := c.Args().First()
 
-		// open file
-		f, err := os.Open(path)
+		pathList, err := ExpandLocalPath(path)
 		if err != nil {
 			fmt.Fprintln(os.Stderr, err)
 			return nil
 		}
 
-		// printout file
-		sc := bufio.NewScanner(f)
-		for sc.Scan() {
-			fmt.Println(sc.Text())
+		for _, p := range pathList {
+			// open file
+			f, err := os.Open(p)
+			if err != nil {
+				fmt.Fprintln(os.Stderr, err)
+				continue
+			}
+
+			// printout file
+			sc := bufio.NewScanner(f)
+			for sc.Scan() {
+				fmt.Println(sc.Text())
+			}
 		}
 
 		return nil
