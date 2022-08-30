@@ -112,7 +112,6 @@ func (r *RunSftp) executeRemoteLs(c *cli.Context, clients map[string]*TargetConn
 			// set target directory
 			if len(client.Path) > 0 {
 				for i, path := range client.Path {
-					// TODO: チルダの処理をするならもっとあとのほうがいいかも？配置箇所が違うかも？
 					client.Path[i] = path
 				}
 			} else {

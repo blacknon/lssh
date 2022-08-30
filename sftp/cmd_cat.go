@@ -11,7 +11,6 @@ import (
 	"bufio"
 	"fmt"
 	"os"
-	"path/filepath"
 	"time"
 
 	"github.com/blacknon/lssh/common"
@@ -55,22 +54,26 @@ func (r *RunSftp) cat(args []string) {
 
 			for _, path := range client.Path {
 				// set arg path
-				if !filepath.IsAbs(path) {
-					path = filepath.Join(client.Pwd, path)
-				}
-
-				// open file
-				f, err := ftp.Open(path)
+				pathlist, err := ExpandRemotePath(client, path)
 				if err != nil {
 					fmt.Fprintln(w, err)
 					continue
 				}
 
-				// read file to Output.Writer
-				_, err = f.WriteTo(w)
+				for _, p := range pathlist {
+					// open file
+					f, err := ftp.Open(p)
+					if err != nil {
+						fmt.Fprintln(w, err)
+						continue
+					}
 
-				if err != nil {
-					fmt.Fprintln(w, err)
+					// read file to Output.Writer
+					_, err = f.WriteTo(w)
+
+					if err != nil {
+						fmt.Fprintln(w, err)
+					}
 				}
 			}
 		}

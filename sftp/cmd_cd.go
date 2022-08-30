@@ -10,7 +10,6 @@ import (
 	"fmt"
 	"os"
 	"os/user"
-	"path/filepath"
 )
 
 // NOTE: カレントディレクトリの移動の仕組みを別途作成すること(保持する仕組みがないので)
@@ -37,12 +36,23 @@ func (r *RunSftp) cd(args []string) {
 		client.Output.Create(server)
 		w := client.Output.NewWriter()
 
+		var err error
+
 		// set arg path
 		path = client.Path[0]
-		var err error
-		if !filepath.IsAbs(path) {
-			path = filepath.Join(client.Pwd, path)
+		pathList, err := ExpandRemotePath(client, path)
+		if err != nil {
+			fmt.Fprintf(w, "Error: %s\n", "is not expand path.")
+			return
 		}
+
+		if len(pathList) != 1 {
+			fmt.Fprintf(w, "Error: %s\n", "is not expand path.")
+			return
+		}
+
+		// set path from pathList
+		path = pathList[0]
 
 		// get symlink
 		p, err := client.Connect.ReadLink(path)
@@ -81,14 +91,27 @@ func (r *RunSftp) cd(args []string) {
 func (r *RunSftp) lcd(args []string) {
 	// get user home directory path
 	usr, _ := user.Current()
-
 	path := usr.HomeDir
 	if len(args) > 1 {
 		path = args[1]
 	}
 
-	err := os.Chdir(path)
+	pathList, err := ExpandLocalPath(path)
 	if err != nil {
 		fmt.Fprintln(os.Stderr, err)
+		return
+	}
+
+	if len(pathList) != 1 {
+		fmt.Fprintf(os.Stderr, "Error: %s\n", "is not expand path.")
+		return
+	}
+
+	path = pathList[0]
+
+	err = os.Chdir(path)
+	if err != nil {
+		fmt.Fprintln(os.Stderr, err)
+		return
 	}
 }
