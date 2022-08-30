@@ -7,8 +7,20 @@ package sftp
 import (
 	"io/fs"
 	"os"
+	"os/user"
+	"path/filepath"
 	"strconv"
+	"strings"
 )
+
+type FileInfo interface {
+	fs.FileInfo
+}
+
+type sftpFileInfo struct {
+	FileInfo
+	Dir string
+}
 
 //
 func DupPermutationsRecursive0(n, k int) [][]int {
@@ -55,4 +67,52 @@ func GeneratePermWithUmask(defaultPerm, umask []string) fs.FileMode {
 	perm, _ := strconv.ParseUint(setPermStr, 8, 32)
 
 	return os.FileMode(perm)
+}
+
+// Pass path including tilde etc., expand it as local machine PATH and return
+func ExpandRemotePath(client *TargetConnectMap, path string) (expandPaths []string, err error) {
+	// get home dir
+	dir, err := client.Connect.Getwd()
+	if err != nil {
+		return
+	}
+
+	// expand tilde
+	switch {
+	case path == "~":
+		path = dir
+
+	case strings.HasPrefix(path, "~/"):
+		path = filepath.Join(dir, path[2:])
+
+	case !filepath.IsAbs(path):
+		path = filepath.Join(client.Pwd, path)
+	}
+
+	// get glob
+	expandPaths, err = client.Connect.Glob(path)
+	if err != nil {
+		return
+	}
+
+	return
+}
+
+// Pass path including tilde etc., expand it as local machine PATH and return
+func ExpandLocalPath(path string) (expandPaths []string, err error) {
+	// get home dir
+	usr, _ := user.Current()
+	dir := usr.HomeDir
+
+	// expand tilde
+	if path == "~" {
+		path = dir
+	} else if strings.HasPrefix(path, "~/") {
+		path = filepath.Join(dir, path[2:])
+	}
+
+	// expand glob
+	expandPaths, err = filepath.Glob(path)
+
+	return
 }

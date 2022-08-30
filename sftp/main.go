@@ -157,7 +157,7 @@ func (r *RunSftp) createSftpConnect(targets []string) (result map[string]*SftpCo
 	return result
 }
 
-//
+// createTargetMap is a function that adds elements to the passed TargetConnectMap as a set (map) of connection destination host and target path to regenerate and return TargetConnectMap.
 func (r *RunSftp) createTargetMap(srcTargetMap map[string]*TargetConnectMap, pathline string) (targetMap map[string]*TargetConnectMap) {
 	// sftp target host
 	targetMap = srcTargetMap

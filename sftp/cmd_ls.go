@@ -11,7 +11,6 @@ package sftp
 
 import (
 	"fmt"
-	"io/fs"
 	"io/ioutil"
 	"os"
 	"path/filepath"
@@ -27,15 +26,6 @@ import (
 	"github.com/pkg/sftp"
 	"github.com/urfave/cli"
 )
-
-type FileInfo interface {
-	fs.FileInfo
-}
-
-type sftpFileInfo struct {
-	FileInfo
-	Dir string
-}
 
 // sftpLs
 type sftpLs struct {
@@ -113,16 +103,17 @@ func (r *RunSftp) executeRemoteLs(c *cli.Context, clients map[string]*TargetConn
 		server := s
 		client := cl
 
+		// Get required data at ls, is obtained in parallel from each server.
 		go func() {
 			// get output
 			client.Output.Create(server)
 			w := client.Output.NewWriter()
 
+			// set target directory
 			if len(client.Path) > 0 {
 				for i, path := range client.Path {
-					if !filepath.IsAbs(path) {
-						client.Path[i] = filepath.Join(client.Pwd, path)
-					}
+					// TODO: チルダの処理をするならもっとあとのほうがいいかも？配置箇所が違うかも？
+					client.Path[i] = path
 				}
 			} else {
 				client.Path = append(client.Path, client.Pwd)
@@ -314,7 +305,7 @@ func (r *RunSftp) getRemoteLsData(client *TargetConnectMap) (lsdata sftpLs, err 
 		ep = re.ReplaceAllString(ep, "$1")
 
 		// get glob
-		epath, err := client.Connect.Glob(ep)
+		epath, err := ExpandRemotePath(client, ep)
 		if err != nil {
 			fmt.Fprintf(w, "Error: %s\n", err)
 			continue

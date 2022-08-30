@@ -7,6 +7,7 @@ package sftp
 import (
 	"fmt"
 	"os"
+	"os/user"
 	"path/filepath"
 	"regexp"
 	"sort"
@@ -18,7 +19,8 @@ import (
 	"github.com/kballard/go-shellquote"
 )
 
-// TODO(blacknon): 補完処理が遅い・不安定になってるので対処する
+// TODO(blacknon): 補完処理が遅い・不安定になってるので対処する.
+// TODO(blacknon): 補完処理でチルダ(~)の補完が行えるようにする.
 
 // sftp Shell mode function
 func (r *RunSftp) shell() {
@@ -508,9 +510,25 @@ func (r *RunSftp) GetRemoteComplete(ishost, ispath, useTargetmap bool, path stri
 		go func() {
 			// set rpath
 			var rpath string
+
+			// get home dir
+			dir, err := client.Connect.Getwd()
+			if err != nil {
+				exit <- true
+				return
+			}
+
+			//
 			switch {
 			case filepath.IsAbs(parsedPath):
 				rpath = parsedPath
+
+			case parsedPath == "~":
+				rpath = dir
+
+			case strings.HasPrefix(parsedPath, "~/"):
+				rpath = filepath.Join(dir, parsedPath[2:])
+
 			case !filepath.IsAbs(parsedPath):
 				rpath = filepath.Join(client.Pwd, parsedPath)
 			}
@@ -589,6 +607,17 @@ func (r *RunSftp) GetRemoteComplete(ishost, ispath, useTargetmap bool, path stri
 
 // GetLocalComplete set r.LocalComplete
 func (r *RunSftp) GetLocalComplete(path string) {
+	// get home dir
+	usr, _ := user.Current()
+	dir := usr.HomeDir
+
+	// expand tilde
+	if path == "~" {
+		path = dir
+	} else if strings.HasPrefix(path, "~/") {
+		path = filepath.Join(dir, path[2:])
+	}
+
 	// create suggest slice
 	var p []prompt.Suggest
 	stat, err := os.Lstat(path)
