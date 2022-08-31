@@ -104,7 +104,7 @@ func (r *RunSftp) chgrp(args []string) {
 						if err != nil {
 							fmt.Fprintf(w, "%s\n", err)
 							exit <- true
-							return
+							continue
 						}
 
 						sys := stat.Sys()
@@ -117,7 +117,7 @@ func (r *RunSftp) chgrp(args []string) {
 						if err != nil {
 							fmt.Fprintf(w, "%s\n", err)
 							exit <- true
-							return
+							continue
 						}
 
 						fmt.Fprintf(w, "chgrp: set %s's group as %s\n", p, group)
