@@ -80,7 +80,7 @@ func (r *RunSftp) chmod(args []string) {
 						if err != nil {
 							fmt.Fprintf(w, "%s\n", err)
 							exit <- true
-							return
+							continue
 						}
 
 						fmt.Fprintf(w, "chmod: set %s's permission as %o(%s)\n", p, filemode.Perm(), filemode.String())
