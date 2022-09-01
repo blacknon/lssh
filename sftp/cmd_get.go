@@ -131,6 +131,8 @@ func (r *RunSftp) pullData(client *TargetConnectMap, targetdir string) (err erro
 	filePerm := GeneratePermWithUmask([]string{"0", "6", "6", "6"}, r.LocalUmask)
 
 	for _, path := range client.Path {
+		// TODO: ↓の処理を消してExpandする関数に置き換える.
+		// ----
 		// set arg path
 		var rpath string
 		switch {
@@ -151,6 +153,7 @@ func (r *RunSftp) pullData(client *TargetConnectMap, targetdir string) (err erro
 			fmt.Fprintf(ow, "Error: File Not founds.\n")
 			return
 		}
+		// ----
 
 		// for walk
 		for _, ep := range epath {
