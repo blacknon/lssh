@@ -19,8 +19,9 @@ import (
 )
 
 // TODO: umaskの適用をする.
+// TODO: 複数サーバからの取得と個別サーバからの取得の処理分岐(出力先PATH指定)がうまくいってないので修正する.
 
-//
+// get
 func (r *RunSftp) get(args []string) {
 	// create app
 	app := cli.NewApp()
@@ -54,12 +55,22 @@ func (r *RunSftp) get(args []string) {
 		destination := c.Args()[argsSize]
 
 		// get destination directory abs
-		destination, err := filepath.Abs(destination)
+		destinationList, err := ExpandLocalPath(destination)
+		fmt.Println(destinationList) // debug
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "Error: %s\n", err)
 			return nil
 		}
 
+		// check destination count.
+		fmt.Println(destinationList) // debug
+		if len(destinationList) != 1 {
+			fmt.Fprintf(os.Stderr, "Error: %s\n", err)
+			return nil
+		}
+		destination = destinationList[0]
+
+		// TODO: これで作るの間違ってる？ 1個だったら作る作らないとか、存在のチェックが必要かも？
 		// mkdir local destination directory
 		err = os.MkdirAll(destination, 0755)
 		if err != nil {
@@ -79,6 +90,9 @@ func (r *RunSftp) get(args []string) {
 			client := c
 
 			targetDestinationDir := destination
+
+			fmt.Println(server) // debug
+
 			if len(targetmap) > 1 {
 				targetDestinationDir = filepath.Join(targetDestinationDir, server)
 				// mkdir local target directory
@@ -125,16 +139,19 @@ func (r *RunSftp) get(args []string) {
 	return
 }
 
-//
+// pullData
 func (r *RunSftp) pullData(client *TargetConnectMap, targetdir string) (err error) {
 	// set pullfile Permission.
 	filePerm := GeneratePermWithUmask([]string{"0", "6", "6", "6"}, r.LocalUmask)
 
 	for _, path := range client.Path {
-		// TODO: ↓の処理を消してExpandする関数に置き換える.
-		// ----
+		// get writer
+		ow := client.Output.NewWriter()
+
 		// set arg path
 		var rpath string
+
+		// set base dir
 		switch {
 		case filepath.IsAbs(path):
 			rpath = path
@@ -143,14 +160,16 @@ func (r *RunSftp) pullData(client *TargetConnectMap, targetdir string) (err erro
 		}
 		base := filepath.Dir(rpath)
 
-		// get writer
-		ow := client.Output.NewWriter()
-
 		// expantion path
-		epath, _ := client.Connect.Glob(rpath)
+		epath, eerr := ExpandRemotePath(client, rpath)
 
 		if len(epath) == 0 {
 			fmt.Fprintf(ow, "Error: File Not founds.\n")
+			return
+		}
+
+		if eerr != nil {
+			fmt.Fprintf(ow, "Error: %s\n", eerr)
 			return
 		}
 		// ----

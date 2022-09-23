@@ -95,6 +95,10 @@ func ExpandRemotePath(client *TargetConnectMap, path string) (expandPaths []stri
 		return
 	}
 
+	if path != "" && len(expandPaths) == 0 {
+		expandPaths = append(expandPaths, path)
+	}
+
 	return
 }
 
@@ -113,6 +117,9 @@ func ExpandLocalPath(path string) (expandPaths []string, err error) {
 
 	// expand glob
 	expandPaths, err = filepath.Glob(path)
+	if path != "" && len(expandPaths) == 0 {
+		expandPaths = append(expandPaths, path)
+	}
 
 	return
 }
