@@ -123,3 +123,43 @@ func ExpandLocalPath(path string) (expandPaths []string, err error) {
 
 	return
 }
+
+// CheckIsDirPath return path specifies a directory.
+// This function working only local machine.
+func CheckIsDirPath(path string) (result bool, dir, base string) {
+	// strip spaces
+	path = strings.TrimSpace(path)
+
+	// check last character
+	lastCharacter := path[len(path)-1:]
+	if lastCharacter == "/" {
+		result = true
+		dir = filepath.Dir(path)
+		base = ""
+		return
+	}
+
+	// check local path
+	stat, err := os.Stat(path)
+	if os.IsNotExist(err) {
+		// If path is missing, assume that no directory is specified.
+		result = true
+		dir = path
+		path = ""
+		return
+	} else if stat.IsDir() {
+		// if path is directory.
+		result = true
+		dir = path
+		path = ""
+		return
+	} else if !stat.IsDir() {
+		// if path is file.
+		result = false
+		dir = filepath.Dir(path)
+		path = filepath.Base(path)
+		return
+	}
+
+	return
+}
