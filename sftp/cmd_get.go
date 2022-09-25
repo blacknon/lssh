@@ -55,14 +55,12 @@ func (r *RunSftp) get(args []string) {
 
 		// get destination directory abs
 		destinationList, err := ExpandLocalPath(destination)
-		fmt.Println(destinationList) // debug
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "Error: %s\n", err)
 			return nil
 		}
 
 		// check destination count.
-		fmt.Println(destinationList) // debug
 		if len(destinationList) != 1 {
 			fmt.Fprintf(os.Stderr, "Error: %s\n", err)
 			return nil
@@ -192,8 +190,6 @@ func (r *RunSftp) pullData(client *TargetConnectMap, targetpath string, isdir bo
 			isdir = true
 		}
 
-		fmt.Println(isdir) // debug
-
 		// for walk
 		for _, ep := range epath {
 
@@ -210,8 +206,6 @@ func (r *RunSftp) pullData(client *TargetConnectMap, targetpath string, isdir bo
 				p := walker.Path()
 				stat := walker.Stat()
 
-				fmt.Println(isdir) // debug
-
 				if isdir {
 					relpath, _ := filepath.Rel(base, p)
 					relpath = strings.Replace(relpath, "../", "", 1)
@@ -219,15 +213,10 @@ func (r *RunSftp) pullData(client *TargetConnectMap, targetpath string, isdir bo
 						os.MkdirAll(filepath.Join(targetpath, filepath.Dir(relpath)), 0755)
 					}
 					localpath = filepath.Join(targetpath, relpath)
-					fmt.Fprintf(ow, "xxx %s\n", localpath)  // debug
-					fmt.Fprintf(ow, "yyy %s\n", targetpath) // debug
-					fmt.Fprintf(ow, "zzz %s\n", p)          // debug
 
 				} else {
 					localpath = targetpath
 				}
-
-				fmt.Fprintf(ow, "%s\n", localpath) // debug
 
 				//
 				if stat.IsDir() { // is directory
