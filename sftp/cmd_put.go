@@ -24,7 +24,6 @@ import (
 func (r *RunSftp) put(args []string) {
 	// create app
 	app := cli.NewApp()
-	// app.UseShortOptionHandling = true
 
 	// set help message
 	app.CustomAppHelpTemplate = helptext
@@ -57,19 +56,27 @@ func (r *RunSftp) put(args []string) {
 		pathset := []PathSet{}
 
 		for _, l := range source {
-			// get local host directory walk data
-			data, err := common.WalkDir(l)
+			epath, err := ExpandLocalPath(l)
 			if err != nil {
 				fmt.Fprintf(os.Stderr, "%s\n", err)
 				return nil
 			}
 
-			sort.Strings(data)
-			dataset := PathSet{
-				Base:      filepath.Dir(l),
-				PathSlice: data,
+			for _, p := range epath {
+				// get local host directory walk data
+				data, err := common.WalkDir(p)
+				if err != nil {
+					fmt.Fprintf(os.Stderr, "%s\n", err)
+					return nil
+				}
+
+				sort.Strings(data)
+				dataset := PathSet{
+					Base:      filepath.Dir(p),
+					PathSlice: data,
+				}
+				pathset = append(pathset, dataset)
 			}
-			pathset = append(pathset, dataset)
 		}
 
 		targetmap := map[string]*TargetConnectMap{}
