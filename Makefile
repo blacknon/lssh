@@ -8,17 +8,24 @@ GOGET=$(GOCMD) get
 GOMOD=$(MODULE) $(GOCMD) mod
 GOINSTALL=$(MODULE) $(GOCMD) install
 
+# OS別にbuildのコマンド生成
+UNAME_S=$(shell uname -s)
+BUILDCMD_LSSH=$(GOBUILD) ./cmd/lssh
+BUILDCMD_LSCP=$(GOBUILD) ./cmd/lscp
+BUILDCMD_LSFTP=$(GOBUILD) ./cmd/lsftp
+
 build:
 	# Remove unnecessary dependent libraries
 	$(GOMOD) tidy
 	# Place dependent libraries under vendor
 	$(GOMOD) vendor
-	# Build lssh
-	$(GOBUILD) ./cmd/lssh
+
+	# Build lsshgo
+	$(BUILDCMD_LSSH)
 	# Build lscp
-	$(GOBUILD) ./cmd/lscp
+	$(BUILDCMD_LSCP)
 	# Build lsftp
-	$(GOBUILD) ./cmd/lsftp
+	$(BUILDCMD_LSFTP)
 
 clean:
 	$(GOCLEAN) ./...
