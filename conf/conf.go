@@ -11,6 +11,9 @@ conf is a package used to read configuration file (~/.lssh.conf).
 //                 - Azure Bastion
 //                 - GCP(gcloud compute ssh)
 
+// TODO(blacknon): if/whenなどを使って、条件に応じて設定を追加するような仕組みを実装したい
+//                 ex) 現在のipアドレスのrangeが192.168.10.0/24 => xxxのnwだからproxy serverが必要
+
 package conf
 
 import (
@@ -208,7 +211,6 @@ type Config struct {
 	SSHConfig map[string]OpenSSHConfig
 }
 
-//
 func (c *Config) ReduceCommon() {
 	// reduce common setting (in .lssh.conf servers)
 	for key, value := range c.Server {
@@ -217,7 +219,6 @@ func (c *Config) ReduceCommon() {
 	}
 }
 
-//
 func (c *Config) ReadOpenSSHConfig() {
 	if len(c.SSHConfig) == 0 {
 		openSSHServerConfig, err := getOpenSSHConfig("~/.ssh/config", "")
@@ -243,7 +244,6 @@ func (c *Config) ReadOpenSSHConfig() {
 	}
 }
 
-//
 func (c *Config) ReadIncludeFiles() {
 	if c.Includes.Path != nil {
 		if c.Include == nil {
