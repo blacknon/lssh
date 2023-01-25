@@ -22,6 +22,8 @@ import (
 // TODO(blacknon): pShellのログ(実行コマンド及び出力結果)をログとしてファイルに記録する機能の追加(v0.6.1)
 // TODO(blacknon): グループ化(`()`で囲んだりする)や三項演算子への対応(v0.6.1)
 // TODO(blacknon): `サーバ名:command...` で、指定したサーバでのみコマンドを実行させる機能の追加(v0.6.1)
+// TODO(blacknon): petをうまいこと利用できるような仕組みを作る
+// TODO(blacknon): parallel shellでkeybindや関数が使えるような仕組みを作る(どうやってやるかは不明だが…)
 
 // TODO(blacknon):
 //     出力をvim diffに食わせてdiffを得られるようにしたい => 変数かプロセス置換か、なにかしらの方法でローカルコマンド実行時にssh経由で得られた出力を食わせる方法を実装する？
