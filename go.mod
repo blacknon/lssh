@@ -45,7 +45,7 @@ require (
 	github.com/rivo/uniseg v0.2.0 // indirect
 	github.com/thales-e-security/pool v0.0.2 // indirect
 	golang.org/x/term v0.0.0-20210927222741-03fcf44c2211 // indirect
-	gopkg.in/yaml.v3 v3.0.0-20200313102051-9f266ea9e77c // indirect
+	gopkg.in/yaml.v3 v3.0.0 // indirect
 )
 
 go 1.17
