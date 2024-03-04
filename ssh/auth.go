@@ -112,16 +112,23 @@ func (r *Run) CreateAuthMethodMap() {
 				fmt.Fprintln(os.Stderr, err)
 			}
 		}
+
+		// SSH Agent
+		if config.SSHAgentUse {
+			r.SetupSshAgent()
+			err := r.registAuthMapAgent(server)
+			if err != nil {
+				fmt.Fprintln(os.Stderr, err)
+			}
+		}
 	}
 }
 
-//
 func (r *Run) SetupSshAgent() {
 	// Connect ssh-agent
 	r.agent = sshlib.ConnectSshAgent()
 }
 
-//
 func (r *Run) registAuthMapPassword(server, password string) {
 	authKey := AuthKey{AUTHKEY_PASSWORD, password}
 	if _, ok := r.authMethodMap[authKey]; !ok {
@@ -135,7 +142,6 @@ func (r *Run) registAuthMapPassword(server, password string) {
 	r.serverAuthMethodMap[server] = append(r.serverAuthMethodMap[server], r.authMethodMap[authKey]...)
 }
 
-//
 func (r *Run) registAuthMapPublicKey(server, key, password string) (err error) {
 	authKey := AuthKey{AUTHKEY_KEY, key}
 
@@ -159,7 +165,6 @@ func (r *Run) registAuthMapPublicKey(server, key, password string) (err error) {
 	return
 }
 
-//
 func (r *Run) registAuthMapPublicKeyCommand(server, command, password string) (err error) {
 	authKey := AuthKey{AUTHKEY_KEY, command}
 
@@ -190,7 +195,6 @@ func (r *Run) registAuthMapPublicKeyCommand(server, command, password string) (e
 	return
 }
 
-//
 func (r *Run) registAuthMapCertificate(server, cert string, signer ssh.Signer) (err error) {
 	authKey := AuthKey{AUTHKEY_CERT, cert}
 
