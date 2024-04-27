@@ -6,16 +6,20 @@ package sshlib
 
 import (
 	"context"
-	"encoding/binary"
 	"errors"
 	"fmt"
 	"io"
+	"log"
 	"net"
+	"net/http"
 	"os"
+	"strconv"
 	"strings"
 	"sync"
 
 	"github.com/armon/go-socks5"
+	xauth "github.com/blacknon/go-x11auth"
+	"github.com/elazarl/goproxy"
 	"golang.org/x/crypto/ssh"
 )
 
@@ -33,17 +37,21 @@ type x11Request struct {
 //
 // Also, the value of COOKIE transfers the local value as it is. This will be addressed in the future.
 func (c *Connect) X11Forward(session *ssh.Session) (err error) {
-	display := getX11Display(os.Getenv("DISPLAY"))
-
-	_, xAuth, err := readAuthority("", display)
-	if err != io.EOF && err != nil {
-		return
+	// get xauthority path
+	xauthorityPath := os.Getenv("XAUTHORITY")
+	if len(xauthorityPath) == 0 {
+		home := os.Getenv("HOME")
+		if len(home) == 0 {
+			err = errors.New("Xauthority not found: $XAUTHORITY, $HOME not set")
+			return err
+		}
+		xauthorityPath = home + "/.Xauthority"
 	}
 
-	var cookie string
-	for _, d := range xAuth {
-		cookie = cookie + fmt.Sprintf("%02x", d)
-	}
+	xa := xauth.XAuth{}
+	xa.Display = os.Getenv("DISPLAY")
+
+	cookie, err := xa.GetXAuthCookie(xauthorityPath, c.ForwardX11Trusted)
 
 	// set x11-req Payload
 	payload := x11Request{
@@ -79,13 +87,23 @@ func (c *Connect) X11Forward(session *ssh.Session) (err error) {
 // x11Connect return net.Conn x11 socket.
 func x11Connect(display string) (conn net.Conn, err error) {
 	var conDisplay string
+
+	protocol := "unix"
+
 	if display[0] == '/' { // PATH type socket
 		conDisplay = display
+	} else if display[0] != ':' { // Forwarded display
+		protocol = "tcp"
+		if b, _, ok := strings.Cut(display, ":"); ok {
+			conDisplay = fmt.Sprintf("%v:%v", b, getX11DisplayNumber(display)+6000)
+		} else {
+			conDisplay = display
+		}
 	} else { // /tmp/.X11-unix/X0
-		conDisplay = "/tmp/.X11-unix/X" + getX11Display(display)
+		conDisplay = fmt.Sprintf("/tmp/.X11-unix/X%v", getX11DisplayNumber(display))
 	}
 
-	return net.Dial("unix", conDisplay)
+	return net.Dial(protocol, conDisplay)
 }
 
 // x11forwarder forwarding socket x11 data.
@@ -100,7 +118,7 @@ func x11forwarder(channel ssh.Channel) {
 	wg.Add(2)
 	go func() {
 		io.Copy(conn, channel)
-		conn.(*net.UnixConn).CloseWrite()
+		conn.Close()
 		wg.Done()
 	}()
 	go func() {
@@ -115,109 +133,24 @@ func x11forwarder(channel ssh.Channel) {
 }
 
 // getX11Display return X11 display number from env $DISPLAY
-func getX11Display(display string) string {
+func getX11DisplayNumber(display string) int {
 	colonIdx := strings.LastIndex(display, ":")
 	dotIdx := strings.LastIndex(display, ".")
 
 	if colonIdx < 0 {
-		return "0"
+		return 0
 	}
 
 	if dotIdx < 0 {
 		dotIdx = len(display)
 	}
 
-	return display[colonIdx+1 : dotIdx]
-}
-
-// readAuthority Read env `$XAUTHORITY`. If not set value, read `~/.Xauthority`.
-func readAuthority(hostname, display string) (
-	name string, data []byte, err error) {
-
-	// b is a scratch buffer to use and should be at least 256 bytes long
-	// (i.e. it should be able to hold a hostname).
-	b := make([]byte, 256)
-
-	// As per /usr/include/X11/Xauth.h.
-	const familyLocal = 256
-
-	if len(hostname) == 0 || hostname == "localhost" {
-		hostname, err = os.Hostname()
-		if err != nil {
-			return "", nil, err
-		}
-	}
-
-	fname := os.Getenv("XAUTHORITY")
-	if len(fname) == 0 {
-		home := os.Getenv("HOME")
-		if len(home) == 0 {
-			err = errors.New("Xauthority not found: $XAUTHORITY, $HOME not set")
-			return "", nil, err
-		}
-		fname = home + "/.Xauthority"
-	}
-
-	r, err := os.Open(fname)
+	i, err := strconv.Atoi(display[colonIdx+1 : dotIdx])
 	if err != nil {
-		return "", nil, err
-	}
-	defer r.Close()
-
-	for {
-		var family uint16
-		if err := binary.Read(r, binary.BigEndian, &family); err != nil {
-			return "", nil, err
-		}
-
-		addr, err := getString(r, b)
-		if err != nil {
-			return "", nil, err
-		}
-
-		disp, err := getString(r, b)
-		if err != nil {
-			return "", nil, err
-		}
-
-		name0, err := getString(r, b)
-		if err != nil {
-			return "", nil, err
-		}
-
-		data0, err := getBytes(r, b)
-		if err != nil {
-			return "", nil, err
-		}
-
-		if family == familyLocal && addr == hostname && disp == display {
-			return name0, data0, nil
-		}
-	}
-}
-
-// getBytes use `readAuthority`
-func getBytes(r io.Reader, b []byte) ([]byte, error) {
-	var n uint16
-	if err := binary.Read(r, binary.BigEndian, &n); err != nil {
-		return nil, err
-	} else if n > uint16(len(b)) {
-		return nil, errors.New("bytes too long for buffer")
+		return 0
 	}
 
-	if _, err := io.ReadFull(r, b[0:n]); err != nil {
-		return nil, err
-	}
-	return b[0:n], nil
-}
-
-// getString use `readAuthority`
-func getString(r io.Reader, b []byte) (string, error) {
-	b, err := getBytes(r, b)
-	if err != nil {
-		return "", err
-	}
-	return string(b), nil
+	return i
 }
 
 // TCPLocalForward forwarding tcp data. Like Local port forward (ssh -L).
@@ -310,8 +243,16 @@ func (c *Connect) forwarder(local net.Conn, remote net.Conn) {
 // socks5Resolver prevents DNS from resolving on the local machine, rather than over the SSH connection.
 type socks5Resolver struct{}
 
+// Resolve
 func (socks5Resolver) Resolve(ctx context.Context, name string) (context.Context, net.IP, error) {
 	return ctx, nil, nil
+}
+
+func (c *Connect) getDynamicForwardLogger() *log.Logger {
+	if c.DynamicForwardLogger == nil {
+		return log.New(io.Discard, "", log.LstdFlags)
+	}
+	return c.DynamicForwardLogger
 }
 
 // TCPDynamicForward forwarding tcp data. Like Dynamic forward (`ssh -D <port>`).
@@ -323,6 +264,7 @@ func (c *Connect) TCPDynamicForward(address, port string) (err error) {
 			return c.Client.Dial(n, addr)
 		},
 		Resolver: socks5Resolver{},
+		Logger:   c.getDynamicForwardLogger(),
 	}
 
 	// Create Socks5 server
@@ -346,6 +288,7 @@ func (c *Connect) TCPReverseDynamicForward(address, port string) (err error) {
 			return net.Dial(n, addr)
 		},
 		Resolver: socks5Resolver{},
+		Logger:   c.getDynamicForwardLogger(),
 	}
 
 	// create listner
@@ -362,5 +305,24 @@ func (c *Connect) TCPReverseDynamicForward(address, port string) (err error) {
 
 	// Listen
 	err = s.Serve(listner)
+	return
+}
+
+// HTTPDynamicForward forwarding http data.
+// Like Dynamic forward (`ssh -D <port>`). but use http proxy.
+func (c *Connect) HTTPDynamicForward(address, port string) (err error) {
+	// create http proxy. use goproxy
+	httpProxy := goproxy.NewProxyHttpServer()
+
+	// set dial
+	httpProxy.ConnectDial = func(n, addr string) (net.Conn, error) {
+		return c.Client.Dial(n, addr)
+	}
+
+	// set logger
+	httpProxy.Logger = c.getDynamicForwardLogger()
+
+	// listen
+	err = http.ListenAndServe(net.JoinHostPort(address, port), httpProxy)
 	return
 }

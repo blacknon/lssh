@@ -1,7 +1,7 @@
 # Go コマンド
 GOCMD=go
 MODULE=GO111MODULE=on
-GOBUILD=$(MODULE) $(GOCMD) build
+GOBUILD=$(MODULE) $(GOCMD) build -ldflags -w
 GOCLEAN=$(GOCMD) clean
 GOTEST=$(MODULE) $(GOCMD) test -cover
 GOGET=$(GOCMD) get
@@ -34,12 +34,17 @@ clean:
 	rm -f lsftp
 
 install:
-	# copy lssh binary to /usr/local/bin/
+	# rm old binary
+	rm /usr/local/bin/lssh
+	rm /usr/local/bin/lscp
+	rm /usr/local/bin/lsftp
+
+	# copy binary to /usr/local/bin/
 	cp lssh /usr/local/bin/
-	# copy lscp binary to /usr/local/bin/
 	cp lscp /usr/local/bin/
-	# copy lsftp binary to /usr/local/bin/
 	cp lsftp /usr/local/bin/
+
+	# copy template config file
 	cp -n example/config.tml ~/.lssh.conf || true
 
 test:

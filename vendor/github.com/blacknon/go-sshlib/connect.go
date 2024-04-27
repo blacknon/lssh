@@ -6,6 +6,7 @@ package sshlib
 
 import (
 	"io"
+	"log"
 	"net"
 	"os"
 	"os/signal"
@@ -13,8 +14,8 @@ import (
 	"time"
 
 	"golang.org/x/crypto/ssh"
-	"golang.org/x/crypto/ssh/terminal"
 	"golang.org/x/net/proxy"
+	terminal "golang.org/x/term"
 )
 
 // Connect structure to store contents about ssh connection.
@@ -41,13 +42,22 @@ type Connect struct {
 	SendKeepAliveInterval int
 
 	// Session use tty flag.
+	// Set it before CraeteClient.
 	TTY bool
 
 	// Forward ssh agent flag.
+	// Set it before CraeteClient.
 	ForwardAgent bool
 
 	// CheckKnownHosts if true, check knownhosts.
+	// Ignored if HostKeyCallback is set.
+	// Set it before CraeteClient.
 	CheckKnownHosts bool
+
+	// HostKeyCallback is ssh.HostKeyCallback.
+	// This item takes precedence over `CheckKnownHosts`.
+	// Set it before CraeteClient.
+	HostKeyCallback ssh.HostKeyCallback
 
 	// OverwriteKnownHosts if true, if the knownhost is different, check whether to overwrite.
 	OverwriteKnownHosts bool
@@ -73,10 +83,20 @@ type Connect struct {
 
 	// ssh-agent interface.
 	// agent.Agent or agent.ExtendedAgent
+	// Set it before CraeteClient.
 	Agent AgentInterface
 
 	// Forward x11 flag.
+	// Set it before CraeteClient.
 	ForwardX11 bool
+
+	// Forward X11 trusted flag.
+	// This flag is ssh -Y option like flag.
+	// Set it before CraeteClient.
+	ForwardX11Trusted bool
+
+	//
+	DynamicForwardLogger *log.Logger
 
 	// shell terminal log flag
 	logging bool
@@ -107,14 +127,18 @@ func (c *Connect) CreateClient(host, port, user string, authMethods []ssh.AuthMe
 		Timeout: time.Duration(timeout) * time.Second,
 	}
 
-	if c.CheckKnownHosts {
-		if len(c.KnownHostsFiles) == 0 {
-			// append default files
-			c.KnownHostsFiles = append(c.KnownHostsFiles, "~/.ssh/known_hosts")
-		}
-		config.HostKeyCallback = c.verifyAndAppendNew
+	if c.HostKeyCallback != nil {
+		config.HostKeyCallback = c.HostKeyCallback
 	} else {
-		config.HostKeyCallback = ssh.InsecureIgnoreHostKey()
+		if c.CheckKnownHosts {
+			if len(c.KnownHostsFiles) == 0 {
+				// append default files
+				c.KnownHostsFiles = append(c.KnownHostsFiles, "~/.ssh/known_hosts")
+			}
+			config.HostKeyCallback = c.verifyAndAppendNew
+		} else {
+			config.HostKeyCallback = ssh.InsecureIgnoreHostKey()
+		}
 	}
 
 	// check Dialer
@@ -197,7 +221,6 @@ func (c *Connect) CheckClientAlive() error {
 
 // RequestTty requests the association of a pty with the session on the remote
 // host. Terminal size is obtained from the currently connected terminal
-//
 func RequestTty(session *ssh.Session) (err error) {
 	modes := ssh.TerminalModes{
 		ssh.ECHO:          1,
