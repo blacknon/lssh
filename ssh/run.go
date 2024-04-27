@@ -292,6 +292,7 @@ func (r *Run) setPortForwards(server string, config conf.ServerConfig) (c conf.S
 		fw := new(conf.PortForward)
 		fw.Mode = c.PortForwardMode
 		fw.Local = c.PortForwardLocal
+		fw.Remote = c.PortForwardRemote
 
 		c.Forwards = append(c.Forwards, fw)
 	}
