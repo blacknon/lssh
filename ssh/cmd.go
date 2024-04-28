@@ -97,6 +97,11 @@ func (r *Run) cmd() (err error) {
 				config.ReverseDynamicPortForward = r.ReverseDynamicPortForward
 			}
 
+			// OverWrite dynamic port forwarding
+			if r.HTTPDynamicPortForward != "" {
+				config.HTTPDynamicPortForward = r.HTTPDynamicPortForward
+			}
+
 			// OverWrite local bashrc use
 			if r.IsBashrc {
 				config.LocalRcUse = "yes"
@@ -137,6 +142,12 @@ func (r *Run) cmd() (err error) {
 			if config.ReverseDynamicPortForward != "" {
 				r.printReverseDynamicPortForward(config.ReverseDynamicPortForward)
 				go c.TCPReverseDynamicForward("localhost", config.ReverseDynamicPortForward)
+			}
+
+			// HTTP Dynamic Port Forwarding
+			if config.HTTPDynamicPortForward != "" {
+				r.printHTTPDynamicPortForward(config.HTTPDynamicPortForward)
+				go c.HTTPDynamicForward("localhost", config.HTTPDynamicPortForward)
 			}
 
 			// if tty
