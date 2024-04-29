@@ -18,7 +18,6 @@ import (
 	"github.com/vbauerster/mpb"
 )
 
-//
 func (r *RunSftp) put(args []string) {
 	// create app
 	app := cli.NewApp()
@@ -136,7 +135,6 @@ func (r *RunSftp) put(args []string) {
 	return
 }
 
-//
 func (r *RunSftp) pushData(client *TargetConnectMap, isMultiple bool, base, path string) (err error) {
 	var rpath string
 
@@ -214,6 +212,12 @@ func (r *RunSftp) pushFile(client *TargetConnectMap, localfile io.Reader, path s
 
 	// open remote file
 	remotefile, err := client.Connect.OpenFile(path, os.O_RDWR|os.O_CREATE)
+	if err != nil {
+		return
+	}
+
+	// empty the file
+	err = remotefile.Truncate(0)
 	if err != nil {
 		return
 	}

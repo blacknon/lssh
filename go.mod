@@ -4,7 +4,7 @@ require (
 	github.com/BurntSushi/toml v0.3.1
 	github.com/blacknon/go-sshlib v0.1.11
 	github.com/blacknon/textcol v0.0.1
-	github.com/c-bata/go-prompt v0.2.5
+	github.com/c-bata/go-prompt v0.2.6
 	github.com/disiqueira/gotree v1.0.0
 	github.com/dustin/go-humanize v1.0.0
 	github.com/kballard/go-shellquote v0.0.0-20180428030007-95032a82bc51
@@ -43,7 +43,7 @@ require (
 	github.com/miekg/pkcs11 v1.1.1 // indirect
 	github.com/moby/term v0.0.0-20210619224110-3f7ff695adc6 // indirect
 	github.com/pkg/errors v0.9.1 // indirect
-	github.com/pkg/term v1.1.0 // indirect
+	github.com/pkg/term v1.2.0-beta.2 // indirect
 	github.com/pmezard/go-difflib v1.0.0 // indirect
 	github.com/rivo/uniseg v0.2.0 // indirect
 	github.com/thales-e-security/pool v0.0.2 // indirect
