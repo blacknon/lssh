@@ -166,6 +166,9 @@ type ServerConfig struct {
 	// x11 forwarding setting
 	X11 bool `toml:"x11"`
 
+	// x11 trusted forwarding setting
+	X11Trusted bool `toml:"x11_trusted"`
+
 	// Connection Timeout second
 	ConnectTimeout int `toml:"connect_timeout"`
 
