@@ -13,6 +13,7 @@ import (
 	"reflect"
 	"regexp"
 	"runtime"
+	"sort"
 	"strconv"
 	"strings"
 	"sync"
@@ -193,14 +194,23 @@ func (ps *pShell) buildin_outlist(out *io.PipeWriter, ch chan<- bool) {
 
 // localCmd_out is print exec history at number
 // example:
-//     - %out
-//     - %out <num>
+//   - %out
+//   - %out <num>
 func (ps *pShell) buildin_out(num int, out *io.PipeWriter, ch chan<- bool) {
 	stdout := setOutput(out)
 	histories := ps.History[num]
 
+	// get key
+	keys := []string{}
+	for k := range histories {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+
 	i := 0
-	for _, h := range histories {
+	for _, k := range keys {
+		h := histories[k]
+
 		// if first, print out command
 		if i == 0 {
 			fmt.Fprintf(os.Stderr, "[History:%s ]\n", h.Command)
