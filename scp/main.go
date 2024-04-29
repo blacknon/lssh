@@ -180,7 +180,6 @@ func (cp *Scp) push() {
 	fmt.Println("all push exit.")
 }
 
-//
 func (cp *Scp) pushPath(ftp *sftp.Client, ow *io.PipeWriter, output *output.Output, base, p string) (err error) {
 	var rpath string
 
@@ -256,6 +255,13 @@ func (cp *Scp) pushFile(lf io.Reader, ftp *sftp.Client, output *output.Output, p
 		return
 	}
 
+	// empty the file
+	err = rf.Truncate(0)
+	if err != nil {
+		fmt.Fprintf(ow, "%s\n", err)
+		return
+	}
+
 	// set tee reader
 	rd := io.TeeReader(lf, rf)
 
@@ -266,7 +272,6 @@ func (cp *Scp) pushFile(lf io.Reader, ftp *sftp.Client, output *output.Output, p
 	return
 }
 
-//
 func (cp *Scp) viaPush() {
 	// get server name
 	from := cp.From.Server[0] // string
@@ -292,7 +297,6 @@ func (cp *Scp) viaPush() {
 	fmt.Println("all push exit.")
 }
 
-//
 func (cp *Scp) viaPushPath(path string, fclient *ScpConnect, tclients []*ScpConnect) {
 	// from ftp client
 	ftp := fclient.Connect
@@ -324,6 +328,7 @@ func (cp *Scp) viaPushPath(path string, fclient *ScpConnect, tclients []*ScpConn
 				fmt.Fprintf(fow, "Error: %s\n", err)
 				continue
 			}
+
 			size := stat.Size()
 
 			exit := make(chan bool)
@@ -344,7 +349,6 @@ func (cp *Scp) viaPushPath(path string, fclient *ScpConnect, tclients []*ScpConn
 	}
 }
 
-//
 func (cp *Scp) pull() {
 	// set target hosts
 	targets := cp.From.Server
@@ -443,6 +447,13 @@ func (cp *Scp) pullPath(client *ScpConnect) {
 
 					// open local file
 					lf, err := os.OpenFile(lpath, os.O_RDWR|os.O_CREATE, 0644)
+					if err != nil {
+						fmt.Fprintf(ow, "Error: %s\n", err)
+						continue
+					}
+
+					// empty the file
+					err = lf.Truncate(0)
 					if err != nil {
 						fmt.Fprintf(ow, "Error: %s\n", err)
 						continue

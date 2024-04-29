@@ -181,7 +181,15 @@ USAGE:
 		r.IsParallel = c.Bool("parallel")
 
 		// x11 forwarding
-		r.X11 = c.Bool("X11")
+		enableX11 := c.Bool("X11")
+		enableTrustedX11 := c.Bool("Y")
+
+		if enableX11 || enableTrustedX11 {
+			r.X11 = true
+		}
+		if enableTrustedX11 {
+			r.X11Trusted = true
+		}
 
 		// is tty
 		r.IsTerm = c.Bool("term")

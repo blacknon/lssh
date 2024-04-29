@@ -239,6 +239,13 @@ func (r *RunSftp) pullData(client *TargetConnectMap, targetpath string, isdir bo
 						continue
 					}
 
+					// empty the file
+					err = localfile.Truncate(0)
+					if err != nil {
+						fmt.Fprintf(ow, "Error: %s\n", err)
+						continue
+					}
+
 					// set tee reader
 					rd := io.TeeReader(remotefile, localfile)
 

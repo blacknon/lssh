@@ -77,12 +77,19 @@ func (r *Run) CreateSshConnect(server string) (connect *sshlib.Connect, err erro
 		x11 = true
 	}
 
+	// set X11Trusted
+	var x11Trusted bool
+	if s.X11Trusted || r.X11Trusted {
+		x11Trusted = true
+	}
+
 	// connect target server
 	connect = &sshlib.Connect{
 		ProxyDialer:           dialer,
 		ForwardAgent:          s.SSHAgentUse,
 		Agent:                 r.agent,
 		ForwardX11:            x11,
+		ForwardX11Trusted:     x11Trusted,
 		TTY:                   r.IsTerm,
 		ConnectTimeout:        s.ConnectTimeout,
 		SendKeepAliveMax:      s.ServerAliveCountMax,
