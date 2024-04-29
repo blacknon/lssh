@@ -12,6 +12,7 @@ import (
 	"strconv"
 	"strings"
 	"syscall"
+	"time"
 
 	"github.com/blacknon/go-sshlib"
 	"github.com/blacknon/lssh/output"
@@ -175,6 +176,14 @@ func (r *Run) pshell() (err error) {
 		}
 	}
 
+	// check keepalive
+	go func() {
+		for {
+			ps.checkKeepalive()
+			time.Sleep(3 * time.Second)
+		}
+	}()
+
 	// create complete data
 	// TODO(blacknon): 定期的に裏で取得するよう処理を加える(v0.6.1)
 	ps.GetCommandComplete()
@@ -214,6 +223,7 @@ func (r *Run) pshell() (err error) {
 			ASCIICode: []byte{0x1b, 0x1b, 0x5B, 0x43},
 			Fn:        prompt.GoRightWord,
 		}),
+		prompt.OptionSetExitCheckerOnInput(ps.exitChecker),
 	)
 
 	// start go-prompt
@@ -243,4 +253,17 @@ func (ps *pShell) CreatePrompt() (p string, result bool) {
 	p = strings.Replace(p, "${PWD}", pwd, -1)
 
 	return p, true
+}
+
+func (ps *pShell) exitChecker(in string, breakline bool) bool {
+	if breakline {
+		ps.checkKeepalive()
+	}
+
+	if len(ps.Connects) == 0 {
+		fmt.Printf("Error: No valid connections\n")
+		return true
+	}
+
+	return false
 }

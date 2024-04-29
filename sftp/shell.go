@@ -70,6 +70,8 @@ func (r *RunSftp) shell() {
 			ASCIICode: []byte{0x1b, 0x1b, 0x5B, 0x43},
 			Fn:        prompt.GoRightWord,
 		}),
+		// exit checker
+		prompt.OptionSetExitCheckerOnInput(r.exitChecker),
 	)
 
 	// start go-prompt
@@ -678,6 +680,21 @@ func (r *RunSftp) CreateModeComplete() (p []prompt.Suggest) {
 func (r *RunSftp) CreatePrompt() (p string, result bool) {
 	p = "lsftp>> "
 	return p, true
+}
+
+// exitChecker return true if all connections are disconnected or if the `exit` command is entered.
+// This function used in `prompt.OptionSetExitCheckerOnInput`.
+func (r *RunSftp) exitChecker(in string, breakline bool) bool {
+	if breakline {
+		r.checkKeepalive()
+	}
+
+	if len(r.Client) == 0 {
+		fmt.Printf("Error: No valid connections\n")
+		return true
+	}
+
+	return false
 }
 
 func contains(s []string, e string) bool {
