@@ -7,9 +7,9 @@ package main
 import (
 	"fmt"
 	"os"
-	"os/user"
 	"sort"
 
+	"github.com/blacknon/lssh/common"
 	"github.com/blacknon/lssh/conf"
 	"github.com/blacknon/lssh/list"
 	"github.com/blacknon/lssh/sftp"
@@ -18,8 +18,7 @@ import (
 
 func Lsftp() (app *cli.App) {
 	// Default config file path
-	usr, _ := user.Current()
-	defConf := usr.HomeDir + "/.lssh.conf"
+	defConf := common.GetDefaultConfigPath()
 
 	// Set help templete
 	cli.AppHelpTemplate = `NAME:

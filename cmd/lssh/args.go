@@ -7,7 +7,6 @@ package main
 import (
 	"fmt"
 	"os"
-	"os/user"
 	"regexp"
 	"sort"
 
@@ -21,8 +20,7 @@ import (
 
 func Lssh() (app *cli.App) {
 	// Default config file path
-	usr, _ := user.Current()
-	defConf := usr.HomeDir + "/.lssh.conf"
+	defConf := common.GetDefaultConfigPath()
 
 	// Set help templete
 	cli.AppHelpTemplate = `NAME:
