@@ -29,8 +29,8 @@ github.com/blacknon/go-x11auth
 # github.com/blacknon/textcol v0.0.1
 ## explicit
 github.com/blacknon/textcol
-# github.com/c-bata/go-prompt v0.2.6
-## explicit; go 1.14
+# github.com/c-bata/go-prompt v0.2.6 => github.com/blacknon/go-prompt v0.2.7
+## explicit; go 1.22
 github.com/c-bata/go-prompt
 github.com/c-bata/go-prompt/internal/bisect
 github.com/c-bata/go-prompt/internal/debug

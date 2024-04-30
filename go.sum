@@ -12,14 +12,14 @@ github.com/armon/go-socks5 v0.0.0-20160902184237-e75332964ef5 h1:0CwZNZbxp69SHPd
 github.com/armon/go-socks5 v0.0.0-20160902184237-e75332964ef5/go.mod h1:wHh0iHkYZB8zMSxRWpUBQtwG5a7fFgvEO+odwuTv2gs=
 github.com/blacknon/crypto11 v1.2.6 h1:Mv+Boto0qVR1O2k5lmoCYcyXfiQYY7mQ1P/TcK5Tw5c=
 github.com/blacknon/crypto11 v1.2.6/go.mod h1:HThRIRjHpJIJwcExGgNuPCyf26HqcFVTTAnipaXWz7M=
+github.com/blacknon/go-prompt v0.2.7 h1:dVdTqVplKvpT/k4bB9BlbcBYl/k6amYX5tvjYBmuKkI=
+github.com/blacknon/go-prompt v0.2.7/go.mod h1:zNBmC/BPAyr+3ey1oRhPxuXJS9zz1lEmJpwaoQroe3w=
 github.com/blacknon/go-sshlib v0.1.11 h1:cUaAb9Cv0PI9OyQ1xJTz5hvJRki8Jqgf90n4F0MYxOc=
 github.com/blacknon/go-sshlib v0.1.11/go.mod h1:GvW6dUsuVG4dcmyqYv40H773YUsUK8MGHdsoQxbtr6M=
 github.com/blacknon/go-x11auth v0.1.0 h1:SnljCPWcvglWeGAlKc1RAPMHnOfMpM9+GrTGEUQ1lqQ=
 github.com/blacknon/go-x11auth v0.1.0/go.mod h1:SKOCa19LluXHyB+OaLYobquzceE0SWxVW7e/qU5xGBM=
 github.com/blacknon/textcol v0.0.1 h1:x9h7yLPGyr8Pdz12XJ30h7Iz5mJlKd0CzfGYxhrmnk8=
 github.com/blacknon/textcol v0.0.1/go.mod h1:1x1tHA4cEgiQ8BsKysc60OALSZMG9WjmbjmJvPqIInQ=
-github.com/c-bata/go-prompt v0.2.6 h1:POP+nrHE+DfLYx370bedwNhsqmpCUynWPxuHi0C5vZI=
-github.com/c-bata/go-prompt v0.2.6/go.mod h1:/LMAke8wD2FsNu9EXNdHxNLbd9MedkPnCdfpU9wwHfY=
 github.com/creack/pty v1.1.11/go.mod h1:oKZEueFk5CKHvIhNR5MUki03XCEU+Q6VDXinZuGJ33E=
 github.com/davecgh/go-spew v1.1.0 h1:ZDRjVQ15GmhC3fiQ8ni8+OwkZQO4DARzQgrnXU1Liz8=
 github.com/davecgh/go-spew v1.1.0/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSsI+c5H38=
@@ -117,7 +117,6 @@ golang.org/x/sys v0.0.0-20200116001909-b77594299b42/go.mod h1:h1NjWce9XRLGQEsW7w
 golang.org/x/sys v0.0.0-20200219091948-cb0a6d8edb6c/go.mod h1:h1NjWce9XRLGQEsW7wpKNCjG9DtNlClVuFLEZdDNbEs=
 golang.org/x/sys v0.0.0-20200223170610-d5e6a3e2c0ae/go.mod h1:h1NjWce9XRLGQEsW7wpKNCjG9DtNlClVuFLEZdDNbEs=
 golang.org/x/sys v0.0.0-20200909081042-eff7692f9009/go.mod h1:h1NjWce9XRLGQEsW7wpKNCjG9DtNlClVuFLEZdDNbEs=
-golang.org/x/sys v0.0.0-20200918174421-af09f7315aff/go.mod h1:h1NjWce9XRLGQEsW7wpKNCjG9DtNlClVuFLEZdDNbEs=
 golang.org/x/sys v0.0.0-20201119102817-f84b799fce68/go.mod h1:h1NjWce9XRLGQEsW7wpKNCjG9DtNlClVuFLEZdDNbEs=
 golang.org/x/sys v0.0.0-20210423185535-09eb48e85fd7/go.mod h1:h1NjWce9XRLGQEsW7wpKNCjG9DtNlClVuFLEZdDNbEs=
 golang.org/x/sys v0.0.0-20210616094352-59db8d763f22/go.mod h1:oPkhp1MJrh7nUepCBck5+mAzfO9JrbApNNgaTdGDITg=

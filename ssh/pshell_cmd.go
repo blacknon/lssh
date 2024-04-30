@@ -60,7 +60,7 @@ func checkBuildInCommand(cmd string) (isBuildInCmd bool) {
 // local machine command(%%command).
 func checkLocalCommand(cmd string) (isLocalCmd bool) {
 	// check local command regex
-	regex := regexp.MustCompile(`^!.*`)
+	regex := regexp.MustCompile(`^?.*`)
 
 	// local command
 	switch {
@@ -123,9 +123,20 @@ func (ps *pShell) run(pline pipeLine, in *io.PipeReader, out *io.PipeWriter, ch 
 
 		ps.buildin_out(num, out, ch)
 		return
-	}
 
 	// %outexec [num]
+	case "%outexec":
+		num := ps.Count - 1
+		if len(pline.Args) > 1 {
+			num, err = strconv.Atoi(pline.Args[1])
+			if err != nil {
+				return
+			}
+		}
+
+		ps.buildin_outexec(num, out, ch)
+		return
+	}
 
 	// check and exec local command
 	buildinRegex := regexp.MustCompile(`^!.*`)

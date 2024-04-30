@@ -19,7 +19,7 @@ import (
 	"github.com/c-bata/go-prompt"
 )
 
-// TODO(blacknon): `!!`や`!$`についても実装を行う
+// TODO(blacknon): `!!`や"`:$`についても実装を行う
 // TODO(blacknon): `!command`だとまとめてパイプ経由でデータを渡すことになっているが、`!!command`で個別のローカルコマンドにデータを渡すように実装する
 
 // Completer parallel-shell complete function
