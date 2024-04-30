@@ -188,10 +188,11 @@ func (cp *Scp) pushPath(ftp *sftp.Client, ow *io.PipeWriter, output *output.Outp
 	if common.IsDirPath(cp.To.Path[0]) || len(cp.From.Path) > 1 {
 		rpath = filepath.Join(cp.To.Path[0], relpath)
 	} else if len(cp.From.Path) == 1 {
-		rpath = filepath.Join(cp.To.Path[0], relpath)
+		rpath = cp.To.Path[0]
 		dInfo, _ := os.Lstat(cp.From.Path[0])
 		if dInfo.IsDir() {
 			ftp.Mkdir(cp.To.Path[0])
+			rpath = filepath.Join(cp.To.Path[0], relpath)
 		}
 	} else {
 		rpath = filepath.Clean(cp.To.Path[0])
@@ -396,13 +397,16 @@ func (cp *Scp) pullPath(client *ScpConnect) {
 	ow := client.Output.NewWriter()
 
 	// basedir
-	baseDir := cp.To.Path[0]
+	baseDir := filepath.Dir(cp.To.Path[0])
+	fileName := filepath.Base(cp.To.Path[0])
 
 	// if multi pull, servername add baseDir
 	if len(cp.From.Server) > 1 {
 		baseDir = filepath.Join(baseDir, client.Server)
 		os.MkdirAll(baseDir, 0755)
 	}
+
+	// get abs path
 	baseDir, _ = filepath.Abs(baseDir)
 	baseDir = filepath.ToSlash(baseDir)
 
@@ -428,7 +432,10 @@ func (cp *Scp) pullPath(client *ScpConnect) {
 				}
 
 				p := walker.Path()
-				rp, _ := filepath.Rel(remoteBase, p)
+				rp, _ := filepath.Rel(remoteBase, fileName)
+				if fileName == "" {
+					rp, _ = filepath.Rel(remoteBase, p)
+				}
 				lpath := filepath.Join(baseDir, rp)
 
 				stat := walker.Stat()

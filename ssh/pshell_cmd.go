@@ -47,8 +47,9 @@ func checkBuildInCommand(cmd string) (isBuildInCmd bool) {
 
 	case
 		"%history",
-		"%out", "%outlist",
-		"%save", "%set": // parsent build-in command.
+		"%out", "%outlist", "%outexec",
+		"%save",
+		"%set": // parsent build-in command.
 		isBuildInCmd = true
 	}
 
@@ -124,6 +125,8 @@ func (ps *pShell) run(pline pipeLine, in *io.PipeReader, out *io.PipeWriter, ch 
 		return
 	}
 
+	// %outexec [num]
+
 	// check and exec local command
 	buildinRegex := regexp.MustCompile(`^!.*`)
 	switch {
@@ -174,7 +177,7 @@ func (ps *pShell) buildin_history(out *io.PipeWriter, ch chan<- bool) {
 	ch <- true
 }
 
-// localcmd_outlit is print exec history list.
+// localcmd_outlist is print exec history list.
 func (ps *pShell) buildin_outlist(out *io.PipeWriter, ch chan<- bool) {
 	stdout := setOutput(out)
 
@@ -201,6 +204,60 @@ func (ps *pShell) buildin_outlist(out *io.PipeWriter, ch chan<- bool) {
 //   - %out
 //   - %out <num>
 func (ps *pShell) buildin_out(num int, out *io.PipeWriter, ch chan<- bool) {
+	stdout := setOutput(out)
+	histories := ps.History[num]
+
+	// get key
+	keys := []string{}
+	for k := range histories {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+
+	i := 0
+	for _, k := range keys {
+		h := histories[k]
+
+		// if first, print out command
+		if i == 0 {
+			fmt.Fprintf(os.Stderr, "[History:%s ]\n", h.Command)
+		}
+		i += 1
+
+		// print out result
+		if len(histories) > 1 && stdout == os.Stdout && h.Output != nil {
+			// set Output.Count
+			bc := h.Output.Count
+			h.Output.Count = num
+			op := h.Output.GetPrompt()
+
+			// TODO(blacknon): Outputを利用させてOPROMPTを生成
+			sc := bufio.NewScanner(strings.NewReader(h.Result))
+			for sc.Scan() {
+				fmt.Fprintf(stdout, "%s %s\n", op, sc.Text())
+			}
+
+			// reset Output.Count
+			h.Output.Count = bc
+		} else {
+			fmt.Fprintf(stdout, h.Result)
+		}
+	}
+
+	// close out
+	switch stdout.(type) {
+	case *io.PipeWriter:
+		out.CloseWithError(io.ErrClosedPipe)
+	}
+
+	// send exit
+	ch <- true
+}
+
+// localcmd_outexec
+// example:
+//   - %outexec -n [num] local_command...
+func (ps *pShell) buildin_outexec(num int, out *io.PipeWriter, ch chan<- bool) {
 	stdout := setOutput(out)
 	histories := ps.History[num]
 
