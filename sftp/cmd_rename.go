@@ -11,7 +11,6 @@ import (
 	"github.com/urfave/cli"
 )
 
-//
 func (r *RunSftp) rename(args []string) {
 	// create app
 	app := cli.NewApp()
