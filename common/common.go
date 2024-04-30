@@ -487,3 +487,28 @@ func StringCompression(mode int, data []byte) (result []byte, err error) {
 
 	return
 }
+
+func GetDefaultConfigPath() (path string) {
+	// get XDG_CONFIG_HOME
+	xdgConfigHome := os.Getenv("XDG_CONFIG_HOME")
+
+	// get user
+	usr, _ := user.Current()
+
+	// get home dir
+	home := usr.HomeDir
+
+	// get config path
+	homeConfigPath := filepath.Join(home, ".lssh.conf")
+	xdgConfigPath := filepath.Join(xdgConfigHome, "lssh", "lssh.conf")
+
+	if _, err := os.Stat(homeConfigPath); os.IsExist(err) {
+		return homeConfigPath
+	}
+
+	if _, err := os.Stat(xdgConfigPath); os.IsExist(err) {
+		return xdgConfigPath
+	}
+
+	return homeConfigPath
+}

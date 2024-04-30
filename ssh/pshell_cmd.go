@@ -27,12 +27,16 @@ import (
 // TODO(blacknon): 以下のBuild-in Commandを追加する
 //     - %cd <PATH>         ... リモートのディレクトリを変更する(事前のチェックにsftpを使用か？)
 //     - %lcd <PATH>        ... ローカルのディレクトリを変更する
-//     - %save <num> <PATH> ... 指定したnumの履歴をPATHに記録する (v0.6.1)
-//     - %set <args..>      ... 指定されたオプションを設定する(Optionsにて管理) (v0.6.1)
-//     - %diff <num>        ... 指定されたnumの履歴をdiffする(multi diff)。できるかどうか要検討。 (v0.6.1以降)
+//     - %save <num> <PATH> ... 指定したnumの履歴をPATHに記録する (v0.6.11)
+//     - %set <args..>      ... 指定されたオプションを設定する(Optionsにて管理) (v0.6.11)
+//     - %diff <num>        ... 指定されたnumの履歴をdiffする(multi diff)。できるかどうか要検討。 (v0.7.0以降)
 //                              できれば、vimdiffのように横に差分表示させるようにしたいものだけど…？
-//     - %get remote local  ... sftpプロトコルを利用して、ファイルやディレクトリを取得する (v0.6.3)
-//     - %put local remote  ... sftpプロトコルを利用して、ファイルやディレクトリを配置する (v0.6.3)
+//     - %get remote local  ... sftpプロトコルを利用して、ファイルやディレクトリを取得する (v0.6.11)
+//     - %put local remote  ... sftpプロトコルを利用して、ファイルやディレクトリを配置する (v0.6.11)
+
+// TODO(blacknon): 任意のBuild-in Commandを追加できるようにする
+//    - configにて、環境変数に過去のoutの出力をつけて任意のスクリプトを実行できるようにしてやることで、任意のスクリプト実行が可能に出来たら良くないか？というネタ
+//    - もしくは、Goのモジュールとして機能追加できるようにするって方法もありかも？？
 
 // checkBuildInCommand return true if cmd is build-in command.
 func checkBuildInCommand(cmd string) (isBuildInCmd bool) {
