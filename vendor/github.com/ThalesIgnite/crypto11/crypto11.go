@@ -229,6 +229,9 @@ type Config struct {
 	// Full path to PKCS#11 library.
 	Path string
 
+	// pkcs11.ctx
+	PKCS11Ctx *pkcs11.Ctx
+
 	// Token serial number.
 	TokenSerial string
 
@@ -315,9 +318,16 @@ func Configure(config *Config) (*Context, error) {
 		config.GCMIVLength = DefaultGCMIVLength
 	}
 
+	var ctx *pkcs11.Ctx
+	if config.PKCS11Ctx != nil {
+		ctx = config.PKCS11Ctx
+	} else {
+		ctx = pkcs11.New(config.Path)
+	}
+
 	instance := &Context{
 		cfg: config,
-		ctx: pkcs11.New(config.Path),
+		ctx: ctx,
 	}
 
 	if instance.ctx == nil {
@@ -331,9 +341,11 @@ func Configure(config *Config) (*Context, error) {
 
 	// Only Initialize if we are the first Context using the library
 	if numExistingContexts == 0 {
-		if err := instance.ctx.Initialize(); err != nil {
-			instance.ctx.Destroy()
-			return nil, errors.WithMessage(err, "failed to initialize PKCS#11 library")
+		if config.PKCS11Ctx == nil {
+			if err := instance.ctx.Initialize(); err != nil {
+				instance.ctx.Destroy()
+				return nil, errors.WithMessage(err, "failed to initialize PKCS#11 library")
+			}
 		}
 	}
 	slots, err := instance.ctx.GetSlotList(true)

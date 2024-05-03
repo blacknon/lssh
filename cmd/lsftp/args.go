@@ -7,9 +7,9 @@ package main
 import (
 	"fmt"
 	"os"
-	"os/user"
 	"sort"
 
+	"github.com/blacknon/lssh/common"
 	"github.com/blacknon/lssh/conf"
 	"github.com/blacknon/lssh/list"
 	"github.com/blacknon/lssh/sftp"
@@ -18,8 +18,7 @@ import (
 
 func Lsftp() (app *cli.App) {
 	// Default config file path
-	usr, _ := user.Current()
-	defConf := usr.HomeDir + "/.lssh.conf"
+	defConf := common.GetDefaultConfigPath()
 
 	// Set help templete
 	cli.AppHelpTemplate = `NAME:
@@ -42,8 +41,8 @@ VERSION:
     {{.Version}}
     {{end}}
 USAGE:
-	# start lsftp shell
-	{{.Name}}
+    # start lsftp shell
+    {{.Name}}
 `
 	// Create app
 	app = cli.NewApp()
@@ -51,7 +50,7 @@ USAGE:
 	app.Name = "lsftp"
 	app.Usage = "TUI list select and parallel sftp client command."
 	app.Copyright = "blacknon(blacknon@orebibou.com)"
-	app.Version = "0.6.7"
+	app.Version = "0.6.8"
 
 	app.Flags = []cli.Flag{
 		cli.StringFlag{Name: "file,F", Value: defConf, Usage: "config file path"},

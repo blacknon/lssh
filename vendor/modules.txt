@@ -8,7 +8,7 @@ github.com/BurntSushi/toml
 # github.com/ScaleFT/sshkeys v0.0.0-20200327173127-6142f742bca5
 ## explicit; go 1.13
 github.com/ScaleFT/sshkeys
-# github.com/ThalesIgnite/crypto11 v1.2.5
+# github.com/ThalesIgnite/crypto11 v1.2.5 => github.com/blacknon/crypto11 v1.2.6
 ## explicit; go 1.13
 github.com/ThalesIgnite/crypto11
 # github.com/VividCortex/ewma v1.2.0
@@ -20,14 +20,17 @@ github.com/acarl005/stripansi
 # github.com/armon/go-socks5 v0.0.0-20160902184237-e75332964ef5
 ## explicit
 github.com/armon/go-socks5
-# github.com/blacknon/go-sshlib v0.1.7
-## explicit; go 1.17
+# github.com/blacknon/go-sshlib v0.1.11
+## explicit; go 1.22.2
 github.com/blacknon/go-sshlib
+# github.com/blacknon/go-x11auth v0.1.0
+## explicit; go 1.22.2
+github.com/blacknon/go-x11auth
 # github.com/blacknon/textcol v0.0.1
 ## explicit
 github.com/blacknon/textcol
-# github.com/c-bata/go-prompt v0.2.5
-## explicit; go 1.14
+# github.com/c-bata/go-prompt v0.2.6 => github.com/blacknon/go-prompt v0.2.7
+## explicit; go 1.22
 github.com/c-bata/go-prompt
 github.com/c-bata/go-prompt/internal/bisect
 github.com/c-bata/go-prompt/internal/debug
@@ -39,9 +42,15 @@ github.com/davecgh/go-spew/spew
 # github.com/dchest/bcrypt_pbkdf v0.0.0-20150205184540-83f37f9c154a
 ## explicit
 github.com/dchest/bcrypt_pbkdf
+# github.com/disiqueira/gotree v1.0.0
+## explicit
+github.com/disiqueira/gotree
 # github.com/dustin/go-humanize v1.0.0
 ## explicit
 github.com/dustin/go-humanize
+# github.com/elazarl/goproxy v0.0.0-20231117061959-7cc037d33fb5
+## explicit
+github.com/elazarl/goproxy
 # github.com/kardianos/osext v0.0.0-20190222173326-2bc1f35cddc0
 ## explicit
 github.com/kardianos/osext
@@ -74,7 +83,6 @@ github.com/mattn/go-tty
 # github.com/miekg/pkcs11 v1.1.1
 ## explicit; go 1.12
 github.com/miekg/pkcs11
-github.com/miekg/pkcs11/p11
 # github.com/moby/term v0.0.0-20210619224110-3f7ff695adc6
 ## explicit; go 1.13
 github.com/moby/term/windows
@@ -88,7 +96,7 @@ github.com/pkg/errors
 ## explicit; go 1.15
 github.com/pkg/sftp
 github.com/pkg/sftp/internal/encoding/ssh/filexfer
-# github.com/pkg/term v1.1.0
+# github.com/pkg/term v1.2.0-beta.2
 ## explicit; go 1.14
 github.com/pkg/term/termios
 # github.com/pmezard/go-difflib v1.0.0
@@ -100,7 +108,7 @@ github.com/rivo/uniseg
 # github.com/sevlyar/go-daemon v0.1.5
 ## explicit
 github.com/sevlyar/go-daemon
-# github.com/stretchr/testify v1.7.0
+# github.com/stretchr/testify v1.7.1
 ## explicit; go 1.13
 github.com/stretchr/testify/assert
 # github.com/thales-e-security/pool v0.0.2
@@ -115,14 +123,13 @@ github.com/vbauerster/mpb
 github.com/vbauerster/mpb/cwriter
 github.com/vbauerster/mpb/decor
 github.com/vbauerster/mpb/internal
-# golang.org/x/crypto v0.0.0-20211215153901-e495a2d5b3d3
+# golang.org/x/crypto v0.0.0-20220525230936-793ad666bf5e
 ## explicit; go 1.17
 golang.org/x/crypto/blowfish
 golang.org/x/crypto/chacha20
 golang.org/x/crypto/curve25519
 golang.org/x/crypto/curve25519/internal/field
 golang.org/x/crypto/ed25519
-golang.org/x/crypto/ed25519/internal/edwards25519
 golang.org/x/crypto/internal/poly1305
 golang.org/x/crypto/internal/subtle
 golang.org/x/crypto/ssh
@@ -130,22 +137,21 @@ golang.org/x/crypto/ssh/agent
 golang.org/x/crypto/ssh/internal/bcrypt_pbkdf
 golang.org/x/crypto/ssh/knownhosts
 golang.org/x/crypto/ssh/terminal
-# golang.org/x/net v0.0.0-20220107192237-5cfca573fb4d
+# golang.org/x/net v0.0.0-20220526153639-5463443f8c37
 ## explicit; go 1.17
 golang.org/x/net/context
 golang.org/x/net/internal/socks
 golang.org/x/net/proxy
-# golang.org/x/sys v0.0.0-20220224120231-95c6836cb0e7
-## explicit; go 1.17
+# golang.org/x/sys v0.19.0
+## explicit; go 1.18
 golang.org/x/sys/cpu
-golang.org/x/sys/internal/unsafeheader
 golang.org/x/sys/plan9
 golang.org/x/sys/unix
 golang.org/x/sys/windows
-# golang.org/x/term v0.0.0-20210927222741-03fcf44c2211
-## explicit; go 1.17
+# golang.org/x/term v0.19.0
+## explicit; go 1.18
 golang.org/x/term
-# gopkg.in/yaml.v3 v3.0.0-20200313102051-9f266ea9e77c
+# gopkg.in/yaml.v3 v3.0.1
 ## explicit
 gopkg.in/yaml.v3
 # mvdan.cc/sh v2.6.3+incompatible

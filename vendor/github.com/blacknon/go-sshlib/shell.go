@@ -14,7 +14,7 @@ import (
 
 	"github.com/lunixbochs/vtclean"
 	"golang.org/x/crypto/ssh"
-	"golang.org/x/crypto/ssh/terminal"
+	terminal "golang.org/x/term"
 )
 
 // Shell connect login shell over ssh.
