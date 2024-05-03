@@ -9,7 +9,6 @@ package sftp
 import (
 	"fmt"
 	"io/ioutil"
-	"path/filepath"
 	"strconv"
 
 	"github.com/blacknon/lssh/common"
@@ -92,32 +91,37 @@ func (r *RunSftp) chgrp(args []string) {
 
 				for _, path := range client.Path {
 					// set arg path
-					if !filepath.IsAbs(path) {
-						path = filepath.Join(client.Pwd, path)
-					}
-
-					// get current uid
-					stat, err := client.Connect.Lstat(path)
+					pathList, err := ExpandRemotePath(client, path)
 					if err != nil {
 						fmt.Fprintf(w, "%s\n", err)
 						exit <- true
 						return
 					}
 
-					sys := stat.Sys()
-					if fstat, ok := sys.(*sftp.FileStat); ok {
-						uid = int(fstat.UID)
-					}
+					for _, p := range pathList {
+						// get current uid
+						stat, err := client.Connect.Lstat(p)
+						if err != nil {
+							fmt.Fprintf(w, "%s\n", err)
+							exit <- true
+							continue
+						}
 
-					// set gid
-					err = client.Connect.Chown(path, uid, gid)
-					if err != nil {
-						fmt.Fprintf(w, "%s\n", err)
-						exit <- true
-						return
-					}
+						sys := stat.Sys()
+						if fstat, ok := sys.(*sftp.FileStat); ok {
+							uid = int(fstat.UID)
+						}
 
-					fmt.Fprintf(w, "chgrp: set %s's group as %s\n", path, group)
+						// set gid
+						err = client.Connect.Chown(p, uid, gid)
+						if err != nil {
+							fmt.Fprintf(w, "%s\n", err)
+							exit <- true
+							continue
+						}
+
+						fmt.Fprintf(w, "chgrp: set %s's group as %s\n", p, group)
+					}
 				}
 
 				exit <- true

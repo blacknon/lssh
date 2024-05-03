@@ -7,6 +7,7 @@ package sftp
 import (
 	"fmt"
 	"os"
+	"os/user"
 	"path/filepath"
 	"regexp"
 	"sort"
@@ -18,7 +19,8 @@ import (
 	"github.com/kballard/go-shellquote"
 )
 
-// TODO(blacknon): 補完処理が遅い・不安定になってるので対処する
+// TODO(blacknon): 補完処理が遅い・不安定になってるので対処する.
+// TODO(blacknon): 補完処理でチルダ(~)の補完が行えるようにする.
 
 // sftp Shell mode function
 func (r *RunSftp) shell() {
@@ -30,12 +32,46 @@ func (r *RunSftp) shell() {
 
 	// create go-prompt
 	p := prompt.New(
+		// Executor
 		r.Executor,
+		// Completer
 		r.Completer,
+		//
 		prompt.OptionLivePrefix(r.CreatePrompt),
+		//
 		prompt.OptionInputTextColor(prompt.Green),
+		//
 		prompt.OptionPrefixTextColor(prompt.Blue),
+		//
 		prompt.OptionCompletionWordSeparator(" /\\,:"),
+		// Keybind
+		// Alt+Backspace
+		prompt.OptionAddASCIICodeBind(prompt.ASCIICodeBind{
+			ASCIICode: []byte{0x1b, 0x7f},
+			Fn:        prompt.DeleteWord,
+		}),
+		// Opt+LeftArrow
+		prompt.OptionAddASCIICodeBind(prompt.ASCIICodeBind{
+			ASCIICode: []byte{0x1b, 0x62},
+			Fn:        prompt.GoLeftWord,
+		}),
+		// Opt+RightArrow
+		prompt.OptionAddASCIICodeBind(prompt.ASCIICodeBind{
+			ASCIICode: []byte{0x1b, 0x66},
+			Fn:        prompt.GoRightWord,
+		}),
+		// Alt+LeftArrow
+		prompt.OptionAddASCIICodeBind(prompt.ASCIICodeBind{
+			ASCIICode: []byte{0x1b, 0x1b, 0x5B, 0x44},
+			Fn:        prompt.GoLeftWord,
+		}),
+		// Alt+RightArrow
+		prompt.OptionAddASCIICodeBind(prompt.ASCIICodeBind{
+			ASCIICode: []byte{0x1b, 0x1b, 0x5B, 0x43},
+			Fn:        prompt.GoRightWord,
+		}),
+		// exit checker
+		prompt.OptionSetExitCheckerOnInput(r.exitChecker),
 	)
 
 	// start go-prompt
@@ -92,7 +128,8 @@ func (r *RunSftp) Executor(command string) {
 		r.lpwd(cmdline)
 	case "ls":
 		r.ls(cmdline)
-	// case "lumask":
+	case "lumask":
+		r.lumask(cmdline)
 	case "mkdir":
 		r.mkdir(cmdline)
 	case "put":
@@ -108,6 +145,8 @@ func (r *RunSftp) Executor(command string) {
 	case "symlink":
 		r.symlink(cmdline)
 	// case "tree":
+	case "ltree":
+		r.ltree(cmdline)
 	// case "!": // ! or !command...
 	case "": // none command...
 	default:
@@ -151,7 +190,7 @@ func (r *RunSftp) Completer(t prompt.Document) []prompt.Suggest {
 			{Text: "ln", Description: "Link remote file (-s for symlink)"},
 			{Text: "lpwd", Description: "Print local working directory"},
 			{Text: "ls", Description: "Display remote directory listing"},
-			// {Text: "lumask", Description: "Set local umask to 'umask'"},
+			{Text: "lumask", Description: "Set local umask to 'umask'"},
 			{Text: "mkdir", Description: "Create remote directory"},
 			{Text: "put", Description: "Upload file"},
 			{Text: "pwd", Description: "Display remote working directory"},
@@ -161,6 +200,7 @@ func (r *RunSftp) Completer(t prompt.Document) []prompt.Suggest {
 			{Text: "rmdir", Description: "Remove remote directory"},
 			{Text: "symlink", Description: "Create symbolic link"},
 			// {Text: "tree", Description: "Tree view remote directory"},
+			{Text: "ltree", Description: "Tree view local directory"},
 			// {Text: "!command", Description: "Execute 'command' in local shell"},
 			{Text: "!", Description: "Escape to local shell"},
 			{Text: "?", Description: "Display this help text"},
@@ -281,7 +321,11 @@ func (r *RunSftp) Completer(t prompt.Document) []prompt.Suggest {
 				return r.PathComplete(true, false, false, t)
 			}
 
-		// case "lumask":
+		case "lumask":
+			switch {
+			case strings.Count(t.CurrentLineBeforeCursor(), " ") == 1:
+				return prompt.FilterHasPrefix(r.CreateModeComplete(), t.GetWordBeforeCursor(), false)
+			}
 		case "mkdir":
 			switch {
 			case contains([]string{"-"}, char):
@@ -323,7 +367,8 @@ func (r *RunSftp) Completer(t prompt.Document) []prompt.Suggest {
 			}
 			// TODO(blacknon): そのうち追加 ver0.6.2
 		// case "tree":
-
+		case "ltree":
+			return r.PathComplete(false, true, false, t)
 		default:
 		}
 	}
@@ -467,9 +512,25 @@ func (r *RunSftp) GetRemoteComplete(ishost, ispath, useTargetmap bool, path stri
 		go func() {
 			// set rpath
 			var rpath string
+
+			// get home dir
+			dir, err := client.Connect.Getwd()
+			if err != nil {
+				exit <- true
+				return
+			}
+
+			//
 			switch {
 			case filepath.IsAbs(parsedPath):
 				rpath = parsedPath
+
+			case parsedPath == "~":
+				rpath = dir
+
+			case strings.HasPrefix(parsedPath, "~/"):
+				rpath = filepath.Join(dir, parsedPath[2:])
+
 			case !filepath.IsAbs(parsedPath):
 				rpath = filepath.Join(client.Pwd, parsedPath)
 			}
@@ -548,6 +609,17 @@ func (r *RunSftp) GetRemoteComplete(ishost, ispath, useTargetmap bool, path stri
 
 // GetLocalComplete set r.LocalComplete
 func (r *RunSftp) GetLocalComplete(path string) {
+	// get home dir
+	usr, _ := user.Current()
+	dir := usr.HomeDir
+
+	// expand tilde
+	if path == "~" {
+		path = dir
+	} else if strings.HasPrefix(path, "~/") {
+		path = filepath.Join(dir, path[2:])
+	}
+
 	// create suggest slice
 	var p []prompt.Suggest
 	stat, err := os.Lstat(path)
@@ -608,6 +680,21 @@ func (r *RunSftp) CreateModeComplete() (p []prompt.Suggest) {
 func (r *RunSftp) CreatePrompt() (p string, result bool) {
 	p = "lsftp>> "
 	return p, true
+}
+
+// exitChecker return true if all connections are disconnected or if the `exit` command is entered.
+// This function used in `prompt.OptionSetExitCheckerOnInput`.
+func (r *RunSftp) exitChecker(in string, breakline bool) bool {
+	if breakline {
+		r.checkKeepalive()
+	}
+
+	if len(r.Client) == 0 {
+		fmt.Printf("Error: No valid connections\n")
+		return true
+	}
+
+	return false
 }
 
 func contains(s []string, e string) bool {

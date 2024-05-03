@@ -43,8 +43,19 @@ func (r *RunSftp) rmdir(args []string) {
 			client.Output.Create(server)
 			w := client.Output.NewWriter()
 
+			pathList := []string{}
+			for _, p := range client.Path {
+				pList, err := ExpandRemotePath(client, p)
+				if err != nil {
+					fmt.Fprintf(w, "%s\n", err)
+					continue
+				}
+
+				pathList = append(pathList, pList...)
+			}
+
 			// remove directory
-			for _, path := range client.Path {
+			for _, path := range pathList {
 				err := client.Connect.RemoveDirectory(path)
 				if err != nil {
 					fmt.Fprintf(w, "%s\n", err)

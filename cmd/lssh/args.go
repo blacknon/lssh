@@ -2,14 +2,11 @@
 // Use of this source code is governed by an MIT license
 // that can be found in the LICENSE file.
 
-// TODO: dynamic port forwarding風に http proxyを生やすオプションの追加
-
 package main
 
 import (
 	"fmt"
 	"os"
-	"os/user"
 	"regexp"
 	"sort"
 
@@ -23,8 +20,7 @@ import (
 
 func Lssh() (app *cli.App) {
 	// Default config file path
-	usr, _ := user.Current()
-	defConf := usr.HomeDir + "/.lssh.conf"
+	defConf := common.GetDefaultConfigPath()
 
 	// Set help templete
 	cli.AppHelpTemplate = `NAME:
@@ -66,7 +62,7 @@ USAGE:
 	app.Name = "lssh"
 	app.Usage = "TUI list select and parallel ssh client command."
 	app.Copyright = "blacknon(blacknon@orebibou.com)"
-	app.Version = "0.6.7"
+	app.Version = "0.6.8"
 
 	// TODO(blacknon): オプションの追加
 	//     -f       ... バックグラウンドでの接続(X11接続やport forwardingをバックグラウンドで実行する場合など)。
@@ -86,14 +82,17 @@ USAGE:
 
 		// port forward option
 		cli.StringSliceFlag{Name: "L", Usage: "Local port forward mode.Specify a `[bind_address:]port:remote_address:port`. Only single connection works."},
-		cli.StringSliceFlag{Name: "R", Usage: "Remote port forward mode.Specify a `[bind_address:]port:remote_address:port`.  Only single connection works."},
+		cli.StringSliceFlag{Name: "R", Usage: "Remote port forward mode.Specify a `[bind_address:]port:remote_address:port`. If only one port is specified, it will operate as Reverse Dynamic Forward. Only single connection works."},
 		cli.StringFlag{Name: "D", Usage: "Dynamic port forward mode(Socks5). Specify a `port`. Only single connection works."},
+		cli.StringFlag{Name: "d", Usage: "HTTP Dynamic port forward mode. Specify a `port`. Only single connection works."},
+		// cli.StringFlag{Name: "r", Usage: "HTTP Reverse Dynamic port forward mode. Specify a `port`. Only single connection works."},
 
 		// Other bool
 		cli.BoolFlag{Name: "w", Usage: "Displays the server header when in command execution mode."},
 		cli.BoolFlag{Name: "W", Usage: "Not displays the server header when in command execution mode."},
 		cli.BoolFlag{Name: "not-execute,N", Usage: "not execute remote command and shell."},
-		cli.BoolFlag{Name: "x11,X", Usage: "x11 forwarding(forward to ${DISPLAY})."},
+		cli.BoolFlag{Name: "X11,X", Usage: "Enable x11 forwarding(forward to ${DISPLAY})."},
+		cli.BoolFlag{Name: "Y", Usage: "Enable trusted x11 forwarding(forward to ${DISPLAY})."},
 		cli.BoolFlag{Name: "term,t", Usage: "run specified command at terminal."},
 		cli.BoolFlag{Name: "parallel,p", Usage: "run command parallel node(tail -F etc...)."},
 		cli.BoolFlag{Name: "localrc", Usage: "use local bashrc shell."},
@@ -180,7 +179,15 @@ USAGE:
 		r.IsParallel = c.Bool("parallel")
 
 		// x11 forwarding
-		r.X11 = c.Bool("x11")
+		enableX11 := c.Bool("X11")
+		enableTrustedX11 := c.Bool("Y")
+
+		if enableX11 || enableTrustedX11 {
+			r.X11 = true
+		}
+		if enableTrustedX11 {
+			r.X11Trusted = true
+		}
 
 		// is tty
 		r.IsTerm = c.Bool("term")
@@ -238,6 +245,9 @@ USAGE:
 
 		// Dynamic port forwarding port
 		r.DynamicPortForward = c.String("D")
+
+		// HTTP Dynamic port forwarding port
+		r.HTTPDynamicPortForward = c.String("d")
 
 		r.Start()
 		return nil

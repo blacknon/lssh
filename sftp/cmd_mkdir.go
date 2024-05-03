@@ -60,7 +60,19 @@ func (r *RunSftp) mkdir(args []string) {
 				client.Output.Create(server)
 				w := client.Output.NewWriter()
 
-				for _, path := range client.Path {
+				pathList := []string{}
+				for _, p := range client.Path {
+					plist, err := ExpandRemotePath(client, p)
+					if err != nil {
+						fmt.Fprintf(w, "%s\n", err)
+						continue
+					}
+
+					// append to pathList...
+					pathList = append(pathList, plist...)
+				}
+
+				for _, path := range pathList {
 					// set arg path
 					if !filepath.IsAbs(path) {
 						path = filepath.Join(client.Pwd, path)
@@ -129,8 +141,19 @@ func (r *RunSftp) lmkdir(args []string) {
 			return nil
 		}
 
-		pathlist := c.Args()
+		pathlist := []string{}
 		var err error
+
+		argsList := c.Args()
+		for _, p := range argsList {
+			pList, err := ExpandLocalPath(p)
+			if err != nil {
+				fmt.Fprintf(os.Stderr, "%s\n", err)
+				continue
+			}
+
+			pathlist = append(pathlist, pList...)
+		}
 
 		for _, path := range pathlist {
 			if c.Bool("p") {

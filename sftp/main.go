@@ -8,7 +8,9 @@ import (
 	"fmt"
 	"os"
 	"sync"
+	"time"
 
+	"github.com/blacknon/go-sshlib"
 	"github.com/blacknon/lssh/common"
 	"github.com/blacknon/lssh/conf"
 	"github.com/blacknon/lssh/output"
@@ -40,6 +42,9 @@ type RunSftp struct {
 	//
 	Permission bool
 
+	// local umask. [000-777]
+	LocalUmask []string
+
 	// progress bar
 	Progress   *mpb.Progress
 	ProgressWG *sync.WaitGroup
@@ -52,6 +57,9 @@ type RunSftp struct {
 // SftpConnect struct at sftp client
 type SftpConnect struct {
 	// ssh connect
+	SshConnect *sshlib.Connect
+
+	// sftp connect
 	Connect *sftp.Client
 
 	// Output
@@ -86,14 +94,30 @@ func (r *RunSftp) Start() {
 	r.Run.Conf = r.Config
 	r.Run.CreateAuthMethodMap()
 
+	// Default local umask(022).
+	r.LocalUmask = []string{"0", "2", "2"}
+
 	// Create Sftp Connect
 	r.Client = r.createSftpConnect(r.Run.ServerList)
 
+	if len(r.Client) == 0 {
+		fmt.Fprintf(os.Stderr, "Error: No server to connect.\n")
+		return
+	}
+
+	// check keepalive
+	go func() {
+		for {
+			r.checkKeepalive()
+			time.Sleep(3 * time.Second)
+		}
+	}()
+
 	// Start sftp shell
 	r.shell()
+
 }
 
-//
 func (r *RunSftp) createSftpConnect(targets []string) (result map[string]*SftpConnect) {
 	// init
 	result = map[string]*SftpConnect{}
@@ -129,9 +153,10 @@ func (r *RunSftp) createSftpConnect(targets []string) (result map[string]*SftpCo
 
 			// create SftpConnect
 			sftpCon := &SftpConnect{
-				Connect: ftp,
-				Output:  o,
-				Pwd:     "./",
+				SshConnect: conn,
+				Connect:    ftp,
+				Output:     o,
+				Pwd:        "./",
 			}
 
 			// append result
@@ -151,7 +176,7 @@ func (r *RunSftp) createSftpConnect(targets []string) (result map[string]*SftpCo
 	return result
 }
 
-//
+// createTargetMap is a function that adds elements to the passed TargetConnectMap as a set (map) of connection destination host and target path to regenerate and return TargetConnectMap.
 func (r *RunSftp) createTargetMap(srcTargetMap map[string]*TargetConnectMap, pathline string) (targetMap map[string]*TargetConnectMap) {
 	// sftp target host
 	targetMap = srcTargetMap
@@ -191,4 +216,46 @@ func (r *RunSftp) createTargetMap(srcTargetMap map[string]*TargetConnectMap, pat
 	}
 
 	return targetMap
+}
+
+// checkKeepalive
+func (r *RunSftp) checkKeepalive() {
+	result := map[string]*SftpConnect{}
+	ch := make(chan bool)
+	m := new(sync.Mutex)
+	clients := r.Client
+
+	for name, client := range clients {
+		n := name
+		c := client
+		go func() {
+			// keepalive
+			err := c.SshConnect.CheckClientAlive()
+
+			// check error
+			if err != nil {
+				// error
+				fmt.Fprintf(os.Stderr, "Exit Connect %s, Error: %s\n", n, err)
+
+				// close sftp client
+				c.Connect.Close()
+			} else {
+				// delete client from map
+				m.Lock()
+				result[n] = c
+				m.Unlock()
+			}
+
+			ch <- true
+		}()
+	}
+
+	// wait
+	for i := 0; i < len(clients); i++ {
+		<-ch
+	}
+
+	r.Client = result
+
+	return
 }
