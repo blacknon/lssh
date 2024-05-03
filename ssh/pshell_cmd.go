@@ -24,6 +24,15 @@ import (
 	"golang.org/x/crypto/ssh"
 )
 
+var (
+	pShellHelptext = `{{.Name}} - {{.Usage}}
+
+	{{.HelpName}} {{if .VisibleFlags}}[options]{{end}} {{if .ArgsUsage}}{{.ArgsUsage}}{{end}}
+	{{range .VisibleFlags}}	{{.}}
+	{{end}}
+	`
+)
+
 // TODO(blacknon): 以下のBuild-in Commandを追加する
 //     - %cd <PATH>         ... リモートのディレクトリを変更する(事前のチェックにsftpを使用か？)
 //     - %lcd <PATH>        ... ローカルのディレクトリを変更する
@@ -126,15 +135,7 @@ func (ps *pShell) run(pline pipeLine, in *io.PipeReader, out *io.PipeWriter, ch 
 
 	// %outexec [num]
 	case "%outexec":
-		num := ps.Count - 1
-		if len(pline.Args) > 1 {
-			num, err = strconv.Atoi(pline.Args[1])
-			if err != nil {
-				return
-			}
-		}
-
-		ps.buildin_outexec(num, out, ch)
+		ps.buildin_outexec(pline, in, out, ch, kill)
 		return
 	}
 
@@ -143,7 +144,7 @@ func (ps *pShell) run(pline pipeLine, in *io.PipeReader, out *io.PipeWriter, ch 
 	switch {
 	case buildinRegex.MatchString(command):
 		// exec local machine
-		ps.executeLocalPipeLine(pline, in, out, ch, kill)
+		ps.executeLocalPipeLine(pline, in, out, ch, kill, os.Environ())
 	default:
 		// exec remote machine
 		ps.executeRemotePipeLine(pline, in, out, ch, kill)
@@ -215,60 +216,6 @@ func (ps *pShell) buildin_outlist(out *io.PipeWriter, ch chan<- bool) {
 //   - %out
 //   - %out <num>
 func (ps *pShell) buildin_out(num int, out *io.PipeWriter, ch chan<- bool) {
-	stdout := setOutput(out)
-	histories := ps.History[num]
-
-	// get key
-	keys := []string{}
-	for k := range histories {
-		keys = append(keys, k)
-	}
-	sort.Strings(keys)
-
-	i := 0
-	for _, k := range keys {
-		h := histories[k]
-
-		// if first, print out command
-		if i == 0 {
-			fmt.Fprintf(os.Stderr, "[History:%s ]\n", h.Command)
-		}
-		i += 1
-
-		// print out result
-		if len(histories) > 1 && stdout == os.Stdout && h.Output != nil {
-			// set Output.Count
-			bc := h.Output.Count
-			h.Output.Count = num
-			op := h.Output.GetPrompt()
-
-			// TODO(blacknon): Outputを利用させてOPROMPTを生成
-			sc := bufio.NewScanner(strings.NewReader(h.Result))
-			for sc.Scan() {
-				fmt.Fprintf(stdout, "%s %s\n", op, sc.Text())
-			}
-
-			// reset Output.Count
-			h.Output.Count = bc
-		} else {
-			fmt.Fprintf(stdout, h.Result)
-		}
-	}
-
-	// close out
-	switch stdout.(type) {
-	case *io.PipeWriter:
-		out.CloseWithError(io.ErrClosedPipe)
-	}
-
-	// send exit
-	ch <- true
-}
-
-// localcmd_outexec
-// example:
-//   - %outexec -n [num] local_command...
-func (ps *pShell) buildin_outexec(num int, out *io.PipeWriter, ch chan<- bool) {
 	stdout := setOutput(out)
 	histories := ps.History[num]
 
@@ -434,7 +381,7 @@ func (ps *pShell) executeRemotePipeLine(pline pipeLine, in *io.PipeReader, out *
 
 // executePipeLineLocal is exec command in local machine.
 // TODO(blacknon): 利用中のShellでの実行+functionや環境変数、aliasの引き継ぎを行えるように実装
-func (ps *pShell) executeLocalPipeLine(pline pipeLine, in *io.PipeReader, out *io.PipeWriter, ch chan<- bool, kill chan bool) (err error) {
+func (ps *pShell) executeLocalPipeLine(pline pipeLine, in *io.PipeReader, out *io.PipeWriter, ch chan<- bool, kill chan bool, envrionment []string) (err error) {
 	// set stdin/stdout
 	stdin := setInput(in)
 	stdout := setOutput(out)
@@ -474,6 +421,9 @@ func (ps *pShell) executeLocalPipeLine(pline pipeLine, in *io.PipeReader, out *i
 		cmd.Stdout = stdoutw
 	}
 	cmd.Stderr = os.Stderr
+
+	// set envrionment
+	cmd.Env = envrionment
 
 	// run command
 	err = cmd.Start()
