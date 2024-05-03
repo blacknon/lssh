@@ -1,14 +1,18 @@
 // Copyright (c) 2020 Blacknon. All rights reserved.
 // Use of this source code is governed by an MIT license
 // that can be found in the LICENSE file.
+//go:build cgo
+// +build cgo
 
 package sshlib
 
 import (
 	"github.com/ThalesIgnite/crypto11"
+	"github.com/miekg/pkcs11"
 )
 
 // C11 struct for Crypto11 processing.
+// Not available if cgo is disabled.
 type C11 struct {
 	Label string
 	PIN   string
@@ -16,6 +20,7 @@ type C11 struct {
 }
 
 // getPIN is set token's PIN Code to c.PIN
+// Not available if cgo is disabled.
 func (c *C11) getPIN() (err error) {
 	if c.PIN == "" {
 		c.PIN, err = getPassphrase(c.Label + "'s PIN:")
@@ -25,7 +30,8 @@ func (c *C11) getPIN() (err error) {
 }
 
 // CreateCtx is create crypto11.Context
-func (c *C11) CreateCtx(provider string) (err error) {
+// Not available if cgo is disabled.
+func (c *C11) CreateCtx(ctx *pkcs11.Ctx) (err error) {
 	// Get PIN Code
 	err = c.getPIN()
 	if err != nil {
@@ -36,7 +42,7 @@ func (c *C11) CreateCtx(provider string) (err error) {
 
 	// Create crypto11 Configure
 	config := &crypto11.Config{
-		Path:       provider,
+		PKCS11Ctx:  ctx,
 		TokenLabel: c.Label,
 		Pin:        c.PIN,
 	}
@@ -47,7 +53,8 @@ func (c *C11) CreateCtx(provider string) (err error) {
 	return
 }
 
-// GetSigner return []crypto11.Signer
+// GetSigner return []crypto11.Signer.
+// Not available if cgo is disabled.
 func (c *C11) GetSigner() (signer []crypto11.Signer, err error) {
 	return c.Ctx.FindAllKeyPairs()
 }

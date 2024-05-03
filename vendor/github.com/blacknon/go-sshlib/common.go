@@ -12,7 +12,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"golang.org/x/crypto/ssh/terminal"
+	terminal "golang.org/x/term"
 )
 
 // getAbsPath return absolute path convert.

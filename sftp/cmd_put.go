@@ -18,13 +18,9 @@ import (
 	"github.com/vbauerster/mpb"
 )
 
-// TODO(blacknon): リファクタリング(v0.6.1)
-
-//
 func (r *RunSftp) put(args []string) {
 	// create app
 	app := cli.NewApp()
-	// app.UseShortOptionHandling = true
 
 	// set help message
 	app.CustomAppHelpTemplate = helptext
@@ -57,19 +53,27 @@ func (r *RunSftp) put(args []string) {
 		pathset := []PathSet{}
 
 		for _, l := range source {
-			// get local host directory walk data
-			data, err := common.WalkDir(l)
+			epath, err := ExpandLocalPath(l)
 			if err != nil {
 				fmt.Fprintf(os.Stderr, "%s\n", err)
 				return nil
 			}
 
-			sort.Strings(data)
-			dataset := PathSet{
-				Base:      filepath.Dir(l),
-				PathSlice: data,
+			for _, p := range epath {
+				// get local host directory walk data
+				data, err := common.WalkDir(p)
+				if err != nil {
+					fmt.Fprintf(os.Stderr, "%s\n", err)
+					return nil
+				}
+
+				sort.Strings(data)
+				dataset := PathSet{
+					Base:      filepath.Dir(p),
+					PathSlice: data,
+				}
+				pathset = append(pathset, dataset)
 			}
-			pathset = append(pathset, dataset)
 		}
 
 		targetmap := map[string]*TargetConnectMap{}
@@ -131,7 +135,6 @@ func (r *RunSftp) put(args []string) {
 	return
 }
 
-//
 func (r *RunSftp) pushData(client *TargetConnectMap, isMultiple bool, base, path string) (err error) {
 	var rpath string
 
@@ -139,55 +142,59 @@ func (r *RunSftp) pushData(client *TargetConnectMap, isMultiple bool, base, path
 	relpath, _ := filepath.Rel(base, path)
 
 	for _, target := range client.Path {
-		// check target is absolute path
-		if !filepath.IsAbs(target) {
-			target = filepath.Join(client.Pwd, target)
+		// expand target path
+		targetList, err := ExpandRemotePath(client, target)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Error: %s\n", err)
+			return err
 		}
 
-		// set rpath
-		lstat, err := client.Connect.Lstat(target)
-		if err == nil {
-			if lstat.IsDir() {
-				rpath = filepath.Join(target, relpath)
+		for _, t := range targetList {
+			// set rpath
+			lstat, err := client.Connect.Lstat(t)
+			if err == nil {
+				if lstat.IsDir() {
+					rpath = filepath.Join(t, relpath)
+				}
 			}
-		}
 
-		if len(rpath) == 0 {
-			dInfo, _ := os.Lstat(path)
-			if dInfo.IsDir() || isMultiple {
-				rpath = filepath.Join(target, relpath)
-				client.Connect.Mkdir(target)
-			} else {
-				rpath = filepath.Clean(target)
+			if len(rpath) == 0 {
+				dInfo, _ := os.Lstat(path)
+				if dInfo.IsDir() || isMultiple {
+					rpath = filepath.Join(t, relpath)
+					client.Connect.Mkdir(t)
+				} else {
+					rpath = filepath.Clean(t)
+				}
 			}
-		}
 
-		// get local file info
-		fInfo, _ := os.Lstat(path)
-		if fInfo.IsDir() { // directory
-			client.Connect.Mkdir(rpath)
-		} else { //file
-			// open local file
-			localfile, err := os.Open(path)
-			if err != nil {
-				return err
+			// get local file info
+			fInfo, _ := os.Lstat(path)
+			if fInfo.IsDir() { // directory
+				client.Connect.Mkdir(rpath)
+			} else { //file
+				// open local file
+				localfile, err := os.Open(path)
+				if err != nil {
+					return err
+				}
+				defer localfile.Close()
+
+				// get file size
+				lstat, _ := os.Lstat(path)
+				size := lstat.Size()
+
+				// copy file
+				err = r.pushFile(client, localfile, rpath, size)
+				if err != nil {
+					return err
+				}
 			}
-			defer localfile.Close()
 
-			// get file size
-			lstat, _ := os.Lstat(path)
-			size := lstat.Size()
-
-			// copy file
-			err = r.pushFile(client, localfile, rpath, size)
-			if err != nil {
-				return err
+			// set mode
+			if r.Permission {
+				client.Connect.Chmod(rpath, fInfo.Mode())
 			}
-		}
-
-		// set mode
-		if r.Permission {
-			client.Connect.Chmod(rpath, fInfo.Mode())
 		}
 	}
 
@@ -205,6 +212,12 @@ func (r *RunSftp) pushFile(client *TargetConnectMap, localfile io.Reader, path s
 
 	// open remote file
 	remotefile, err := client.Connect.OpenFile(path, os.O_RDWR|os.O_CREATE)
+	if err != nil {
+		return
+	}
+
+	// empty the file
+	err = remotefile.Truncate(0)
 	if err != nil {
 		return
 	}

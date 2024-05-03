@@ -21,7 +21,6 @@ import (
 func (r *RunSftp) ln(args []string) (err error) {
 	// create app
 	app := cli.NewApp()
-	// app.UseShortOptionHandling = true
 
 	// set help message
 	app.CustomAppHelpTemplate = helptext

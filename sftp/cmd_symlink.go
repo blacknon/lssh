@@ -51,8 +51,14 @@ func (r *RunSftp) symlink(args []string) {
 				// get writer
 				client.Output.Create(server)
 				w := client.Output.NewWriter()
+				pList, err := ExpandRemotePath(client, client.Path[0])
+				if err != nil {
+					fmt.Fprintf(w, "%s\n", err)
+					exit <- true
+					return
+				}
 
-				source := client.Path[0]
+				source := pList[0]
 
 				// set arg path
 				if !filepath.IsAbs(source) {
@@ -63,7 +69,7 @@ func (r *RunSftp) symlink(args []string) {
 					target = filepath.Join(client.Pwd, target)
 				}
 
-				err := client.Connect.Symlink(source, target)
+				err = client.Connect.Symlink(source, target)
 				if err != nil {
 					fmt.Fprintf(w, "%s\n", err)
 					exit <- true

@@ -19,7 +19,7 @@ import (
 	"github.com/c-bata/go-prompt"
 )
 
-// TODO(blacknon): `!!`や`!$`についても実装を行う
+// TODO(blacknon): `!!`や"`:$`についても実装を行う
 // TODO(blacknon): `!command`だとまとめてパイプ経由でデータを渡すことになっているが、`!!command`で個別のローカルコマンドにデータを渡すように実装する
 
 // Completer parallel-shell complete function
@@ -66,6 +66,7 @@ func (ps *pShell) Completer(t prompt.Document) []prompt.Suggest {
 				{Text: "%history", Description: "show history"},
 				{Text: "%out", Description: "%out [num], show history result."},
 				{Text: "%outlist", Description: "%outlist, show history result list."},
+				{Text: "%outexec", Description: "%outexec <-n num> command..., exec local command with output result. result is in env variable."},
 				// outの出力でdiffをするためのローカルコマンド。すべての出力と比較するのはあまりに辛いと思われるため、最初の出力との比較、といった方式で対応するのが良いか？？
 				// {Text: "%diff", Description: "%diff [num], show history result list."},
 			}
@@ -78,8 +79,9 @@ func (ps *pShell) Completer(t prompt.Document) []prompt.Suggest {
 			return prompt.FilterHasPrefix(c, t.GetWordBeforeCursor(), false)
 
 		case checkBuildInCommand(c): // if build-in command.
-			var a []prompt.Suggest
+			var suggest []prompt.Suggest
 			switch c {
+			// %out
 			case "%out":
 				for i := 0; i < len(ps.History); i++ {
 					var cmd string
@@ -87,15 +89,45 @@ func (ps *pShell) Completer(t prompt.Document) []prompt.Suggest {
 						cmd = h.Command
 					}
 
-					suggest := prompt.Suggest{
+					s := prompt.Suggest{
 						Text:        strconv.Itoa(i),
 						Description: cmd,
 					}
-					a = append(a, suggest)
+					suggest = append(suggest, s)
 				}
+
+			// %outexec
+			case "%outexec":
+				// switch options or path
+				switch {
+				case contains([]string{"-"}, char):
+					suggest = []prompt.Suggest{
+						{Text: "--help", Description: "help message"},
+						{Text: "-h", Description: "help message"},
+						{Text: "-n", Description: "set history number"},
+					}
+
+				case "-n " == t.GetWordBeforeCursorWithSpace():
+					for i := 0; i < len(ps.History); i++ {
+						var cmd string
+						for _, h := range ps.History[i] {
+							cmd = h.Command
+						}
+
+						s := prompt.Suggest{
+							Text:        strconv.Itoa(i),
+							Description: cmd,
+						}
+						suggest = append(suggest, s)
+					}
+
+				default:
+					suggest = ps.GetLocalhostCommandComplete()
+				}
+
 			}
 
-			return prompt.FilterHasPrefix(a, t.GetWordBeforeCursor(), false)
+			return prompt.FilterHasPrefix(suggest, t.GetWordBeforeCursor(), false)
 
 		default:
 			switch {
@@ -117,6 +149,27 @@ func (ps *pShell) Completer(t prompt.Document) []prompt.Suggest {
 	}
 
 	return prompt.FilterHasPrefix(nil, t.GetWordBeforeCursor(), false)
+}
+
+// GetLocalhostCommandComplete
+func (ps *pShell) GetLocalhostCommandComplete() (suggest []prompt.Suggest) {
+	// bash complete command. use `compgen`.
+	compCmd := []string{"compgen", "-c"}
+	command := strings.Join(compCmd, " ")
+
+	// get local machine command complete
+	local, _ := exec.Command("bash", "-c", command).Output()
+	rd := strings.NewReader(string(local))
+	sc := bufio.NewScanner(rd)
+	for sc.Scan() {
+		s := prompt.Suggest{
+			Text:        sc.Text(),
+			Description: "Command. from:localhost",
+		}
+		suggest = append(suggest, s)
+	}
+
+	return suggest
 }
 
 // GetCommandComplete get command list remote machine.

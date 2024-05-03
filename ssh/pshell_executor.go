@@ -7,6 +7,7 @@ package ssh
 import (
 	"fmt"
 	"io"
+	"os"
 	"strings"
 )
 
@@ -105,16 +106,16 @@ func (ps *pShell) parseExecuter(pslice [][]pipeLine) {
 		// get and send kill
 		killExit := make(chan bool)
 		defer close(killExit)
-		go func() {
+		go func(sig chan os.Signal) {
 			select {
-			case <-ps.Signal:
+			case <-sig:
 				for i := 0; i < len(pline); i++ {
 					kill <- true
 				}
 			case <-killExit:
 				return
 			}
-		}()
+		}(ps.Signal)
 
 		// wait channel
 		ps.wait(len(pline), ch)

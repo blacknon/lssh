@@ -56,7 +56,18 @@ func (r *RunSftp) rm(args []string) {
 				client.Output.Create(server)
 				w := client.Output.NewWriter()
 
-				for _, path := range client.Path {
+				pathList := []string{}
+				for _, p := range client.Path {
+					pList, err := ExpandRemotePath(client, p)
+					if err != nil {
+						fmt.Fprintf(w, "%s\n", err)
+						continue
+					}
+
+					pathList = append(pathList, pList...)
+				}
+
+				for _, path := range pathList {
 					// set arg path
 					if !filepath.IsAbs(path) {
 						path = filepath.Join(client.Pwd, path)

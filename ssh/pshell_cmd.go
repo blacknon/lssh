@@ -13,6 +13,7 @@ import (
 	"reflect"
 	"regexp"
 	"runtime"
+	"sort"
 	"strconv"
 	"strings"
 	"sync"
@@ -23,15 +24,28 @@ import (
 	"golang.org/x/crypto/ssh"
 )
 
+var (
+	pShellHelptext = `{{.Name}} - {{.Usage}}
+
+	{{.HelpName}} {{if .VisibleFlags}}[options]{{end}} {{if .ArgsUsage}}{{.ArgsUsage}}{{end}}
+	{{range .VisibleFlags}}	{{.}}
+	{{end}}
+	`
+)
+
 // TODO(blacknon): 以下のBuild-in Commandを追加する
 //     - %cd <PATH>         ... リモートのディレクトリを変更する(事前のチェックにsftpを使用か？)
 //     - %lcd <PATH>        ... ローカルのディレクトリを変更する
-//     - %save <num> <PATH> ... 指定したnumの履歴をPATHに記録する (v0.6.1)
-//     - %set <args..>      ... 指定されたオプションを設定する(Optionsにて管理) (v0.6.1)
-//     - %diff <num>        ... 指定されたnumの履歴をdiffする(multi diff)。できるかどうか要検討。 (v0.6.1以降)
+//     - %save <num> <PATH> ... 指定したnumの履歴をPATHに記録する (v0.6.11)
+//     - %set <args..>      ... 指定されたオプションを設定する(Optionsにて管理) (v0.6.11)
+//     - %diff <num>        ... 指定されたnumの履歴をdiffする(multi diff)。できるかどうか要検討。 (v0.7.0以降)
 //                              できれば、vimdiffのように横に差分表示させるようにしたいものだけど…？
-//     - %get remote local  ... sftpプロトコルを利用して、ファイルやディレクトリを取得する (v0.6.3)
-//     - %put local remote  ... sftpプロトコルを利用して、ファイルやディレクトリを配置する (v0.6.3)
+//     - %get remote local  ... sftpプロトコルを利用して、ファイルやディレクトリを取得する (v0.6.11)
+//     - %put local remote  ... sftpプロトコルを利用して、ファイルやディレクトリを配置する (v0.6.11)
+
+// TODO(blacknon): 任意のBuild-in Commandを追加できるようにする
+//    - configにて、環境変数に過去のoutの出力をつけて任意のスクリプトを実行できるようにしてやることで、任意のスクリプト実行が可能に出来たら良くないか？というネタ
+//    - もしくは、Goのモジュールとして機能追加できるようにするって方法もありかも？？
 
 // checkBuildInCommand return true if cmd is build-in command.
 func checkBuildInCommand(cmd string) (isBuildInCmd bool) {
@@ -42,8 +56,9 @@ func checkBuildInCommand(cmd string) (isBuildInCmd bool) {
 
 	case
 		"%history",
-		"%out", "%outlist",
-		"%save", "%set": // parsent build-in command.
+		"%out", "%outlist", "%outexec",
+		"%save",
+		"%set": // parsent build-in command.
 		isBuildInCmd = true
 	}
 
@@ -54,7 +69,7 @@ func checkBuildInCommand(cmd string) (isBuildInCmd bool) {
 // local machine command(%%command).
 func checkLocalCommand(cmd string) (isLocalCmd bool) {
 	// check local command regex
-	regex := regexp.MustCompile(`^!.*`)
+	regex := regexp.MustCompile(`^?.*`)
 
 	// local command
 	switch {
@@ -117,6 +132,11 @@ func (ps *pShell) run(pline pipeLine, in *io.PipeReader, out *io.PipeWriter, ch 
 
 		ps.buildin_out(num, out, ch)
 		return
+
+	// %outexec [num]
+	case "%outexec":
+		ps.buildin_outexec(pline, in, out, ch, kill)
+		return
 	}
 
 	// check and exec local command
@@ -124,7 +144,7 @@ func (ps *pShell) run(pline pipeLine, in *io.PipeReader, out *io.PipeWriter, ch 
 	switch {
 	case buildinRegex.MatchString(command):
 		// exec local machine
-		ps.executeLocalPipeLine(pline, in, out, ch, kill)
+		ps.executeLocalPipeLine(pline, in, out, ch, kill, os.Environ())
 	default:
 		// exec remote machine
 		ps.executeRemotePipeLine(pline, in, out, ch, kill)
@@ -169,7 +189,7 @@ func (ps *pShell) buildin_history(out *io.PipeWriter, ch chan<- bool) {
 	ch <- true
 }
 
-// localcmd_outlit is print exec history list.
+// localcmd_outlist is print exec history list.
 func (ps *pShell) buildin_outlist(out *io.PipeWriter, ch chan<- bool) {
 	stdout := setOutput(out)
 
@@ -193,14 +213,23 @@ func (ps *pShell) buildin_outlist(out *io.PipeWriter, ch chan<- bool) {
 
 // localCmd_out is print exec history at number
 // example:
-//     - %out
-//     - %out <num>
+//   - %out
+//   - %out <num>
 func (ps *pShell) buildin_out(num int, out *io.PipeWriter, ch chan<- bool) {
 	stdout := setOutput(out)
 	histories := ps.History[num]
 
+	// get key
+	keys := []string{}
+	for k := range histories {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+
 	i := 0
-	for _, h := range histories {
+	for _, k := range keys {
+		h := histories[k]
+
 		// if first, print out command
 		if i == 0 {
 			fmt.Fprintf(os.Stderr, "[History:%s ]\n", h.Command)
@@ -352,7 +381,7 @@ func (ps *pShell) executeRemotePipeLine(pline pipeLine, in *io.PipeReader, out *
 
 // executePipeLineLocal is exec command in local machine.
 // TODO(blacknon): 利用中のShellでの実行+functionや環境変数、aliasの引き継ぎを行えるように実装
-func (ps *pShell) executeLocalPipeLine(pline pipeLine, in *io.PipeReader, out *io.PipeWriter, ch chan<- bool, kill chan bool) (err error) {
+func (ps *pShell) executeLocalPipeLine(pline pipeLine, in *io.PipeReader, out *io.PipeWriter, ch chan<- bool, kill chan bool, envrionment []string) (err error) {
 	// set stdin/stdout
 	stdin := setInput(in)
 	stdout := setOutput(out)
@@ -392,6 +421,9 @@ func (ps *pShell) executeLocalPipeLine(pline pipeLine, in *io.PipeReader, out *i
 		cmd.Stdout = stdoutw
 	}
 	cmd.Stderr = os.Stderr
+
+	// set envrionment
+	cmd.Env = envrionment
 
 	// run command
 	err = cmd.Start()

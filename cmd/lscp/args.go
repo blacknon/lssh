@@ -7,7 +7,6 @@ package main
 import (
 	"fmt"
 	"os"
-	"os/user"
 	"sort"
 	"strings"
 
@@ -21,8 +20,7 @@ import (
 
 func Lscp() (app *cli.App) {
 	// Default config file path
-	usr, _ := user.Current()
-	defConf := usr.HomeDir + "/.lssh.conf"
+	defConf := common.GetDefaultConfigPath()
 
 	// Set help templete
 	cli.AppHelpTemplate = `NAME:
@@ -60,7 +58,7 @@ USAGE:
 	app.Name = "lscp"
 	app.Usage = "TUI list select and parallel scp client command."
 	app.Copyright = "blacknon(blacknon@orebibou.com)"
-	app.Version = "0.6.7"
+	app.Version = "0.6.8"
 
 	// options
 	// TODO(blacknon): オプションの追加(0.7.0)

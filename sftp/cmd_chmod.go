@@ -9,7 +9,6 @@ package sftp
 import (
 	"fmt"
 	"os"
-	"path/filepath"
 	"strconv"
 
 	"github.com/blacknon/lssh/common"
@@ -67,21 +66,25 @@ func (r *RunSftp) chmod(args []string) {
 				filemode := os.FileMode(modeint)
 
 				for _, path := range client.Path {
-
 					// set arg path
-					if !filepath.IsAbs(path) {
-						path = filepath.Join(client.Pwd, path)
-					}
-
-					// set filemode
-					err = client.Connect.Chmod(path, filemode)
+					pathList, err := ExpandRemotePath(client, path)
 					if err != nil {
 						fmt.Fprintf(w, "%s\n", err)
 						exit <- true
 						return
 					}
 
-					fmt.Fprintf(w, "chmod: set %s's permission as %o(%s)\n", path, filemode.Perm(), filemode.String())
+					for _, p := range pathList {
+						// set filemode
+						err = client.Connect.Chmod(p, filemode)
+						if err != nil {
+							fmt.Fprintf(w, "%s\n", err)
+							exit <- true
+							continue
+						}
+
+						fmt.Fprintf(w, "chmod: set %s's permission as %o(%s)\n", p, filemode.Perm(), filemode.String())
+					}
 				}
 
 				exit <- true

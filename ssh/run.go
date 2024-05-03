@@ -56,6 +56,9 @@ type Run struct {
 	// x11 forwarding (-X option)
 	X11 bool
 
+	// Trusted X11 flag (-Y option)
+	X11Trusted bool
+
 	// use or not-use local bashrc.
 	// IsNotBashrc takes precedence.
 	IsBashrc    bool
@@ -77,6 +80,10 @@ type Run struct {
 	// Dynamic Port Forwarding
 	// set localhost port num (ex. 11080).
 	DynamicPortForward string
+
+	// HTTP Dynamic Port Forwarding
+	// set localhost port num (ex. 11080).
+	HTTPDynamicPortForward string
 
 	// Reverse Dynamic Port Forwarding
 	// set remotehost port num (ex. 11080).
@@ -218,7 +225,7 @@ func (r *Run) printPortForward(m, forwardLocal, forwardRemote string) {
 	}
 }
 
-// printPortForward is printout port forwarding.
+// printDynamicPortForward is printout port forwarding.
 // use ssh command run header. only use shell().
 func (r *Run) printDynamicPortForward(port string) {
 	if port != "" {
@@ -233,6 +240,15 @@ func (r *Run) printReverseDynamicPortForward(port string) {
 	if port != "" {
 		fmt.Fprintf(os.Stderr, "ReverseDynamicForward:%s\n", port)
 		fmt.Fprintf(os.Stderr, "                      %s\n", "connect Socks5.")
+	}
+}
+
+// printPortForward is printout port forwarding.
+// use ssh command run header. only use shell().
+func (r *Run) printHTTPDynamicPortForward(port string) {
+	if port != "" {
+		fmt.Fprintf(os.Stderr, "HTTPDynamicForward:%s\n", port)
+		fmt.Fprintf(os.Stderr, "                   %s\n", "connect http.")
 	}
 }
 
@@ -292,6 +308,7 @@ func (r *Run) setPortForwards(server string, config conf.ServerConfig) (c conf.S
 		fw := new(conf.PortForward)
 		fw.Mode = c.PortForwardMode
 		fw.Local = c.PortForwardLocal
+		fw.Remote = c.PortForwardRemote
 
 		c.Forwards = append(c.Forwards, fw)
 	}
