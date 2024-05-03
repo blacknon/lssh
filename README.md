@@ -19,14 +19,13 @@ Supported multiple ssh proxy, http/socks5 proxy, x11 forward, and port forwardin
 
 ## Features
 
-* List selection type ssh client.
+* List selection type Pure Go ssh client.
 * It can run on **Linux**, **macOS** and **Windows**.
-* Pure Go.
 * Commands can be executed by ssh connection in **parallel**.
 * There is a shell function that connects to multiple hosts in parallel for interactive operation and connects with local commands via pipes.
 * Supported multiple proxy, **ssh**, **http**, and **socks5** proxy. It's supported multi-stage proxy.
 * Supported **ssh-agent**.
-* Supported **Local** and **Remote Port forward**, **Dynamic Forward**, **Reverse Dynamic Forward** and **x11 forward**.
+* Supported **Local** and **Remote Port forward**, **Dynamic Forward(SOCKS5, http)**, **Reverse Dynamic Forward(SOCKS5)** and **x11 forward**.
 * Can use bashrc of local machine at ssh connection destination.
 * It supports various authentication methods. Password, Public key, Certificate and PKCS11(Yubikey etc.).
 * Can read the OpenSSH config (~/.ssh/config) and use it as it is.
@@ -108,12 +107,14 @@ option(lssh)
 	    --host servername, -H servername            connect servername.
 	    --file filepath, -F filepath                config filepath. (default: "/Users/uesugi/.lssh.conf")
 	    -L [bind_address:]port:remote_address:port  Local port forward mode.Specify a [bind_address:]port:remote_address:port. Only single connection works.
-	    -R [bind_address:]port:remote_address:port  Remote port forward mode.Specify a [bind_address:]port:remote_address:port.  Only single connection works.
+	    -R [bind_address:]port:remote_address:port  Remote port forward mode.Specify a [bind_address:]port:remote_address:port. If only one port is specified, it will operate as Reverse Dynamic Forward. Only single connection works.
 	    -D port                                     Dynamic port forward mode(Socks5). Specify a port. Only single connection works.
+	    -d port                                     HTTP Dynamic port forward mode. Specify a port. Only single connection works.
 	    -w                                          Displays the server header when in command execution mode.
 	    -W                                          Not displays the server header when in command execution mode.
 	    --not-execute, -N                           not execute remote command and shell.
-	    --x11, -X                                   x11 forwarding(forward to ${DISPLAY}).
+	    --X11, -X                                   Enable x11 forwarding(forward to ${DISPLAY}).
+	    -Y                                          Enable trusted x11 forwarding(forward to ${DISPLAY}).
 	    --term, -t                                  run specified command at terminal.
 	    --parallel, -p                              run command parallel node(tail -F etc...).
 	    --localrc                                   use local bashrc shell.
@@ -127,7 +128,7 @@ option(lssh)
 	    blacknon(blacknon@orebibou.com)
 
 	VERSION:
-	    0.6.7
+	    0.6.8
 
 	USAGE:
 	    # connect ssh
@@ -141,6 +142,7 @@ option(lssh)
 
 	    # run command parallel in selected server over ssh, do it in interactively shell.
 	    lssh -s
+
 
 
 ### lscp
@@ -168,7 +170,7 @@ option(lscp)
 	    blacknon(blacknon@orebibou.com)
 
 	VERSION:
-	    0.6.7
+	    0.6.8
 
 	USAGE:
 	    # local to remote scp
@@ -203,11 +205,12 @@ option(lsftp)
 	    blacknon(blacknon@orebibou.com)
 
 	VERSION:
-	    0.6.7
+	    0.6.8
 
 	USAGE:
-	  # start lsftp shell
-	  lsftp
+	    # start lsftp shell
+	    lsftp
+
 
 
 If you specify a command as an argument, you can select multiple hosts. Select host <kbd>Tab</kbd>, select all displayed hosts <kbd>Ctrl</kbd> + <kbd>a</kbd>.

@@ -21,7 +21,7 @@ func TestCheckFormatServerConf(t *testing.T) {
 			desc: "Address, user and password",
 			c: Config{
 				Server: map[string]ServerConfig{
-					"a": ServerConfig{Addr: "192.168.100.101", User: "test", Pass: "Password"},
+					"a": {Addr: "192.168.100.101", User: "test", Pass: "Password"},
 				},
 			},
 			expect: true,
@@ -30,7 +30,7 @@ func TestCheckFormatServerConf(t *testing.T) {
 			desc: "Empty address",
 			c: Config{
 				Server: map[string]ServerConfig{
-					"b": ServerConfig{Addr: "", User: "test", Pass: "Password"},
+					"b": {Addr: "", User: "test", Pass: "Password"},
 				},
 			},
 			expect: false,
@@ -39,7 +39,7 @@ func TestCheckFormatServerConf(t *testing.T) {
 			desc: "Empty user",
 			c: Config{
 				Server: map[string]ServerConfig{
-					"c": ServerConfig{Addr: "192.168.100.101", User: "", Pass: "Password"},
+					"c": {Addr: "192.168.100.101", User: "", Pass: "Password"},
 				},
 			},
 			expect: false,
@@ -48,7 +48,7 @@ func TestCheckFormatServerConf(t *testing.T) {
 			desc: "Empty password",
 			c: Config{
 				Server: map[string]ServerConfig{
-					"d": ServerConfig{Addr: "192.168.100.101", User: "test", Pass: ""},
+					"d": {Addr: "192.168.100.101", User: "test", Pass: ""},
 				},
 			},
 			expect: false,
@@ -57,9 +57,9 @@ func TestCheckFormatServerConf(t *testing.T) {
 			desc: "1 server config is illegal",
 			c: Config{
 				Server: map[string]ServerConfig{
-					"a": ServerConfig{Addr: "192.168.100.101", User: "test", Pass: "Password"},
-					"b": ServerConfig{Addr: "", User: "test", Pass: "Password"},
-					"e": ServerConfig{Addr: "192.168.100.101", User: "test", Pass: "Password"},
+					"a": {Addr: "192.168.100.101", User: "test", Pass: "Password"},
+					"b": {Addr: "", User: "test", Pass: "Password"},
+					"e": {Addr: "192.168.100.101", User: "test", Pass: "Password"},
 				},
 			},
 			expect: false,
@@ -141,8 +141,8 @@ func TestGetNameList(t *testing.T) {
 			desc: "",
 			listConf: Config{
 				Server: map[string]ServerConfig{
-					"a": ServerConfig{},
-					"b": ServerConfig{},
+					"a": {},
+					"b": {},
 				},
 			},
 			expect: []string{"a", "b"},

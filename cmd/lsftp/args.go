@@ -41,8 +41,8 @@ VERSION:
     {{.Version}}
     {{end}}
 USAGE:
-	# start lsftp shell
-	{{.Name}}
+    # start lsftp shell
+    {{.Name}}
 `
 	// Create app
 	app = cli.NewApp()
