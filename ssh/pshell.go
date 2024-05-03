@@ -19,19 +19,19 @@ import (
 	"github.com/c-bata/go-prompt"
 )
 
-// TODO(blacknon): 接続が切れた場合の再接続処理、および再接続ができなかった場合のsliceからの削除対応の追加(v0.6.1)
-// TODO(blacknon): pShellのログ(実行コマンド及び出力結果)をログとしてファイルに記録する機能の追加(v0.6.1)
-// TODO(blacknon): グループ化(`()`で囲んだりする)や三項演算子への対応(v0.6.1)
-// TODO(blacknon): `サーバ名:command...` で、指定したサーバでのみコマンドを実行させる機能の追加(v0.6.1)
-// TODO(blacknon): petをうまいこと利用できるような仕組みを作る
-// TODO(blacknon): parallel shellでkeybindや関数が使えるような仕組みを作る(どうやってやるかは不明だが…)
+// TODO(blacknon): 接続が切れた場合の再接続処理、および再接続ができなかった場合のsliceからの削除対応の追加(v0.7.0)
+// TODO(blacknon): pShellのログ(実行コマンド及び出力結果)をログとしてファイルに記録する機能の追加(v0.7.0) => 任意のファイルを指定するように
+// TODO(blacknon): グループ化(`()`で囲んだりする)や三項演算子への対応(v0.7.0)
+// TODO(blacknon): `サーバ名:command...` で、指定したサーバでのみコマンドを実行させる機能の追加(v0.6.8)
+// TODO(blacknon): petをうまいこと利用できるような仕組みを作る(v0.7.0)
+// TODO(blacknon): parallel shellでkeybindや関数が使えるような仕組みを作る(どうやってやるかは不明だが…)(v0.7.0)
 
 // TODO(blacknon):
 //     出力をvim diffに食わせてdiffを得られるようにしたい => 変数かプロセス置換か、なにかしらの方法でローカルコマンド実行時にssh経由で得られた出力を食わせる方法を実装する？
 //     => 多分、プロセス置換が良いんだと思う(プロセス置換時にssh先でコマンドを実行できるように、かつ実行したデータを個別にファイルとして扱えるようにしたい)
 //        ```bash
-//        !vim diff <(cat /etc/passwd)
-//        => !vim diff host1:/etc/passwd host2:/etc/passwd ....
+//        !vimdiff <(cat /etc/passwd)
+//        => !vimdiff host1:/etc/passwd host2:/etc/passwd ....
 //        ```
 //     やるなら普通に一時ファイルに書き出すのが良さそう(/tmp 配下とか。一応、ちゃんと権限周り気をつけないといかんね、というのと消さないといかんね、というお気持ち)
 
@@ -53,9 +53,6 @@ type pShell struct {
 // pShellOption is optitons pshell.
 // TODO(blacknon): つくる。
 type pShellOption struct {
-	// local command実行時の結果をHistoryResultに記録しない(os.Stdoutに直接出す)
-	LocalCommandNotRecordResult bool
-
 	// trueの場合、リモートマシンでパイプライン処理をする際にパイプ経由でもOPROMPTを付与して出力する
 	// RemoteHeaderWithPipe bool
 
@@ -67,6 +64,9 @@ type pShellOption struct {
 
 	// trueの場合、PATHの補完処理を無効にする
 	// DisableCommandComplete bool
+
+	// local command実行時の結果をHistoryResultに記録しない(os.Stdoutに直接出す)
+	LocalCommandNotRecordResult bool
 }
 
 // psConnect is pShell connect struct.
@@ -160,6 +160,9 @@ func (r *Run) pshell() (err error) {
 		PROMPT:      config.Prompt,
 		History:     map[int]map[string]*pShellHistory{},
 		HistoryFile: config.HistoryFile,
+		Options: pShellOption{
+			LocalCommandNotRecordResult: true, // debug
+		},
 	}
 
 	// set signal

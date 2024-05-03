@@ -6,7 +6,7 @@
 conf is a package used to read configuration file (~/.lssh.conf).
 */
 
-// TODO(blacknon): 各種クラウドの踏み台経由でのアクセスに対応する
+// TODO(blacknon): 各種クラウドの踏み台経由でのアクセスに対応する => pluginで処理させたいお気持ち
 //                 - AWS SSM(セッションマネージャー)
 //                 - Azure Bastion
 //                 - GCP(gcloud compute ssh)
@@ -28,183 +28,6 @@ import (
 	"github.com/blacknon/lssh/common"
 )
 
-// LogConfig store the contents about the terminal log.
-// The log file name is created in "YYYYmmdd_HHMMSS_servername.log" of the specified directory.
-type LogConfig struct {
-	// Enable terminal logging.
-	Enable bool `toml:"enable"`
-
-	// Add a timestamp at the beginning of the terminal log line.
-	Timestamp bool `toml:"timestamp"`
-
-	// Specifies the directory for creating terminal logs.
-	Dir string `toml:"dirpath"`
-
-	// Logging with remove ANSI code.
-	RemoveAnsiCode bool `toml:"remove_ansi_code"`
-}
-
-// ShellConfig Structure for storing lssh-shell settings.
-type ShellConfig struct {
-	// prompt
-	Prompt  string `toml:"PROMPT"`  // lssh shell prompt
-	OPrompt string `toml:"OPROMPT"` // lssh shell output prompt
-
-	// message,title etc...
-	Title string `toml:"title"`
-
-	// history file
-	HistoryFile string `toml:"histfile"`
-
-	// pre | post command setting
-	PreCmd  string `toml:"pre_cmd"`
-	PostCmd string `toml:"post_cmd"`
-}
-
-// IncludeConfig specify the configuration file to include (ServerConfig only).
-type IncludeConfig struct {
-	Path string `toml:"path"`
-}
-
-// IncludesConfig specify the configuration file to include (ServerConfig only).
-// Struct that can specify multiple files in array.
-// TODO: ワイルドカード指定可能にする
-type IncludesConfig struct {
-	// example:
-	// 	path = [
-	// 		 "~/.lssh.d/home.conf"
-	// 		,"~/.lssh.d/cloud.conf"
-	// 	]
-	Path []string `toml:"path"`
-}
-
-// ServerConfig Structure for holding SSH connection information
-type ServerConfig struct {
-	// Connect basic Setting
-	Addr string `toml:"addr"`
-	Port string `toml:"port"`
-	User string `toml:"user"`
-
-	// Connect auth Setting
-	Pass            string   `toml:"pass"`
-	Passes          []string `toml:"passes"`
-	Key             string   `toml:"key"`
-	KeyCommand      string   `toml:"keycmd"`
-	KeyCommandPass  string   `toml:"keycmdpass"`
-	KeyPass         string   `toml:"keypass"`
-	Keys            []string `toml:"keys"` // "keypath::passphrase"
-	Cert            string   `toml:"cert"`
-	CertKey         string   `toml:"certkey"`
-	CertKeyPass     string   `toml:"certkeypass"`
-	CertPKCS11      bool     `toml:"certpkcs11"`
-	AgentAuth       bool     `toml:"agentauth"`
-	SSHAgentUse     bool     `toml:"ssh_agent"`
-	SSHAgentKeyPath []string `toml:"ssh_agent_key"` // "keypath::passphrase"
-	PKCS11Use       bool     `toml:"pkcs11"`
-	PKCS11Provider  string   `toml:"pkcs11provider"` // PKCS11 Provider PATH
-	PKCS11PIN       string   `toml:"pkcs11pin"`      // PKCS11 PIN code
-
-	// pre execute command
-	PreCmd string `toml:"pre_cmd"`
-
-	// post execute command
-	PostCmd string `toml:"post_cmd"`
-
-	// proxy setting
-	ProxyType string `toml:"proxy_type"`
-
-	Proxy string `toml:"proxy"`
-
-	// OpenSSH type proxy setting
-	ProxyCommand string `toml:"proxy_cmd"`
-
-	// local rcfile setting
-	// yes|no (default: yes)
-	LocalRcUse string `toml:"local_rc"`
-
-	// LocalRcPath
-	LocalRcPath []string `toml:"local_rc_file"`
-
-	// If LocalRcCompress is true, gzip the localrc file to base64
-	LocalRcCompress bool `toml:"local_rc_compress"`
-
-	// LocalRcDecodeCmd is localrc decode command. run remote machine.
-	LocalRcDecodeCmd string `toml:"local_rc_decode_cmd"`
-
-	// LocalRcUncompressCmd is localrc un compress command. run remote machine.
-	LocalRcUncompressCmd string `toml:"local_rc_uncompress_cmd"`
-
-	// local/remote port forwarding setting.
-	// ex. [`L`,`l`,`LOCAL`,`local`]|[`R`,`r`,`REMOTE`,`remote`]
-	PortForwardMode string `toml:"port_forward"`
-
-	// port forward (local). "host:port"
-	PortForwardLocal string `toml:"port_forward_local"`
-
-	// port forward (remote). "host:port"
-	PortForwardRemote string `toml:"port_forward_remote"`
-
-	// local/remote port forwarding settings
-	// ex. {[`L`,`l`,`LOCAL`,`local`]|[`R`,`r`,`REMOTE`,`remote`]}:[localaddress]:[localport]:[remoteaddress]:[remoteport]
-	PortForwards []string `toml:"port_forwards"`
-
-	// local/remote Port Forwarding slice.
-	Forwards []*PortForward
-
-	// Dynamic Port Forward setting
-	// ex.) "11080"
-	DynamicPortForward string `toml:"dynamic_port_forward"`
-
-	// Reverse Dynamic Port Forward setting
-	// ex.) "11080"
-	ReverseDynamicPortForward string `toml:"reverse_dynamic_port_forward"`
-
-	// HTTP Dynamic Port Forward setting
-	// ex.) "11080"
-	HTTPDynamicPortForward string `toml:"http_dynamic_port_forward"`
-
-	// x11 forwarding setting
-	X11 bool `toml:"x11"`
-
-	// x11 trusted forwarding setting
-	X11Trusted bool `toml:"x11_trusted"`
-
-	// Connection Timeout second
-	ConnectTimeout int `toml:"connect_timeout"`
-
-	// Server Alive
-	ServerAliveCountMax      int `toml:"alive_max"`
-	ServerAliveCountInterval int `toml:"alive_interval"`
-
-	// note
-	Note string `toml:"note"`
-}
-
-// ProxyConfig is that stores Proxy server settings connected via http and socks5.
-type ProxyConfig struct {
-	Addr      string `toml:"addr"`
-	Port      string `toml:"port"`
-	User      string `toml:"user"`
-	Pass      string `toml:"pass"`
-	Proxy     string `toml:"proxy"`
-	ProxyType string `toml:"proxy_type"`
-	Note      string `toml:"note"`
-}
-
-// OpenSSHConfig is read OpenSSH configuration file.
-type OpenSSHConfig struct {
-	Path    string `toml:"path"` // This is preferred
-	Command string `toml:"command"`
-	ServerConfig
-}
-
-// PortForward
-type PortForward struct {
-	Mode   string // L or R.
-	Local  string // localhost:8080
-	Remote string // localhost:80
-}
-
 // Config is Struct that stores the entire configuration file.
 type Config struct {
 	Log      LogConfig
@@ -218,14 +41,15 @@ type Config struct {
 	SSHConfig map[string]OpenSSHConfig
 }
 
+// ReduceCommon reduce common setting (in .lssh.conf servers)
 func (c *Config) ReduceCommon() {
-	// reduce common setting (in .lssh.conf servers)
 	for key, value := range c.Server {
 		setValue := serverConfigReduct(c.Common, value)
 		c.Server[key] = setValue
 	}
 }
 
+// ReadOpenSSHConfig read OpenSSH config file and append to Config.Server.
 func (c *Config) ReadOpenSSHConfig() {
 	if len(c.SSHConfig) == 0 {
 		openSSHServerConfig, err := getOpenSSHConfig("~/.ssh/config", "")
@@ -251,6 +75,7 @@ func (c *Config) ReadOpenSSHConfig() {
 	}
 }
 
+// ReadIncludeFiles read include files and append to Config.Server.
 func (c *Config) ReadIncludeFiles() {
 	if c.Includes.Path != nil {
 		if c.Include == nil {
@@ -262,7 +87,7 @@ func (c *Config) ReadIncludeFiles() {
 			includePath = common.GetFullPath(includePath)
 
 			unixTime := time.Now().Unix()
-			keyString := strings.Join([]string{string(unixTime), includePath}, "_")
+			keyString := strings.Join([]string{fmt.Sprint(unixTime), includePath}, "_")
 
 			// key to md5
 			hasher := md5.New()
@@ -285,7 +110,7 @@ func (c *Config) ReadIncludeFiles() {
 			// Read include config file
 			_, err := toml.DecodeFile(path, &includeConf)
 			if err != nil {
-				fmt.Fprintf(os.Stderr, "err: Read config file error: ", err)
+				fmt.Fprintf(os.Stderr, "err: Read config file error: %s", err)
 				os.Exit(1)
 			}
 
