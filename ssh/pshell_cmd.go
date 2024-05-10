@@ -69,7 +69,7 @@ func checkBuildInCommand(cmd string) (isBuildInCmd bool) {
 // local machine command(%%command).
 func checkLocalCommand(cmd string) (isLocalCmd bool) {
 	// check local command regex
-	regex := regexp.MustCompile(`^?.*`)
+	regex := regexp.MustCompile(`^!.*`)
 
 	// local command
 	switch {
