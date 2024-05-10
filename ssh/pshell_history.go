@@ -2,6 +2,9 @@
 // Use of this source code is governed by an MIT license
 // that can be found in the LICENSE file.
 
+// TODO: ResultにOutputのほか、Stdout・Stderrを追加する(あとで分けて利用できるようにするため)
+// TODO: historyで、重複履歴をshellのhistory追加しないオプションの実装(ただし、outputは追加する)
+
 package ssh
 
 import (
