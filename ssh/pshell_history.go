@@ -24,7 +24,6 @@ type pShellHistory struct {
 	Output    *output.Output
 }
 
-//
 func (ps *pShell) NewHistoryWriter(server string, output *output.Output, m *sync.Mutex) *io.PipeWriter {
 	// craete pShellHistory struct
 	psh := &pShellHistory{
@@ -109,9 +108,10 @@ func (ps *pShell) GetHistoryFromFile() (data []pShellHistory, err error) {
 
 // PutHistoryFile put history text to s.HistoryFile
 // ex.) write history(history file format)
-//     YYYY-mm-dd_HH:MM:SS command...
-//     YYYY-mm-dd_HH:MM:SS command...
-//     ...
+//
+//	YYYY-mm-dd_HH:MM:SS command...
+//	YYYY-mm-dd_HH:MM:SS command...
+//	...
 func (ps *pShell) PutHistoryFile(cmd string) (err error) {
 	// user path
 	usr, _ := user.Current()

@@ -2,8 +2,6 @@
 // Use of this source code is governed by an MIT license
 // that can be found in the LICENSE file.
 
-// TODO(blacknon): proxyを経由してPKCS11を使う際、Panicが起こることがあるので対応を考える(多分Proxy周りの処理に問題がある)
-
 package ssh
 
 import (
