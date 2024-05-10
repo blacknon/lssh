@@ -117,7 +117,7 @@ func (ps *pShell) buildin_outexec(pline pipeLine, in *io.PipeReader, out *io.Pip
 		// run local command
 		err = ps.executeLocalPipeLine(ppline, in, out, ch, kill, childEnvrionment)
 
-		return aerr
+		return err
 	}
 
 	app.Run(pline.Args)
