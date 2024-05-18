@@ -14,6 +14,11 @@ BUILDCMD_LSSH=$(GOBUILD) ./cmd/lssh
 BUILDCMD_LSCP=$(GOBUILD) ./cmd/lscp
 BUILDCMD_LSFTP=$(GOBUILD) ./cmd/lsftp
 
+# install path
+INSTALL_PATH_LSSH=/usr/local/bin/lssh
+INSTALL_PATH_LSCP=/usr/local/bin/lscp
+INSTALL_PATH_LSFTP=/usr/local/bin/lsftp
+
 build:
 	# Remove unnecessary dependent libraries
 	$(GOMOD) tidy
@@ -35,14 +40,14 @@ clean:
 
 install:
 	# rm old binary
-	rm /usr/local/bin/lssh
-	rm /usr/local/bin/lscp
-	rm /usr/local/bin/lsftp
+	[ -e $(INSTALL_PATH_LSSH) ] && rm $(INSTALL_PATH_LSSH) || true
+	[ -e $(INSTALL_PATH_LSCP) ] && rm $(INSTALL_PATH_LSCP) || true
+	[ -e $(INSTALL_PATH_LSFTP) ] && rm $(INSTALL_PATH_LSFTP) || true
 
 	# copy binary to /usr/local/bin/
-	cp lssh /usr/local/bin/
-	cp lscp /usr/local/bin/
-	cp lsftp /usr/local/bin/
+	cp lssh $(INSTALL_PATH_LSSH)
+	cp lscp $(INSTALL_PATH_LSCP)
+	cp lsftp $(INSTALL_PATH_LSFTP)
 
 	# copy template config file
 	cp -n example/config.tml ~/.lssh.conf || true
