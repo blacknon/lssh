@@ -45,5 +45,9 @@ func (ps *pShell) checkKeepalive() {
 
 	ps.Connects = result
 
+	if len(clients) == 0 {
+		ps.exit(1)
+	}
+
 	return
 }

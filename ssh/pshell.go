@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"github.com/blacknon/go-sshlib"
+	"github.com/blacknon/lssh/conf"
 	"github.com/blacknon/lssh/output"
 	"github.com/c-bata/go-prompt"
 )
@@ -37,6 +38,7 @@ import (
 
 // Pshell is Parallel-Shell struct
 type pShell struct {
+	Config        conf.ShellConfig
 	Signal        chan os.Signal
 	Count         int
 	ServerList    []string
@@ -154,6 +156,7 @@ func (r *Run) pshell() (err error) {
 
 	// create new shell struct
 	ps := &pShell{
+		Config:      config,
 		Signal:      make(chan os.Signal),
 		ServerList:  r.ServerList,
 		Connects:    cons,
@@ -268,10 +271,15 @@ func (ps *pShell) exitChecker(in string, breakline bool) bool {
 		fmt.Printf("Error: No valid connections\n")
 
 		// TODO: 再接続が発生する場合はexitせずに返す？
-		os.Exit(1)
+		ps.exit(1)
 
 		return true
 	}
 
 	return false
+}
+
+func (ps *pShell) exit(exitCode int) {
+	execLocalCommand(ps.Config.PostCmd)
+	os.Exit(exitCode)
 }
