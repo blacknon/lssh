@@ -19,7 +19,6 @@ import (
 
 	"github.com/armon/go-socks5"
 	xauth "github.com/blacknon/go-x11auth"
-	"github.com/elazarl/goproxy"
 	"golang.org/x/crypto/ssh"
 )
 
@@ -158,8 +157,8 @@ func getX11DisplayNumber(display string) int {
 //
 // example) "127.0.0.1:22", "abc.com:9977"
 func (c *Connect) TCPLocalForward(localAddr, remoteAddr string) (err error) {
-	// create listner
-	listner, err := net.Listen("tcp", localAddr)
+	// create listener
+	listener, err := net.Listen("tcp", localAddr)
 	if err != nil {
 		return
 	}
@@ -168,7 +167,7 @@ func (c *Connect) TCPLocalForward(localAddr, remoteAddr string) (err error) {
 	go func() {
 		for {
 			// local (type net.Conn)
-			local, err := listner.Accept()
+			local, err := listener.Accept()
 			if err != nil {
 				return
 			}
@@ -189,8 +188,8 @@ func (c *Connect) TCPLocalForward(localAddr, remoteAddr string) (err error) {
 //
 // example) "127.0.0.1:22", "abc.com:9977"
 func (c *Connect) TCPRemoteForward(localAddr, remoteAddr string) (err error) {
-	// create listner
-	listner, err := c.Client.Listen("tcp", remoteAddr)
+	// create listener
+	listener, err := c.Client.Listen("tcp", remoteAddr)
 	if err != nil {
 		return
 	}
@@ -205,7 +204,7 @@ func (c *Connect) TCPRemoteForward(localAddr, remoteAddr string) (err error) {
 			}
 
 			// remote (type net.Conn)
-			remote, err := listner.Accept()
+			remote, err := listener.Accept()
 			if err != nil {
 				return
 			}
@@ -291,8 +290,8 @@ func (c *Connect) TCPReverseDynamicForward(address, port string) (err error) {
 		Logger:   c.getDynamicForwardLogger(),
 	}
 
-	// create listner
-	listner, err := c.Client.Listen("tcp", net.JoinHostPort(address, port))
+	// create listener
+	listener, err := c.Client.Listen("tcp", net.JoinHostPort(address, port))
 	if err != nil {
 		return
 	}
@@ -304,25 +303,66 @@ func (c *Connect) TCPReverseDynamicForward(address, port string) (err error) {
 	}
 
 	// Listen
-	err = s.Serve(listner)
+	err = s.Serve(listener)
 	return
 }
 
 // HTTPDynamicForward forwarding http data.
 // Like Dynamic forward (`ssh -D <port>`). but use http proxy.
 func (c *Connect) HTTPDynamicForward(address, port string) (err error) {
-	// create http proxy. use goproxy
-	httpProxy := goproxy.NewProxyHttpServer()
+	// create dial
+	dial := c.Client.Dial
 
-	// set dial
-	httpProxy.ConnectDial = func(n, addr string) (net.Conn, error) {
-		return c.Client.Dial(n, addr)
+	// create listener
+	listener, err := net.Listen("tcp", net.JoinHostPort(address, port))
+	if err != nil {
+		return
+	}
+	defer listener.Close()
+
+	// create proxy server.
+	server := &http.Server{
+		Handler: http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			if r.Method == http.MethodConnect {
+				handleHTTPSProxy(dial, w, r)
+			} else {
+				handleHTTPProxy(dial, w, r)
+			}
+		}),
+		ErrorLog: c.getDynamicForwardLogger(),
 	}
 
-	// set logger
-	httpProxy.Logger = c.getDynamicForwardLogger()
+	// listen
+	err = server.Serve(listener)
+	return
+}
+
+// HTTPReverseDynamicForward reverse forwarding http data.
+// Like Reverse Dynamic forward (`ssh -R <port>`). but use http proxy.
+func (c *Connect) HTTPReverseDynamicForward(address, port string) (err error) {
+	// create dial
+	dial := net.Dial
+
+	// create listener
+	listener, err := c.Client.Listen("tcp", net.JoinHostPort(address, port))
+	if err != nil {
+		return
+	}
+	defer listener.Close()
+
+	// create proxy server.
+	server := &http.Server{
+		Handler: http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			if r.Method == http.MethodConnect {
+				handleHTTPSProxy(dial, w, r)
+			} else {
+				handleHTTPProxy(dial, w, r)
+			}
+		}),
+		ErrorLog: c.getDynamicForwardLogger(),
+	}
 
 	// listen
-	err = http.ListenAndServe(net.JoinHostPort(address, port), httpProxy)
+	err = server.Serve(listener)
 	return
 }
