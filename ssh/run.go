@@ -22,6 +22,7 @@ import (
 // TODO(blacknon): 自動再接続機能の追加(v1.0.0)
 //     autosshのように、接続が切れた際に自動的に再接続を試みる動作をさせたい
 //     パラメータでの有効・無効指定が必要になる。
+//     → go-sshlib側で処理させる
 
 // TODO(blacknon): リバースでのsshfsの追加(v1.0.0以降？)
 //     lsshfs実装後になるか？ssh接続時に、指定したフォルダにローカルの内容をマウントさせて読み取らせる。
@@ -32,6 +33,8 @@ import (
 //         - https://github.com/rom1v/rsshfs
 //         - https://github.com/hanwen/go-fuse
 //         - https://gitlab.com/dns2utf8/revfs/
+//
+//     → go-sshlib側で処理させる(sshfsもreverse sshfsも共に)
 
 // Run
 type Run struct {
@@ -41,7 +44,6 @@ type Run struct {
 	// Mode value in
 	//     - shell
 	//     - cmd
-	//     - pshell
 	Mode string
 
 	// tty use (-t option)
@@ -89,6 +91,10 @@ type Run struct {
 	// set remotehost port num (ex. 11080).
 	ReverseDynamicPortForward string
 
+	// HTTP Reverse Dynamic Port Forwarding
+	// set remotehost port num (ex. 11080).
+	HTTPReverseDynamicPortForward string
+
 	// Exec command
 	ExecCmd []string
 
@@ -101,7 +107,7 @@ type Run struct {
 	agent interface{}
 
 	// StdinData from pipe flag
-	isStdinPipe bool
+	IsStdinPipe bool
 
 	// AuthMethodMap is
 	// map of AuthMethod summarized in Run overall
@@ -162,7 +168,7 @@ func (r *Run) Start() {
 	if runtime.GOOS != "windows" {
 		stdin := 0
 		if !terminal.IsTerminal(stdin) {
-			r.isStdinPipe = true
+			r.IsStdinPipe = true
 		}
 	}
 
@@ -178,10 +184,6 @@ func (r *Run) Start() {
 	case r.Mode == "shell":
 		// connect remote shell
 		err = r.shell()
-
-	case r.Mode == "pshell":
-		// start lsshshell
-		err = r.pshell()
 
 	default:
 		return
@@ -249,6 +251,15 @@ func (r *Run) printHTTPDynamicPortForward(port string) {
 	if port != "" {
 		fmt.Fprintf(os.Stderr, "HTTPDynamicForward:%s\n", port)
 		fmt.Fprintf(os.Stderr, "                   %s\n", "connect http.")
+	}
+}
+
+// printHTTPReverseDynamicPortForward is printout port forwarding.
+// use ssh command run header. only use shell().
+func (r *Run) printHTTPReverseDynamicPortForward(port string) {
+	if port != "" {
+		fmt.Fprintf(os.Stderr, "HTTPReverseDynamicForward:%s\n", port)
+		fmt.Fprintf(os.Stderr, "                        %s\n", "connect http.")
 	}
 }
 
