@@ -2,8 +2,6 @@
 // Use of this source code is governed by an MIT license
 // that can be found in the LICENSE file.
 
-// TODO(blacknon): proxyを経由してPKCS11を使う際、Panicが起こることがあるので対応を考える(多分Proxy周りの処理に問題がある)
-
 package ssh
 
 import (
@@ -50,6 +48,11 @@ func (r *Run) shell() (err error) {
 	// OverWrite http dynamic port forwarding
 	if r.HTTPDynamicPortForward != "" {
 		config.HTTPDynamicPortForward = r.HTTPDynamicPortForward
+	}
+
+	// OverWrite http reverse dynamic port forwarding
+	if r.HTTPReverseDynamicPortForward != "" {
+		config.HTTPReverseDynamicPortForward = r.HTTPReverseDynamicPortForward
 	}
 
 	// OverWrite local bashrc use
@@ -123,11 +126,16 @@ func (r *Run) shell() (err error) {
 		go connect.HTTPDynamicForward("localhost", config.HTTPDynamicPortForward)
 	}
 
+	// HTTP Reverse Dynamic Port Forwarding
+	if config.HTTPReverseDynamicPortForward != "" {
+		go connect.HTTPReverseDynamicForward("localhost", config.HTTPReverseDynamicPortForward)
+	}
+
 	// switch check Not-execute flag
 	// TODO(blacknon): Backgroundフラグを実装したら追加
 	switch {
 	case r.IsNone:
-		r.noneExecute()
+		r.noneExecute(connect)
 
 	default:
 		// run pre local command
@@ -205,14 +213,28 @@ func (r *Run) getLogDirPath(server string) (dir string, err error) {
 }
 
 // noneExecute is not execute command and shell.
-func (r *Run) noneExecute() (err error) {
+func (r *Run) noneExecute(con *sshlib.Connect) (err error) {
 loop:
 	for {
 		select {
 		case <-time.After(500 * time.Millisecond):
+			// 接続状況チェック
+			err = con.CheckClientAlive()
+			if err != nil {
+				// error
+				fmt.Fprintf(os.Stderr, "Exit Connect, Error: %s\n", err)
+
+				// close sftp client
+				con.Client.Close()
+
+				break loop
+			}
+
 			continue loop
 		}
 	}
+
+	return
 }
 
 // localRcShell connect to remote shell using local bashrc

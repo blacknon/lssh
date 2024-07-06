@@ -9,7 +9,7 @@ env:
 #   - docker
 
 go:
-  - 1.12.x
+  - 1.22.x
 
 git:
   depth: 1

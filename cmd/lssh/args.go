@@ -51,9 +51,6 @@ USAGE:
 
     # run command parallel in selected server over ssh.
     {{.Name}} -p command...
-
-    # run command parallel in selected server over ssh, do it in interactively shell.
-    {{.Name}} -s
 `
 
 	// Create app
@@ -62,7 +59,7 @@ USAGE:
 	app.Name = "lssh"
 	app.Usage = "TUI list select and parallel ssh client command."
 	app.Copyright = "blacknon(blacknon@orebibou.com)"
-	app.Version = "0.6.8"
+	app.Version = "0.6.9"
 
 	// TODO(blacknon): オプションの追加
 	//     -f       ... バックグラウンドでの接続(X11接続やport forwardingをバックグラウンドで実行する場合など)。
@@ -85,7 +82,7 @@ USAGE:
 		cli.StringSliceFlag{Name: "R", Usage: "Remote port forward mode.Specify a `[bind_address:]port:remote_address:port`. If only one port is specified, it will operate as Reverse Dynamic Forward. Only single connection works."},
 		cli.StringFlag{Name: "D", Usage: "Dynamic port forward mode(Socks5). Specify a `port`. Only single connection works."},
 		cli.StringFlag{Name: "d", Usage: "HTTP Dynamic port forward mode. Specify a `port`. Only single connection works."},
-		// cli.StringFlag{Name: "r", Usage: "HTTP Reverse Dynamic port forward mode. Specify a `port`. Only single connection works."},
+		cli.StringFlag{Name: "r", Usage: "HTTP Reverse Dynamic port forward mode. Specify a `port`. Only single connection works."},
 
 		// Other bool
 		cli.BoolFlag{Name: "w", Usage: "Displays the server header when in command execution mode."},
@@ -97,7 +94,6 @@ USAGE:
 		cli.BoolFlag{Name: "parallel,p", Usage: "run command parallel node(tail -F etc...)."},
 		cli.BoolFlag{Name: "localrc", Usage: "use local bashrc shell."},
 		cli.BoolFlag{Name: "not-localrc", Usage: "not use local bashrc shell."},
-		cli.BoolFlag{Name: "pshell,s", Usage: "use parallel-shell(pshell) (alpha)."},
 		cli.BoolFlag{Name: "list,l", Usage: "print server list from config."},
 		cli.BoolFlag{Name: "help,h", Usage: "print this help"},
 	}
@@ -248,6 +244,9 @@ USAGE:
 
 		// HTTP Dynamic port forwarding port
 		r.HTTPDynamicPortForward = c.String("d")
+
+		// HTTP Reverse Dynamic port forwarding port
+		r.HTTPReverseDynamicPortForward = c.String("r")
 
 		r.Start()
 		return nil
