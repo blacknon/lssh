@@ -43,8 +43,8 @@ require (
 	github.com/thales-e-security/pool v0.0.2 // indirect
 	github.com/urfave/cli v1.21.0
 	github.com/vbauerster/mpb v3.4.0+incompatible
-	golang.org/x/crypto v0.0.0-20220525230936-793ad666bf5e
-	golang.org/x/net v0.0.0-20220526153639-5463443f8c37
+	golang.org/x/crypto v0.17.0
+	golang.org/x/net v0.10.0
 	golang.org/x/sys v0.19.0
 	golang.org/x/term v0.19.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
