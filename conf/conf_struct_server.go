@@ -89,6 +89,10 @@ type ServerConfig struct {
 	// ex.) "11080"
 	HTTPDynamicPortForward string `toml:"http_dynamic_port_forward"`
 
+	// HTTP Reverse Dynamic Port Forward setting
+	// ex.) "11080"
+	HTTPReverseDynamicPortForward string `toml:"http_reverse_dynamic_port_forward"`
+
 	// x11 forwarding setting
 	X11 bool `toml:"x11"`
 

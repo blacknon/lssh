@@ -690,7 +690,12 @@ func (r *RunSftp) exitChecker(in string, breakline bool) bool {
 	}
 
 	if len(r.Client) == 0 {
+		// error messages
 		fmt.Printf("Error: No valid connections\n")
+
+		// TODO: 再接続が発生する場合はexitせずに返す？
+		os.Exit(1)
+
 		return true
 	}
 

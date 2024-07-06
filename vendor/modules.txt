@@ -20,8 +20,8 @@ github.com/acarl005/stripansi
 # github.com/armon/go-socks5 v0.0.0-20160902184237-e75332964ef5
 ## explicit
 github.com/armon/go-socks5
-# github.com/blacknon/go-sshlib v0.1.11
-## explicit; go 1.22.2
+# github.com/blacknon/go-sshlib v0.1.12
+## explicit; go 1.22.4
 github.com/blacknon/go-sshlib
 # github.com/blacknon/go-x11auth v0.1.0
 ## explicit; go 1.22.2
@@ -48,9 +48,6 @@ github.com/disiqueira/gotree
 # github.com/dustin/go-humanize v1.0.0
 ## explicit
 github.com/dustin/go-humanize
-# github.com/elazarl/goproxy v0.0.0-20231117061959-7cc037d33fb5
-## explicit
-github.com/elazarl/goproxy
 # github.com/kardianos/osext v0.0.0-20190222173326-2bc1f35cddc0
 ## explicit
 github.com/kardianos/osext
@@ -63,8 +60,6 @@ github.com/kevinburke/ssh_config
 # github.com/kr/fs v0.1.0
 ## explicit
 github.com/kr/fs
-# github.com/kr/pretty v0.1.0
-## explicit
 # github.com/lunixbochs/vtclean v1.0.0
 ## explicit
 github.com/lunixbochs/vtclean
@@ -154,6 +149,3 @@ golang.org/x/term
 # gopkg.in/yaml.v3 v3.0.1
 ## explicit
 gopkg.in/yaml.v3
-# mvdan.cc/sh v2.6.3+incompatible
-## explicit
-mvdan.cc/sh/syntax

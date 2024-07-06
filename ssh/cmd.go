@@ -97,9 +97,14 @@ func (r *Run) cmd() (err error) {
 				config.ReverseDynamicPortForward = r.ReverseDynamicPortForward
 			}
 
-			// OverWrite dynamic port forwarding
+			// OverWrite http dynamic port forwarding
 			if r.HTTPDynamicPortForward != "" {
 				config.HTTPDynamicPortForward = r.HTTPDynamicPortForward
+			}
+
+			// OverWrite reverse http dynamic port forwarding
+			if r.HTTPReverseDynamicPortForward != "" {
+				config.HTTPReverseDynamicPortForward = r.HTTPReverseDynamicPortForward
 			}
 
 			// OverWrite local bashrc use
@@ -150,6 +155,12 @@ func (r *Run) cmd() (err error) {
 				go c.HTTPDynamicForward("localhost", config.HTTPDynamicPortForward)
 			}
 
+			// HTTP Reverse Dynamic Port Forwarding
+			if config.HTTPReverseDynamicPortForward != "" {
+				r.printHTTPReverseDynamicPortForward(config.HTTPReverseDynamicPortForward)
+				go c.HTTPReverseDynamicForward("localhost", config.HTTPReverseDynamicPortForward)
+			}
+
 			// if tty
 			if r.IsTerm {
 				c.Stdin = os.Stdin
@@ -172,7 +183,7 @@ func (r *Run) cmd() (err error) {
 		go output.PushInput(exitInput, writers, os.Stdin)
 
 	case !r.IsParallel && len(r.ServerList) > 1:
-		if r.isStdinPipe {
+		if r.IsStdinPipe {
 			stdinData, _ = ioutil.ReadAll(os.Stdin)
 		}
 	}

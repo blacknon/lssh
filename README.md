@@ -12,8 +12,7 @@ List file is set in yaml format.
 When selecting a host, you can filter by keywords.
 Can execute commands concurrently to multiple hosts.
 
-lssh also has a shell (parallel shell) that connects to multiple hosts at the same time and pipes the execution results of local commands and remote hosts.
-In addition, lsftp also has a shell that can be connected in parallel.
+lsftp shells can be connected in parallel.
 
 Supported multiple ssh proxy, http/socks5 proxy, x11 forward, and port forwarding.
 
@@ -25,7 +24,7 @@ Supported multiple ssh proxy, http/socks5 proxy, x11 forward, and port forwardin
 * There is a shell function that connects to multiple hosts in parallel for interactive operation and connects with local commands via pipes.
 * Supported multiple proxy, **ssh**, **http**, and **socks5** proxy. It's supported multi-stage proxy.
 * Supported **ssh-agent**.
-* Supported **Local** and **Remote Port forward**, **Dynamic Forward(SOCKS5, http)**, **Reverse Dynamic Forward(SOCKS5)** and **x11 forward**.
+* Supported **Local** and **Remote Port forward**, **Dynamic Forward(SOCKS5, http)**, **Reverse Dynamic Forward(SOCKS5, http)** and **x11 forward**.
 * Can use bashrc of local machine at ssh connection destination.
 * It supports various authentication methods. Password, Public key, Certificate and PKCS11(Yubikey etc.).
 * Can read the OpenSSH config (~/.ssh/config) and use it as it is.
@@ -139,11 +138,6 @@ option(lssh)
 
 	    # run command parallel in selected server over ssh.
 	    lssh -p command...
-
-	    # run command parallel in selected server over ssh, do it in interactively shell.
-	    lssh -s
-
-
 
 ### lscp
 
@@ -300,7 +294,7 @@ There are other parameters corresponding to ClientAliveInterval and ClientAliveC
 
 </details>
 
-### 2. [lssh] run command (parallel)
+### 2. [lssh] run command (with parallel)
 <details>
 
 It is possible to execute by specifying command in argument.\
@@ -336,27 +330,7 @@ Can be piped to send Stdin.
 
 </details>
 
-### 3. [lssh] Execute commands interactively (parallel shell)
-<details>
-
-You can send commands to multiple servers interactively.
-
-<p align="center">
-<img src="./images/3-1.gif" />
-</p>
-
-	# parallel shell connect
-	lssh -s
-
-
-You can also combine remote and local commands.
-
-	remote_command | !local_command
-
-
-</details>
-
-### 4. [lscp] scp (local=>remote(multi), remote(multi)=>local, remote=>remote(multi))
+### 3. [lscp] scp (local=>remote(multi), remote(multi)=>local, remote=>remote(multi))
 <details>
 
 You can do scp by selecting a list with the command lscp.\
@@ -386,7 +360,7 @@ You can select multiple connection destinations. This program use sftp protocol.
 
 </details>
 
-### 5. [lsftp] sftp (local=>remote(multi), remote(multi)=>local)
+### 4. [lsftp] sftp (local=>remote(multi), remote(multi)=>local)
 <details>
 
 You can do sftp by selecting a list with the command lstp.\
@@ -402,7 +376,7 @@ You can select multiple connection destinations.
 </details>
 
 
-### 6. include ~/.ssh/config file.
+### 5. include ~/.ssh/config file.
 <details>
 
 Load and use `~/.ssh/config` by default.\
@@ -417,7 +391,7 @@ Alternatively, you can specify and read the path as follows: In addition to the 
 
 </details>
 
-### 7. include other ServerConfig file.
+### 6. include other ServerConfig file.
 <details>
 
 You can include server settings in another file.\
@@ -459,7 +433,7 @@ The priority of setting values ​​is as follows.
 
 </details>
 
-### 8. Supported Proxy
+### 7. Supported Proxy
 <details>
 
 Supports multiple proxy.
@@ -530,7 +504,7 @@ Besides this, you can also specify ProxyCommand like OpenSSH.
 </details>
 
 
-### 9. Available authentication method
+### 8. Available authentication method
 <details>
 
 * Password auth
@@ -612,7 +586,7 @@ Besides this, you can also specify ProxyCommand like OpenSSH.
 </details>
 
 
-### 10. Port forwarding
+### 9. Port forwarding
 <details>
 
 Supported Local/Remote/Dynamic port forwarding.\
@@ -665,6 +639,10 @@ If OpenSsh config is loaded, it will be loaded as it is.
 
 </details>
 
+## Related projects
+
+- [go-sshlib](github.com/blacknon/go-sshlib)
+- [lsshell](github.com/blacknon/lsshell)
 
 ## Licence
 
