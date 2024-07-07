@@ -10,12 +10,12 @@ github.com/acarl005/stripansi v0.0.0-20180116102854-5a71ef0e047d h1:licZJFw2RwpH
 github.com/acarl005/stripansi v0.0.0-20180116102854-5a71ef0e047d/go.mod h1:asat636LX7Bqt5lYEZ27JNDcqxfjdBQuJ/MM4CN/Lzo=
 github.com/armon/go-socks5 v0.0.0-20160902184237-e75332964ef5 h1:0CwZNZbxp69SHPdPJAN/hZIm0C4OItdklCFmMRWYpio=
 github.com/armon/go-socks5 v0.0.0-20160902184237-e75332964ef5/go.mod h1:wHh0iHkYZB8zMSxRWpUBQtwG5a7fFgvEO+odwuTv2gs=
-github.com/blacknon/crypto11 v1.2.6 h1:Mv+Boto0qVR1O2k5lmoCYcyXfiQYY7mQ1P/TcK5Tw5c=
-github.com/blacknon/crypto11 v1.2.6/go.mod h1:HThRIRjHpJIJwcExGgNuPCyf26HqcFVTTAnipaXWz7M=
+github.com/blacknon/crypto11 v1.2.7 h1:LKrnCeXAk4jQmpJTeg/tVvNjqEgKHIE+tYSNXQj8Fco=
+github.com/blacknon/crypto11 v1.2.7/go.mod h1:Z24sFD9pMX3NdUFzX52ggcV7HurAYAGvxud73BrHudA=
 github.com/blacknon/go-prompt v0.2.7 h1:dVdTqVplKvpT/k4bB9BlbcBYl/k6amYX5tvjYBmuKkI=
 github.com/blacknon/go-prompt v0.2.7/go.mod h1:zNBmC/BPAyr+3ey1oRhPxuXJS9zz1lEmJpwaoQroe3w=
-github.com/blacknon/go-sshlib v0.1.12 h1:K66DzwzF5RhlKQjcda0R7/FbvslXOayVd75UVzCKfZQ=
-github.com/blacknon/go-sshlib v0.1.12/go.mod h1:EqEKtFd4DInkF3Ryx+YXnj70u7pJenVr4H3uEGEgoHI=
+github.com/blacknon/go-sshlib v0.1.13 h1:QoFoMuGefHWOTr18riHoQux4/lVrrDmsfvBTNuueeNI=
+github.com/blacknon/go-sshlib v0.1.13/go.mod h1:Kxbot2GEniRqBduRtw8Tq6E8XtPLrFEKFmAHdlR+ipk=
 github.com/blacknon/go-x11auth v0.1.0 h1:SnljCPWcvglWeGAlKc1RAPMHnOfMpM9+GrTGEUQ1lqQ=
 github.com/blacknon/go-x11auth v0.1.0/go.mod h1:SKOCa19LluXHyB+OaLYobquzceE0SWxVW7e/qU5xGBM=
 github.com/blacknon/textcol v0.0.1 h1:x9h7yLPGyr8Pdz12XJ30h7Iz5mJlKd0CzfGYxhrmnk8=
@@ -75,7 +75,6 @@ github.com/sevlyar/go-daemon v0.1.5 h1:Zy/6jLbM8CfqJ4x4RPr7MJlSKt90f00kNM1D401C+
 github.com/sevlyar/go-daemon v0.1.5/go.mod h1:6dJpPatBT9eUwM5VCw9Bt6CdX9Tk6UWvhW3MebLDRKE=
 github.com/spf13/pflag v1.0.3/go.mod h1:DYY7MBk1bdzusC3SYhjObp+wFpr4gzcvqqNjLnInEg4=
 github.com/stretchr/objx v0.1.0/go.mod h1:HFkY916IF+rwdDfMAkV7OtwuqBVzrE8GR6GFx+wExME=
-github.com/stretchr/testify v1.3.0/go.mod h1:M5WIy9Dh21IEIfnGCwXGc5bZfKNJtfHm1UVUgZn+9EI=
 github.com/stretchr/testify v1.5.1/go.mod h1:5W2xD1RspED5o8YsWQXVCued0rvSQ+mT+I5cxcmMvtA=
 github.com/stretchr/testify v1.7.0/go.mod h1:6Fq8oRcR53rry900zMqJjRRixrwX3KX962/h/Wwjteg=
 github.com/stretchr/testify v1.7.1 h1:5TQK59W5E3v0r2duFAb7P95B6hEeOyEnHRa8MjYSMTY=

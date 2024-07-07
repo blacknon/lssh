@@ -7,7 +7,7 @@
 package sshlib
 
 import (
-	"github.com/ThalesIgnite/crypto11"
+	"github.com/blacknon/crypto11"
 	"github.com/miekg/pkcs11"
 )
 
