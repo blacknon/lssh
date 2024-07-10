@@ -143,6 +143,12 @@ USAGE:
 			from_l.MultiFlag = false
 			from_l.View()
 			fromServer = from_l.SelectName
+
+			// Check selected
+			if len(fromServer) == 0 {
+				fmt.Fprintln(os.Stderr, "Server config is not set.")
+				os.Exit(1)
+			}
 			if fromServer[0] == "ServerName" {
 				fmt.Fprintln(os.Stderr, "Server not selected.")
 				os.Exit(1)
@@ -156,6 +162,11 @@ USAGE:
 			to_l.MultiFlag = true
 			to_l.View()
 			toServer = to_l.SelectName
+			if len(toServer) == 0 {
+				fmt.Fprintln(os.Stderr, "Server config is not set.")
+				os.Exit(1)
+			}
+
 			if toServer[0] == "ServerName" {
 				fmt.Fprintln(os.Stderr, "Server not selected.")
 				os.Exit(1)
@@ -171,6 +182,11 @@ USAGE:
 			l.View()
 
 			selected = l.SelectName
+			// Check selected
+			if len(selected) == 0 {
+				fmt.Fprintln(os.Stderr, "Server config is not set.")
+				os.Exit(1)
+			}
 			if selected[0] == "ServerName" {
 				fmt.Fprintln(os.Stderr, "Server not selected.")
 				os.Exit(1)
