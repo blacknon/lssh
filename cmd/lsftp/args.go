@@ -87,6 +87,12 @@ USAGE:
 
 		// selected check
 		selected := l.SelectName
+
+		// Check selected
+		if len(selected) == 0 {
+			fmt.Fprintln(os.Stderr, "Server config is not set.")
+			os.Exit(1)
+		}
 		if selected[0] == "ServerName" {
 			fmt.Fprintln(os.Stderr, "Server not selected.")
 			os.Exit(1)

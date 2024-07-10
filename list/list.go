@@ -184,6 +184,11 @@ func (l *ListInfo) getFilterText() {
 
 // View is display the list in TUI
 func (l *ListInfo) View() {
+	l.getText()
+	if len(l.DataText) == 1 {
+		return
+	}
+
 	if err := termbox.Init(); err != nil {
 		panic(err)
 	}
@@ -192,7 +197,6 @@ func (l *ListInfo) View() {
 	// enable termbox mouse input
 	termbox.SetInputMode(termbox.InputMouse)
 
-	l.getText()
 	l.keyEvent()
 }
 
