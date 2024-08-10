@@ -139,7 +139,7 @@ option(lssh)
 	    # run command parallel in selected server over ssh.
 	    lssh -p command...
 
-### lscp
+### lscpd
 
 run command.
 

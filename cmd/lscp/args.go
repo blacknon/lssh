@@ -58,7 +58,7 @@ USAGE:
 	app.Name = "lscp"
 	app.Usage = "TUI list select and parallel scp client command."
 	app.Copyright = "blacknon(blacknon@orebibou.com)"
-	app.Version = "0.6.9"
+	app.Version = "0.6.10"
 
 	// options
 	// TODO(blacknon): オプションの追加(0.7.0)
