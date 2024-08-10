@@ -432,9 +432,10 @@ func (cp *Scp) pullPath(client *ScpConnect) {
 				}
 
 				p := walker.Path()
-				rp, _ := filepath.Rel(remoteBase, fileName)
+				// rp, _ := filepath.Rel(remoteBase, fileName)
+				rp, _ := filepath.Rel(remoteBase, p)
 				if fileName == "" {
-					rp, _ = filepath.Rel(remoteBase, p)
+					rp, _ = filepath.Rel(remoteBase, fileName)
 				}
 				lpath := filepath.Join(baseDir, rp)
 
