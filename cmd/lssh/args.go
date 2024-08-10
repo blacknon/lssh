@@ -59,7 +59,7 @@ USAGE:
 	app.Name = "lssh"
 	app.Usage = "TUI list select and parallel ssh client command."
 	app.Copyright = "blacknon(blacknon@orebibou.com)"
-	app.Version = "0.6.10"
+	app.Version = "0.6.11"
 
 	// TODO(blacknon): オプションの追加
 	//     -m       ... NFSマウントで、リモートホストの特定ディレクトリをローカルにマウント可能にする (v0.7.0)
