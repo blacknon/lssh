@@ -1,7 +1,11 @@
 # Meta files
 *.DS_Store
+# Sublime text
 *.sublime-*
+## VSCode
 .vscode
+## GoLand
+.idea
 
 # Binary programs
 /lssh

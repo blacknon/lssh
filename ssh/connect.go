@@ -28,7 +28,7 @@ func (r *Run) CreateSshConnect(server string) (connect *sshlib.Connect, err erro
 	}
 
 	// setup dialer
-	var dialer proxy.Dialer
+	var dialer sshlib.ProxyDialer
 	dialer = proxy.Direct
 
 	// Connect loop proxy server

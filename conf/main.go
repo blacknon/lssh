@@ -11,8 +11,10 @@ conf is a package used to read configuration file (~/.lssh.conf).
 //                 - Azure Bastion
 //                 - GCP(gcloud compute ssh)
 
-// TODO(blacknon): if/whenなどを使って、条件に応じて設定を追加するような仕組みを実装したい
+// TODO(blacknon): if/whenなどを使って、条件に応じて設定を追加するような仕組みを実装したい(v0.7.0)
 //                 ex) 現在のipアドレスのrangeが192.168.10.0/24 => xxxのnwだからproxy serverが必要
+
+// TODO(blacknon): 接続成功時に特定のコマンドを実行可能にする(接続前しか今はないので)
 
 package conf
 
@@ -20,6 +22,7 @@ import (
 	"crypto/md5"
 	"encoding/hex"
 	"fmt"
+	"log"
 	"os"
 	"strings"
 	"time"
@@ -138,18 +141,18 @@ func (c *Config) checkFormatServerConf() (ok bool) {
 	for k, v := range c.Server {
 		// Address Set Check
 		if v.Addr == "" {
-			fmt.Printf("%s: 'addr' is not set.\n", k)
+			log.Printf("%s: 'addr' is not set.\n", k)
 			ok = false
 		}
 
 		// User Set Check
 		if v.User == "" {
-			fmt.Printf("%s: 'user' is not set.\n", k)
+			log.Printf("%s: 'user' is not set.\n", k)
 			ok = false
 		}
 
 		if !checkFormatServerConfAuth(v) {
-			fmt.Printf("%s: Authentication information is not set.\n", k)
+			log.Printf("%s: Authentication information is not set.\n", k)
 			ok = false
 		}
 	}
@@ -167,7 +170,7 @@ func Read(confPath string) (c Config) {
 		// Read config file
 		_, err := toml.DecodeFile(confPath, &c)
 		if err != nil {
-			fmt.Println(err)
+			log.Println(err)
 			os.Exit(1)
 		}
 	}

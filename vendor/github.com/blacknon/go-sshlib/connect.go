@@ -5,6 +5,7 @@
 package sshlib
 
 import (
+	"context"
 	"io"
 	"log"
 	"net"
@@ -32,7 +33,7 @@ type Connect struct {
 	Stderr io.Writer
 
 	// ProxyDialer
-	ProxyDialer proxy.Dialer
+	ProxyDialer proxy.ContextDialer
 
 	// Connect timeout second.
 	ConnectTimeout int
@@ -146,8 +147,11 @@ func (c *Connect) CreateClient(host, port, user string, authMethods []ssh.AuthMe
 		c.ProxyDialer = proxy.Direct
 	}
 
+	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(timeout)*time.Second)
+	defer cancel()
+
 	// Dial to host:port
-	netConn, err := c.ProxyDialer.Dial("tcp", uri)
+	netConn, err := c.ProxyDialer.DialContext(ctx, "tcp", uri)
 	if err != nil {
 		return
 	}
