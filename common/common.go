@@ -88,6 +88,11 @@ func MapReduce(map1, map2 map[string]interface{}) map[string]interface{} {
 			if value == true && map2Value.Bool() == false {
 				map2[ia] = value
 			}
+		case int:
+			map2Value := reflect.ValueOf(map2[ia])
+			if value != 0 && map2Value.Int() == 0 {
+				map2[ia] = value
+			}
 		}
 	}
 
