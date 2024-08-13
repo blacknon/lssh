@@ -117,15 +117,15 @@ func (c *Connect) CreateClient(host, port, user string, authMethods []ssh.AuthMe
 	uri := net.JoinHostPort(host, port)
 
 	timeout := 20
-	if c.ConnectTimeout > 0 {
-		timeout = c.ConnectTimeout
+	if c.ConnectTimeout == 0 {
+		c.ConnectTimeout = timeout
 	}
 
 	// Create new ssh.ClientConfig{}
 	config := &ssh.ClientConfig{
 		User:    user,
 		Auth:    authMethods,
-		Timeout: time.Duration(timeout) * time.Second,
+		Timeout: time.Duration(c.ConnectTimeout) * time.Second,
 	}
 
 	if c.HostKeyCallback != nil {
@@ -147,20 +147,26 @@ func (c *Connect) CreateClient(host, port, user string, authMethods []ssh.AuthMe
 		c.ProxyDialer = proxy.Direct
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(timeout)*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(c.ConnectTimeout)*time.Second)
 	defer cancel()
 
 	// Dial to host:port
-	netConn, err := c.ProxyDialer.DialContext(ctx, "tcp", uri)
-	if err != nil {
-		return
+	netConn, cerr := c.ProxyDialer.DialContext(ctx, "tcp", uri)
+	if cerr != nil {
+		return cerr
 	}
 
+	// Set deadline
+	netConn.SetDeadline(time.Now().Add(time.Duration(c.ConnectTimeout) * time.Second))
+
 	// Create new ssh connect
-	sshCon, channel, req, err := ssh.NewClientConn(netConn, uri, config)
-	if err != nil {
-		return
+	sshCon, channel, req, cerr := ssh.NewClientConn(netConn, uri, config)
+	if cerr != nil {
+		return cerr
 	}
+
+	// Reet deadline
+	netConn.SetDeadline(time.Time{})
 
 	// Create *ssh.Client
 	c.Client = ssh.NewClient(sshCon, channel, req)
@@ -172,7 +178,6 @@ func (c *Connect) CreateClient(host, port, user string, authMethods []ssh.AuthMe
 func (c *Connect) CreateSession() (session *ssh.Session, err error) {
 	// Create session
 	session, err = c.Client.NewSession()
-
 	return
 }
 
@@ -180,32 +185,29 @@ func (c *Connect) CreateSession() (session *ssh.Session, err error) {
 // TODO(blacknon): Interval及びMaxを設定できるようにする(v0.1.1)
 func (c *Connect) SendKeepAlive(session *ssh.Session) {
 	// keep alive interval (default 30 sec)
-	interval := 30
+	interval := 1
 	if c.SendKeepAliveInterval > 0 {
 		interval = c.SendKeepAliveInterval
 	}
 
-	// keep alive max (default 5)
-	max := 5
-	if c.SendKeepAliveMax > 0 {
-		max = c.SendKeepAliveMax
-	}
-
-	// keep alive counter
-	i := 0
 	for {
-		// Send keep alive packet
-		_, err := session.SendRequest("keepalive", true, nil)
-		// _, _, err := c.Client.SendRequest("keepalive", true, nil)
-		if err == nil {
-			i = 0
-		} else {
-			i += 1
-		}
+		// timeout channel
+		tc := make(chan bool, 1)
 
-		// check counter
-		if max <= i {
+		go func() {
+			// Send keep alive packet
+			_, err := session.SendRequest("keepalive", true, nil)
+			if err == nil {
+				tc <- true
+			}
+		}()
+
+		select {
+		case <-tc:
+		case <-time.After(time.Duration(c.ConnectTimeout) * time.Second):
 			session.Close()
+			c.Client.Close()
+			log.Println("keepalive timeout")
 			return
 		}
 

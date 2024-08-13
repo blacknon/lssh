@@ -27,6 +27,8 @@ type RequestServer struct {
 	*serverConn
 	pktMgr *packetManager
 
+	startDirectory string
+
 	mu           sync.RWMutex
 	handleCount  int
 	openRequests map[string]*Request
@@ -47,6 +49,14 @@ func WithRSAllocator() RequestServerOption {
 	}
 }
 
+// WithStartDirectory sets a start directory to use as base for relative paths.
+// If unset the default is "/"
+func WithStartDirectory(startDirectory string) RequestServerOption {
+	return func(rs *RequestServer) {
+		rs.startDirectory = cleanPath(startDirectory)
+	}
+}
+
 // NewRequestServer creates/allocates/returns new RequestServer.
 // Normally there will be one server per user-session.
 func NewRequestServer(rwc io.ReadWriteCloser, h Handlers, options ...RequestServerOption) *RequestServer {
@@ -61,6 +71,8 @@ func NewRequestServer(rwc io.ReadWriteCloser, h Handlers, options ...RequestServ
 
 		serverConn: svrConn,
 		pktMgr:     newPktMgr(svrConn),
+
+		startDirectory: "/",
 
 		openRequests: make(map[string]*Request),
 	}
@@ -207,14 +219,23 @@ func (rs *RequestServer) packetWorker(ctx context.Context, pktChan chan orderedR
 			rpkt = statusFromError(pkt.ID, rs.closeRequest(handle))
 		case *sshFxpRealpathPacket:
 			var realPath string
-			if realPather, ok := rs.Handlers.FileList.(RealPathFileLister); ok {
-				realPath = realPather.RealPath(pkt.getPath())
-			} else {
-				realPath = cleanPath(pkt.getPath())
+			var err error
+
+			switch pather := rs.Handlers.FileList.(type) {
+			case RealPathFileLister:
+				realPath, err = pather.RealPath(pkt.getPath())
+			case legacyRealPathFileLister:
+				realPath = pather.RealPath(pkt.getPath())
+			default:
+				realPath = cleanPathWithBase(rs.startDirectory, pkt.getPath())
 			}
-			rpkt = cleanPacketPath(pkt, realPath)
+			if err != nil {
+				rpkt = statusFromError(pkt.ID, err)
+			} else {
+				rpkt = cleanPacketPath(pkt, realPath)
+			}
 		case *sshFxpOpendirPacket:
-			request := requestFromPacket(ctx, pkt)
+			request := requestFromPacket(ctx, pkt, rs.startDirectory)
 			handle := rs.nextRequest(request)
 			rpkt = request.opendir(rs.Handlers, pkt)
 			if _, ok := rpkt.(*sshFxpHandlePacket); !ok {
@@ -222,7 +243,7 @@ func (rs *RequestServer) packetWorker(ctx context.Context, pktChan chan orderedR
 				rs.closeRequest(handle)
 			}
 		case *sshFxpOpenPacket:
-			request := requestFromPacket(ctx, pkt)
+			request := requestFromPacket(ctx, pkt, rs.startDirectory)
 			handle := rs.nextRequest(request)
 			rpkt = request.open(rs.Handlers, pkt)
 			if _, ok := rpkt.(*sshFxpHandlePacket); !ok {
@@ -235,7 +256,10 @@ func (rs *RequestServer) packetWorker(ctx context.Context, pktChan chan orderedR
 			if !ok {
 				rpkt = statusFromError(pkt.ID, EBADF)
 			} else {
-				request = NewRequest("Stat", request.Filepath)
+				request = &Request{
+					Method:   "Stat",
+					Filepath: cleanPathWithBase(rs.startDirectory, request.Filepath),
+				}
 				rpkt = request.call(rs.Handlers, pkt, rs.pktMgr.alloc, orderID)
 			}
 		case *sshFxpFsetstatPacket:
@@ -244,15 +268,24 @@ func (rs *RequestServer) packetWorker(ctx context.Context, pktChan chan orderedR
 			if !ok {
 				rpkt = statusFromError(pkt.ID, EBADF)
 			} else {
-				request = NewRequest("Setstat", request.Filepath)
+				request = &Request{
+					Method:   "Setstat",
+					Filepath: cleanPathWithBase(rs.startDirectory, request.Filepath),
+				}
 				rpkt = request.call(rs.Handlers, pkt, rs.pktMgr.alloc, orderID)
 			}
 		case *sshFxpExtendedPacketPosixRename:
-			request := NewRequest("PosixRename", pkt.Oldpath)
-			request.Target = pkt.Newpath
+			request := &Request{
+				Method:   "PosixRename",
+				Filepath: cleanPathWithBase(rs.startDirectory, pkt.Oldpath),
+				Target:   cleanPathWithBase(rs.startDirectory, pkt.Newpath),
+			}
 			rpkt = request.call(rs.Handlers, pkt, rs.pktMgr.alloc, orderID)
 		case *sshFxpExtendedPacketStatVFS:
-			request := NewRequest("StatVFS", pkt.Path)
+			request := &Request{
+				Method:   "StatVFS",
+				Filepath: cleanPathWithBase(rs.startDirectory, pkt.Path),
+			}
 			rpkt = request.call(rs.Handlers, pkt, rs.pktMgr.alloc, orderID)
 		case hasHandle:
 			handle := pkt.getHandle()
@@ -263,7 +296,7 @@ func (rs *RequestServer) packetWorker(ctx context.Context, pktChan chan orderedR
 				rpkt = request.call(rs.Handlers, pkt, rs.pktMgr.alloc, orderID)
 			}
 		case hasPath:
-			request := requestFromPacket(ctx, pkt)
+			request := requestFromPacket(ctx, pkt, rs.startDirectory)
 			rpkt = request.call(rs.Handlers, pkt, rs.pktMgr.alloc, orderID)
 			request.close()
 		default:

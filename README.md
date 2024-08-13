@@ -641,8 +641,8 @@ If OpenSsh config is loaded, it will be loaded as it is.
 
 ## Related projects
 
-- [go-sshlib](github.com/blacknon/go-sshlib)
-- [lsshell](github.com/blacknon/lsshell)
+- [go-sshlib](https://github.com/blacknon/go-sshlib)
+- [lsshell](https://github.com/blacknon/lsshell)
 
 ## Licence
 

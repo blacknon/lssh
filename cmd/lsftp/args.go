@@ -50,7 +50,7 @@ USAGE:
 	app.Name = "lsftp"
 	app.Usage = "TUI list select and parallel sftp client command."
 	app.Copyright = "blacknon(blacknon@orebibou.com)"
-	app.Version = "0.6.11"
+	app.Version = "0.6.12"
 
 	app.Flags = []cli.Flag{
 		cli.StringFlag{Name: "file,F", Value: defConf, Usage: "config file path"},

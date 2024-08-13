@@ -7,6 +7,9 @@
 package sshlib
 
 import (
+	"errors"
+	"os"
+
 	"github.com/miekg/pkcs11"
 	"golang.org/x/crypto/ssh"
 )
@@ -36,6 +39,11 @@ func CreateAuthMethodPKCS11(provider, pin string) (auth []ssh.AuthMethod, err er
 func CreateSignerPKCS11(provider, pin string) (signers []ssh.Signer, err error) {
 	// get absolute path
 	provider = getAbsPath(provider)
+
+	// Check exist provider
+	if _, err = os.Stat(provider); errors.Is(err, os.ErrNotExist) {
+		return
+	}
 
 	ctx := pkcs11.New(provider)
 	err = ctx.Initialize()
