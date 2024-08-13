@@ -62,8 +62,8 @@ USAGE:
 	app.Version = "0.6.12"
 
 	// TODO(blacknon): オプションの追加
-	//     -m       ... NFSマウントで、リモートホストの特定ディレクトリをローカルにマウント可能にする (v0.7.0)
-	//     -M       ... リバースNFSマウントで、リモートホストの特定ディレクトリをローカルにマウント可能にする (v0.7.0)
+	//     -n       ... NFSマウントで、リモートホストの特定ディレクトリをローカルにマウント可能にする (v0.7.0)
+	//     -m       ... リバースNFSマウントで、リモートホストの特定ディレクトリをローカルにマウント可能にする (v0.7.0)
 	//     -f       ... バックグラウンドでの接続(X11接続やport forwardingをバックグラウンドで実行する場合など)。
 	//                  「ssh -f」と同じ。 (v0.7.0)
 	//                  (https://github.com/sevlyar/go-daemon)
@@ -85,6 +85,8 @@ USAGE:
 		cli.StringFlag{Name: "D", Usage: "Dynamic port forward mode(Socks5). Specify a `port`. Only single connection works."},
 		cli.StringFlag{Name: "d", Usage: "HTTP Dynamic port forward mode. Specify a `port`. Only single connection works."},
 		cli.StringFlag{Name: "r", Usage: "HTTP Reverse Dynamic port forward mode. Specify a `port`. Only single connection works."},
+		cli.StringFlag{Name: "n", Usage: "NFS Dynamic forward mode. Specify a `port:/path/to/remote`. Only single connection works."},
+		cli.StringFlag{Name: "m", Usage: "NFS Reverse Dynamic forward mode. Specify a `port:/path/to/local`. Only single connection works."},
 
 		// Other bool
 		cli.BoolFlag{Name: "w", Usage: "Displays the server header when in command execution mode."},
@@ -236,6 +238,36 @@ USAGE:
 			}
 		}
 
+		// Set NFS Forwarding
+		nfsForwarding := c.String("n")
+		if nfsForwarding != "" {
+			port, path, err := common.ParseNFSForwardPortPath(nfsForwarding)
+			if err != nil {
+				fmt.Fprintf(os.Stderr, "Error: %s\n", err)
+				os.Exit(1)
+			}
+
+			path = common.GetFullPath(path)
+
+			r.NFSDynamicForwardPort = port
+			r.NFSDynamicForwardPath = path
+		}
+
+		// Set NFS Reverse Forwarding
+		nfsReverseForwarding := c.String("m")
+		if nfsReverseForwarding != "" {
+			port, path, err := common.ParseNFSForwardPortPath(nfsReverseForwarding)
+			if err != nil {
+				fmt.Fprintf(os.Stderr, "Error: %s\n", err)
+				os.Exit(1)
+			}
+
+			path = common.GetFullPath(path)
+
+			r.NFSReverseDynamicForwardPort = port
+			r.NFSReverseDynamicForwardPath = path
+		}
+
 		// if err
 		if err != nil {
 			fmt.Printf("Error: %s \n", err)
@@ -255,6 +287,12 @@ USAGE:
 
 		// HTTP Reverse Dynamic port forwarding port
 		r.HTTPReverseDynamicPortForward = c.String("r")
+
+		// NFS Dynamic forwarding port
+		// r.NFSDynamicPortForward = c.String("n")
+
+		// NFS Reverse Dynamic forwarding port
+		// r.NFSReverseDynamicPortForward = c.String("m")
 
 		r.Start()
 		return nil

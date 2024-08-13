@@ -370,6 +370,19 @@ func ParseForwardPort(value string) (local, remote string, err error) {
 	return
 }
 
+func ParseNFSForwardPortPath(value string) (port, path string, err error) {
+	data := strings.Split(value, ":")
+	if len(data) != 2 {
+		err = errors.New("Could not parse.")
+		return
+	}
+
+	port = data[0]
+	path = data[1]
+
+	return
+}
+
 // ParseHostPath return host and path, from host:/path/to/dir/file.
 func ParseHostPath(value string) (host []string, path string) {
 	if !strings.Contains(value, ":") {
