@@ -161,6 +161,20 @@ func (r *Run) cmd() (err error) {
 				go c.HTTPReverseDynamicForward("localhost", config.HTTPReverseDynamicPortForward)
 			}
 
+			// NFS Dynamic Forward
+			if r.NFSDynamicForwardPort != "" && r.NFSDynamicForwardPath != "" {
+				config.NFSDynamicForwardPort = r.NFSDynamicForwardPort
+				config.NFSDynamicForwardPath = r.NFSDynamicForwardPath
+				go c.NFSForward("localhost", config.NFSDynamicForwardPort, config.NFSDynamicForwardPath)
+			}
+
+			// NFS Reverse Dynamic Forward
+			if r.NFSReverseDynamicForwardPath != "" && r.NFSReverseDynamicForwardPath != "" {
+				config.NFSReverseDynamicForwardPort = r.NFSReverseDynamicForwardPort
+				config.NFSReverseDynamicForwardPath = r.NFSReverseDynamicForwardPath
+				go c.NFSReverseForward("localhost", config.NFSReverseDynamicForwardPort, config.NFSReverseDynamicForwardPath)
+			}
+
 			// if tty
 			if r.IsTerm {
 				c.Stdin = os.Stdin
