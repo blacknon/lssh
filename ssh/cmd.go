@@ -169,7 +169,7 @@ func (r *Run) cmd() (err error) {
 			}
 
 			// NFS Reverse Dynamic Forward
-			if r.NFSReverseDynamicForwardPath != "" && r.NFSReverseDynamicForwardPath != "" {
+			if r.NFSReverseDynamicForwardPort != "" && r.NFSReverseDynamicForwardPath != "" {
 				config.NFSReverseDynamicForwardPort = r.NFSReverseDynamicForwardPort
 				config.NFSReverseDynamicForwardPath = r.NFSReverseDynamicForwardPath
 				go c.NFSReverseForward("localhost", config.NFSReverseDynamicForwardPort, config.NFSReverseDynamicForwardPath)
