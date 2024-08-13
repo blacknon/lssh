@@ -8,10 +8,10 @@ import (
 	"bufio"
 	"context"
 	"fmt"
+	"log"
 	"net"
 	"net/http"
 	"net/url"
-	"os"
 	"os/exec"
 
 	"golang.org/x/net/proxy"
@@ -23,19 +23,31 @@ type ProxyDialer interface {
 }
 
 type ContextDialer struct {
-	dialer proxy.Dialer
+	Dialer proxy.Dialer
+}
+
+func (c *ContextDialer) GetDialer() proxy.Dialer {
+	return c.Dialer
 }
 
 func (c *ContextDialer) Dial(network, addr string) (net.Conn, error) {
-	return c.dialer.Dial(network, addr)
+	return c.Dialer.Dial(network, addr)
 }
 
 func (c *ContextDialer) DialContext(ctx context.Context, network, addr string) (net.Conn, error) {
+	// Simply call the DialContext method if supported
+	if dialerCtx, ok := c.Dialer.(interface {
+		DialContext(context.Context, string, string) (net.Conn, error)
+	}); ok {
+		return dialerCtx.DialContext(ctx, network, addr)
+	}
+
+	// Fallback if DialContext is not supported
 	connChan := make(chan net.Conn, 1)
 	errChan := make(chan error, 1)
 
 	go func() {
-		conn, err := c.dialer.Dial(network, addr)
+		conn, err := c.Dialer.Dial(network, addr)
 		if err != nil {
 			errChan <- err
 			return
@@ -96,7 +108,7 @@ func (p *Proxy) CreateProxyDialer() (proxyContextDialer ProxyDialer, err error) 
 		proxyDialer, err = p.CreateProxyCommandProxyDialer()
 	}
 
-	proxyContextDialer = &ContextDialer{dialer: proxyDialer}
+	proxyContextDialer = &ContextDialer{Dialer: proxyDialer}
 
 	return
 }
@@ -158,6 +170,8 @@ func (p *Proxy) CreateProxyCommandProxyDialer() (proxyDialer proxy.Dialer, err e
 
 type NetPipe struct {
 	Command string
+	ctx     context.Context
+	Cmd     *exec.Cmd
 }
 
 func (n *NetPipe) Dial(network, addr string) (con net.Conn, err error) {
@@ -167,15 +181,15 @@ func (n *NetPipe) Dial(network, addr string) (con net.Conn, err error) {
 	// Create net.Pipe(), and set proxyCommand
 	con, srv := net.Pipe()
 
-	cmd := exec.Command("sh", "-c", n.Command)
+	n.Cmd = exec.Command("sh", "-c", n.Command)
 
 	// setup FD
-	cmd.Stdin = srv
-	cmd.Stdout = srv
-	cmd.Stderr = os.Stderr
+	n.Cmd.Stdin = srv
+	n.Cmd.Stdout = srv
+	n.Cmd.Stderr = log.Writer()
 
-	// run proxyCommand
-	err = cmd.Start()
+	// Start the command
+	err = n.Cmd.Start()
 
 	return
 }
@@ -190,6 +204,7 @@ func (n *NetPipe) DialContext(ctx context.Context, network, addr string) (con ne
 			errChan <- err
 			return
 		}
+
 		connChan <- conn
 	}()
 
@@ -199,6 +214,7 @@ func (n *NetPipe) DialContext(ctx context.Context, network, addr string) (con ne
 	case err := <-errChan:
 		return nil, err
 	case <-ctx.Done():
+		n.Cmd.Process.Kill()
 		return nil, ctx.Err()
 	}
 }
@@ -256,29 +272,6 @@ func (s *httpProxy) Dial(network, addr string) (net.Conn, error) {
 	}
 
 	return c, nil
-}
-
-func (s *httpProxy) DialContext(ctx context.Context, network, addr string) (con net.Conn, err error) {
-	connChan := make(chan net.Conn, 1)
-	errChan := make(chan error, 1)
-
-	go func() {
-		conn, err := s.Dial(network, addr)
-		if err != nil {
-			errChan <- err
-			return
-		}
-		connChan <- conn
-	}()
-
-	select {
-	case conn := <-connChan:
-		return conn, nil
-	case err := <-errChan:
-		return nil, err
-	case <-ctx.Done():
-		return nil, ctx.Err()
-	}
 }
 
 // newHttpProxy
