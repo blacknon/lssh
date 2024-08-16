@@ -643,6 +643,7 @@ If OpenSsh config is loaded, it will be loaded as it is.
 
 - [go-sshlib](https://github.com/blacknon/go-sshlib)
 - [lsshell](https://github.com/blacknon/lsshell)
+- [lsmon](https://github.com/blacknon/lsmon)
 
 ## Licence
 
