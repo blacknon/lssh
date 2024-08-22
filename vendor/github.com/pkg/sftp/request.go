@@ -168,9 +168,11 @@ func (r *Request) copy() *Request {
 }
 
 // New Request initialized based on packet data
-func requestFromPacket(ctx context.Context, pkt hasPath) *Request {
-	method := requestMethod(pkt)
-	request := NewRequest(method, pkt.getPath())
+func requestFromPacket(ctx context.Context, pkt hasPath, baseDir string) *Request {
+	request := &Request{
+		Method:   requestMethod(pkt),
+		Filepath: cleanPathWithBase(baseDir, pkt.getPath()),
+	}
 	request.ctx, request.cancelCtx = context.WithCancel(ctx)
 
 	switch p := pkt.(type) {
@@ -180,13 +182,14 @@ func requestFromPacket(ctx context.Context, pkt hasPath) *Request {
 		request.Flags = p.Flags
 		request.Attrs = p.Attrs.([]byte)
 	case *sshFxpRenamePacket:
-		request.Target = cleanPath(p.Newpath)
+		request.Target = cleanPathWithBase(baseDir, p.Newpath)
 	case *sshFxpSymlinkPacket:
 		// NOTE: given a POSIX compliant signature: symlink(target, linkpath string)
 		// this makes Request.Target the linkpath, and Request.Filepath the target.
-		request.Target = cleanPath(p.Linkpath)
+		request.Target = cleanPathWithBase(baseDir, p.Linkpath)
+		request.Filepath = p.Targetpath
 	case *sshFxpExtendedPacketHardlink:
-		request.Target = cleanPath(p.Newpath)
+		request.Target = cleanPathWithBase(baseDir, p.Newpath)
 	}
 	return request
 }
@@ -292,7 +295,12 @@ func (r *Request) call(handlers Handlers, pkt requestPacket, alloc *allocator, o
 		return filecmd(handlers.FileCmd, r, pkt)
 	case "List":
 		return filelist(handlers.FileList, r, pkt)
-	case "Stat", "Lstat", "Readlink":
+	case "Stat", "Lstat":
+		return filestat(handlers.FileList, r, pkt)
+	case "Readlink":
+		if readlinkFileLister, ok := handlers.FileList.(ReadlinkFileLister); ok {
+			return readlink(readlinkFileLister, r, pkt)
+		}
 		return filestat(handlers.FileList, r, pkt)
 	default:
 		return statusFromError(pkt.id(), fmt.Errorf("unexpected method: %s", r.Method))
@@ -593,6 +601,23 @@ func filestat(h FileLister, r *Request, pkt requestPacket) responsePacket {
 	default:
 		err = fmt.Errorf("unexpected method: %s", r.Method)
 		return statusFromError(pkt.id(), err)
+	}
+}
+
+func readlink(readlinkFileLister ReadlinkFileLister, r *Request, pkt requestPacket) responsePacket {
+	resolved, err := readlinkFileLister.Readlink(r.Filepath)
+	if err != nil {
+		return statusFromError(pkt.id(), err)
+	}
+	return &sshFxpNamePacket{
+		ID: pkt.id(),
+		NameAttrs: []*sshFxpNameAttr{
+			{
+				Name:     resolved,
+				LongName: resolved,
+				Attrs:    emptyFileStat,
+			},
+		},
 	}
 }
 

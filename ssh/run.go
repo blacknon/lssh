@@ -19,6 +19,8 @@ import (
 	"golang.org/x/crypto/ssh/terminal"
 )
 
+// TOOD(blacknon): なんかProxyのポートが表示おかしいので、修正する(v0.7.0)
+
 // TODO(blacknon): 自動再接続機能の追加(v1.0.0)
 //     autosshのように、接続が切れた際に自動的に再接続を試みる動作をさせたい
 //     パラメータでの有効・無効指定が必要になる。
@@ -94,6 +96,22 @@ type Run struct {
 	// HTTP Reverse Dynamic Port Forwarding
 	// set remotehost port num (ex. 11080).
 	HTTPReverseDynamicPortForward string
+
+	// NFS Dynamic Forward
+	// set localhost port num (ex. 12049).
+	NFSDynamicForwardPort string
+
+	// NFS Dynamic Forward Path
+	// set remotehost path (ex. /path/to/remote).
+	NFSDynamicForwardPath string
+
+	// NFS Reverse Dynamic Forward
+	// set remotehost port num (ex. 12049).
+	NFSReverseDynamicForwardPort string
+
+	// NFS Reverse Dynamic Forward Path
+	// set localhost path (ex. /path/to/local).
+	NFSReverseDynamicForwardPath string
 
 	// Exec command
 	ExecCmd []string
@@ -260,6 +278,24 @@ func (r *Run) printHTTPReverseDynamicPortForward(port string) {
 	if port != "" {
 		fmt.Fprintf(os.Stderr, "HTTPReverseDynamicForward:%s\n", port)
 		fmt.Fprintf(os.Stderr, "                        %s\n", "connect http.")
+	}
+}
+
+// printNFSDynamicForward is printout forwarding.
+// use ssh command run header. only use shell().
+func (r *Run) printNFSDynamicForward(port, path string) {
+	if port != "" {
+		fmt.Fprintf(os.Stderr, "NFSDynamicForward:%s:%s\n", port, path)
+		fmt.Fprintf(os.Stderr, "                 %s\n", "connect NFS.")
+	}
+}
+
+// printNFSReverseDynamicForward is printout forwarding.
+// use ssh command run header. only use shell().
+func (r *Run) printNFSReverseDynamicForward(port, path string) {
+	if port != "" {
+		fmt.Fprintf(os.Stderr, "NFSReverseDynamicForward:%s:%s\n", port, path)
+		fmt.Fprintf(os.Stderr, "                      %s\n", "connect NFS.")
 	}
 }
 

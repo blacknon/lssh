@@ -59,11 +59,11 @@ USAGE:
 	app.Name = "lssh"
 	app.Usage = "TUI list select and parallel ssh client command."
 	app.Copyright = "blacknon(blacknon@orebibou.com)"
-	app.Version = "0.6.11"
+	app.Version = "0.6.12"
 
 	// TODO(blacknon): オプションの追加
-	//     -m       ... NFSマウントで、リモートホストの特定ディレクトリをローカルにマウント可能にする (v0.7.0)
-	//     -M       ... リバースNFSマウントで、リモートホストの特定ディレクトリをローカルにマウント可能にする (v0.7.0)
+	//     -T       ... マウント・リバースマウントのTypeを指定できるようにする(v0.7.0)
+	//                  ※ そもそもfuseをそのままfusemountでマウントできるのか？という謎もある
 	//     -f       ... バックグラウンドでの接続(X11接続やport forwardingをバックグラウンドで実行する場合など)。
 	//                  「ssh -f」と同じ。 (v0.7.0)
 	//                  (https://github.com/sevlyar/go-daemon)
@@ -72,6 +72,8 @@ USAGE:
 	//              ... 自動接続モード(接続が切れてしまった場合、自動的に再接続を試みる)。再試行の回数指定(デフォルトは3回?)。  (v0.7.0)
 	//     --read_profile
 	//              ... デフォルトではlocalrc読み込みでのshellではsshサーバ上のprofileは読み込まないが、このオプションを指定することで読み込まれるようになる (v0.7.0)
+	//     -P
+	//              ... 3muxを用いたマルチプレクサでのParallel Shell/Command実行を有効にする(v0.7.0)
 
 	// Set options
 	app.Flags = []cli.Flag{
@@ -85,6 +87,8 @@ USAGE:
 		cli.StringFlag{Name: "D", Usage: "Dynamic port forward mode(Socks5). Specify a `port`. Only single connection works."},
 		cli.StringFlag{Name: "d", Usage: "HTTP Dynamic port forward mode. Specify a `port`. Only single connection works."},
 		cli.StringFlag{Name: "r", Usage: "HTTP Reverse Dynamic port forward mode. Specify a `port`. Only single connection works."},
+		cli.StringFlag{Name: "M", Usage: "NFS Dynamic forward mode. Specify a `port:/path/to/remote`. Only single connection works."},
+		cli.StringFlag{Name: "m", Usage: "NFS Reverse Dynamic forward mode. Specify a `port:/path/to/local`. Only single connection works."},
 
 		// Other bool
 		cli.BoolFlag{Name: "w", Usage: "Displays the server header when in command execution mode."},
@@ -234,6 +238,34 @@ USAGE:
 				f.Local, f.Remote, err = common.ParseForwardPort(forwardargs)
 				forwards = append(forwards, f)
 			}
+		}
+
+		// Set NFS Forwarding
+		nfsForwarding := c.String("n")
+		if nfsForwarding != "" {
+			port, path, err := common.ParseNFSForwardPortPath(nfsForwarding)
+			if err != nil {
+				fmt.Fprintf(os.Stderr, "Error: %s\n", err)
+				os.Exit(1)
+			}
+
+			r.NFSDynamicForwardPort = port
+			r.NFSDynamicForwardPath = path
+		}
+
+		// Set NFS Reverse Forwarding
+		nfsReverseForwarding := c.String("m")
+		if nfsReverseForwarding != "" {
+			port, path, err := common.ParseNFSForwardPortPath(nfsReverseForwarding)
+			if err != nil {
+				fmt.Fprintf(os.Stderr, "Error: %s\n", err)
+				os.Exit(1)
+			}
+
+			path = common.GetFullPath(path)
+
+			r.NFSReverseDynamicForwardPort = port
+			r.NFSReverseDynamicForwardPath = path
 		}
 
 		// if err
