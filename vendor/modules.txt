@@ -25,7 +25,7 @@ github.com/blacknon/crypto11
 github.com/blacknon/go-nfs-sshlib
 github.com/blacknon/go-nfs-sshlib/file
 github.com/blacknon/go-nfs-sshlib/helpers
-# github.com/blacknon/go-sshlib v0.1.16 => ../go-sshlib
+# github.com/blacknon/go-sshlib v0.1.16
 ## explicit; go 1.22.4
 github.com/blacknon/go-sshlib
 # github.com/blacknon/go-x11auth v0.1.0
