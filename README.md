@@ -25,6 +25,7 @@ Supported multiple ssh proxy, http/socks5 proxy, x11 forward, and port forwardin
 * Supported multiple proxy, **ssh**, **http**, and **socks5** proxy. It's supported multi-stage proxy.
 * Supported **ssh-agent**.
 * Supported **Local** and **Remote Port forward**, **Dynamic Forward(SOCKS5, http)**, **Reverse Dynamic Forward(SOCKS5, http)** and **x11 forward**.
+* By using **NFS Forward**/**NFS Reverse Forward**, the NFS server starts listening to the PATH of the local host or remote machine, making it available via local port forwarding.
 * Can use bashrc of local machine at ssh connection destination.
 * It supports various authentication methods. Password, Public key, Certificate and PKCS11(Yubikey etc.).
 * Can read the OpenSSH config (~/.ssh/config) and use it as it is.
