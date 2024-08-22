@@ -93,6 +93,22 @@ type ServerConfig struct {
 	// ex.) "11080"
 	HTTPReverseDynamicPortForward string `toml:"http_reverse_dynamic_port_forward"`
 
+	// NFS Dynamic Forward port setting
+	// ex.) "12049"
+	NFSDynamicForwardPort string `toml:"nfs_dynamic_forward"`
+
+	// NFS Dynamic Forward path setting
+	// ex.) "/path/to/remote"
+	NFSDynamicForwardPath string `toml:"nfs_dynamic_forward_path"`
+
+	// NFS Reverse Dynamic Forward port setting
+	// ex.) "12049"
+	NFSReverseDynamicForwardPort string `toml:"nfs_reverse_dynamic_forward"`
+
+	// NFS Reverse Dynamic Forward path setting
+	// ex.) "/path/to/local"
+	NFSReverseDynamicForwardPath string `toml:"nfs_reverse_dynamic_forward_path"`
+
 	// x11 forwarding setting
 	X11 bool `toml:"x11"`
 
