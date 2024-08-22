@@ -13,11 +13,11 @@ require (
 	github.com/acarl005/stripansi v0.0.0-20180116102854-5a71ef0e047d // indirect
 	github.com/armon/go-socks5 v0.0.0-20160902184237-e75332964ef5 // indirect
 	github.com/blacknon/crypto11 v1.2.7 // indirect
-	github.com/blacknon/go-sshlib v0.1.15
+	github.com/blacknon/go-sshlib v0.1.16
 	github.com/blacknon/go-x11auth v0.1.0 // indirect
 	github.com/blacknon/textcol v0.0.1
 	github.com/c-bata/go-prompt v0.2.6
-	github.com/davecgh/go-spew v1.1.0 // indirect
+	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/dchest/bcrypt_pbkdf v0.0.0-20150205184540-83f37f9c154a // indirect
 	github.com/disiqueira/gotree v1.0.0
 	github.com/dustin/go-humanize v1.0.0
@@ -34,12 +34,12 @@ require (
 	github.com/moby/term v0.0.0-20210619224110-3f7ff695adc6 // indirect
 	github.com/nsf/termbox-go v1.1.1
 	github.com/pkg/errors v0.9.1 // indirect
-	github.com/pkg/sftp v1.13.4
+	github.com/pkg/sftp v1.13.6
 	github.com/pkg/term v1.2.0-beta.2 // indirect
 	github.com/pmezard/go-difflib v1.0.0 // indirect
 	github.com/rivo/uniseg v0.2.0 // indirect
 	github.com/sevlyar/go-daemon v0.1.5
-	github.com/stretchr/testify v1.7.1
+	github.com/stretchr/testify v1.8.0
 	github.com/thales-e-security/pool v0.0.2 // indirect
 	github.com/urfave/cli v1.21.0
 	github.com/vbauerster/mpb v3.4.0+incompatible
@@ -48,6 +48,16 @@ require (
 	golang.org/x/sys v0.23.0
 	golang.org/x/term v0.23.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
+)
+
+require (
+	github.com/blacknon/go-nfs-sshlib v0.0.3 // indirect
+	github.com/cyphar/filepath-securejoin v0.2.4 // indirect
+	github.com/go-git/go-billy/v5 v5.5.0 // indirect
+	github.com/google/uuid v1.6.0 // indirect
+	github.com/hashicorp/golang-lru/v2 v2.0.7 // indirect
+	github.com/rasky/go-xdr v0.0.0-20170124162913-1a41d1a06c93 // indirect
+	github.com/willscott/go-nfs-client v0.0.0-20240104095149-b44639837b00 // indirect
 )
 
 // replace

@@ -80,6 +80,14 @@ func getOpenSSHConfig(path, command string) (config map[string]ServerConfig, err
 			Note:         "from:" + ele,
 		}
 
+		if serverConfig.Addr == "" {
+			serverConfig.Addr = host
+		}
+
+		if serverConfig.User == "" {
+			serverConfig.User = os.Getenv("USER")
+		}
+
 		// TODO(blacknon): OpenSSSH設定ファイルだと、Certificateは複数指定可能な模様。ただ、あまり一般的な使い方ではないようなので、現状は複数のファイルを受け付けるように作っていない。
 		key := ssh_config.Get(host, "IdentityFile")
 		cert := ssh_config.Get(host, "Certificate")

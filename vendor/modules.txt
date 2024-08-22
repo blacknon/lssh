@@ -20,7 +20,12 @@ github.com/armon/go-socks5
 # github.com/blacknon/crypto11 v1.2.7
 ## explicit; go 1.22
 github.com/blacknon/crypto11
-# github.com/blacknon/go-sshlib v0.1.15
+# github.com/blacknon/go-nfs-sshlib v0.0.3
+## explicit; go 1.19
+github.com/blacknon/go-nfs-sshlib
+github.com/blacknon/go-nfs-sshlib/file
+github.com/blacknon/go-nfs-sshlib/helpers
+# github.com/blacknon/go-sshlib v0.1.16
 ## explicit; go 1.22.4
 github.com/blacknon/go-sshlib
 # github.com/blacknon/go-x11auth v0.1.0
@@ -36,7 +41,10 @@ github.com/c-bata/go-prompt/internal/bisect
 github.com/c-bata/go-prompt/internal/debug
 github.com/c-bata/go-prompt/internal/strings
 github.com/c-bata/go-prompt/internal/term
-# github.com/davecgh/go-spew v1.1.0
+# github.com/cyphar/filepath-securejoin v0.2.4
+## explicit; go 1.13
+github.com/cyphar/filepath-securejoin
+# github.com/davecgh/go-spew v1.1.1
 ## explicit
 github.com/davecgh/go-spew/spew
 # github.com/dchest/bcrypt_pbkdf v0.0.0-20150205184540-83f37f9c154a
@@ -48,6 +56,23 @@ github.com/disiqueira/gotree
 # github.com/dustin/go-humanize v1.0.0
 ## explicit
 github.com/dustin/go-humanize
+# github.com/go-git/go-billy/v5 v5.5.0
+## explicit; go 1.19
+github.com/go-git/go-billy/v5
+github.com/go-git/go-billy/v5/helper/chroot
+github.com/go-git/go-billy/v5/helper/polyfill
+github.com/go-git/go-billy/v5/helper/temporal
+github.com/go-git/go-billy/v5/memfs
+github.com/go-git/go-billy/v5/osfs
+github.com/go-git/go-billy/v5/util
+# github.com/google/uuid v1.6.0
+## explicit
+github.com/google/uuid
+# github.com/hashicorp/golang-lru/v2 v2.0.7
+## explicit; go 1.18
+github.com/hashicorp/golang-lru/v2
+github.com/hashicorp/golang-lru/v2/internal
+github.com/hashicorp/golang-lru/v2/simplelru
 # github.com/kardianos/osext v0.0.0-20190222173326-2bc1f35cddc0
 ## explicit
 github.com/kardianos/osext
@@ -87,7 +112,7 @@ github.com/nsf/termbox-go
 # github.com/pkg/errors v0.9.1
 ## explicit
 github.com/pkg/errors
-# github.com/pkg/sftp v1.13.4
+# github.com/pkg/sftp v1.13.6
 ## explicit; go 1.15
 github.com/pkg/sftp
 github.com/pkg/sftp/internal/encoding/ssh/filexfer
@@ -97,13 +122,16 @@ github.com/pkg/term/termios
 # github.com/pmezard/go-difflib v1.0.0
 ## explicit
 github.com/pmezard/go-difflib/difflib
+# github.com/rasky/go-xdr v0.0.0-20170124162913-1a41d1a06c93
+## explicit
+github.com/rasky/go-xdr/xdr2
 # github.com/rivo/uniseg v0.2.0
 ## explicit; go 1.12
 github.com/rivo/uniseg
 # github.com/sevlyar/go-daemon v0.1.5
 ## explicit
 github.com/sevlyar/go-daemon
-# github.com/stretchr/testify v1.7.1
+# github.com/stretchr/testify v1.8.0
 ## explicit; go 1.13
 github.com/stretchr/testify/assert
 # github.com/thales-e-security/pool v0.0.2
@@ -118,6 +146,11 @@ github.com/vbauerster/mpb
 github.com/vbauerster/mpb/cwriter
 github.com/vbauerster/mpb/decor
 github.com/vbauerster/mpb/internal
+# github.com/willscott/go-nfs-client v0.0.0-20240104095149-b44639837b00
+## explicit; go 1.19
+github.com/willscott/go-nfs-client/nfs/rpc
+github.com/willscott/go-nfs-client/nfs/util
+github.com/willscott/go-nfs-client/nfs/xdr
 # golang.org/x/crypto v0.26.0
 ## explicit; go 1.20
 golang.org/x/crypto/blowfish
