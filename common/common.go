@@ -152,6 +152,21 @@ func GetFullPath(path string) (fullPath string) {
 	usr, _ := user.Current()
 	fullPath = strings.Replace(path, "~", usr.HomeDir, 1)
 	fullPath, _ = filepath.Abs(fullPath)
+
+	// ファイルがシンボリックリンクかどうかを確認
+	info, err := os.Lstat(fullPath)
+	if err != nil {
+		fmt.Println("Error:", err)
+		return
+	}
+
+	// シンボリックリンクの場合、実体パスを取得
+	if info.Mode()&os.ModeSymlink != 0 {
+		realPath, err := filepath.EvalSymlinks(fullPath)
+		if err == nil {
+			fullPath = realPath
+		}
+	}
 	return fullPath
 }
 
@@ -370,6 +385,7 @@ func ParseForwardPort(value string) (local, remote string, err error) {
 	return
 }
 
+// ParseNFSForwardPortPath
 func ParseNFSForwardPortPath(value string) (port, path string, err error) {
 	data := strings.Split(value, ":")
 	if len(data) != 2 {

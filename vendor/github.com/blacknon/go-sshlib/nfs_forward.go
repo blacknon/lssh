@@ -5,9 +5,7 @@
 package sshlib
 
 import (
-	"fmt"
 	"net"
-	"strings"
 
 	nfs "github.com/blacknon/go-nfs-sshlib"
 	nfshelper "github.com/blacknon/go-nfs-sshlib/helpers"
@@ -27,14 +25,6 @@ func (c *Connect) NFSForward(address, port, basepoint string) (err error) {
 	if err != nil {
 		return
 	}
-
-	// create abs path
-	homepoint, err := client.RealPath(".")
-	if err != nil {
-		return
-	}
-	basepoint = getRemoteAbsPath(homepoint, basepoint)
-	fmt.Println(basepoint)
 
 	sftpfsPlusChange := NewChangeSFTPFS(client, basepoint)
 
@@ -67,13 +57,4 @@ func (c *Connect) NFSReverseForward(address, port, sharepoint string) (err error
 	err = nfs.Serve(listener, cacheHelper)
 
 	return
-}
-
-func getRemoteAbsPath(wdpath, path string) (result string) {
-	result = strings.Replace(path, "~", wdpath, 1)
-	if !strings.HasPrefix(result, "/") {
-		result = wdpath + "/" + result
-	}
-
-	return result
 }
