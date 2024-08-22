@@ -25,35 +25,22 @@ Supported multiple ssh proxy, http/socks5 proxy, x11 forward, and port forwardin
 * Supported multiple proxy, **ssh**, **http**, and **socks5** proxy. It's supported multi-stage proxy.
 * Supported **ssh-agent**.
 * Supported **Local** and **Remote Port forward**, **Dynamic Forward(SOCKS5, http)**, **Reverse Dynamic Forward(SOCKS5, http)** and **x11 forward**.
+* By using **NFS Forward**/**NFS Reverse Forward**, the NFS server starts listening to the PATH of the local host or remote machine, making it available via local port forwarding.
 * Can use bashrc of local machine at ssh connection destination.
 * It supports various authentication methods. Password, Public key, Certificate and PKCS11(Yubikey etc.).
 * Can read the OpenSSH config (~/.ssh/config) and use it as it is.
 
 ## Demo
 
-### run MacOSX
-
-<p align="center">
-<img src="./images/lssh_macosx.gif" />
-</p>
-
-### run Linux(Manjaro)
-
 <p align="center">
 <img src="./images/lssh_linux.gif" />
-</p>
-
-### run Windows(Windows 10)
-
-<p align="center">
-<img src="./images/lssh_windows.gif" />
 </p>
 
 ## Install
 
 ### compile
 
-compile gofile(tested go1.17.6).
+compile gofile(tested go1.22.5).
 
     GO111MODULE=auto go get -u github.com/blacknon/lssh/cmd/lssh
     GO111MODULE=auto go get -u github.com/blacknon/lssh/cmd/lscp
@@ -104,11 +91,14 @@ option(lssh)
 
 	OPTIONS:
 	    --host servername, -H servername            connect servername.
-	    --file filepath, -F filepath                config filepath. (default: "/Users/uesugi/.lssh.conf")
+	    --file filepath, -F filepath                config filepath. (default: "/Users/blacknon/.lssh.conf")
 	    -L [bind_address:]port:remote_address:port  Local port forward mode.Specify a [bind_address:]port:remote_address:port. Only single connection works.
 	    -R [bind_address:]port:remote_address:port  Remote port forward mode.Specify a [bind_address:]port:remote_address:port. If only one port is specified, it will operate as Reverse Dynamic Forward. Only single connection works.
 	    -D port                                     Dynamic port forward mode(Socks5). Specify a port. Only single connection works.
 	    -d port                                     HTTP Dynamic port forward mode. Specify a port. Only single connection works.
+	    -r port                                     HTTP Reverse Dynamic port forward mode. Specify a port. Only single connection works.
+	    -M port:/path/to/remote                     NFS Dynamic forward mode. Specify a port:/path/to/remote. Only single connection works.
+	    -m port:/path/to/local                      NFS Reverse Dynamic forward mode. Specify a port:/path/to/local. Only single connection works.
 	    -w                                          Displays the server header when in command execution mode.
 	    -W                                          Not displays the server header when in command execution mode.
 	    --not-execute, -N                           not execute remote command and shell.
@@ -118,7 +108,6 @@ option(lssh)
 	    --parallel, -p                              run command parallel node(tail -F etc...).
 	    --localrc                                   use local bashrc shell.
 	    --not-localrc                               not use local bashrc shell.
-	    --pshell, -s                                use parallel-shell(pshell) (alpha).
 	    --list, -l                                  print server list from config.
 	    --help, -h                                  print this help
 	    --version, -v                               print the version
@@ -127,7 +116,7 @@ option(lssh)
 	    blacknon(blacknon@orebibou.com)
 
 	VERSION:
-	    0.6.8
+	    0.6.12
 
 	USAGE:
 	    # connect ssh
@@ -138,6 +127,7 @@ option(lssh)
 
 	    # run command parallel in selected server over ssh.
 	    lssh -p command...
+
 
 ### lscpd
 
@@ -155,7 +145,7 @@ option(lscp)
 	OPTIONS:
 	    --host value, -H value  connect servernames
 	    --list, -l              print server list from config
-	    --file value, -F value  config file path (default: "/Users/uesugi/.lssh.conf")
+	    --file value, -F value  config file path (default: "/Users/blacknon/.lssh.conf")
 	    --permission, -p        copy file permission
 	    --help, -h              print this help
 	    --version, -v           print the version
@@ -164,7 +154,7 @@ option(lscp)
 	    blacknon(blacknon@orebibou.com)
 
 	VERSION:
-	    0.6.8
+	    0.6.12
 
 	USAGE:
 	    # local to remote scp
@@ -191,7 +181,7 @@ option(lsftp)
 	    lsftp [options]
 
 	OPTIONS:
-	    --file value, -F value  config file path (default: "/Users/uesugi/.lssh.conf")
+	    --file value, -F value  config file path (default: "/Users/blacknon/.lssh.conf")
 	    --help, -h              print this help
 	    --version, -v           print the version
 
@@ -199,12 +189,11 @@ option(lsftp)
 	    blacknon(blacknon@orebibou.com)
 
 	VERSION:
-	    0.6.8
+	    0.6.12
 
 	USAGE:
 	    # start lsftp shell
 	    lsftp
-
 
 
 If you specify a command as an argument, you can select multiple hosts. Select host <kbd>Tab</kbd>, select all displayed hosts <kbd>Ctrl</kbd> + <kbd>a</kbd>.
@@ -592,12 +581,17 @@ Besides this, you can also specify ProxyCommand like OpenSSH.
 Supported Local/Remote/Dynamic port forwarding.\
 You can specify from the command line or from the configuration file.
 
+When using NFS forward, lssh starts the NFS server and begins listening on the specified port.
+After that, the forwarded PATH can be used as a mount point on the local machine or the remote machine.
+
 #### command line option
 
-    lssh -L 8080:localhost:80 # local port forwarding
-    lssh -R 80:localhost:8080 # remote port forwarding
-    lssh -D 10080             # dynamic port forwarding
-    lssh -R 10080             # Reverse Dynamic port forwarding
+    lssh -L 8080:localhost:80    # local port forwarding
+    lssh -R 80:localhost:8080    # remote port forwarding
+    lssh -D 10080                # dynamic port forwarding
+    lssh -R 10080                # Reverse Dynamic port forwarding
+	lssh -M port:/path/to/remote # NFS Dynamic forward.
+	lssh -m port:/path/to/local  # NFS Reverse Dynamic forward.
 
 #### config file
 
@@ -632,8 +626,6 @@ You can specify from the command line or from the configuration file.
 	reverse_dynamic_port_forward = "11080"
 	note = "reverse dynamic forwawrd example"
 
-
-
 If OpenSsh config is loaded, it will be loaded as it is.
 
 
@@ -641,8 +633,9 @@ If OpenSsh config is loaded, it will be loaded as it is.
 
 ## Related projects
 
-- [go-sshlib](github.com/blacknon/go-sshlib)
-- [lsshell](github.com/blacknon/lsshell)
+- [go-sshlib](https://github.com/blacknon/go-sshlib)
+- [lsshell](https://github.com/blacknon/lsshell)
+- [lsmon](https://github.com/blacknon/lsmon)
 
 ## Licence
 
