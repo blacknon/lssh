@@ -73,7 +73,8 @@ USAGE:
 	//     --read_profile
 	//              ... デフォルトではlocalrc読み込みでのshellではsshサーバ上のprofileは読み込まないが、このオプションを指定することで読み込まれるようになる (v0.7.0)
 	//     -P
-	//              ... 3muxを用いたマルチプレクサでのParallel Shell/Command実行を有効にする(v0.7.0)
+	//              ... ターミナルマルチプレクサを用いたマルチプレクサでのParallel Shell/Command実行を有効にする(v0.8.0)
+	//                  ※ いまのところ、goで書かれているターミナルマルチプレクサでまともに動くものはない。。。ので、新規で自作する必要がありそう(Rustならzelligjがあったのだが…)
 
 	// Set options
 	app.Flags = []cli.Flag{
