@@ -59,7 +59,7 @@ USAGE:
 	app.Name = "lssh"
 	app.Usage = "TUI list select and parallel ssh client command."
 	app.Copyright = "blacknon(blacknon@orebibou.com)"
-	app.Version = "0.6.12"
+	app.Version = "0.6.13"
 
 	// TODO(blacknon): オプションの追加
 	//     -T       ... マウント・リバースマウントのTypeを指定できるようにする(v0.7.0)
