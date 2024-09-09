@@ -20,7 +20,13 @@ import (
 // Shell connect login shell over ssh.
 func (c *Connect) Shell(session *ssh.Session) (err error) {
 	// Input terminal Make raw
-	fd := int(os.Stdin.Fd())
+	var fd int
+	if c.PtyRelayTty != nil {
+		fd = int(c.PtyRelayTty.Fd())
+	} else {
+		fd = int(os.Stdin.Fd())
+	}
+
 	state, err := terminal.MakeRaw(fd)
 	if err != nil {
 		return
@@ -33,6 +39,13 @@ func (c *Connect) Shell(session *ssh.Session) (err error) {
 		return
 	}
 
+	// set tty
+	if c.PtyRelayTty != nil {
+		session.Stdin = c.PtyRelayTty
+		session.Stdout = c.PtyRelayTty
+		session.Stderr = c.PtyRelayTty
+	}
+
 	// Start shell
 	err = session.Shell()
 	if err != nil {
@@ -41,6 +54,11 @@ func (c *Connect) Shell(session *ssh.Session) (err error) {
 
 	// keep alive packet
 	go c.SendKeepAlive(session)
+
+	// if tty is set, get signal winch
+	if c.PtyRelayTty != nil {
+		go c.ChangeWinSize(session)
+	}
 
 	err = session.Wait()
 	if err != nil {
@@ -54,7 +72,13 @@ func (c *Connect) Shell(session *ssh.Session) (err error) {
 // Used to start a shell with a specified command.
 func (c *Connect) CmdShell(session *ssh.Session, command string) (err error) {
 	// Input terminal Make raw
-	fd := int(os.Stdin.Fd())
+	var fd int
+	if c.PtyRelayTty != nil {
+		fd = int(c.PtyRelayTty.Fd())
+	} else {
+		fd = int(os.Stdin.Fd())
+	}
+
 	state, err := terminal.MakeRaw(fd)
 	if err != nil {
 		return
@@ -65,6 +89,13 @@ func (c *Connect) CmdShell(session *ssh.Session, command string) (err error) {
 	err = c.setupShell(session)
 	if err != nil {
 		return
+	}
+
+	// set tty
+	if c.PtyRelayTty != nil {
+		session.Stdin = c.PtyRelayTty
+		session.Stdout = c.PtyRelayTty
+		session.Stderr = c.PtyRelayTty
 	}
 
 	// Start shell
@@ -82,6 +113,23 @@ func (c *Connect) CmdShell(session *ssh.Session, command string) (err error) {
 	}
 
 	return
+}
+
+func (c *Connect) ChangeWinSize(session *ssh.Session) {
+	// Get terminal window size
+	var fd int
+	if c.PtyRelayTty != nil {
+		fd = int(c.PtyRelayTty.Fd())
+	} else {
+		fd = int(os.Stdout.Fd())
+	}
+	width, height, err := terminal.GetSize(fd)
+	if err != nil {
+		return
+	}
+
+	// Send window size
+	session.WindowChange(height, width)
 }
 
 // SetLog set up terminal log logging.
