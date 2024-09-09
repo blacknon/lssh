@@ -5,6 +5,7 @@
 package sshlib
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -47,30 +48,25 @@ type SFTPFS struct {
 
 // Create
 func (fs *SFTPFS) Create(filename string) (billy.File, error) {
-	_, err := fs.Stat(filename)
-	if err == nil {
-		return nil, os.ErrExist
-	}
-
-	dir := filepath.Dir(filename)
-	err = fs.MkdirAll(dir, os.ModeDir)
-	if err != nil {
-		return nil, err
-	}
-
-	f, err := fs.Client.Create(filename)
-	if err != nil {
-		return nil, err
-	}
-	return &sftpFile{File: f}, nil
+	return fs.OpenFile(filename, os.O_RDWR|os.O_CREATE|os.O_TRUNC, 0644)
 }
 
 // OpenFile
 func (fs *SFTPFS) OpenFile(filename string, flag int, perm os.FileMode) (billy.File, error) {
-	// TODO: create dirをする
-	// https://github.com/src-d/go-billy/blob/master/osfs/os.go#L31-L54
+	return fs.openFile(filename, flag, perm, fs.createDir)
+}
 
-	f, err := fs.Client.OpenFile(filename, flag)
+func (fs *SFTPFS) openFile(fn string, flag int, perm os.FileMode, createDir func(string) error) (billy.File, error) {
+	if flag&os.O_CREATE != 0 {
+		if createDir == nil {
+			return nil, fmt.Errorf("createDir func cannot be nil if file needs to be opened in create mode")
+		}
+		if err := createDir(fn); err != nil {
+			return nil, err
+		}
+	}
+
+	f, err := fs.Client.OpenFile(fn, flag)
 	if err != nil {
 		return nil, err
 	}
