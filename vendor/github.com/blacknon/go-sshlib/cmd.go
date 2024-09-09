@@ -24,33 +24,50 @@ func (c *Connect) Command(command string) (err error) {
 	}
 	defer func() { c.Session = nil }()
 
-	// setup options
-	err = c.setOption(c.Session)
-	if err != nil {
-		return
-	}
-
-	// Set Stdin, Stdout, Stderr...
-	if c.Stdin != nil {
+	// Set Stdin
+	switch {
+	case c.Stdin != nil:
 		w, _ := c.Session.StdinPipe()
 		go io.Copy(w, c.Stdin)
-	} else {
+
+	case c.PtyRelayTty != nil:
+		c.Session.Stdin = c.PtyRelayTty
+
+	default:
 		stdin := GetStdin()
 		c.Session.Stdin = stdin
 	}
 
-	if c.Stdout != nil {
+	// Set Stdout
+	switch {
+	case c.Stdout != nil:
 		or, _ := c.Session.StdoutPipe()
 		go io.Copy(c.Stdout, or)
-	} else {
+
+	case c.PtyRelayTty != nil:
+		c.Session.Stdout = c.PtyRelayTty
+
+	default:
 		c.Session.Stdout = os.Stdout
 	}
 
-	if c.Stderr != nil {
+	// Set Stderr
+	switch {
+	case c.Stderr != nil:
 		er, _ := c.Session.StderrPipe()
 		go io.Copy(c.Stderr, er)
-	} else {
+
+	case c.PtyRelayTty != nil:
+		c.Session.Stderr = c.PtyRelayTty
+
+	default:
 		c.Session.Stderr = os.Stderr
+	}
+
+	// setup options
+	err = c.setOption(c.Session)
+	if err != nil {
+		return
 	}
 
 	// Run Command
