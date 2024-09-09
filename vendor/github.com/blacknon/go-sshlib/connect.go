@@ -50,6 +50,9 @@ type Connect struct {
 	// Set it before CraeteClient.
 	ForwardAgent bool
 
+	// Set the TTY to be used as the input and output for the Session/Cmd.
+	PtyRelayTty *os.File
+
 	// CheckKnownHosts if true, check knownhosts.
 	// Ignored if HostKeyCallback is set.
 	// Set it before CraeteClient.
@@ -190,36 +193,37 @@ func (c *Connect) SendKeepAlive(session *ssh.Session) {
 		interval = c.SendKeepAliveInterval
 	}
 
+	max := 3
+	if c.SendKeepAliveMax > 0 {
+		max = c.SendKeepAliveMax
+	}
+
+	t := time.NewTicker(time.Duration(c.ConnectTimeout) * time.Second)
+	defer t.Stop()
+
+	count := 0
 	for {
-		// timeout channel
-		tc := make(chan bool, 1)
-
-		go func() {
-			// Send keep alive packet
-			_, err := session.SendRequest("keepalive", true, nil)
-			if err == nil {
-				tc <- true
-			}
-		}()
-
 		select {
-		case <-tc:
-		case <-time.After(time.Duration(c.ConnectTimeout) * time.Second):
-			session.Close()
-			c.Client.Close()
-			log.Println("keepalive timeout")
-			return
+		case <-t.C:
+			if _, err := session.SendRequest("keepalive@openssh.com", true, nil); err != nil {
+				log.Println("Failed to send keepalive packet:", err)
+				count += 1
+			} else {
+				// err is nil.
+				time.Sleep(time.Duration(interval) * time.Second)
+			}
 		}
 
-		// sleep
-		time.Sleep(time.Duration(interval) * time.Second)
+		if count > max {
+			return
+		}
 	}
 }
 
 // CheckClientAlive check alive ssh.Client.
 func (c *Connect) CheckClientAlive() error {
 	_, _, err := c.Client.SendRequest("keepalive", true, nil)
-	if err == nil || err.Error() == "request failed" {
+	if err == nil {
 		return nil
 	}
 	return err
