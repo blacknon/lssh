@@ -10,6 +10,7 @@ import (
 
 	"github.com/blacknon/go-sshlib"
 	"github.com/blacknon/lssh/conf"
+	"golang.org/x/crypto/ssh"
 	"golang.org/x/net/proxy"
 )
 
@@ -98,7 +99,15 @@ func (r *Run) CreateSshConnect(server string) (connect *sshlib.Connect, err erro
 
 	err = connect.CreateClient(s.Addr, s.Port, s.User, r.serverAuthMethodMap[server])
 
-	return
+	if err != nil {
+		if client, ok := dialer.(*ssh.Client); ok {
+			client.Close()
+		}
+
+		return nil, err
+	}
+
+	return connect, nil
 }
 
 // proxy struct
