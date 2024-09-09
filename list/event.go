@@ -150,8 +150,9 @@ func (l *ListInfo) keyEvent() (lineData []string) {
 				// mouse select line is (ev.MouseY - headLine) line.
 				mouseSelectLine := ev.MouseY - headLine
 
-				if mouseSelectLine <= len(l.ViewText)-headLine {
-					l.CursorLine = mouseSelectLine
+				pageOffset := (l.CursorLine / height) * height
+				if mouseSelectLine >= 0 && mouseSelectLine < height && pageOffset+mouseSelectLine < len(l.ViewText) {
+					l.CursorLine = pageOffset + mouseSelectLine
 				}
 				l.draw()
 			}

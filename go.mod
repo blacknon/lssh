@@ -13,7 +13,7 @@ require (
 	github.com/acarl005/stripansi v0.0.0-20180116102854-5a71ef0e047d // indirect
 	github.com/armon/go-socks5 v0.0.0-20160902184237-e75332964ef5 // indirect
 	github.com/blacknon/crypto11 v1.2.7 // indirect
-	github.com/blacknon/go-sshlib v0.1.16
+	github.com/blacknon/go-sshlib v0.1.17
 	github.com/blacknon/go-x11auth v0.1.0 // indirect
 	github.com/blacknon/textcol v0.0.1
 	github.com/c-bata/go-prompt v0.2.6

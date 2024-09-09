@@ -191,6 +191,12 @@ func (n *NetPipe) Dial(network, addr string) (con net.Conn, err error) {
 	// Start the command
 	err = n.Cmd.Start()
 
+	// Close the write end of the pipe
+	go func() {
+		n.Cmd.Wait()
+		srv.Close()
+	}()
+
 	return
 }
 
