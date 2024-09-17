@@ -19,6 +19,8 @@ import (
 	"golang.org/x/crypto/ssh/terminal"
 )
 
+// TODO(blacknon): Parallel ssh接続時に1ホストづつ接続しているので、goroutineで並列接続させるようにする(v0.7.0)
+
 // TOOD(blacknon): なんかProxyのポートが表示おかしいので、修正する(v0.7.0)
 
 // TODO(blacknon): 自動再接続機能の追加(v1.0.0)
