@@ -16,6 +16,9 @@ conf is a package used to read configuration file (~/.lssh.conf).
 
 // TODO(blacknon): 接続成功時に特定のコマンドを実行可能にする(接続前しか今はないので)
 
+// TODO(blacknon): sshだけではなく、telnetやWinrmなどのプロトコルにも対応したい(v0.8.0)
+//                 ※ たぶん、実現するならプラグインを追加できるようにするのがよさそう
+
 package conf
 
 import (

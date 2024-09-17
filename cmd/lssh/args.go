@@ -59,21 +59,19 @@ USAGE:
 	app.Name = "lssh"
 	app.Usage = "TUI list select and parallel ssh client command."
 	app.Copyright = "blacknon(blacknon@orebibou.com)"
-	app.Version = "0.6.13"
+	app.Version = "0.6.14"
 
 	// TODO(blacknon): オプションの追加
 	//     -T       ... マウント・リバースマウントのTypeを指定できるようにする(v0.7.0)
-	//                  ※ そもそもfuseをそのままfusemountでマウントできるのか？という謎もある
+	//                  ※ smb/nfsの指定
 	//     -f       ... バックグラウンドでの接続(X11接続やport forwardingをバックグラウンドで実行する場合など)。
 	//                  「ssh -f」と同じ。 (v0.7.0)
 	//                  (https://github.com/sevlyar/go-daemon)
-	//     -a       ... 自動接続モード(接続が切れてしまった場合、自動的に再接続を試みる)。autossh的なoptionとして追加。  (v0.7.0)
-	//     --autoconnect <num>
-	//              ... 自動接続モード(接続が切れてしまった場合、自動的に再接続を試みる)。再試行の回数指定(デフォルトは3回?)。  (v0.7.0)
 	//     --read_profile
 	//              ... デフォルトではlocalrc読み込みでのshellではsshサーバ上のprofileは読み込まないが、このオプションを指定することで読み込まれるようになる (v0.7.0)
 	//     -P
-	//              ... 3muxを用いたマルチプレクサでのParallel Shell/Command実行を有効にする(v0.7.0)
+	//              ... Terminal multipluxerを用いたParallel Shell/Command実行を有効にする(v0.7.0)
+	//                  ※ -pとの排他制御が必要
 
 	// Set options
 	app.Flags = []cli.Flag{
