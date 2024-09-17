@@ -39,6 +39,7 @@ func (r *Run) cmd() (err error) {
 		r.printProxy(r.ServerList[0])
 	}
 
+	// TODO: goroutineで並列接続対応
 	// Create sshlib.Connect to connmap
 	for _, server := range r.ServerList {
 		// check count AuthMethod
