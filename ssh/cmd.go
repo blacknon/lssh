@@ -12,6 +12,7 @@ import (
 	"log"
 	"os"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/blacknon/go-sshlib"
@@ -39,24 +40,38 @@ func (r *Run) cmd() (err error) {
 		r.printProxy(r.ServerList[0])
 	}
 
-	// TODO: goroutineで並列接続対応
+	var wg sync.WaitGroup
+	var mu sync.Mutex // Mutex to safely update connmap
+
 	// Create sshlib.Connect to connmap
 	for _, server := range r.ServerList {
-		// check count AuthMethod
-		if len(r.serverAuthMethodMap[server]) == 0 {
-			fmt.Fprintf(os.Stderr, "Error: %s is No AuthMethod.\n", server)
-			continue
-		}
+		server := server // Capture range variable for goroutine
+		wg.Add(1)        // Increment WaitGroup counter
 
-		// Create sshlib.Connect
-		conn, err := r.CreateSshConnect(server)
-		if err != nil {
-			log.Printf("Error: %s:%s\n", server, err)
-			continue
-		}
+		go func() {
+			defer wg.Done() // Decrement counter when goroutine completes
 
-		connmap[server] = conn
+			// check count AuthMethod
+			if len(r.serverAuthMethodMap[server]) == 0 {
+				fmt.Fprintf(os.Stderr, "Error: %s is No AuthMethod.\n", server)
+				return
+			}
+
+			// Create sshlib.Connect
+			conn, err := r.CreateSshConnect(server)
+			if err != nil {
+				log.Printf("Error: %s:%s\n", server, err)
+				return
+			}
+
+			mu.Lock()
+			connmap[server] = conn
+			mu.Unlock()
+		}()
 	}
+
+	// Wait for all goroutines to finish
+	wg.Wait()
 
 	// Run command and print loop
 	writers := []io.WriteCloser{}

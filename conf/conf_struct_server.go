@@ -122,6 +122,15 @@ type ServerConfig struct {
 	ServerAliveCountMax      int `toml:"alive_max"`
 	ServerAliveCountInterval int `toml:"alive_interval"`
 
+	// Check KnownHosts
+	CheckKnownHosts bool `toml:"check_known_hosts"`
+
+	//
+
+
+	// Check KnownHosts File
+	KnownHostsFiles []string `toml:"known_hosts_files"`
+
 	// note
 	Note string `toml:"note"`
 }
