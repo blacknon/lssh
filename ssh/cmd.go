@@ -40,10 +40,15 @@ func (r *Run) cmd() (err error) {
 		r.printProxy(r.ServerList[0])
 	}
 
+	// set enable stdoutMutex
+	r.EnableStdoutMutex = true
+
 	var wg sync.WaitGroup
 	var mu sync.Mutex // Mutex to safely update connmap
 
 	// Create sshlib.Connect to connmap
+	// TODO: go-sshlib側でstdout用にMutexを渡して、それで重複出力を排除する感じにすればいいかも？？？
+	//       → もしかしたら、これでlsshellの並列outputも処理できるかも？？？…と思ったが、parallelのときは握りっぱなしになるので、間でうまいこと処理するナニカ(writer)がいないとダメかも？
 	for _, server := range r.ServerList {
 		server := server // Capture range variable for goroutine
 		wg.Add(1)        // Increment WaitGroup counter

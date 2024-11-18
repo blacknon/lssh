@@ -13,7 +13,7 @@ require (
 	github.com/acarl005/stripansi v0.0.0-20180116102854-5a71ef0e047d // indirect
 	github.com/armon/go-socks5 v0.0.0-20160902184237-e75332964ef5 // indirect
 	github.com/blacknon/crypto11 v1.2.7 // indirect
-	github.com/blacknon/go-sshlib v0.1.18
+	github.com/blacknon/go-sshlib v0.1.20
 	github.com/blacknon/go-x11auth v0.1.0 // indirect
 	github.com/blacknon/textcol v0.0.1
 	github.com/c-bata/go-prompt v0.2.6
@@ -37,7 +37,7 @@ require (
 	github.com/pkg/sftp v1.13.6
 	github.com/pkg/term v1.2.0-beta.2 // indirect
 	github.com/pmezard/go-difflib v1.0.0 // indirect
-	github.com/rivo/uniseg v0.2.0 // indirect
+	github.com/rivo/uniseg v0.2.0 // indirect; indirecst
 	github.com/sevlyar/go-daemon v0.1.5
 	github.com/stretchr/testify v1.8.0
 	github.com/thales-e-security/pool v0.0.2 // indirect

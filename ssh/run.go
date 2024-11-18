@@ -11,6 +11,7 @@ import (
 	"os/exec"
 	"runtime"
 	"strings"
+	"sync"
 
 	"github.com/blacknon/lssh/common"
 	"github.com/blacknon/lssh/conf"
@@ -125,6 +126,12 @@ type Run struct {
 	// Agent is ssh-agent.
 	// In agent.Agent or agent.ExtendedAgent.
 	agent interface{}
+
+	// Enable/Disable stdoutMutex
+	EnableStdoutMutex bool
+
+	// Mutex for parallel execution of output to stdout with goroutine
+	stdoutMutex sync.Mutex
 
 	// StdinData from pipe flag
 	IsStdinPipe bool

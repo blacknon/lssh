@@ -103,6 +103,10 @@ func (r *Run) CreateSshConnect(server string) (connect *sshlib.Connect, err erro
 		OverwriteKnownHosts:   true,
 	}
 
+	if r.EnableStdoutMutex {
+		connect.StdoutMutex = &r.stdoutMutex
+	}
+
 	err = connect.CreateClient(s.Addr, s.Port, s.User, r.serverAuthMethodMap[server])
 
 	if err != nil {
