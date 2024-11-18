@@ -11,6 +11,7 @@ import (
 	"net"
 	"os"
 	"os/signal"
+	"sync"
 	"syscall"
 	"time"
 
@@ -52,6 +53,9 @@ type Connect struct {
 
 	// Set the TTY to be used as the input and output for the Session/Cmd.
 	PtyRelayTty *os.File
+
+	// StdoutMutex is a mutex for use Stdout.
+	StdoutMutex *sync.Mutex
 
 	// CheckKnownHosts if true, check knownhosts.
 	// Ignored if HostKeyCallback is set.
@@ -139,7 +143,7 @@ func (c *Connect) CreateClient(host, port, user string, authMethods []ssh.AuthMe
 				// append default files
 				c.KnownHostsFiles = append(c.KnownHostsFiles, "~/.ssh/known_hosts")
 			}
-			config.HostKeyCallback = c.verifyAndAppendNew
+			config.HostKeyCallback = c.VerifyAndAppendNew
 		} else {
 			config.HostKeyCallback = ssh.InsecureIgnoreHostKey()
 		}

@@ -1,0 +1,30 @@
+#compdef lscp
+_lscp() {
+    _arguments -s \
+        '(-H --host)'{-H,--host}'[Connect to server by name]:server:_hosts' \
+        '(-l --list)'{-l,--list}'[Print server list from config]' \
+        '(-F --file)'{-F,--file}'[Specify config file path]:config file:_files' \
+        '(-p --permission)'{-p,--permission}'[Copy file permission]' \
+        '(-h --help)'{-h,--help}'[Print this help]' \
+        '(-v --version)'{-v,--version}'[Print the version]' \
+        '*:copy_path:_lscp_path_completion'
+}
+
+_lscp_path_completion() {
+    local current_arg="${words[-1]}"
+    local -a file_list
+    local prefix="local:"
+
+    if [[ "$current_arg" == local:* ]]; then
+        local path="${current_arg#$prefix}"
+        file_list=($(compgen -G "${path}*"))
+
+        for file in "${file_list[@]}"; do
+            compadd -S '' "${prefix}${file}"
+        done
+    elif [[ "$current_arg" == remote:* ]]; then
+        return
+    else
+        compadd -S '' "local:" "remote:"
+    fi
+}
