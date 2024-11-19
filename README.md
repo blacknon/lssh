@@ -632,6 +632,29 @@ If OpenSsh config is loaded, it will be loaded as it is.
 
 </details>
 
+### 10. Check KnownHosts
+<details>
+
+Supported check KnownHosts.
+If you want to enable check KnownHost, set `check_known_hosts` to `true` in Server Config.
+
+If you want to specify a file to record KnownHosts, add file path to `known_hosts_files`.
+
+	[server.CheckKnownHosts]
+	addr = "check_knwon_hosts.local"
+	user = "user"
+	check_known_hosts = true
+	note = "check known hosts example"
+
+	[server.CheckKnownHostsToOriginalFile]
+	addr = "check_knwon_hosts.local"
+	user = "user"
+	check_known_hosts = true
+	known_hosts_files = ["/path/to/known_hosts"]
+	note = "check known hosts example"
+
+</details>
+
 ## Related projects
 
 - [go-sshlib](https://github.com/blacknon/go-sshlib)
