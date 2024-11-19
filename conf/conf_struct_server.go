@@ -125,9 +125,6 @@ type ServerConfig struct {
 	// Check KnownHosts
 	CheckKnownHosts bool `toml:"check_known_hosts"`
 
-	//
-
-
 	// Check KnownHosts File
 	KnownHostsFiles []string `toml:"known_hosts_files"`
 
