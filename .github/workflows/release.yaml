@@ -219,6 +219,7 @@ jobs:
       - uses: actions/download-artifact@v4
         with:
           name: build-${{ matrix.goos }}_${{ matrix.goarch }}
+          path: ./build-${{ matrix.goos }}_${{ matrix.goarch }}
 
       - name: List build artifact files
         run: |
