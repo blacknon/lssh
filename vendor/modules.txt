@@ -1,12 +1,13 @@
-# github.com/Azure/go-ansiterm v0.0.0-20210617225240-d185dfc1b5a1
+# github.com/Azure/go-ansiterm v0.0.0-20250102033503-faa5f7b0171c
 ## explicit; go 1.16
 github.com/Azure/go-ansiterm
 github.com/Azure/go-ansiterm/winterm
-# github.com/BurntSushi/toml v0.3.1
-## explicit
+# github.com/BurntSushi/toml v1.6.0
+## explicit; go 1.18
 github.com/BurntSushi/toml
-# github.com/ScaleFT/sshkeys v0.0.0-20200327173127-6142f742bca5
-## explicit; go 1.13
+github.com/BurntSushi/toml/internal
+# github.com/ScaleFT/sshkeys v1.4.0
+## explicit; go 1.23.0
 github.com/ScaleFT/sshkeys
 # github.com/VividCortex/ewma v1.2.0
 ## explicit; go 1.12
@@ -17,16 +18,11 @@ github.com/acarl005/stripansi
 # github.com/armon/go-socks5 v0.0.0-20160902184237-e75332964ef5
 ## explicit
 github.com/armon/go-socks5
-# github.com/blacknon/crypto11 v1.2.7
-## explicit; go 1.22
+# github.com/blacknon/crypto11 v1.6.2-0.20260315101107-fd111b1d25ce
+## explicit; go 1.25.1
 github.com/blacknon/crypto11
-# github.com/blacknon/go-nfs-sshlib v0.0.3
-## explicit; go 1.19
-github.com/blacknon/go-nfs-sshlib
-github.com/blacknon/go-nfs-sshlib/file
-github.com/blacknon/go-nfs-sshlib/helpers
-# github.com/blacknon/go-sshlib v0.1.20
-## explicit; go 1.22.4
+# github.com/blacknon/go-sshlib v0.1.21
+## explicit; go 1.25.1
 github.com/blacknon/go-sshlib
 # github.com/blacknon/go-x11auth v0.1.0
 ## explicit; go 1.22.2
@@ -41,9 +37,16 @@ github.com/c-bata/go-prompt/internal/bisect
 github.com/c-bata/go-prompt/internal/debug
 github.com/c-bata/go-prompt/internal/strings
 github.com/c-bata/go-prompt/internal/term
-# github.com/cyphar/filepath-securejoin v0.2.4
-## explicit; go 1.13
+# github.com/clipperhouse/uax29/v2 v2.7.0
+## explicit; go 1.18
+github.com/clipperhouse/uax29/v2/graphemes
+# github.com/cpuguy83/go-md2man/v2 v2.0.7
+## explicit; go 1.12
+github.com/cpuguy83/go-md2man/v2/md2man
+# github.com/cyphar/filepath-securejoin v0.6.1
+## explicit; go 1.18
 github.com/cyphar/filepath-securejoin
+github.com/cyphar/filepath-securejoin/internal/consts
 # github.com/davecgh/go-spew v1.1.1
 ## explicit
 github.com/davecgh/go-spew/spew
@@ -53,11 +56,11 @@ github.com/dchest/bcrypt_pbkdf
 # github.com/disiqueira/gotree v1.0.0
 ## explicit
 github.com/disiqueira/gotree
-# github.com/dustin/go-humanize v1.0.0
-## explicit
+# github.com/dustin/go-humanize v1.0.1
+## explicit; go 1.16
 github.com/dustin/go-humanize
-# github.com/go-git/go-billy/v5 v5.5.0
-## explicit; go 1.19
+# github.com/go-git/go-billy/v5 v5.8.0
+## explicit; go 1.24.0
 github.com/go-git/go-billy/v5
 github.com/go-git/go-billy/v5/helper/chroot
 github.com/go-git/go-billy/v5/helper/polyfill
@@ -79,8 +82,8 @@ github.com/kardianos/osext
 # github.com/kballard/go-shellquote v0.0.0-20180428030007-95032a82bc51
 ## explicit
 github.com/kballard/go-shellquote
-# github.com/kevinburke/ssh_config v0.0.0-20190724205821-6cfae18c12b8
-## explicit
+# github.com/kevinburke/ssh_config v1.6.0
+## explicit; go 1.18
 github.com/kevinburke/ssh_config
 # github.com/kr/fs v0.1.0
 ## explicit
@@ -88,23 +91,23 @@ github.com/kr/fs
 # github.com/lunixbochs/vtclean v1.0.0
 ## explicit
 github.com/lunixbochs/vtclean
-# github.com/mattn/go-colorable v0.1.7
-## explicit; go 1.13
+# github.com/mattn/go-colorable v0.1.14
+## explicit; go 1.18
 github.com/mattn/go-colorable
-# github.com/mattn/go-isatty v0.0.12
-## explicit; go 1.12
+# github.com/mattn/go-isatty v0.0.20
+## explicit; go 1.15
 github.com/mattn/go-isatty
-# github.com/mattn/go-runewidth v0.0.13
-## explicit; go 1.9
+# github.com/mattn/go-runewidth v0.0.21
+## explicit; go 1.20
 github.com/mattn/go-runewidth
-# github.com/mattn/go-tty v0.0.3
-## explicit; go 1.14
+# github.com/mattn/go-tty v0.0.7
+## explicit; go 1.18
 github.com/mattn/go-tty
-# github.com/miekg/pkcs11 v1.1.1
+# github.com/miekg/pkcs11 v1.1.2
 ## explicit; go 1.12
 github.com/miekg/pkcs11
-# github.com/moby/term v0.0.0-20210619224110-3f7ff695adc6
-## explicit; go 1.13
+# github.com/moby/term v0.5.2
+## explicit; go 1.18
 github.com/moby/term/windows
 # github.com/nsf/termbox-go v1.1.1
 ## explicit; go 1.15
@@ -112,10 +115,11 @@ github.com/nsf/termbox-go
 # github.com/pkg/errors v0.9.1
 ## explicit
 github.com/pkg/errors
-# github.com/pkg/sftp v1.13.6
-## explicit; go 1.15
+# github.com/pkg/sftp v1.13.10
+## explicit; go 1.23.0
 github.com/pkg/sftp
 github.com/pkg/sftp/internal/encoding/ssh/filexfer
+github.com/pkg/sftp/internal/encoding/ssh/filexfer/openssh
 # github.com/pkg/term v1.2.0-beta.2
 ## explicit; go 1.14
 github.com/pkg/term/termios
@@ -125,20 +129,21 @@ github.com/pmezard/go-difflib/difflib
 # github.com/rasky/go-xdr v0.0.0-20170124162913-1a41d1a06c93
 ## explicit
 github.com/rasky/go-xdr/xdr2
-# github.com/rivo/uniseg v0.2.0
-## explicit; go 1.12
-github.com/rivo/uniseg
-# github.com/sevlyar/go-daemon v0.1.5
+# github.com/russross/blackfriday/v2 v2.1.0
+## explicit
+github.com/russross/blackfriday/v2
+# github.com/sevlyar/go-daemon v0.1.6
 ## explicit
 github.com/sevlyar/go-daemon
-# github.com/stretchr/testify v1.8.0
-## explicit; go 1.13
+# github.com/stretchr/testify v1.11.1
+## explicit; go 1.17
 github.com/stretchr/testify/assert
+github.com/stretchr/testify/assert/yaml
 # github.com/thales-e-security/pool v0.0.2
 ## explicit; go 1.12
 github.com/thales-e-security/pool
-# github.com/urfave/cli v1.21.0
-## explicit; go 1.12
+# github.com/urfave/cli v1.22.17
+## explicit; go 1.11
 github.com/urfave/cli
 # github.com/vbauerster/mpb v3.4.0+incompatible
 ## explicit
@@ -146,13 +151,18 @@ github.com/vbauerster/mpb
 github.com/vbauerster/mpb/cwriter
 github.com/vbauerster/mpb/decor
 github.com/vbauerster/mpb/internal
-# github.com/willscott/go-nfs-client v0.0.0-20240104095149-b44639837b00
+# github.com/willscott/go-nfs v0.0.3
+## explicit; go 1.19
+github.com/willscott/go-nfs
+github.com/willscott/go-nfs/file
+github.com/willscott/go-nfs/helpers
+# github.com/willscott/go-nfs-client v0.0.0-20251022144359-801f10d98886
 ## explicit; go 1.19
 github.com/willscott/go-nfs-client/nfs/rpc
 github.com/willscott/go-nfs-client/nfs/util
 github.com/willscott/go-nfs-client/nfs/xdr
-# golang.org/x/crypto v0.26.0
-## explicit; go 1.20
+# golang.org/x/crypto v0.49.0
+## explicit; go 1.25.0
 golang.org/x/crypto/blowfish
 golang.org/x/crypto/chacha20
 golang.org/x/crypto/curve25519
@@ -164,19 +174,19 @@ golang.org/x/crypto/ssh/agent
 golang.org/x/crypto/ssh/internal/bcrypt_pbkdf
 golang.org/x/crypto/ssh/knownhosts
 golang.org/x/crypto/ssh/terminal
-# golang.org/x/net v0.28.0
-## explicit; go 1.18
+# golang.org/x/net v0.52.0
+## explicit; go 1.25.0
 golang.org/x/net/context
 golang.org/x/net/internal/socks
 golang.org/x/net/proxy
-# golang.org/x/sys v0.23.0
-## explicit; go 1.18
+# golang.org/x/sys v0.42.0
+## explicit; go 1.25.0
 golang.org/x/sys/cpu
 golang.org/x/sys/plan9
 golang.org/x/sys/unix
 golang.org/x/sys/windows
-# golang.org/x/term v0.23.0
-## explicit; go 1.18
+# golang.org/x/term v0.41.0
+## explicit; go 1.25.0
 golang.org/x/term
 # gopkg.in/yaml.v3 v3.0.1
 ## explicit

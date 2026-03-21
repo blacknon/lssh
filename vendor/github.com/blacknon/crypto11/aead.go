@@ -1,4 +1,4 @@
-// Copyright 2018 Thales e-Security, Inc
+// Copyright 2024 Thales Group
 //
 // Permission is hereby granted, free of charge, to any person obtaining
 // a copy of this software and associated documentation files (the
@@ -83,40 +83,6 @@ func (key *SecretKey) NewGCM() (cipher.AEAD, error) {
 			return []*pkcs11.Mechanism{pkcs11.NewMechanism(key.Cipher.GCMMech, params)}, params, nil
 		},
 	}
-	return g, nil
-}
-
-// NewCBC returns a given cipher wrapped in CBC mode.
-//
-// Despite the cipher.AEAD return type, there is no support for additional data and no authentication.
-// This method exists to provide a convenient way to do bulk (possibly padded) CBC encryption.
-// Think carefully before passing the cipher.AEAD to any consumer that expects authentication.
-func (key *SecretKey) NewCBC(paddingMode PaddingMode) (cipher.AEAD, error) {
-
-	var pkcsMech uint
-
-	switch paddingMode {
-	case PaddingNone:
-		pkcsMech = key.Cipher.CBCMech
-	case PaddingPKCS:
-		pkcsMech = key.Cipher.CBCPKCSMech
-	default:
-		return nil, errors.New("unrecognized padding mode")
-	}
-
-	g := genericAead{
-		key:       key,
-		overhead:  0,
-		nonceSize: key.BlockSize(),
-		makeMech: func(nonce []byte, additionalData []byte, encrypt bool) ([]*pkcs11.Mechanism, *pkcs11.GCMParams, error) {
-			if len(additionalData) > 0 {
-				return nil, nil, errors.New("additional data not supported for CBC mode")
-			}
-
-			return []*pkcs11.Mechanism{pkcs11.NewMechanism(pkcsMech, nonce)}, nil, nil
-		},
-	}
-
 	return g, nil
 }
 

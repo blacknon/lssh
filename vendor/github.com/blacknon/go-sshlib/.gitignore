@@ -19,5 +19,8 @@
 
 _TEST
 _test
+vendor/
 
+.mise.toml
+.tmp
 test_termlog

@@ -5,7 +5,8 @@ Crypto11
 [![Build Status](https://travis-ci.com/ThalesIgnite/crypto11.svg?branch=master)](https://travis-ci.com/ThalesIgnite/crypto11)
 
 This is an implementation of the standard Golang crypto interfaces that
-uses [PKCS#11](http://docs.oasis-open.org/pkcs11/pkcs11-base/v2.40/errata01/os/pkcs11-base-v2.40-errata01-os-complete.html) as a backend. The supported features are:
+uses [PKCS#11](http://docs.oasis-open.org/pkcs11/pkcs11-base/v2.40/errata01/os/pkcs11-base-v2.40-errata01-os-complete.html)
+as a backend. The supported features are:
 
 * Generation and retrieval of RSA, DSA and ECDSA keys.
 * Importing and retrieval of x509 certificates
@@ -36,26 +37,40 @@ Installation
 Since v1.0.0, crypto11 requires Go v1.11+. Install the library by running:
 
 ```bash
-go get github.com/ThalesIgnite/crypto11
+go get github.com/ThalesGroup/crypto11
 ```
 
-The crypto11 library needs to be configured with information about your PKCS#11 installation. This is either done programmatically
-(see the `Config` struct in [the documentation](https://godoc.org/github.com/ThalesIgnite/crypto11)) or via a configuration
+The crypto11 library needs to be configured with information about your PKCS#11 installation. This is either done
+programmatically
+(see the `Config` struct in [the documentation](https://godoc.org/github.com/ThalesIgnite/crypto11)) or via a
+configuration
 file. The configuration file is a JSON representation of the `Config` struct.
 
 A minimal configuration file looks like this:
 
 ```json
 {
-  "Path" : "/usr/lib/softhsm/libsofthsm2.so",
+  "Path": "/usr/lib/softhsm/libsofthsm2.so",
   "TokenLabel": "token1",
-  "Pin" : "password"
+  "Pin": "password"
 }
 ```
 
 - `Path` points to the library from your PKCS#11 vendor.
 - `TokenLabel` is the `CKA_LABEL` of the token you wish to use.
 - `Pin` is the password for the `CKU_USER` user.
+- `UseGCMIVFromHSM` generates the IV for GCM mechanism from the HSM
+
+Build
+=====
+
+This package is using CGo for cryptographic packages.  
+Enable CGo before building Crypto11 :
+
+```sh
+go env -w CGO_ENABLED=1
+go build
+```
 
 Testing Guidance
 ================
@@ -66,16 +81,24 @@ Disabling tests
 To disable specific tests, set the environment variable `CRYPTO11_SKIP=<flags>` where `<flags>` is a comma-separated
 list of the following options:
 
-*  `CERTS` - disables certificate-related tests. Needed for AWS CloudHSM, which doesn't support certificates.
-*  `OAEP_LABEL` - disables RSA OAEP encryption tests that use source data encoding parameter (also known as a 'label' 
-in some crypto libraries). Needed for AWS CloudHSM.
-*  `DSA` - disables DSA tests. Needed for AWS CloudHSM (and any other tokens not supporting DSA).
+* `CERTS` - disables certificate-related tests. Needed for AWS CloudHSM, which doesn't support certificates.
+* `OAEP_LABEL` - disables RSA OAEP encryption tests that use source data encoding parameter (also known as a 'label'
+  in some crypto libraries). Needed for AWS CloudHSM.
+* `DSA` - disables DSA tests. Needed for AWS CloudHSM (and any other tokens not supporting DSA).
 
-Testing with Thales Luna HSM
-----------------------------
+Unit test on one file
+---------
 
+```sh
+export DEPENDENCIES="rand.go attributes.go hmac.go crypto11.go common.go keys.go rsa.go certificates.go ecdsa.go blockmode.go sessions.go aead.go dsa.go symmetric.go common_test.go"
+go test block_test.go $DEPENDENCIES
+```
 
+Remote debug :
 
+```sh
+dlv test --headless --listen=:2345 --api-version=2 --accept-multiclient block_test.go $DEPENDENCIES
+```
 
 Testing with AWS CloudHSM
 -------------------------
@@ -84,10 +107,10 @@ A minimal configuration file for CloudHSM will look like this:
 
 ```json
 {
-  "Path" : "/opt/cloudhsm/lib/libcloudhsm_pkcs11_standard.so",
+  "Path": "/opt/cloudhsm/lib/libcloudhsm_pkcs11_standard.so",
   "TokenLabel": "cavium",
-  "Pin" : "username:password",
-  "UseGCMIVFromHSM" : true,
+  "Pin": "username:password",
+  "UseGCMIVFromHSM": true
 }
 ```
 
@@ -99,13 +122,13 @@ CRYPTO11_SKIP=CERTS,OAEP_LABEL,DSA go test -v
 
 Be sure to take note of the supported mechanisms, key types and other idiosyncrasies described at
 https://docs.aws.amazon.com/cloudhsm/latest/userguide/pkcs11-library.html. Here's a collection of things we
-noticed when testing with the  v2.0.4 PKCS#11 library:
+noticed when testing with the v2.0.4 PKCS#11 library:
 
 - 1024-bit RSA keys don't appear to be supported, despite what `C_GetMechanismInfo` tells you.
-- The `CKM_RSA_PKCS_OAEP` mechanism doesn't support source data. I.e. when constructing a `CK_RSA_PKCS_OAEP_PARAMS`, 
-one must set `pSourceData` to `NULL` and `ulSourceDataLen` to zero.
+- The `CKM_RSA_PKCS_OAEP` mechanism doesn't support source data. I.e. when constructing a `CK_RSA_PKCS_OAEP_PARAMS`,
+  one must set `pSourceData` to `NULL` and `ulSourceDataLen` to zero.
 - CloudHSM will generate it's own IV for GCM mode. This is described in their documentation, see footnote 4 on
-https://docs.aws.amazon.com/cloudhsm/latest/userguide/pkcs11-mechanisms.html.
+  https://docs.aws.amazon.com/cloudhsm/latest/userguide/pkcs11-mechanisms.html.
 - It appears that `CKA_ID` values must be unique, otherwise you get a `CKR_ATTRIBUTE_VALUE_INVALID` error.
 - Very rapid session opening can trigger the following error:
   ```
@@ -145,7 +168,7 @@ The configuration looks like this:
 (At time of writing) OAEP is only partial and HMAC is unsupported, so expect test skips.
 
 Testing with nCipher nShield
---------------------
+----------------------------
 
 In all cases, it's worth enabling nShield PKCS#11 log output:
 
@@ -183,19 +206,48 @@ To protect keys with the module only, use the 'accelerator' token:
 
 (At time of writing) GCM is not implemented, so expect test skips.
 
+Testing with a TPM and PKCS11
+-----------------------------
+
+You must know that tpm2-pkcs11 is much more limited than other libraries like softhsm2 for cryptographic operations.  
+The absence of the `C_GenerateKey` function in the tpm2-pkcs11 library is one example of the limitations.  
+However, some of the tests have been modified to support the tpm2-pkcs11 library's specificities.
+
+To test with a TPM, you need to :
+
+- install a virtual TPM or use a TPM on your machine
+- install the `libtpm2_pkcs11` library
+- create all the keys you need for the unit tests in the TPM (since C_Generate key is not supported)
+
+Configure :
+
+```json
+{
+  "Path": "/usr/lib/x86_64-linux-gnu/libtpm2_pkcs11.so.1",
+  "TokenLabel": "mylabel",
+  "Pin": "mypin"
+}
+```
+
+Fine tune the unit tests to use the keys you created in the previous step.  
+Beware that a lot of unit tests may fail otherwise. You must fine-tune your usecase for a TPM usage.
+
 Limitations
 ===========
 
- * The [PKCS1v15DecryptOptions SessionKeyLen](https://golang.org/pkg/crypto/rsa/#PKCS1v15DecryptOptions) field
-is not implemented and an error is returned if it is nonzero.
-The reason for this is that it is not possible for crypto11 to guarantee the constant-time behavior in the specification.
-See [issue #5](https://github.com/ThalesIgnite/crypto11/issues/5) for further discussion.
- * Symmetric crypto support via [cipher.Block](https://golang.org/pkg/crypto/cipher/#Block) is very slow.
-You can use the `BlockModeCloser` API
-(over 400 times as fast on my computer)
-but you must call the Close()
-interface (not found in [cipher.BlockMode](https://golang.org/pkg/crypto/cipher/#BlockMode)).
-See [issue #6](https://github.com/ThalesIgnite/crypto11/issues/6) for further discussion.
+* The [PKCS1v15DecryptOptions SessionKeyLen](https://golang.org/pkg/crypto/rsa/#PKCS1v15DecryptOptions) field
+  is not implemented and an error is returned if it is nonzero.
+  The reason for this is that it is not possible for crypto11 to guarantee the constant-time behavior in the
+  specification.
+  See [issue #5](https://github.com/ThalesIgnite/crypto11/issues/5) for further discussion.
+* Symmetric crypto support via [cipher.Block](https://golang.org/pkg/crypto/cipher/#Block) is very slow.
+  You can use the `BlockModeCloser` API
+  (over 400 times as fast on my computer)
+  but you must call the Close()
+  interface (not found in [cipher.BlockMode](https://golang.org/pkg/crypto/cipher/#BlockMode)).
+  See [issue #6](https://github.com/ThalesIgnite/crypto11/issues/6) for further discussion.
+* Unit tests may interfere between them. You should fine tune and select the Go test file you want to run, one at a
+  time.
 
 Contributions
 ========
@@ -206,3 +258,12 @@ discuss.
 Here are some topics we'd like to cover:
 
 * Full test instructions for additional PKCS#11 implementations.
+
+## Vulnerability check
+
+```sh
+$ govulncheck ./...                                                                                                                       ─╯
+Scanning your code and 112 packages across 5 dependent modules for known vulnerabilities...
+
+No vulnerabilities found.
+```

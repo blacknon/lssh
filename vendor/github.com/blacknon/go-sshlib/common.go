@@ -1,4 +1,4 @@
-// Copyright (c) 2021 Blacknon. All rights reserved.
+// Copyright (c) 2026 Blacknon. All rights reserved.
 // Use of this source code is governed by an MIT license
 // that can be found in the LICENSE file.
 
@@ -28,7 +28,7 @@ func getAbsPath(path string) string {
 
 // getPassphrase gets the passphrase from virtual terminal input and returns the result. Works only on UNIX-based OS.
 func getPassphrase(msg string) (input string, err error) {
-	fmt.Fprintf(os.Stderr, msg)
+	fmt.Fprint(os.Stderr, msg)
 
 	// Open /dev/tty
 	tty, err := os.Open("/dev/tty")

@@ -1,6 +1,6 @@
 // Copyright © 2017 VMware, Inc. All Rights Reserved.
 // SPDX-License-Identifier: BSD-2-Clause
-//
+
 package xdr
 
 import (
@@ -30,7 +30,7 @@ func ReadOpaque(r io.Reader) ([]byte, error) {
 	}
 
 	buf := make([]byte, length)
-	if _, err = r.Read(buf); err != nil {
+	if _, err = io.ReadFull(r, buf); err != nil {
 		return nil, err
 	}
 

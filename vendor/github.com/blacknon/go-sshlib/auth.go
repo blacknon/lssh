@@ -1,4 +1,4 @@
-// Copyright (c) 2021 Blacknon. All rights reserved.
+// Copyright (c) 2026 Blacknon. All rights reserved.
 // Use of this source code is governed by an MIT license
 // that can be found in the LICENSE file.
 
@@ -16,15 +16,126 @@ import (
 	"os"
 	"regexp"
 	"strings"
+	"sync"
+	"unsafe"
 
 	"github.com/ScaleFT/sshkeys"
 	"golang.org/x/crypto/ssh"
 	"golang.org/x/crypto/ssh/agent"
 )
 
+type ControlPersistAuth struct {
+	// AuthMethods allows reusing auth methods created by sshlib helper functions
+	// such as CreateAuthMethodPassword/CreateAuthMethodPublicKey.
+	AuthMethods []ssh.AuthMethod `json:"-"`
+}
+
+type authMethodRegistryKey struct {
+	typ  uintptr
+	data uintptr
+}
+
+type controlPersistAuthMethodDefinition struct {
+	Type     string
+	Password string
+	KeyPath  string
+	KeyPass  string
+}
+
+var controlPersistAuthMethodRegistry sync.Map
+
+func (a *ControlPersistAuth) resolved() ([]controlPersistAuthMethodDefinition, error) {
+	if a == nil {
+		return nil, fmt.Errorf("sshlib: ControlPersistAuth is required for detached ControlPersist helper")
+	}
+
+	if len(a.AuthMethods) == 0 {
+		return nil, fmt.Errorf("sshlib: ControlPersistAuth.AuthMethods is required for detached ControlPersist helper")
+	}
+
+	resolved := make([]controlPersistAuthMethodDefinition, 0, len(a.AuthMethods))
+	for _, authMethod := range a.AuthMethods {
+		persistAuth, ok := lookupControlPersistAuthMethod(authMethod)
+		if !ok {
+			return nil, fmt.Errorf("sshlib: unsupported authMethod for ControlPersistAuth; use sshlib.CreateAuthMethodPassword/CreateAuthMethodPublicKey")
+		}
+		resolved = append(resolved, *persistAuth)
+	}
+	return resolved, nil
+}
+
+func createControlPersistAuthMethods(definitions []controlPersistAuthMethodDefinition) ([]ssh.AuthMethod, error) {
+	authMethods := make([]ssh.AuthMethod, 0, len(definitions))
+	for _, persistAuth := range definitions {
+		switch persistAuth.Type {
+		case "password":
+			authMethods = append(authMethods, CreateAuthMethodPassword(persistAuth.Password))
+		case "publickey":
+			auth, err := CreateAuthMethodPublicKey(persistAuth.KeyPath, persistAuth.KeyPass)
+			if err != nil {
+				return nil, err
+			}
+			authMethods = append(authMethods, auth)
+		default:
+			return nil, fmt.Errorf("sshlib: unsupported ControlPersistAuth type %q", persistAuth.Type)
+		}
+	}
+
+	return authMethods, nil
+}
+
+func registerControlPersistAuthMethod(auth ssh.AuthMethod, persistAuth controlPersistAuthMethodDefinition) {
+	key, ok := controlPersistAuthMethodKey(auth)
+	if !ok {
+		return
+	}
+
+	controlPersistAuthMethodRegistry.Store(key, persistAuth)
+}
+
+func lookupControlPersistAuthMethod(auth ssh.AuthMethod) (*controlPersistAuthMethodDefinition, bool) {
+	key, ok := controlPersistAuthMethodKey(auth)
+	if !ok {
+		return nil, false
+	}
+
+	value, ok := controlPersistAuthMethodRegistry.Load(key)
+	if !ok {
+		return nil, false
+	}
+
+	persistAuth, ok := value.(controlPersistAuthMethodDefinition)
+	if !ok {
+		return nil, false
+	}
+
+	return &persistAuth, true
+}
+
+func controlPersistAuthMethodKey(auth ssh.AuthMethod) (authMethodRegistryKey, bool) {
+	if auth == nil {
+		return authMethodRegistryKey{}, false
+	}
+
+	representation := *(*[2]uintptr)(unsafe.Pointer(&auth))
+	if representation[1] == 0 {
+		return authMethodRegistryKey{}, false
+	}
+
+	return authMethodRegistryKey{
+		typ:  representation[0],
+		data: representation[1],
+	}, true
+}
+
 // CreateAuthMethodPassword returns ssh.AuthMethod generated from password.
 func CreateAuthMethodPassword(password string) (auth ssh.AuthMethod) {
-	return ssh.Password(password)
+	auth = ssh.Password(password)
+	registerControlPersistAuthMethod(auth, controlPersistAuthMethodDefinition{
+		Type:     "password",
+		Password: password,
+	})
+	return
 }
 
 // CreateAuthMethodPublicKey returns ssh.AuthMethod generated from PublicKey.
@@ -36,6 +147,11 @@ func CreateAuthMethodPublicKey(key, password string) (auth ssh.AuthMethod, err e
 	}
 
 	auth = ssh.PublicKeys(signer)
+	registerControlPersistAuthMethod(auth, controlPersistAuthMethodDefinition{
+		Type:    "publickey",
+		KeyPath: key,
+		KeyPass: password,
+	})
 	return
 }
 
