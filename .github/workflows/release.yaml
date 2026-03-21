@@ -119,6 +119,8 @@ jobs:
         with:
           name: build-${{ matrix.goos }}_${{ matrix.goarch }}
           path: lssh_${{ steps.package_version.outputs.version }}_${{ matrix.goos }}_${{ matrix.goarch }}.rpm
+          if-no-files-found: warn
+          overwrite: true
 
       - name: README for deb
         if: matrix.ext == 'deb'
@@ -131,6 +133,8 @@ jobs:
         with:
           name: build-${{ matrix.goos }}_${{ matrix.goarch }}
           path: lssh_${{ steps.package_version.outputs.version }}_${{ matrix.goos }}_${{ matrix.goarch }}.deb
+          if-no-files-found: warn
+          overwrite: true
 
       - name: Upload artifact
         if: matrix.ext == 'tar.gz'
@@ -138,6 +142,8 @@ jobs:
         with:
           name: build-${{ matrix.goos }}_${{ matrix.goarch }}
           path: lssh_${{ steps.package_version.outputs.version }}_${{ matrix.goos }}_${{ matrix.goarch }}.tar.gz
+          if-no-files-found: warn
+          overwrite: true
 
       - name: Upload artifact
         if: matrix.ext == 'zip'
@@ -145,6 +151,8 @@ jobs:
         with:
           name: build-${{ matrix.goos }}_${{ matrix.goarch }}
           path: lssh_${{ steps.package_version.outputs.version }}_${{ matrix.goos }}_${{ matrix.goarch }}.zip
+          if-no-files-found: warn
+          overwrite: true
 
   # create package release
   create-release:
