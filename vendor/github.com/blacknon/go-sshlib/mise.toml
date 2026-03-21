@@ -1,0 +1,18 @@
+[tools]
+go = "1.25.1"
+
+[tasks.test]
+description = "Run the default Go test suite"
+run = "bash -lc '. ./scripts/setup-go-env.sh; go test ./...'"
+
+[tasks.test-unit]
+description = "Run the unit test suite"
+run = "bash -lc '. ./scripts/setup-go-env.sh; go test ./...'"
+
+[tasks.test-integration]
+description = "Run integration tests against the Dockerized SSH server"
+run = "bash ./scripts/test-integration.sh"
+
+[tasks.test-ci]
+description = "Run the CI test flow"
+run = "bash ./scripts/test-ci.sh"

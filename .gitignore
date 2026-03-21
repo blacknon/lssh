@@ -14,5 +14,3 @@
 /lsshfs
 /lssync
 *.exe
-
-vendor/*
