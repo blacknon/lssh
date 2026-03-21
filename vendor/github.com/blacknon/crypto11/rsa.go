@@ -1,4 +1,4 @@
-// Copyright 2016, 2017 Thales e-Security, Inc
+// Copyright 2024 Thales Group
 //
 // Permission is hereby granted, free of charge, to any person obtaining
 // a copy of this software and associated documentation files (the
@@ -24,7 +24,9 @@ package crypto11
 import (
 	"crypto"
 	"crypto/rsa"
+	"crypto/x509"
 	"errors"
+	"fmt"
 	"io"
 	"math/big"
 
@@ -78,6 +80,10 @@ func exportRSAPublicKey(session *pkcs11Session, pubHandle pkcs11.ObjectHandle) (
 		return nil, errMalformedRSAPublicKey
 	}
 	return &result, nil
+}
+
+func (k *pkcs11PrivateKeyRSA) KeyType() uint {
+	return pkcs11.CKK_RSA
 }
 
 // GenerateRSAKeyPair creates an RSA key pair on the token. The id parameter is used to
@@ -170,6 +176,275 @@ func (c *Context) GenerateRSAKeyPairWithAttributes(public, private AttributeSet,
 		return nil
 	})
 	return k, err
+}
+
+// Takes a handles to the private half of a keypair.
+func (c *Context) makeRSAPrivateKey(session *pkcs11Session, privHandle *pkcs11.ObjectHandle) (pk RSAPrivateKey, err error) {
+	attributes := []*pkcs11.Attribute{
+		pkcs11.NewAttribute(pkcs11.CKA_KEY_TYPE, 0),
+	}
+	if attributes, err = session.ctx.GetAttributeValue(session.handle, *privHandle, attributes); err != nil {
+		return nil, err
+	}
+	keyType := bytesToUlong(attributes[0].Value)
+
+	resultPkcs11PrivateKey := pkcs11PrivateKey{
+		pkcs11Object: pkcs11Object{
+			handle:  *privHandle,
+			context: c,
+		},
+	}
+
+	switch keyType {
+	case pkcs11.CKK_RSA:
+		result := &pkcs11PrivateKeyRSA{pkcs11PrivateKey: resultPkcs11PrivateKey}
+		return result, nil
+
+	default:
+		return nil, fmt.Errorf("not an RSA key type: %w", err)
+	}
+}
+
+// FindRSAPrivateKey retrieves a previously created asymmetric RSA private key, or nil if it cannot
+// be found.
+// At least one of id or label must be specified.
+// This method is specific to rsa only because it is the only supported type able to decrypt and
+// sign.
+func (c *Context) FindRSAPrivateKey(id []byte, label []byte) (RSAPrivateKey, error) {
+	if c.closed.Get() {
+		return nil, errClosed
+	}
+
+	result, err := c.FindRSAPrivateKeys(id, label)
+	if err != nil {
+		return nil, err
+	}
+
+	if len(result) == 0 {
+		return nil, fmt.Errorf("private key with id=%x and label=%x was not found or is empty", id, label)
+	}
+
+	return result[0], nil
+}
+
+// FindRSAPrivateKeys retrieves all matching asymmetric RSA private keys, or a nil slice if none can
+// be found.
+// At least one of id or label must be specified.
+// This method is specific to rsa only because it is the only supported type able to decrypt and
+// sign.
+func (c *Context) FindRSAPrivateKeys(id []byte, label []byte) (pks []RSAPrivateKey, err error) {
+	if c.closed.Get() {
+		return nil, errClosed
+	}
+
+	if len(id) == 0 && len(label) == 0 {
+		return nil, errors.New("id and label cannot both be empty")
+	}
+
+	attributes := NewAttributeSet()
+
+	if len(id) > 0 {
+		err = attributes.Set(CkaId, id)
+		if err != nil {
+			return nil, err
+		}
+	}
+	if len(label) > 0 {
+		err = attributes.Set(CkaLabel, label)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	return c.FindRSAPrivateKeysWithAttributes(attributes)
+}
+
+// FindRSAPrivateKeysWithAttributes retrieves previously created asymmetric RSA private keys,
+// or nil if none can be found.
+// The given attributes are matched against the private half only.
+// This method is specific to rsa only because it is the only supported type able to decrypt and
+// sign.
+func (c *Context) FindRSAPrivateKeysWithAttributes(attributes AttributeSet) (pks []RSAPrivateKey, err error) {
+	if c.closed.Get() {
+		return nil, errClosed
+	}
+
+	var keys []RSAPrivateKey
+
+	if _, ok := attributes[CkaClass]; ok {
+		return nil, fmt.Errorf("keypair attribute set must not contain CkaClass")
+	}
+
+	err = c.withSession(func(session *pkcs11Session) error {
+		// Add the private key class to the template to find the private half
+		privAttributes := attributes.Copy()
+		err = privAttributes.Set(CkaClass, pkcs11.CKO_PRIVATE_KEY)
+		if err != nil {
+			return err
+		}
+
+		privHandles, err := findKeysWithAttributes(session, privAttributes.ToSlice())
+		if err != nil {
+			return err
+		}
+
+		for _, privHandle := range privHandles {
+			k, err := c.makeRSAPrivateKey(session, &privHandle)
+			if err != nil {
+				return err
+			}
+
+			keys = append(keys, k)
+		}
+
+		return nil
+	})
+
+	if err != nil {
+		return nil, err
+	}
+
+	return keys, nil
+}
+
+// makeRSAKeyPair is a method to specifically build an RSA key pair from a pkcs11 session.
+// This method is different from makeKeyPair which only return a Signer interface, thus unable to
+// decrypt data from the private part of the pair.
+// This method is different from makeRSAPrivateKey which only returns a private, thus unable to
+// provide the public part of the pair.
+func (c *Context) makeRSAKeyPair(session *pkcs11Session, privHandle *pkcs11.ObjectHandle) (signer SignerDecrypter, certificate *x509.Certificate, err error) {
+	pubHandle, keyType, resultPkcs11PrivateKey, certificate, pub, err := c.getKeyPair(session, privHandle)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	switch keyType {
+	case pkcs11.CKK_RSA:
+		result := &pkcs11PrivateKeyRSA{pkcs11PrivateKey: *resultPkcs11PrivateKey}
+		if pubHandle != nil {
+			if pub, err = exportRSAPublicKey(session, *pubHandle); err != nil {
+				return nil, nil, err
+			}
+			result.pkcs11PrivateKey.pubKeyHandle = *pubHandle
+		}
+
+		result.pkcs11PrivateKey.pubKey = pub
+		return result, certificate, nil
+
+	default:
+		return nil, nil, fmt.Errorf("not an RSA key pair: %X", keyType)
+	}
+}
+
+// FindRSAKeyPair retrieves a previously created asymmetric RSA key pair, or nil if it cannot
+// be found.
+// At least one of id or label must be specified.
+// This method is specific to rsa only because it is the only supported type able to decrypt and
+// sign.
+func (c *Context) FindRSAKeyPair(id []byte, label []byte) (SignerDecrypter, error) {
+	if c.closed.Get() {
+		return nil, errClosed
+	}
+
+	result, err := c.FindRSAKeyPairs(id, label)
+	if err != nil {
+		return nil, err
+	}
+
+	if len(result) == 0 {
+		return nil, fmt.Errorf("key pair with id=%x and label=%x was not found or is empty", id, label)
+	}
+
+	return result[0], nil
+}
+
+// FindRSAKeyPairs retrieves all matching asymmetric RSA key pairs, or a nil slice if none can be
+// found.
+// At least one of id and label must be specified.
+// Only private keys that have a non-empty CKA_ID will be found, as this is required to locate the
+// matching public key.
+// If the private key is found, but the public key with a corresponding CKA_ID is not, the key is
+// not returned because we cannot implement crypto.Signer of SignerDecrypter without the public key.
+func (c *Context) FindRSAKeyPairs(id []byte, label []byte) (signer []SignerDecrypter, err error) {
+	if c.closed.Get() {
+		return nil, errClosed
+	}
+
+	if len(id) == 0 && len(label) == 0 {
+		return nil, errors.New("id and label cannot both be empty")
+	}
+
+	attributes := NewAttributeSet()
+
+	if len(id) > 0 {
+		err = attributes.Set(CkaId, id)
+		if err != nil {
+			return nil, err
+		}
+	}
+	if len(label) > 0 {
+		err = attributes.Set(CkaLabel, label)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	return c.FindKeyRSAPairsWithAttributes(attributes)
+}
+
+// FindKeyRSAPairsWithAttributes retrieves previously created RSA asymmetric key pairs, or nil if
+// none can be found.
+// The given attributes are matched against the private half only. Then the public half with a
+// matching CKA_ID and CKA_LABEL values is found.
+// Only private keys that have a non-empty CKA_ID will be found, as this is required to locate the
+// matching public key.
+// If the private key is found, but the public key with a corresponding CKA_ID is not, the key is
+// not returned because we cannot implement crypto.Signer of SignerDecrypter without the public key.
+func (c *Context) FindKeyRSAPairsWithAttributes(attributes AttributeSet) (signer []SignerDecrypter, err error) {
+	if c.closed.Get() {
+		return nil, errClosed
+	}
+
+	var keys []SignerDecrypter
+
+	if _, ok := attributes[CkaClass]; ok {
+		return nil, fmt.Errorf("keypair attribute set must not contain CkaClass")
+	}
+
+	err = c.withSession(func(session *pkcs11Session) error {
+		// Add the private key class to the template to find the private half
+		privAttributes := attributes.Copy()
+		err = privAttributes.Set(CkaClass, pkcs11.CKO_PRIVATE_KEY)
+		if err != nil {
+			return err
+		}
+
+		privHandles, err := findKeysWithAttributes(session, privAttributes.ToSlice())
+		if err != nil {
+			return err
+		}
+
+		for _, privHandle := range privHandles {
+			k, _, err := c.makeRSAKeyPair(session, &privHandle)
+
+			if errors.Is(err, errNoCkaId) || errors.Is(err, errNoPublicHalf) {
+				continue
+			}
+			if err != nil {
+				return err
+			}
+
+			keys = append(keys, k)
+		}
+
+		return nil
+	})
+
+	if err != nil {
+		return nil, err
+	}
+
+	return keys, nil
 }
 
 // Decrypt decrypts a message using a RSA key.

@@ -2,6 +2,9 @@
 // Use of this source code is governed by an MIT license
 // that can be found in the LICENSE file.
 
+// TODO: CheckKnownHostsを使ってなかったので、HostKeyのチェックを追加し、さらにオプションで状況に応じた挙動の変化を実装する。
+// TODO: HostKey Checkの挙動をどうするかについて、Configで指定できるようにする
+
 package ssh
 
 import (
@@ -95,6 +98,13 @@ func (r *Run) CreateSshConnect(server string) (connect *sshlib.Connect, err erro
 		ConnectTimeout:        s.ConnectTimeout,
 		SendKeepAliveMax:      s.ServerAliveCountMax,
 		SendKeepAliveInterval: s.ServerAliveCountInterval,
+		CheckKnownHosts:       s.CheckKnownHosts,
+		KnownHostsFiles:       s.KnownHostsFiles,
+		OverwriteKnownHosts:   true,
+	}
+
+	if r.EnableStdoutMutex {
+		connect.StdoutMutex = &r.stdoutMutex
 	}
 
 	err = connect.CreateClient(s.Addr, s.Port, s.User, r.serverAuthMethodMap[server])

@@ -8,7 +8,7 @@
 // the host name to match on ("example.com"), and the second argument is the key
 // you want to retrieve ("Port"). The keywords are case insensitive.
 //
-// 		port := ssh_config.Get("myhost", "Port")
+//	port := ssh_config.Get("myhost", "Port")
 //
 // You can also manipulate an SSH config file and then print it or write it back
 // to disk.
@@ -24,9 +24,6 @@
 //
 //	// Write the cfg back to disk:
 //	fmt.Println(cfg.String())
-//
-// BUG: the Match directive is currently unsupported; parsing a config with
-// a Match directive will trigger an error.
 package ssh_config
 
 import (
@@ -34,7 +31,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"os"
 	osuser "os/user"
 	"path/filepath"
@@ -44,7 +40,7 @@ import (
 	"sync"
 )
 
-const version = "1.0"
+const version = "1.6.0"
 
 var _ = version
 
@@ -54,6 +50,8 @@ type configFinder func() string
 // files are parsed and cached the first time Get() or GetStrict() is called.
 type UserSettings struct {
 	IgnoreErrors       bool
+	customConfig       *Config
+	customConfigFinder configFinder
 	systemConfig       *Config
 	systemConfigFinder configFinder
 	userConfig         *Config
@@ -102,6 +100,13 @@ func findVal(c *Config, alias, key string) (string, error) {
 	return val, nil
 }
 
+func findAll(c *Config, alias, key string) ([]string, error) {
+	if c == nil {
+		return nil, nil
+	}
+	return c.GetAll(alias, key)
+}
+
 // Get finds the first value for key within a declaration that matches the
 // alias. Get returns the empty string if no value was found, or if IgnoreErrors
 // is false and we could not parse the configuration file. Use GetStrict to
@@ -114,17 +119,49 @@ func Get(alias, key string) string {
 	return DefaultUserSettings.Get(alias, key)
 }
 
+// GetAll retrieves zero or more directives for key for the given alias. GetAll
+// returns nil if no value was found, or if IgnoreErrors is false and we could
+// not parse the configuration file. Use GetAllStrict to disambiguate the
+// latter cases.
+//
+// In most cases you want to use Get or GetStrict, which returns a single value.
+// However, a subset of ssh configuration values (IdentityFile, for example)
+// allow you to specify multiple directives.
+//
+// The match for key is case insensitive.
+//
+// GetAll is a wrapper around DefaultUserSettings.GetAll.
+func GetAll(alias, key string) []string {
+	return DefaultUserSettings.GetAll(alias, key)
+}
+
 // GetStrict finds the first value for key within a declaration that matches the
 // alias. If key has a default value and no matching configuration is found, the
 // default will be returned. For more information on default values and the way
 // patterns are matched, see the manpage for ssh_config.
 //
-// error will be non-nil if and only if a user's configuration file or the
-// system configuration file could not be parsed, and u.IgnoreErrors is false.
+// The returned error will be non-nil if and only if a user's configuration file
+// or the system configuration file could not be parsed, and u.IgnoreErrors is
+// false.
 //
 // GetStrict is a wrapper around DefaultUserSettings.GetStrict.
 func GetStrict(alias, key string) (string, error) {
 	return DefaultUserSettings.GetStrict(alias, key)
+}
+
+// GetAllStrict retrieves zero or more directives for key for the given alias.
+//
+// In most cases you want to use Get or GetStrict, which returns a single value.
+// However, a subset of ssh configuration values (IdentityFile, for example)
+// allow you to specify multiple directives.
+//
+// The returned error will be non-nil if and only if a user's configuration file
+// or the system configuration file could not be parsed, and u.IgnoreErrors is
+// false.
+//
+// GetAllStrict is a wrapper around DefaultUserSettings.GetAllStrict.
+func GetAllStrict(alias, key string) ([]string, error) {
+	return DefaultUserSettings.GetAllStrict(alias, key)
 }
 
 // Get finds the first value for key within a declaration that matches the
@@ -141,6 +178,17 @@ func (u *UserSettings) Get(alias, key string) string {
 	return val
 }
 
+// GetAll retrieves zero or more directives for key for the given alias. GetAll
+// returns nil if no value was found, or if IgnoreErrors is false and we could
+// not parse the configuration file. Use GetStrict to disambiguate the latter
+// cases.
+//
+// The match for key is case insensitive.
+func (u *UserSettings) GetAll(alias, key string) []string {
+	val, _ := u.GetAllStrict(alias, key)
+	return val
+}
+
 // GetStrict finds the first value for key within a declaration that matches the
 // alias. If key has a default value and no matching configuration is found, the
 // default will be returned. For more information on default values and the way
@@ -149,15 +197,96 @@ func (u *UserSettings) Get(alias, key string) string {
 // error will be non-nil if and only if a user's configuration file or the
 // system configuration file could not be parsed, and u.IgnoreErrors is false.
 func (u *UserSettings) GetStrict(alias, key string) (string, error) {
+	u.doLoadConfigs()
+	//lint:ignore S1002 I prefer it this way
+	if u.onceErr != nil && u.IgnoreErrors == false {
+		return "", u.onceErr
+	}
+	// TODO this is getting repetitive
+	if u.customConfig != nil {
+		val, err := findVal(u.customConfig, alias, key)
+		if err != nil || val != "" {
+			return val, err
+		}
+	}
+	val, err := findVal(u.userConfig, alias, key)
+	if err != nil || val != "" {
+		return val, err
+	}
+	val2, err2 := findVal(u.systemConfig, alias, key)
+	if err2 != nil || val2 != "" {
+		return val2, err2
+	}
+	return Default(key), nil
+}
+
+// GetAllStrict retrieves zero or more directives for key for the given alias.
+// If key has a default value and no matching configuration is found, the
+// default will be returned. For more information on default values and the way
+// patterns are matched, see the manpage for ssh_config.
+//
+// The returned error will be non-nil if and only if a user's configuration file
+// or the system configuration file could not be parsed, and u.IgnoreErrors is
+// false.
+func (u *UserSettings) GetAllStrict(alias, key string) ([]string, error) {
+	u.doLoadConfigs()
+	//lint:ignore S1002 I prefer it this way
+	if u.onceErr != nil && u.IgnoreErrors == false {
+		return nil, u.onceErr
+	}
+	if u.customConfig != nil {
+		val, err := findAll(u.customConfig, alias, key)
+		if err != nil || val != nil {
+			return val, err
+		}
+	}
+	val, err := findAll(u.userConfig, alias, key)
+	if err != nil || val != nil {
+		return val, err
+	}
+	val2, err2 := findAll(u.systemConfig, alias, key)
+	if err2 != nil || val2 != nil {
+		return val2, err2
+	}
+	// TODO: IdentityFile has multiple default values that we should return.
+	if def := Default(key); def != "" {
+		return []string{def}, nil
+	}
+	return []string{}, nil
+}
+
+// ConfigFinder will invoke f to try to find a ssh config file in a custom
+// location on disk, instead of in /etc/ssh or $HOME/.ssh. f should return the
+// name of a file containing SSH configuration.
+//
+// ConfigFinder must be invoked before any calls to Get or GetStrict and panics
+// if f is nil. Most users should not need to use this function.
+func (u *UserSettings) ConfigFinder(f func() string) {
+	if f == nil {
+		panic("cannot call ConfigFinder with nil function")
+	}
+	u.customConfigFinder = f
+}
+
+func (u *UserSettings) doLoadConfigs() {
 	u.loadConfigs.Do(func() {
-		// can't parse user file, that's ok.
 		var filename string
+		var err error
+		if u.customConfigFinder != nil {
+			filename = u.customConfigFinder()
+			u.customConfig, err = parseFile(filename)
+			// IsNotExist should be returned because a user specified this
+			// function - not existing likely means they made an error
+			if err != nil {
+				u.onceErr = err
+			}
+			return
+		}
 		if u.userConfigFinder == nil {
 			filename = userConfigFinder()
 		} else {
 			filename = u.userConfigFinder()
 		}
-		var err error
 		u.userConfig, err = parseFile(filename)
 		//lint:ignore S1002 I prefer it this way
 		if err != nil && os.IsNotExist(err) == false {
@@ -176,19 +305,6 @@ func (u *UserSettings) GetStrict(alias, key string) (string, error) {
 			return
 		}
 	})
-	//lint:ignore S1002 I prefer it this way
-	if u.onceErr != nil && u.IgnoreErrors == false {
-		return "", u.onceErr
-	}
-	val, err := findVal(u.userConfig, alias, key)
-	if err != nil || val != "" {
-		return val, err
-	}
-	val2, err2 := findVal(u.systemConfig, alias, key)
-	if err2 != nil || val2 != "" {
-		return val2, err2
-	}
-	return Default(key), nil
 }
 
 func parseFile(filename string) (*Config, error) {
@@ -196,7 +312,7 @@ func parseFile(filename string) (*Config, error) {
 }
 
 func parseWithDepth(filename string, depth uint8) (*Config, error) {
-	b, err := ioutil.ReadFile(filename)
+	b, err := os.ReadFile(filename)
 	if err != nil {
 		return nil, err
 	}
@@ -211,10 +327,16 @@ func isSystem(filename string) bool {
 // Decode reads r into a Config, or returns an error if r could not be parsed as
 // an SSH config file.
 func Decode(r io.Reader) (*Config, error) {
-	b, err := ioutil.ReadAll(r)
+	b, err := io.ReadAll(r)
 	if err != nil {
 		return nil, err
 	}
+	return decodeBytes(b, false, 0)
+}
+
+// DecodeBytes reads b into a Config, or returns an error if r could not be
+// parsed as an SSH config file.
+func DecodeBytes(b []byte) (*Config, error) {
 	return decodeBytes(b, false, 0)
 }
 
@@ -263,9 +385,6 @@ func (c *Config) Get(alias, key string) (string, error) {
 			case *KV:
 				// "keys are case insensitive" per the spec
 				lkey := strings.ToLower(t.Key)
-				if lkey == "match" {
-					panic("can't handle Match directives")
-				}
 				if lkey == lowerKey {
 					return t.Value, nil
 				}
@@ -280,6 +399,39 @@ func (c *Config) Get(alias, key string) (string, error) {
 		}
 	}
 	return "", nil
+}
+
+// GetAll returns all values in the configuration that match the alias and
+// contains key, or nil if none are present.
+func (c *Config) GetAll(alias, key string) ([]string, error) {
+	lowerKey := strings.ToLower(key)
+	all := []string(nil)
+	for _, host := range c.Hosts {
+		if !host.Matches(alias) {
+			continue
+		}
+		for _, node := range host.Nodes {
+			switch t := node.(type) {
+			case *Empty:
+				continue
+			case *KV:
+				// "keys are case insensitive" per the spec
+				lkey := strings.ToLower(t.Key)
+				if lkey == lowerKey {
+					all = append(all, t.Value)
+				}
+			case *Include:
+				val, _ := t.GetAll(alias, key)
+				if len(val) > 0 {
+					all = append(all, val...)
+				}
+			default:
+				return nil, fmt.Errorf("unknown Node type %v", t)
+			}
+		}
+	}
+
+	return all, nil
 }
 
 // String returns a string representation of the Config file.
@@ -309,6 +461,9 @@ type Pattern struct {
 
 // String prints the string representation of the pattern.
 func (p Pattern) String() string {
+	if p.not {
+		return "!" + p.str
+	}
 	return p.str
 }
 
@@ -367,18 +522,26 @@ func NewPattern(s string) (*Pattern, error) {
 	return &Pattern{str: s, regex: r, not: negated}, nil
 }
 
-// Host describes a Host directive and the keywords that follow it.
+// Host describes a Host or Match directive and the keywords that follow it.
 type Host struct {
 	// A list of host patterns that should match this host.
 	Patterns []*Pattern
 	// A Node is either a key/value pair or a comment line.
 	Nodes []Node
 	// EOLComment is the comment (if any) terminating the Host line.
-	EOLComment   string
+	EOLComment string
+	// Whitespace if any between the Host declaration and a trailing comment.
+	spaceBeforeComment string
+
 	hasEquals    bool
 	leadingSpace int // TODO: handle spaces vs tabs here.
 	// The file starts with an implicit "Host *" declaration.
 	implicit bool
+	// isMatch is true if this block was created by a Match directive.
+	isMatch bool
+	// matchKeyword stores the original text after "Match" (e.g. "Host" or
+	// "all") so we can round-trip correctly.
+	matchKeyword string
 }
 
 // Matches returns true if the Host matches for the given alias. For
@@ -406,24 +569,48 @@ func (h *Host) Matches(alias string) bool {
 // String prints h as it would appear in a config file. Minor tweaks may be
 // present in the whitespace in the printed file.
 func (h *Host) String() string {
-	var buf bytes.Buffer
+	var buf strings.Builder
 	//lint:ignore S1002 I prefer to write it this way
 	if h.implicit == false {
 		buf.WriteString(strings.Repeat(" ", int(h.leadingSpace)))
-		buf.WriteString("Host")
-		if h.hasEquals {
-			buf.WriteString(" = ")
-		} else {
-			buf.WriteString(" ")
-		}
-		for i, pat := range h.Patterns {
-			buf.WriteString(pat.String())
-			if i < len(h.Patterns)-1 {
+		if h.isMatch {
+			buf.WriteString("Match")
+			if h.hasEquals {
+				buf.WriteString(" = ")
+			} else {
 				buf.WriteString(" ")
+			}
+			buf.WriteString(h.matchKeyword)
+			if !strings.EqualFold(h.matchKeyword, "all") {
+				buf.WriteString(" ")
+				for i, pat := range h.Patterns {
+					buf.WriteString(pat.String())
+					if i < len(h.Patterns)-1 {
+						buf.WriteString(" ")
+					}
+				}
+			}
+		} else {
+			buf.WriteString("Host")
+			if h.hasEquals {
+				buf.WriteString(" = ")
+			} else {
+				buf.WriteString(" ")
+			}
+			for i, pat := range h.Patterns {
+				buf.WriteString(pat.String())
+				if i < len(h.Patterns)-1 {
+					buf.WriteString(" ")
+				}
 			}
 		}
 		if h.EOLComment != "" {
-			buf.WriteString(" #")
+			if h.spaceBeforeComment != "" {
+				buf.WriteString(h.spaceBeforeComment)
+			} else {
+				buf.WriteByte(' ')
+			}
+			buf.WriteByte('#')
 			buf.WriteString(h.EOLComment)
 		}
 		buf.WriteByte('\n')
@@ -444,12 +631,17 @@ type Node interface {
 // KV is a line in the config file that contains a key, a value, and possibly
 // a comment.
 type KV struct {
-	Key          string
-	Value        string
-	Comment      string
-	hasEquals    bool
-	leadingSpace int // Space before the key. TODO handle spaces vs tabs.
-	position     Position
+	Key   string
+	Value string
+	// Whitespace after the value but before any comment
+	spaceAfterValue string
+	Comment         string
+	hasEquals       bool
+	leadingSpace    int // Space before the key. TODO handle spaces vs tabs.
+	position        Position
+	// rawValue preserves the original value text (including surrounding double
+	// quotes, if any) so that String() can roundtrip the config file faithfully.
+	rawValue string
 }
 
 // Pos returns k's Position.
@@ -457,8 +649,7 @@ func (k *KV) Pos() Position {
 	return k.position
 }
 
-// String prints k as it was parsed in the config file. There may be slight
-// changes to the whitespace between values.
+// String prints k as it was parsed in the config file.
 func (k *KV) String() string {
 	if k == nil {
 		return ""
@@ -467,9 +658,20 @@ func (k *KV) String() string {
 	if k.hasEquals {
 		equals = " = "
 	}
-	line := fmt.Sprintf("%s%s%s%s", strings.Repeat(" ", int(k.leadingSpace)), k.Key, equals, k.Value)
+	val := k.Value
+	if k.rawValue != "" {
+		val = k.rawValue
+	}
+	line := strings.Repeat(" ", int(k.leadingSpace)) + k.Key + equals + val
 	if k.Comment != "" {
-		line += " #" + k.Comment
+		if k.spaceAfterValue != "" {
+			line += k.spaceAfterValue
+		} else {
+			line += " "
+		}
+		line += "#" + k.Comment
+	} else {
+		line += k.spaceAfterValue
 	}
 	return line
 }
@@ -566,6 +768,8 @@ func NewInclude(directives []string, hasEquals bool, pos Position, comment strin
 			path = directives[i]
 		} else if system {
 			path = filepath.Join("/etc/ssh", directives[i])
+		} else if strings.HasPrefix(directives[i], "~/") {
+			path = filepath.Join(homedir(), directives[i][2:])
 		} else {
 			path = filepath.Join(homedir(), ".ssh", directives[i])
 		}
@@ -611,6 +815,31 @@ func (inc *Include) Get(alias, key string) string {
 	return ""
 }
 
+// GetAll finds all values in the Include statement matching the alias and the
+// given key.
+func (inc *Include) GetAll(alias, key string) ([]string, error) {
+	inc.mu.Lock()
+	defer inc.mu.Unlock()
+	var vals []string
+
+	// TODO: we search files in any order which is not correct
+	for i := range inc.matches {
+		cfg := inc.files[inc.matches[i]]
+		if cfg == nil {
+			panic("nil cfg")
+		}
+		val, err := cfg.GetAll(alias, key)
+		if err == nil && len(val) != 0 {
+			// In theory if SupportsMultiple was false for this key we could
+			// stop looking here. But the caller has asked us to find all
+			// instances of the keyword (and could use Get() if they wanted) so
+			// let's keep looking.
+			vals = append(vals, val...)
+		}
+	}
+	return vals, nil
+}
+
 // String prints out a string representation of this Include directive. Note
 // included Config files are not printed as part of this representation.
 func (inc *Include) String() string {
@@ -638,7 +867,7 @@ func init() {
 func newConfig() *Config {
 	return &Config{
 		Hosts: []*Host{
-			&Host{
+			{
 				implicit: true,
 				Patterns: []*Pattern{matchAll},
 				Nodes:    make([]Node, 0),

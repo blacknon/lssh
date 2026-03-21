@@ -1,4 +1,4 @@
-// Copyright 2018 Thales e-Security, Inc
+// Copyright 2024 Thales Group
 //
 // Permission is hereby granted, free of charge, to any person obtaining
 // a copy of this software and associated documentation files (the
@@ -33,25 +33,25 @@ const (
 	NFCK_VENDOR_NCIPHER = 0xde436972
 
 	// CKM_NCIPHER is the base for nShield vendor-specific mechanisms.
-	CKM_NCIPHER = (pkcs11.CKM_VENDOR_DEFINED | NFCK_VENDOR_NCIPHER)
+	CKM_NCIPHER = pkcs11.CKM_VENDOR_DEFINED | NFCK_VENDOR_NCIPHER
 
 	// CKM_NC_MD5_HMAC_KEY_GEN is the nShield-specific HMACMD5 key-generation mechanism
-	CKM_NC_MD5_HMAC_KEY_GEN = (CKM_NCIPHER + 0x6)
+	CKM_NC_MD5_HMAC_KEY_GEN = CKM_NCIPHER + 0x6
 
 	// CKM_NC_SHA_1_HMAC_KEY_GEN is the nShield-specific HMACSHA1 key-generation mechanism
-	CKM_NC_SHA_1_HMAC_KEY_GEN = (CKM_NCIPHER + 0x3)
+	CKM_NC_SHA_1_HMAC_KEY_GEN = CKM_NCIPHER + 0x3
 
 	// CKM_NC_SHA224_HMAC_KEY_GEN is the nShield-specific HMACSHA224 key-generation mechanism
-	CKM_NC_SHA224_HMAC_KEY_GEN = (CKM_NCIPHER + 0x24)
+	CKM_NC_SHA224_HMAC_KEY_GEN = CKM_NCIPHER + 0x24
 
 	// CKM_NC_SHA256_HMAC_KEY_GEN is the nShield-specific HMACSHA256 key-generation mechanism
-	CKM_NC_SHA256_HMAC_KEY_GEN = (CKM_NCIPHER + 0x25)
+	CKM_NC_SHA256_HMAC_KEY_GEN = CKM_NCIPHER + 0x25
 
 	// CKM_NC_SHA384_HMAC_KEY_GEN is the nShield-specific HMACSHA384 key-generation mechanism
-	CKM_NC_SHA384_HMAC_KEY_GEN = (CKM_NCIPHER + 0x26)
+	CKM_NC_SHA384_HMAC_KEY_GEN = CKM_NCIPHER + 0x26
 
 	// CKM_NC_SHA512_HMAC_KEY_GEN is the nShield-specific HMACSHA512 key-generation mechanism
-	CKM_NC_SHA512_HMAC_KEY_GEN = (CKM_NCIPHER + 0x27)
+	CKM_NC_SHA512_HMAC_KEY_GEN = CKM_NCIPHER + 0x27
 )
 
 type hmacImplementation struct {

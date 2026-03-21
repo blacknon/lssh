@@ -1,0 +1,7 @@
+#compdef lsftp
+_lsftp() {
+    _arguments -s \
+        '(-F --file)'{-F,--file}'[Specify config file path]:config file:_files' \
+        '(-h --help)'{-h,--help}'[Print this help]' \
+        '(-v --version)'{-v,--version}'[Print the version]'
+}
