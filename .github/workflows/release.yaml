@@ -220,6 +220,11 @@ jobs:
         with:
           name: build-${{ matrix.goos }}_${{ matrix.goarch }}
 
+      - name: List build artifact files
+        run: |
+          echo "Listing ./build-${{ matrix.goos }}_${{ matrix.goarch }}:"
+          ls -la ./build-${{ matrix.goos }}_${{ matrix.goarch }} || { echo "Artifact directory missing"; ls -la .; exit 1; }
+
       - uses: actions/upload-release-asset@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
