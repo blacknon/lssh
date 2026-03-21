@@ -78,10 +78,10 @@ type Run struct {
 	// L or R
 	PortForwardMode string
 
-	//
+	// local port num (ex. 11080).
 	PortForwardLocal string
 
-	//
+	// remote host and port (ex. localhost:11080).
 	PortForwardRemote string
 
 	// Dynamic Port Forwarding

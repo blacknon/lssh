@@ -1,0 +1,25 @@
+# Enviroment
+# ====================
+# [env]
+# mise.file = "env"
+
+# Tasks(binary)
+# ====================
+[tasks.binary_build]
+description = "Build binary files lssh, lscp and lsftp"
+depends = ["binary_clean"]
+run = """
+    go mod tidy
+    go mod vendor
+
+    go build -o lssh ./cmd/lssh
+    go build -o lscp ./cmd/lscp
+    go build -o lsftp ./cmd/lsftp
+"""
+
+[tasks.binary_clean]
+description = "Clean binary files lssh, lscp and lsftp"
+depends = []
+run = """
+    rm -f lssh lscp lsftp
+"""
