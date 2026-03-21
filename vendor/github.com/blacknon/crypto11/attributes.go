@@ -1,3 +1,24 @@
+// Copyright 2024 Thales Group
+//
+// Permission is hereby granted, free of charge, to any person obtaining
+// a copy of this software and associated documentation files (the
+// "Software"), to deal in the Software without restriction, including
+// without limitation the rights to use, copy, modify, merge, publish,
+// distribute, sublicense, and/or sell copies of the Software, and to
+// permit persons to whom the Software is furnished to do so, subject to
+// the following conditions:
+//
+// The above copyright notice and this permission notice shall be
+// included in all copies or substantial portions of the Software.
+//
+// THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
+// EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+// MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
+// NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE
+// LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION
+// OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
+// WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+
 package crypto11
 
 import (
@@ -150,7 +171,7 @@ const (
 // NewAttribute is a helper function that populates a new Attribute for common data types. This function will
 // return an error if value is not of type bool, int, uint, string, []byte or time.Time (or is nil).
 func NewAttribute(attributeType AttributeType, value interface{}) (a *Attribute, err error) {
-	// catch any panics from the pkcs11.NewAttribute() call to handle the error cleanly
+	// catch any panics from the pkcs11.NewAttribute() call to keyHandle the error cleanly
 	defer func() {
 		if r := recover(); r != nil {
 			err = errors.New(fmt.Sprintf("failed creating Attribute: %v", r))

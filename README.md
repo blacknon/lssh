@@ -25,6 +25,7 @@ Supported multiple ssh proxy, http/socks5 proxy, x11 forward, and port forwardin
 * Supported multiple proxy, **ssh**, **http**, and **socks5** proxy. It's supported multi-stage proxy.
 * Supported **ssh-agent**.
 * Supported **Local** and **Remote Port forward**, **Dynamic Forward(SOCKS5, http)**, **Reverse Dynamic Forward(SOCKS5, http)** and **x11 forward**.
+* Supported KnownHosts.
 * By using **NFS Forward**/**NFS Reverse Forward**, the NFS server starts listening to the PATH of the local host or remote machine, making it available via local port forwarding.
 * Can use bashrc of local machine at ssh connection destination.
 * It supports various authentication methods. Password, Public key, Certificate and PKCS11(Yubikey etc.).
@@ -628,6 +629,29 @@ After that, the forwarded PATH can be used as a mount point on the local machine
 
 If OpenSsh config is loaded, it will be loaded as it is.
 
+
+</details>
+
+### 10. Check KnownHosts
+<details>
+
+Supported check KnownHosts.
+If you want to enable check KnownHost, set `check_known_hosts` to `true` in Server Config.
+
+If you want to specify a file to record KnownHosts, add file path to `known_hosts_files`.
+
+	[server.CheckKnownHosts]
+	addr = "check_knwon_hosts.local"
+	user = "user"
+	check_known_hosts = true
+	note = "check known hosts example"
+
+	[server.CheckKnownHostsToOriginalFile]
+	addr = "check_knwon_hosts.local"
+	user = "user"
+	check_known_hosts = true
+	known_hosts_files = ["/path/to/known_hosts"]
+	note = "check known hosts example"
 
 </details>
 

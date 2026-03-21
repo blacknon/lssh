@@ -1,4 +1,4 @@
-// Copyright 2016, 2017 Thales e-Security, Inc
+// Copyright 2024 Thales Group
 //
 // Permission is hereby granted, free of charge, to any person obtaining
 // a copy of this software and associated documentation files (the
@@ -84,5 +84,5 @@ func (c *Context) resourcePoolFactoryFunc() (pool.Resource, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &pkcs11Session{c.ctx, session}, nil
+	return &pkcs11Session{c.ctx.Ctx, session}, nil
 }

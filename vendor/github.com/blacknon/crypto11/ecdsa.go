@@ -1,4 +1,4 @@
-// Copyright 2016, 2017 Thales e-Security, Inc
+// Copyright 2024 Thales Group
 //
 // Permission is hereby granted, free of charge, to any person obtaining
 // a copy of this software and associated documentation files (the
@@ -52,6 +52,10 @@ type curveInfo struct {
 
 	// Curve definition in Go form
 	curve elliptic.Curve
+}
+
+func (k *pkcs11PrivateKeyECDSA) KeyType() uint {
+	return pkcs11.CKK_ECDSA
 }
 
 // ASN.1 marshal some value and panic on error

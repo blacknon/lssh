@@ -11,8 +11,8 @@ import (
 	"encoding/asn1"
 	"encoding/pem"
 	"fmt"
+	"math"
 	"math/big"
-	mrand "math/rand"
 
 	"github.com/dchest/bcrypt_pbkdf"
 	"golang.org/x/crypto/ed25519"
@@ -180,7 +180,14 @@ func marshalOpenssh(pk interface{}, opts *MarshalOptions) ([]byte, error) {
 		blocksize = aes.BlockSize
 	}
 
-	check := mrand.Uint32()
+	// Get a crypto rand in the range [0, uint32-max]
+	randnum, err := rand.Int(rand.Reader, big.NewInt(math.MaxUint32+1))
+	if err != nil {
+		return nil, fmt.Errorf("sshkeys: failed to get random number: %w", err)
+	}
+	// Convert it to uint32. As the content was within uint32 limits, nothing should be lost
+	check := uint32(randnum.Uint64())
+
 	pk1 := opensshKey{
 		Check1: check,
 		Check2: check,

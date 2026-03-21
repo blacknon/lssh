@@ -11,6 +11,7 @@ import (
 	"os/exec"
 	"runtime"
 	"strings"
+	"sync"
 
 	"github.com/blacknon/lssh/common"
 	"github.com/blacknon/lssh/conf"
@@ -18,6 +19,8 @@ import (
 	"golang.org/x/crypto/ssh"
 	"golang.org/x/crypto/ssh/terminal"
 )
+
+// TODO(blacknon): Parallel ssh接続時に1ホストづつ接続しているので、goroutineで並列接続させるようにする(v0.7.0)
 
 // TOOD(blacknon): なんかProxyのポートが表示おかしいので、修正する(v0.7.0)
 
@@ -75,10 +78,10 @@ type Run struct {
 	// L or R
 	PortForwardMode string
 
-	//
+	// local port num (ex. 11080).
 	PortForwardLocal string
 
-	//
+	// remote host and port (ex. localhost:11080).
 	PortForwardRemote string
 
 	// Dynamic Port Forwarding
@@ -123,6 +126,12 @@ type Run struct {
 	// Agent is ssh-agent.
 	// In agent.Agent or agent.ExtendedAgent.
 	agent interface{}
+
+	// Enable/Disable stdoutMutex
+	EnableStdoutMutex bool
+
+	// Mutex for parallel execution of output to stdout with goroutine
+	stdoutMutex sync.Mutex
 
 	// StdinData from pipe flag
 	IsStdinPipe bool
