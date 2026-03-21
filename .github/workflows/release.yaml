@@ -184,10 +184,12 @@ jobs:
       - run: |
           echo '${{ steps.create-release.outputs.upload_url }}' > release_upload_url.txt
 
-      - uses: actions/upload-artifact@v1
+      - uses: actions/upload-artifact@v4
         with:
           name: create-release
           path: release_upload_url.txt
+          if-no-files-found: warn
+          overwrite: true
 
   upload-release:
     strategy:
