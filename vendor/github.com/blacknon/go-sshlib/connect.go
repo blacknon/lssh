@@ -1,4 +1,4 @@
-// Copyright (c) 2021 Blacknon. All rights reserved.
+// Copyright (c) 2026 Blacknon. All rights reserved.
 // Use of this source code is governed by an MIT license
 // that can be found in the LICENSE file.
 
@@ -6,6 +6,7 @@ package sshlib
 
 import (
 	"context"
+	"errors"
 	"io"
 	"log"
 	"net"
@@ -24,6 +25,13 @@ import (
 type Connect struct {
 	// Client *ssh.Client
 	Client *ssh.Client
+
+	controlClient  *controlClient
+	controlMaster  *controlMaster
+	controlHost    string
+	controlPort    string
+	controlUser    string
+	controlSpawned bool
 
 	// Session
 	Session *ssh.Session
@@ -106,6 +114,23 @@ type Connect struct {
 	// Dynamic forward related logger
 	DynamicForwardLogger *log.Logger
 
+	// ControlMaster enables OpenSSH-like connection sharing via a local control socket.
+	// Supported values are "", "no", "yes", and "auto".
+	ControlMaster string
+
+	// ControlPath is the Unix domain socket path used for connection sharing.
+	ControlPath string
+
+	// ControlPersist keeps the local control socket alive while the owning process remains alive.
+	// When greater than zero, sshlib will try to start a detached helper process.
+	ControlPersist time.Duration
+
+	// ControlPersistAuth contains auth methods that can be replayed by the detached helper.
+	// Set ControlPersistAuth.AuthMethods with auth methods created by
+	// sshlib.CreateAuthMethodPassword or sshlib.CreateAuthMethodPublicKey.
+	// Required when ControlPersist > 0 and no master is already running.
+	ControlPersistAuth *ControlPersistAuth
+
 	// shell terminal log flag
 	logging bool
 
@@ -121,6 +146,71 @@ type Connect struct {
 
 // CreateClient set c.Client.
 func (c *Connect) CreateClient(host, port, user string, authMethods []ssh.AuthMethod) (err error) {
+	c.controlClient = nil
+	c.controlSpawned = false
+	c.controlHost = host
+	c.controlPort = port
+	c.controlUser = user
+
+	mode := c.controlMode()
+	if mode == "" || mode == "no" {
+		return c.createDirectClient(host, port, user, authMethods)
+	}
+
+	if c.ControlPath == "" {
+		return errors.New("sshlib: ControlPath is required when ControlMaster is enabled")
+	}
+
+	if mode == "auto" || mode == "yes" {
+		client, cerr := dialControlClient(c.ControlPath)
+		if cerr == nil {
+			c.controlClient = client
+			return nil
+		}
+
+		if mode == "yes" {
+			return cerr
+		}
+	}
+
+	if c.ControlPersist > 0 {
+		if err := c.startDetachedControlMaster(host, port, user); err != nil {
+			return err
+		}
+		c.controlSpawned = true
+
+		client, err := waitForControlClient(c.ControlPath, 5*time.Second)
+		if err != nil {
+			return err
+		}
+		c.controlClient = client
+		return nil
+	}
+
+	if err := c.createDirectClient(host, port, user, authMethods); err != nil {
+		return err
+	}
+
+	master, err := newControlMaster(c, c.ControlPath)
+	if err != nil {
+		c.Client.Close()
+		c.Client = nil
+		return err
+	}
+	c.controlMaster = master
+
+	return nil
+}
+
+func (c *Connect) IsControlClient() bool {
+	return c.isControlClient()
+}
+
+func (c *Connect) SpawnedControlMaster() bool {
+	return c.controlSpawned
+}
+
+func (c *Connect) createDirectClient(host, port, user string, authMethods []ssh.AuthMethod) (err error) {
 	uri := net.JoinHostPort(host, port)
 
 	timeout := 20
@@ -181,8 +271,48 @@ func (c *Connect) CreateClient(host, port, user string, authMethods []ssh.AuthMe
 	return
 }
 
+func (c *Connect) controlMode() string {
+	switch c.ControlMaster {
+	case "", "no":
+		return c.ControlMaster
+	case "yes", "auto":
+		return c.ControlMaster
+	default:
+		return ""
+	}
+}
+
+func (c *Connect) isControlClient() bool {
+	return c.controlClient != nil
+}
+
+// Close releases control resources and the underlying SSH client.
+func (c *Connect) Close() error {
+	if c.controlClient != nil {
+		return c.controlClient.Close()
+	}
+
+	if c.controlMaster != nil {
+		err := c.controlMaster.Close()
+		c.controlMaster = nil
+		return err
+	}
+
+	if c.Client != nil {
+		err := c.Client.Close()
+		c.Client = nil
+		return err
+	}
+
+	return nil
+}
+
 // CreateSession retrun ssh.Session
 func (c *Connect) CreateSession() (session *ssh.Session, err error) {
+	if c.isControlClient() {
+		return nil, errors.New("sshlib: CreateSession is not available over ControlMaster; use Command, Shell(nil), or CmdShell(nil, command)")
+	}
+
 	// Create session
 	session, err = c.Client.NewSession()
 	return
@@ -226,6 +356,10 @@ func (c *Connect) SendKeepAlive(session *ssh.Session) {
 
 // CheckClientAlive check alive ssh.Client.
 func (c *Connect) CheckClientAlive() error {
+	if c.isControlClient() {
+		return c.controlClient.Ping()
+	}
+
 	_, _, err := c.Client.SendRequest("keepalive", true, nil)
 	if err == nil {
 		return nil

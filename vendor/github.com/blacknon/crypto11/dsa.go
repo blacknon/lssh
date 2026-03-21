@@ -1,4 +1,4 @@
-// Copyright 2016, 2017 Thales e-Security, Inc
+// Copyright 2024 Thales Group
 //
 // Permission is hereby granted, free of charge, to any person obtaining
 // a copy of this software and associated documentation files (the
@@ -70,6 +70,10 @@ func notNilBytes(obj []byte, name string) error {
 		return errors.Errorf("%s cannot be nil", name)
 	}
 	return nil
+}
+
+func (k *pkcs11PrivateKeyDSA) KeyType() uint {
+	return pkcs11.CKK_DSA
 }
 
 // GenerateDSAKeyPair creates a DSA key pair on the token. The id parameter is used to
@@ -173,3 +177,9 @@ func (c *Context) GenerateDSAKeyPairWithAttributes(public, private AttributeSet,
 func (signer *pkcs11PrivateKeyDSA) Sign(rand io.Reader, digest []byte, opts crypto.SignerOpts) (signature []byte, err error) {
 	return signer.context.dsaGeneric(signer.handle, pkcs11.CKM_DSA, digest)
 }
+
+//func (signer *pkcs11PrivateKeyDSA) Public() crypto.PublicKey {
+//	panic("Not implemented")
+//}
+
+

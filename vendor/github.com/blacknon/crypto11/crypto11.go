@@ -1,4 +1,4 @@
-// Copyright 2016 Thales e-Security, Inc
+// Copyright 2024 Thales Group
 //
 // Permission is hereby granted, free of charge, to any person obtaining
 // a copy of this software and associated documentation files (the
@@ -21,7 +21,7 @@
 
 // Package crypto11 enables access to cryptographic keys from PKCS#11 using Go crypto API.
 //
-// Configuration
+// # Configuration
 //
 // PKCS#11 tokens are accessed via Context objects. Each Context connects to one token.
 //
@@ -29,7 +29,7 @@
 // In the latter case, the file should contain a JSON representation of
 // a Config.
 //
-// Key Generation and Usage
+// # Key Generation and Usage
 //
 // There is support for generating DSA, RSA and ECDSA keys. These keys
 // can be found later using FindKeyPair. All three key types implement
@@ -42,7 +42,7 @@
 // Symmetric keys can also be generated. These are found later using FindKey.
 // See the documentation for SecretKey for further information.
 //
-// Sessions and concurrency
+// # Sessions and concurrency
 //
 // Note that PKCS#11 session handles must not be used concurrently
 // from multiple threads. Consumers of the Signer interface know
@@ -74,7 +74,7 @@
 // a default maximum is used (see DefaultMaxSessions). In every case the maximum
 // supported sessions as reported by the token is obeyed.
 //
-// Limitations
+// # Limitations
 //
 // The PKCS1v15DecryptOptions SessionKeyLen field is not implemented
 // and an error is returned if it is nonzero.
@@ -142,7 +142,7 @@ func (o *pkcs11Object) Delete() error {
 type pkcs11PrivateKey struct {
 	pkcs11Object
 
-	// pubKeyHandle is a handle to the public key.
+	// pubKeyHandle is a keyHandle to the public key.
 	pubKeyHandle pkcs11.ObjectHandle
 
 	// pubKey is an exported copy of the public key. We pre-export the key material because crypto.Signer.Public
@@ -171,7 +171,7 @@ type Context struct {
 	// Atomic fields must be at top (according to the package owners)
 	closed pool.AtomicBool
 
-	ctx *pkcs11.Ctx
+	ctx moduleCtx
 	cfg *Config
 
 	token *pkcs11.TokenInfo
@@ -197,6 +197,32 @@ type SignerDecrypter interface {
 
 	// Decrypt implements crypto.Decrypter.
 	Decrypt(rand io.Reader, msg []byte, opts crypto.DecrypterOpts) (plaintext []byte, err error)
+}
+
+// PrivateKey is a dedicated interface for signing operations using a private key only, without the
+// need of specifying a public Key.
+// Despite being very similar to Signer, PrivateKey does not include the  method to return the
+// public key from the private key.
+// One usecase implemented by PrivateKey is a pkcs11 store protecting a private key without its
+// public pair.
+type PrivateKey interface {
+	Sign(rand io.Reader, digest []byte, opts crypto.SignerOpts) (signature []byte, err error)
+
+	KeyType() uint
+}
+
+// RSAPrivateKey is a dedicated interface for signing operations or decryption operations using an
+// RSA private key only, without the need of specifying a public Key.
+// Despite being very similar to SignerDecrypter, RSAPrivateKey does not include the  method to
+// return the public key from the private key.
+// One usecase implemented by RSAPrivateKey is a pkcs11 store protecting a private key without its
+// public pair.
+type RSAPrivateKey interface {
+	Sign(rand io.Reader, digest []byte, opts crypto.SignerOpts) (signature []byte, err error)
+
+	Decrypt(rand io.Reader, msg []byte, opts crypto.DecrypterOpts) (plaintext []byte, err error)
+
+	KeyType() uint
 }
 
 // findToken finds a token given exactly one of serial, label or slotNumber
@@ -229,7 +255,7 @@ type Config struct {
 	// Full path to PKCS#11 library.
 	Path string
 
-	// pkcs11.ctx
+	// pcks11.ctx
 	PKCS11Ctx *pkcs11.Ctx
 
 	// Token serial number.
@@ -279,14 +305,95 @@ type GCMIVFromHSMConfig struct {
 	SupplyIvForHSMGCMDecrypt bool
 }
 
-// refCount counts the number of contexts using a particular P11 library. It must not be read or modified
-// without holding refCountMutex.
-var refCount = map[string]int{}
-var refCountMutex = sync.Mutex{}
+// moduleReferences holds the different contexts using a particular P11 library. It must not be read or modified
+// without holding moduleReferencesMutex.
+var moduleReferences = map[string]moduleRef{}
+var moduleReferencesMutex = sync.Mutex{}
+
+// Specific moduleRef with its context and reference count.
+type moduleRef struct {
+	ctx      moduleCtx
+	refCount int
+}
+
+// Creates new context or returns an existing one if one has been already created.
+func openModule(path string) (moduleCtx, error) {
+	moduleReferencesMutex.Lock()
+	defer moduleReferencesMutex.Unlock()
+
+	if mod, ok := moduleReferences[path]; ok {
+		// Module with given path has been already initialized.
+		moduleReferences[path] = moduleRef{
+			ctx:      mod.ctx,
+			refCount: mod.refCount + 1,
+		}
+
+		return mod.ctx, nil
+	}
+
+	ctx := pkcs11.New(path)
+	if ctx == nil {
+		return moduleCtx{}, errors.New("failed to open module")
+	}
+
+	if err := ctx.Initialize(); err != nil {
+		ctx.Destroy()
+		return moduleCtx{}, fmt.Errorf("failed to initialize module: %w", err)
+	}
+
+	modCtx := moduleCtx{ctx}
+	moduleReferences[path] = moduleRef{
+		ctx:      modCtx,
+		refCount: 1,
+	}
+	return modCtx, nil
+}
+
+// Context to a specific module. Users of the module all share the same context.
+type moduleCtx struct {
+	*pkcs11.Ctx
+}
+
+// Close drops reference to its associated module and does cleanup if it is the last reference.
+func (mc moduleCtx) Close() {
+	moduleReferencesMutex.Lock()
+	defer moduleReferencesMutex.Unlock()
+
+	var path string
+	var mod moduleRef
+	for p, ref := range moduleReferences {
+		if ref.ctx == mc {
+			path = p
+			mod = ref
+			break
+		}
+	}
+	if path == "" {
+		// Instance has already been destroyed even though we are holding a reference.
+		panic("referenced module not found")
+	}
+	if mod.refCount < 1 {
+		// Reference count has lost count of the number of actual references.
+		panic("invalid reference count for PKCS#11 library")
+	}
+
+	if mod.refCount == 1 {
+		// Do cleanup as last reference.
+		_ = mc.Finalize()
+		mc.Destroy()
+		delete(moduleReferences, path)
+	} else {
+		// Decrement reference count.
+		moduleReferences[path] = moduleRef{
+			ctx:      mod.ctx,
+			refCount: mod.refCount - 1,
+		}
+	}
+}
 
 // Configure creates a new Context based on the supplied PKCS#11 configuration.
 func Configure(config *Config) (*Context, error) {
-	// Have we been given exactly one way to select a token?
+	// Check for exactly one way to select a token
 	var fields []string
 	if config.SlotNumber != nil {
 		fields = append(fields, "slot number")
@@ -318,47 +425,31 @@ func Configure(config *Config) (*Context, error) {
 		config.GCMIVLength = DefaultGCMIVLength
 	}
 
-	var ctx *pkcs11.Ctx
+	var modCtx moduleCtx
 	if config.PKCS11Ctx != nil {
-		ctx = config.PKCS11Ctx
+		modCtx.Ctx = config.PKCS11Ctx
 	} else {
-		ctx = pkcs11.New(config.Path)
+		var err error
+		modCtx, err = openModule(config.Path)
+		if err != nil {
+			return nil, fmt.Errorf("failed to create module context: %w", err)
+		}
 	}
 
 	instance := &Context{
 		cfg: config,
-		ctx: ctx,
+		ctx: modCtx,
 	}
 
-	if instance.ctx == nil {
-		return nil, errors.New("could not open PKCS#11")
-	}
-
-	// Check how many contexts are currently using this library
-	refCountMutex.Lock()
-	defer refCountMutex.Unlock()
-	numExistingContexts := refCount[config.Path]
-
-	// Only Initialize if we are the first Context using the library
-	if numExistingContexts == 0 {
-		if config.PKCS11Ctx == nil {
-			if err := instance.ctx.Initialize(); err != nil {
-				instance.ctx.Destroy()
-				return nil, errors.WithMessage(err, "failed to initialize PKCS#11 library")
-			}
-		}
-	}
 	slots, err := instance.ctx.GetSlotList(true)
 	if err != nil {
-		_ = instance.ctx.Finalize()
-		instance.ctx.Destroy()
+		instance.ctx.Close()
 		return nil, errors.WithMessage(err, "failed to list PKCS#11 slots")
 	}
 
 	instance.slot, instance.token, err = instance.findToken(slots, config.TokenSerial, config.TokenLabel, config.SlotNumber)
 	if err != nil {
-		_ = instance.ctx.Finalize()
-		instance.ctx.Destroy()
+		instance.ctx.Close()
 		return nil, err
 	}
 
@@ -376,8 +467,7 @@ func Configure(config *Config) (*Context, error) {
 	// used to keep a connection alive to the token to ensure object handles and the log in status remain accessible.
 	instance.persistentSession, err = instance.ctx.OpenSession(instance.slot, pkcs11.CKF_SERIAL_SESSION|pkcs11.CKF_RW_SESSION)
 	if err != nil {
-		_ = instance.ctx.Finalize()
-		instance.ctx.Destroy()
+		instance.ctx.Close()
 		return nil, errors.WithMessagef(err, "failed to create long term session")
 	}
 
@@ -394,15 +484,11 @@ func Configure(config *Config) (*Context, error) {
 			pErr, isP11Error := err.(pkcs11.Error)
 
 			if !isP11Error || pErr != pkcs11.CKR_USER_ALREADY_LOGGED_IN {
-				_ = instance.ctx.Finalize()
-				instance.ctx.Destroy()
+				instance.ctx.Close()
 				return nil, errors.WithMessagef(err, "failed to log into long term session")
 			}
 		}
 	}
-
-	// Increment the reference count
-	refCount[config.Path] = numExistingContexts + 1
 
 	return instance, nil
 }
@@ -456,17 +542,12 @@ func loadConfigFromFile(configLocation string) (*Config, error) {
 	configDecoder := json.NewDecoder(file)
 	config := &Config{}
 	err = configDecoder.Decode(config)
-	return config, errors.WithMessage(err, "could decode config file:")
+	return config, errors.WithMessage(err, "could not decode config file:")
 }
 
 // Close releases resources used by the Context and unloads the PKCS #11 library if there are no other
 // Contexts using it. Close blocks until existing operations have finished. A closed Context cannot be reused.
 func (c *Context) Close() error {
-
-	// Take lock on the reference count
-	refCountMutex.Lock()
-	defer refCountMutex.Unlock()
-
 	c.closed.Set(true)
 
 	// Block until all resources returned to pool
@@ -476,22 +557,9 @@ func (c *Context) Close() error {
 	// since we plan to kill our collection to the library anyway.
 	_ = c.ctx.CloseSession(c.persistentSession)
 
-	count, found := refCount[c.cfg.Path]
-	if !found || count == 0 {
-		// We have somehow lost track of reference counts, this is very bad
-		panic("invalid reference count for PKCS#11 library")
-	}
+	// Drop reference to the held context. May destroy the module instance
+	// if this is the last reference to it.
+	c.ctx.Close()
 
-	refCount[c.cfg.Path] = count - 1
-
-	// If we were the last Context, finalize the library
-	if count == 1 {
-		err := c.ctx.Finalize()
-		if err != nil {
-			return err
-		}
-	}
-
-	c.ctx.Destroy()
 	return nil
 }

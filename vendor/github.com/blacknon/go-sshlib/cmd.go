@@ -1,4 +1,4 @@
-// Copyright (c) 2021 Blacknon. All rights reserved.
+// Copyright (c) 2026 Blacknon. All rights reserved.
 // Use of this source code is governed by an MIT license
 // that can be found in the LICENSE file.
 
@@ -7,6 +7,7 @@ package sshlib
 import (
 	"io"
 	"log"
+	"net"
 	"os"
 
 	"golang.org/x/crypto/ssh"
@@ -15,6 +16,15 @@ import (
 // Command connect and run command over ssh.
 // Output data is processed by channel because it is executed in parallel. If specification is troublesome, it is good to generate and process session from ssh package.
 func (c *Connect) Command(command string) (err error) {
+	if c.isControlClient() {
+		req := controlRequest{
+			Type:    controlRequestCommand,
+			Command: command,
+			Options: c.controlSessionOptions(c.TTY),
+		}
+		return c.runControlCommand(req)
+	}
+
 	// create session
 	if c.Session == nil {
 		c.Session, err = c.CreateSession()
@@ -74,6 +84,50 @@ func (c *Connect) Command(command string) (err error) {
 	c.Session.Run(command)
 
 	return
+}
+
+func (c *Connect) runControlCommand(req controlRequest) error {
+	resp, err := c.requestControl(req)
+	if err != nil {
+		return err
+	}
+
+	conn, err := net.Dial("unix", resp.StreamPath)
+	if err != nil {
+		return err
+	}
+	defer conn.Close()
+	writer := &lockedFrameWriter{w: conn}
+
+	stdin := io.Reader(GetStdin())
+	if c.Stdin != nil {
+		stdin = c.Stdin
+	} else if c.PtyRelayTty != nil {
+		stdin = c.PtyRelayTty
+	}
+
+	stdout := io.Writer(os.Stdout)
+	if c.Stdout != nil {
+		stdout = c.Stdout
+	} else if c.PtyRelayTty != nil {
+		stdout = c.PtyRelayTty
+	}
+
+	stderr := io.Writer(os.Stderr)
+	if c.Stderr != nil {
+		stderr = c.Stderr
+	} else if c.PtyRelayTty != nil {
+		stderr = c.PtyRelayTty
+	}
+
+	go c.copyControlInput(writer, stdin)
+
+	if req.Options.TTY {
+		_ = c.sendControlWindowSize(writer)
+		go c.watchControlWindowSize(writer)
+	}
+
+	return c.copyControlOutput(conn, stdout, stderr)
 }
 
 func (c *Connect) setOption(session *ssh.Session) (err error) {

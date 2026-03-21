@@ -1,4 +1,4 @@
-// Copyright (c) 2021 Blacknon. All rights reserved.
+// Copyright (c) 2026 Blacknon. All rights reserved.
 // Use of this source code is governed by an MIT license
 // that can be found in the LICENSE file.
 
@@ -98,7 +98,7 @@ func (c *Connect) VerifyAndAppendNew(hostname string, remote net.Addr, key ssh.P
 				if err != nil {
 					msg += ": " + err.Error()
 				}
-				return fmt.Errorf(msg)
+				return fmt.Errorf("%s", msg)
 			}
 		}
 	} else {
@@ -107,7 +107,7 @@ func (c *Connect) VerifyAndAppendNew(hostname string, remote net.Addr, key ssh.P
 			if err != nil {
 				msg += ": " + err.Error()
 			}
-			return fmt.Errorf(msg)
+			return fmt.Errorf("%s", msg)
 		}
 		line = 0
 	}
