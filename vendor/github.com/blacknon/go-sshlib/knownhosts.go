@@ -1,4 +1,4 @@
-// Copyright (c) 2021 Blacknon. All rights reserved.
+// Copyright (c) 2026 Blacknon. All rights reserved.
 // Use of this source code is governed by an MIT license
 // that can be found in the LICENSE file.
 
@@ -10,6 +10,7 @@ import (
 	"net"
 	"os"
 	"os/signal"
+	"slices"
 	"strings"
 	"syscall"
 	"text/template"
@@ -36,19 +37,19 @@ type OverwriteInventory struct {
 // If is no problem, error returns Nil.
 //
 // 【参考】: https://github.com/tatsushid/minssh/blob/57eae8c5bcf5d94639891f3267f05251f05face4/pkg/minssh/minssh.go#L190-L237
-func (c *Connect) verifyAndAppendNew(hostname string, remote net.Addr, key ssh.PublicKey) (err error) {
+func (c *Connect) VerifyAndAppendNew(hostname string, remote net.Addr, key ssh.PublicKey) (err error) {
 	// set TextAskWriteKnownHosts default text
 	if len(c.TextAskWriteKnownHosts) == 0 {
 		c.TextAskWriteKnownHosts += "The authenticity of host '{{.Address}} ({{.RemoteAddr}})' can't be established.\n"
 		c.TextAskWriteKnownHosts += "RSA key fingerprint is {{.Fingerprint}}\n"
-		c.TextAskWriteKnownHosts += "Are you sure you want to continue connecting (yes/no)?"
+		c.TextAskWriteKnownHosts += "Are you sure you want to continue connecting ((yes|y)/(no|n))? "
 	}
 
 	// set TextAskOverwriteKnownHosts default text
 	if len(c.TextAskOverwriteKnownHosts) == 0 {
 		c.TextAskOverwriteKnownHosts += "The authenticity of host '{{.Address}} ({{.RemoteAddr}})' can't be established.\n"
 		c.TextAskOverwriteKnownHosts += "Old key: {{.OldKeyText}}\n"
-		c.TextAskOverwriteKnownHosts += "Are you sure you want to overwrite {{.Fingerprint}}, continue connecting (yes/no)?"
+		c.TextAskOverwriteKnownHosts += "Are you sure you want to overwrite {{.Fingerprint}}, continue connecting ((yes|y)/(no|n))? "
 	}
 
 	// check count KnownHostsFiles
@@ -79,6 +80,12 @@ func (c *Connect) verifyAndAppendNew(hostname string, remote net.Addr, key ssh.P
 	filepath := knownHostsFiles[0]
 	var line int
 
+	// check mutex
+	if c.StdoutMutex != nil {
+		c.StdoutMutex.Lock()
+		defer c.StdoutMutex.Unlock()
+	}
+
 	// check error
 	keyErr, ok := err.(*knownhosts.KeyError)
 	if !ok || len(keyErr.Want) > 0 {
@@ -91,7 +98,7 @@ func (c *Connect) verifyAndAppendNew(hostname string, remote net.Addr, key ssh.P
 				if err != nil {
 					msg += ": " + err.Error()
 				}
-				return fmt.Errorf(msg)
+				return fmt.Errorf("%s", msg)
 			}
 		}
 	} else {
@@ -100,14 +107,14 @@ func (c *Connect) verifyAndAppendNew(hostname string, remote net.Addr, key ssh.P
 			if err != nil {
 				msg += ": " + err.Error()
 			}
-			return fmt.Errorf(msg)
+			return fmt.Errorf("%s", msg)
 		}
 		line = 0
 	}
 
 	err = writeKnownHostsKey(filepath, line, hostname, remote, key)
 
-	return nil
+	return err
 }
 
 // askAddingUnknownHostKey
@@ -150,9 +157,9 @@ func askAddingUnknownHostKey(text string, address string, remote net.Addr, key s
 			return false, fmt.Errorf("failed to read answer: %s", err)
 		}
 		answer = string(strings.ToLower(strings.TrimSpace(answer)))
-		if answer == "yes" {
+		if slices.Contains([]string{"yes", "y"}, answer) {
 			return true, nil
-		} else if answer == "no" {
+		} else if slices.Contains([]string{"no", "n"}, answer) {
 			return false, nil
 		}
 		fmt.Print("Please type 'yes' or 'no': ")
@@ -204,7 +211,7 @@ func askOverwriteKnownHostKey(text string, address string, remote net.Addr, key 
 		} else if answer == "no" {
 			return false, nil
 		}
-		fmt.Print("Please type 'yes' or 'no': ")
+		fmt.Print("Please type 'yes|y' or 'no|n': ")
 	}
 }
 

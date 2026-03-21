@@ -1,4 +1,4 @@
-// Copyright 2017 Thales e-Security, Inc
+// Copyright 2024 Thales Group
 //
 // Permission is hereby granted, free of charge, to any person obtaining
 // a copy of this software and associated documentation files (the
@@ -50,7 +50,7 @@ func bytesToUlong(bs []byte) (n uint) {
 	// the unsafe pointer will always grab/convert ULONG # of bytes
 	var mask uint
 	for i := 0; i < sliceSize; i++ {
-		mask |= 0xff << uint(i * 8)
+		mask |= 0xff << uint(i*8)
 	}
 	return value & mask
 }

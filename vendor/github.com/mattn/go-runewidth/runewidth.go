@@ -2,8 +2,9 @@ package runewidth
 
 import (
 	"os"
+	"strings"
 
-	"github.com/rivo/uniseg"
+	"github.com/clipperhouse/uax29/v2/graphemes"
 )
 
 //go:generate go run script/generate.go
@@ -34,7 +35,13 @@ func handleEnv() {
 		EastAsianWidth = env == "1"
 	}
 	// update DefaultCondition
-	DefaultCondition.EastAsianWidth = EastAsianWidth
+	if DefaultCondition.EastAsianWidth != EastAsianWidth {
+		DefaultCondition.EastAsianWidth = EastAsianWidth
+		if len(DefaultCondition.combinedLut) > 0 {
+			DefaultCondition.combinedLut = DefaultCondition.combinedLut[:0]
+			CreateLUT()
+		}
+	}
 }
 
 type interval struct {
@@ -55,6 +62,9 @@ func inTables(r rune, ts ...table) bool {
 
 func inTable(r rune, t table) bool {
 	if r < t[0].first {
+		return false
+	}
+	if r > t[len(t)-1].last {
 		return false
 	}
 
@@ -89,6 +99,7 @@ var nonprint = table{
 
 // Condition have flag EastAsianWidth whether the current locale is CJK or not.
 type Condition struct {
+	combinedLut        []byte
 	EastAsianWidth     bool
 	StrictEmojiNeutral bool
 }
@@ -104,10 +115,16 @@ func NewCondition() *Condition {
 // RuneWidth returns the number of cells in r.
 // See http://www.unicode.org/reports/tr11/
 func (c *Condition) RuneWidth(r rune) int {
+	if r < 0 || r > 0x10FFFF {
+		return 0
+	}
+	if len(c.combinedLut) > 0 {
+		return int(c.combinedLut[r>>1]>>(uint(r&1)*4)) & 3
+	}
 	// optimized version, verified by TestRuneWidthChecksums()
 	if !c.EastAsianWidth {
 		switch {
-		case r < 0x20 || r > 0x10FFFF:
+		case r < 0x20:
 			return 0
 		case (r >= 0x7F && r <= 0x9F) || r == 0xAD: // nonprint
 			return 0
@@ -124,7 +141,7 @@ func (c *Condition) RuneWidth(r rune) int {
 		}
 	} else {
 		switch {
-		case r < 0 || r > 0x10FFFF || inTables(r, nonprint, combining):
+		case inTables(r, nonprint, combining):
 			return 0
 		case inTable(r, narrow):
 			return 1
@@ -138,12 +155,33 @@ func (c *Condition) RuneWidth(r rune) int {
 	}
 }
 
+// CreateLUT will create an in-memory lookup table of 557056 bytes for faster operation.
+// This should not be called concurrently with other operations on c.
+// If options in c is changed, CreateLUT should be called again.
+func (c *Condition) CreateLUT() {
+	const max = 0x110000
+	lut := c.combinedLut
+	if len(c.combinedLut) != 0 {
+		// Remove so we don't use it.
+		c.combinedLut = nil
+	} else {
+		lut = make([]byte, max/2)
+	}
+	for i := range lut {
+		i32 := int32(i * 2)
+		x0 := c.RuneWidth(i32)
+		x1 := c.RuneWidth(i32 + 1)
+		lut[i] = uint8(x0) | uint8(x1)<<4
+	}
+	c.combinedLut = lut
+}
+
 // StringWidth return width as you can see
 func (c *Condition) StringWidth(s string) (width int) {
-	g := uniseg.NewGraphemes(s)
+	g := graphemes.FromString(s)
 	for g.Next() {
 		var chWidth int
-		for _, r := range g.Runes() {
+		for _, r := range g.Value() {
 			chWidth = c.RuneWidth(r)
 			if chWidth > 0 {
 				break // Our best guess at this point is to use the width of the first non-zero-width rune.
@@ -162,17 +200,17 @@ func (c *Condition) Truncate(s string, w int, tail string) string {
 	w -= c.StringWidth(tail)
 	var width int
 	pos := len(s)
-	g := uniseg.NewGraphemes(s)
+	g := graphemes.FromString(s)
 	for g.Next() {
 		var chWidth int
-		for _, r := range g.Runes() {
+		for _, r := range g.Value() {
 			chWidth = c.RuneWidth(r)
 			if chWidth > 0 {
 				break // See StringWidth() for details.
 			}
 		}
 		if width+chWidth > w {
-			pos, _ = g.Positions()
+			pos = g.Start()
 			break
 		}
 		width += chWidth
@@ -180,11 +218,47 @@ func (c *Condition) Truncate(s string, w int, tail string) string {
 	return s[:pos] + tail
 }
 
+// TruncateLeft cuts w cells from the beginning of the `s`.
+func (c *Condition) TruncateLeft(s string, w int, prefix string) string {
+	if c.StringWidth(s) <= w {
+		return prefix
+	}
+
+	var width int
+	pos := len(s)
+
+	g := graphemes.FromString(s)
+	for g.Next() {
+		var chWidth int
+		for _, r := range g.Value() {
+			chWidth = c.RuneWidth(r)
+			if chWidth > 0 {
+				break // See StringWidth() for details.
+			}
+		}
+
+		if width+chWidth > w {
+			if width < w {
+				pos = g.End()
+				prefix += strings.Repeat(" ", width+chWidth-w)
+			} else {
+				pos = g.Start()
+			}
+
+			break
+		}
+
+		width += chWidth
+	}
+
+	return prefix + s[pos:]
+}
+
 // Wrap return string wrapped with w cells
 func (c *Condition) Wrap(s string, w int) string {
 	width := 0
 	out := ""
-	for _, r := range []rune(s) {
+	for _, r := range s {
 		cw := c.RuneWidth(r)
 		if r == '\n' {
 			out += string(r)
@@ -242,6 +316,11 @@ func IsAmbiguousWidth(r rune) bool {
 	return inTables(r, private, ambiguous)
 }
 
+// IsCombiningWidth returns whether is combining width or not.
+func IsCombiningWidth(r rune) bool {
+	return inTable(r, combining)
+}
+
 // IsNeutralWidth returns whether is neutral width or not.
 func IsNeutralWidth(r rune) bool {
 	return inTable(r, neutral)
@@ -257,6 +336,11 @@ func Truncate(s string, w int, tail string) string {
 	return DefaultCondition.Truncate(s, w, tail)
 }
 
+// TruncateLeft cuts w cells from the beginning of the `s`.
+func TruncateLeft(s string, w int, prefix string) string {
+	return DefaultCondition.TruncateLeft(s, w, prefix)
+}
+
 // Wrap return string wrapped with w cells
 func Wrap(s string, w int) string {
 	return DefaultCondition.Wrap(s, w)
@@ -270,4 +354,13 @@ func FillLeft(s string, w int) string {
 // FillRight return string filled in left by spaces in w cells
 func FillRight(s string, w int) string {
 	return DefaultCondition.FillRight(s, w)
+}
+
+// CreateLUT will create an in-memory lookup table of 557055 bytes for faster operation.
+// This should not be called concurrently with other operations.
+func CreateLUT() {
+	if len(DefaultCondition.combinedLut) > 0 {
+		return
+	}
+	DefaultCondition.CreateLUT()
 }
