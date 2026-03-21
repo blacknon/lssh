@@ -115,7 +115,7 @@ jobs:
 
       - name: Upload artifact
         if: matrix.ext == 'rpm'
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: build-${{ matrix.goos }}_${{ matrix.goarch }}
           path: lssh_${{ steps.package_version.outputs.version }}_${{ matrix.goos }}_${{ matrix.goarch }}.rpm
@@ -127,21 +127,21 @@ jobs:
 
       - name: Upload artifact
         if: matrix.ext == 'deb'
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: build-${{ matrix.goos }}_${{ matrix.goarch }}
           path: lssh_${{ steps.package_version.outputs.version }}_${{ matrix.goos }}_${{ matrix.goarch }}.deb
 
       - name: Upload artifact
         if: matrix.ext == 'tar.gz'
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: build-${{ matrix.goos }}_${{ matrix.goarch }}
           path: lssh_${{ steps.package_version.outputs.version }}_${{ matrix.goos }}_${{ matrix.goarch }}.tar.gz
 
       - name: Upload artifact
         if: matrix.ext == 'zip'
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: build-${{ matrix.goos }}_${{ matrix.goarch }}
           path: lssh_${{ steps.package_version.outputs.version }}_${{ matrix.goos }}_${{ matrix.goarch }}.zip
