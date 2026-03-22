@@ -91,7 +91,6 @@ func (r *RunSftp) tree(args []string) (err error) {
 	return
 }
 
-//
 func (r *RunSftp) executeRemoteTree(c *cli.Context, clients map[string]*TargetConnectMap) {
 	treeData := map[string]gotree.Tree{}
 	exit := make(chan bool)
@@ -154,7 +153,6 @@ func (r *RunSftp) executeRemoteTree(c *cli.Context, clients map[string]*TargetCo
 	// }
 }
 
-//
 func (r *RunSftp) buildRemoteDirTree(client *TargetConnectMap, options *cli.Context) (tree gotree.Tree, err error) {
 	// w := client.Output.NewWriter()
 

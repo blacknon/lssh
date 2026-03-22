@@ -128,7 +128,6 @@ func TestGetMaxLength(t *testing.T) {
 // 	type TestData
 // }
 
-//
 func TestStringCompression(t *testing.T) {
 	type TestData struct {
 		desc string

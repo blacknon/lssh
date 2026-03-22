@@ -115,10 +115,12 @@ jobs:
 
       - name: Upload artifact
         if: matrix.ext == 'rpm'
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
-          name: build-${{ matrix.goos }}_${{ matrix.goarch }}
+          name: build-${{ matrix.goos }}_${{ matrix.goarch }}_${{ matrix.ext }}
           path: lssh_${{ steps.package_version.outputs.version }}_${{ matrix.goos }}_${{ matrix.goarch }}.rpm
+          if-no-files-found: warn
+          overwrite: true
 
       - name: README for deb
         if: matrix.ext == 'deb'
@@ -127,24 +129,30 @@ jobs:
 
       - name: Upload artifact
         if: matrix.ext == 'deb'
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
-          name: build-${{ matrix.goos }}_${{ matrix.goarch }}
+          name: build-${{ matrix.goos }}_${{ matrix.goarch }}_${{ matrix.ext }}
           path: lssh_${{ steps.package_version.outputs.version }}_${{ matrix.goos }}_${{ matrix.goarch }}.deb
+          if-no-files-found: warn
+          overwrite: true
 
       - name: Upload artifact
         if: matrix.ext == 'tar.gz'
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
-          name: build-${{ matrix.goos }}_${{ matrix.goarch }}
+          name: build-${{ matrix.goos }}_${{ matrix.goarch }}_${{ matrix.ext }}
           path: lssh_${{ steps.package_version.outputs.version }}_${{ matrix.goos }}_${{ matrix.goarch }}.tar.gz
+          if-no-files-found: warn
+          overwrite: true
 
       - name: Upload artifact
         if: matrix.ext == 'zip'
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
-          name: build-${{ matrix.goos }}_${{ matrix.goarch }}
+          name: build-${{ matrix.goos }}_${{ matrix.goarch }}_${{ matrix.ext }}
           path: lssh_${{ steps.package_version.outputs.version }}_${{ matrix.goos }}_${{ matrix.goarch }}.zip
+          if-no-files-found: warn
+          overwrite: true
 
   # create package release
   create-release:
@@ -153,6 +161,7 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       version: ${{ steps.package_version.outputs.version }}
+      upload_url: ${{ steps.create-release.outputs.upload_url }}
     steps:
       - uses: actions/checkout@v1
 
@@ -173,13 +182,7 @@ jobs:
           draft: true
           prerelease: false
 
-      - run: |
-          echo '${{ steps.create-release.outputs.upload_url }}' > release_upload_url.txt
-
-      - uses: actions/upload-artifact@v1
-        with:
-          name: create-release
-          path: release_upload_url.txt
+      # upload_url is exported as a job output and will be consumed by downstream jobs
 
   upload-release:
     strategy:
@@ -215,21 +218,19 @@ jobs:
     steps:
       - uses: actions/download-artifact@v4
         with:
-          name: create-release
+          name: build-${{ matrix.goos }}_${{ matrix.goarch }}_${{ matrix.ext }}
+          path: ./build-${{ matrix.goos }}_${{ matrix.goarch }}_${{ matrix.ext }}
 
-      - id: upload-url
+      - name: List build artifact files
         run: |
-          echo "::set-output name=url::$(cat create-release/release_upload_url.txt)"
-
-      - uses: actions/download-artifact@v4
-        with:
-          name: build-${{ matrix.goos }}_${{ matrix.goarch }}
+          echo "Listing ./build-${{ matrix.goos }}_${{ matrix.goarch }}_${{ matrix.ext }}:"
+          ls -la ./build-${{ matrix.goos }}_${{ matrix.goarch }}_${{ matrix.ext }} || { echo "Artifact directory missing"; ls -la .; exit 1; }
 
       - uses: actions/upload-release-asset@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          upload_url: ${{ steps.upload-url.outputs.url }}
-          asset_path: ./build-${{ matrix.goos }}_${{ matrix.goarch }}/lssh_${{ needs.create-release.outputs.version }}_${{ matrix.goos }}_${{ matrix.goarch }}.${{ matrix.ext }}
+          upload_url: ${{ needs.create-release.outputs.upload_url }}
+          asset_path: ./build-${{ matrix.goos }}_${{ matrix.goarch }}_${{ matrix.ext }}/lssh_${{ needs.create-release.outputs.version }}_${{ matrix.goos }}_${{ matrix.goarch }}.${{ matrix.ext }}
           asset_name: lssh_${{ needs.create-release.outputs.version }}_${{ matrix.goos }}_${{ matrix.goarch }}.${{ matrix.ext }}
           asset_content_type: application/octet-stream

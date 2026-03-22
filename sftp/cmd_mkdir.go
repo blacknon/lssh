@@ -16,7 +16,6 @@ import (
 	"github.com/urfave/cli"
 )
 
-//
 func (r *RunSftp) mkdir(args []string) {
 	// create app
 	app := cli.NewApp()
@@ -112,7 +111,6 @@ func (r *RunSftp) mkdir(args []string) {
 	return
 }
 
-//
 func (r *RunSftp) lmkdir(args []string) {
 	// create app
 	app := cli.NewApp()

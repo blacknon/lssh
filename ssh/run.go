@@ -445,3 +445,19 @@ func startBackgroundMode() {
 
 	return
 }
+
+// notifyParentReady writes readiness to fd 3 if child was started by parent with ExtraFiles.
+func notifyParentReady() {
+	if os.Getenv("_LSSH_DAEMON") != "1" {
+		return
+	}
+
+	// ExtraFiles in exec become fd starting at 3. We expect the parent passed a pipe as fd 3.
+	f := os.NewFile(uintptr(3), "lssh_ready")
+	if f == nil {
+		return
+	}
+	defer f.Close()
+
+	_, _ = f.Write([]byte("OK\n"))
+}

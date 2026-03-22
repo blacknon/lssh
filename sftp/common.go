@@ -22,7 +22,6 @@ type sftpFileInfo struct {
 	Dir string
 }
 
-//
 func DupPermutationsRecursive0(n, k int) [][]int {
 	if k == 0 {
 		pattern := []int{}
@@ -43,8 +42,9 @@ func DupPermutationsRecursive0(n, k int) [][]int {
 
 // A function that returns the value of fs.Filemode from the permissions and umask passed in an array.
 // ex)
-//   defaultPerm ... [0,7,7,7]
-//   umask ... [0,2,2]
+//
+//	defaultPerm ... [0,7,7,7]
+//	umask ... [0,2,2]
 func GeneratePermWithUmask(defaultPerm, umask []string) fs.FileMode {
 	// set 1st char
 	setPermStr := defaultPerm[0]
