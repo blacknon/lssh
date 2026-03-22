@@ -7,8 +7,11 @@ package main
 import (
 	"fmt"
 	"os"
+	"os/exec"
 	"regexp"
+	"runtime"
 	"sort"
+	"syscall"
 
 	"github.com/blacknon/lssh/check"
 	"github.com/blacknon/lssh/common"
@@ -59,16 +62,19 @@ USAGE:
 	app.Name = "lssh"
 	app.Usage = "TUI list select and parallel ssh client command."
 	app.Copyright = "blacknon(blacknon@orebibou.com)"
-	app.Version = "0.6.14"
+	app.Version = "0.6.15"
 
 	// TODO(blacknon): オプションの追加
 	//     -T       ... マウント・リバースマウントのTypeを指定できるようにする(v0.7.0)
 	//                  ※ smb/nfsの指定
+	// TODO(blacknon): オプションの追加
 	//     -f       ... バックグラウンドでの接続(X11接続やport forwardingをバックグラウンドで実行する場合など)。
 	//                  「ssh -f」と同じ。 (v0.7.0)
 	//                  (https://github.com/sevlyar/go-daemon)
+	// TODO(blacknon): オプションの追加
 	//     --read_profile
 	//              ... デフォルトではlocalrc読み込みでのshellではsshサーバ上のprofileは読み込まないが、このオプションを指定することで読み込まれるようになる (v0.7.0)
+	// TODO(blacknon): オプションの追加
 	//     -P
 	//              ... Terminal multipluxerを用いたParallel Shell/Command実行を有効にする(v0.7.0)
 	//                  ※ -pとの排他制御が必要
@@ -100,6 +106,8 @@ USAGE:
 		cli.BoolFlag{Name: "not-localrc", Usage: "not use local bashrc shell."},
 		cli.BoolFlag{Name: "list,l", Usage: "print server list from config."},
 		cli.BoolFlag{Name: "help,h", Usage: "print this help"},
+		// Background (like ssh -f)
+		cli.BoolFlag{Name: "f", Usage: "Run in background after forwarding/connection (ssh -f like)."},
 	}
 	app.EnableBashCompletion = true
 	app.HideHelp = true
@@ -163,6 +171,12 @@ USAGE:
 			}
 			if selected[0] == "ServerName" {
 				fmt.Fprintln(os.Stderr, "Server not selected.")
+				os.Exit(1)
+			}
+
+			// If -f is specified, disallow selecting multiple hosts
+			if c.Bool("f") && len(selected) > 1 {
+				fmt.Fprintln(os.Stderr, "Error: -f cannot be used with multiple hosts. Select a single host.")
 				os.Exit(1)
 			}
 		}
@@ -285,6 +299,94 @@ USAGE:
 
 		// HTTP Reverse Dynamic port forwarding port
 		r.HTTPReverseDynamicPortForward = c.String("r")
+
+		// If -f specified and not already daemonized, re-exec to background
+		if c.Bool("f") && os.Getenv("_LSSH_DAEMON") != "1" {
+			// prepare args without -f
+			args := []string{}
+			for _, a := range os.Args[1:] {
+				if a == "-f" || a == "--f" {
+					continue
+				}
+				// also strip combined -fxxx is not supported; keep as-is
+				args = append(args, a)
+			}
+
+			// If hosts were selected interactively, pass them to child via -H flags
+			if len(hosts) == 0 {
+				for _, s := range selected {
+					args = append(args, "-H", s)
+				}
+			}
+
+			exe, err := os.Executable()
+			if err != nil {
+				fmt.Fprintln(os.Stderr, "Error:", err)
+				os.Exit(1)
+			}
+
+			// create pipe for unix handshake
+			var rpipe *os.File
+			var wpipe *os.File
+			if runtime.GOOS != "windows" {
+				rpipe, wpipe, err = os.Pipe()
+				if err != nil {
+					fmt.Fprintln(os.Stderr, "Error creating pipe:", err)
+					os.Exit(1)
+				}
+			}
+
+			cmd := exec.Command(exe, args...)
+			// pass env to indicate daemonized child
+			cmd.Env = append(os.Environ(), "_LSSH_DAEMON=1")
+
+			if runtime.GOOS != "windows" {
+				// pass write end as fd 3 in child
+				cmd.ExtraFiles = []*os.File{wpipe}
+				cmd.SysProcAttr = &syscall.SysProcAttr{Setsid: true}
+			}
+
+			// detach stdin
+			devnull, _ := os.OpenFile(os.DevNull, os.O_RDWR, 0)
+			if devnull != nil {
+				cmd.Stdin = devnull
+			}
+
+			cmd.Stdout = os.Stdout
+			cmd.Stderr = os.Stderr
+
+			if err := cmd.Start(); err != nil {
+				fmt.Fprintln(os.Stderr, "Error starting background process:", err)
+				os.Exit(1)
+			}
+
+			pid := 0
+			if cmd.Process != nil {
+				pid = cmd.Process.Pid
+			}
+
+			// close write end in parent
+			if runtime.GOOS != "windows" && wpipe != nil {
+				wpipe.Close()
+			}
+
+			// wait for child ready (unix only)
+			if runtime.GOOS != "windows" && rpipe != nil {
+				buf := make([]byte, 16)
+				n, _ := rpipe.Read(buf)
+				rpipe.Close()
+				if n > 0 {
+					fmt.Fprintf(os.Stderr, "Running in background (pid %d)\n", pid)
+					os.Exit(0)
+				}
+				fmt.Fprintln(os.Stderr, "Background start failed")
+				os.Exit(1)
+			}
+
+			// on windows just exit parent after starting child
+			fmt.Fprintf(os.Stderr, "Running in background (pid %d)\n", pid)
+			os.Exit(0)
+		}
 
 		r.Start()
 		return nil

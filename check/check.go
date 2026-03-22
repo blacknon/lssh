@@ -32,13 +32,14 @@ func ExistServer(inputServer []string, nameList []string) bool {
 // A scp location is `local (l)` or `remote (r)`.
 //
 // arg examples:
-//    Local path:
-//        local:/tmp/a.txt
-//        l:/tmp/a.txt
-//        /tmp/a.txt
-//    Remote path:
-//        remote:/tmp/a.txt
-//        r:/tmp/a.txt
+//
+//	Local path:
+//	    local:/tmp/a.txt
+//	    l:/tmp/a.txt
+//	    /tmp/a.txt
+//	Remote path:
+//	    remote:/tmp/a.txt
+//	    r:/tmp/a.txt
 func ParseScpPath(arg string) (isRemote bool, path string) {
 	argArray := strings.SplitN(arg, ":", 2)
 

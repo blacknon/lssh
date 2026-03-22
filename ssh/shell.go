@@ -161,6 +161,9 @@ func (r *Run) shell() (err error) {
 		go connect.NFSReverseForward("localhost", config.NFSReverseDynamicForwardPort, config.NFSReverseDynamicForwardPath)
 	}
 
+	// If started as daemonized child, notify parent that forwarding is ready
+	notifyParentReady()
+
 	// switch check Not-execute flag
 	// TODO(blacknon): Backgroundフラグを実装したら追加
 	switch {

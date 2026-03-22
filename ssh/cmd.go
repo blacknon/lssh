@@ -212,6 +212,10 @@ func (r *Run) cmd() (err error) {
 
 	// if parallel flag true, and select server is not single,
 	// set send stdin.
+
+	// If started as daemonized child, notify parent that forwarding is ready
+	notifyParentReady()
+
 	var stdinData []byte
 	switch {
 	case r.IsParallel && len(r.ServerList) > 1:
