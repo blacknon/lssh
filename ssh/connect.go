@@ -8,8 +8,12 @@
 package ssh
 
 import (
+	"crypto/sha1"
 	"fmt"
+	"os"
+	osuser "os/user"
 	"strings"
+	"time"
 
 	"github.com/blacknon/go-sshlib"
 	"github.com/blacknon/lssh/conf"
@@ -101,6 +105,24 @@ func (r *Run) CreateSshConnect(server string) (connect *sshlib.Connect, err erro
 		CheckKnownHosts:       s.CheckKnownHosts,
 		KnownHostsFiles:       s.KnownHostsFiles,
 		OverwriteKnownHosts:   true,
+	}
+
+	// Apply ControlMaster settings (with sensible defaults)
+	if s.ControlMaster {
+		connect.ControlMaster = "auto"
+	} else {
+		connect.ControlMaster = "no"
+	}
+
+	// ControlPath: expand or set default under configured base path.
+	// Precedence: explicit s.ControlPath > s.ControlPathBase > s.Defaults.ControlPathBase > c.Common.Defaults.ControlPathBase > built-in
+	connect.ControlPath = expandControlPath(s.ControlPath, server, s)
+
+	// ControlPersist: precedence for default string is
+	// explicit s.ControlPersistDefault > s.Defaults.ControlPersistDefault > c.Common.Defaults.ControlPersistDefault > built-in "10m"
+	persist, err := time.ParseDuration(fmt.Sprintf("%ds", s.ControlPersist))
+	if err != nil || persist <= 0 {
+		persist = 10 * time.Minute
 	}
 
 	if r.EnableStdoutMutex {
@@ -199,6 +221,38 @@ proxyLoop:
 	}
 
 	return
+}
+
+func expandControlPath(controlPath, server string, config conf.ServerConfig) string {
+	localHost, _ := os.Hostname()
+	localShortHost := localHost
+	if idx := strings.IndexByte(localShortHost, '.'); idx >= 0 {
+		localShortHost = localShortHost[:idx]
+	}
+
+	localUser := ""
+	homeDir := ""
+	if currentUser, err := osuser.Current(); err == nil {
+		localUser = currentUser.Username
+		homeDir = currentUser.HomeDir
+	}
+
+	controlHash := fmt.Sprintf("%x", sha1.Sum([]byte(localHost+config.Addr+config.Port+config.User)))
+
+	replacer := strings.NewReplacer(
+		"%%", "%",
+		"%C", controlHash,
+		"%d", homeDir,
+		"%h", config.Addr,
+		"%L", localShortHost,
+		"%l", localHost,
+		"%n", server,
+		"%p", config.Port,
+		"%r", config.User,
+		"%u", localUser,
+	)
+
+	return replacer.Replace(controlPath)
 }
 
 func expansionProxyCommand(proxyCommand string, config conf.ServerConfig) string {

@@ -111,6 +111,26 @@ func getOpenSSHConfig(path, command string) (config map[string]ServerConfig, err
 			serverConfig.X11 = true
 		}
 
+		// ControlMaster
+		cm := ssh_config.Get(host, "ControlMaster")
+		if cm != "" {
+			serverConfig.ControlMaster = true
+		}
+
+		// ControlPath
+		cp := ssh_config.Get(host, "ControlPath")
+		if cp != "" {
+			serverConfig.ControlPath = cp
+		}
+
+		// ControlPersist
+		cper := ssh_config.Get(host, "ControlPersist")
+		if cper != "" {
+			if cperInt, err := strconv.Atoi(cper); err == nil {
+				serverConfig.ControlPersist = cperInt
+			}
+		}
+
 		// Port forwarding (Local forward)
 		localForward := ssh_config.Get(host, "LocalForward")
 		if localForward != "" {
