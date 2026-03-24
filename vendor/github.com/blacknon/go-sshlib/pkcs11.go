@@ -14,16 +14,21 @@ import (
 // C11 struct for Crypto11 processing.
 // Not available if cgo is disabled.
 type C11 struct {
-	Label string
-	PIN   string
-	Ctx   *crypto11.Context
+	Label  string
+	PIN    string
+	Ctx    *crypto11.Context
+	Prompt PromptFunc
 }
 
 // getPIN is set token's PIN Code to c.PIN
 // Not available if cgo is disabled.
 func (c *C11) getPIN() (err error) {
 	if c.PIN == "" {
-		c.PIN, err = getPassphrase(c.Label + "'s PIN:")
+		prompt := c.Prompt
+		if prompt == nil {
+			prompt = getPassphrase
+		}
+		c.PIN, err = prompt(c.Label + "'s PIN:")
 	}
 
 	return

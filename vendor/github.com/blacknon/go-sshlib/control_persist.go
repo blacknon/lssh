@@ -52,7 +52,7 @@ func (c *Connect) startDetachedControlMaster(host, port, user string) error {
 	if c.ControlPersistAuth == nil {
 		return errors.New("sshlib: ControlPersistAuth is required when ControlPersist is enabled")
 	}
-	if len(c.ProxyRoute) == 0 && c.ProxyDialer != nil {
+	if c.ProxyDialer != nil {
 		return errors.New("sshlib: detached ControlPersist does not support ProxyDialer yet")
 	}
 	if c.HostKeyCallback != nil && !c.CheckKnownHosts {
@@ -105,9 +105,19 @@ func (c *Connect) startDetachedControlMaster(host, port, user string) error {
 	cmd.Stdout = devNull
 	cmd.Stderr = devNull
 
-	setDetachedSysProcAttr(cmd)
+	promptBridge, cleanupPromptIPC, err := setupControlPersistPromptIPC(cmd)
+	if err != nil {
+		return err
+	}
+	defer cleanupPromptIPC()
 
-	return cmd.Start()
+	setDetachedSysProcAttr(cmd)
+	if err := cmd.Start(); err != nil {
+		return err
+	}
+
+	startControlPersistPromptIPC(promptBridge)
+	return nil
 }
 
 func encodeControlPersistPayload(payload controlPersistPayload) (string, error) {
@@ -137,7 +147,13 @@ func runDetachedControlMaster(encoded string) error {
 		return err
 	}
 
-	authMethods, err := createControlPersistAuthMethods(payload.Auth)
+	prompt, cleanupPrompt, err := loadControlPersistPrompt()
+	if err != nil {
+		return err
+	}
+	defer cleanupPrompt()
+
+	authMethods, err := createControlPersistAuthMethodsWithPrompt(payload.Auth, prompt)
 	if err != nil {
 		return err
 	}
@@ -151,7 +167,7 @@ func runDetachedControlMaster(encoded string) error {
 	}
 
 	if len(payload.ProxyRoute) > 0 {
-		dialer, proxyConnects, err := buildControlPersistProxyRouteDialer(payload.ProxyRoute)
+		dialer, proxyConnects, err := buildControlPersistProxyRouteDialer(payload.ProxyRoute, prompt)
 		if err != nil {
 			return err
 		}

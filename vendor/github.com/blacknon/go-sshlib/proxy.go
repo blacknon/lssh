@@ -24,28 +24,17 @@ type ProxyDialer interface {
 	DialContext(ctx context.Context, network, addr string) (net.Conn, error)
 }
 
-// ProxyRoute describes one hop in a multi-stage proxy route.
-// Hops are evaluated from the first element to the last element.
 type ProxyRoute struct {
-	// Type can be "http", "https", "socks", "socks5", "command", or "ssh".
 	Type string
 
-	// Addr and Port identify the proxy endpoint.
-	// For Type "ssh", Addr is the SSH host and Port defaults to "22" when empty.
 	Addr string
 	Port string
 
-	// User and Password are used by HTTP/SOCKS proxies.
-	// For Type "ssh", User is the SSH user.
 	User     string
 	Password string
 
-	// Command is only used when Type is "command".
 	Command string
 
-	// Auth is required when Type is "ssh".
-	// Use sshlib.CreateAuthMethodPassword/CreateAuthMethodPublicKey-generated
-	// auth methods so ControlPersist can recreate the route in a detached helper.
 	Auth *ControlPersistAuth
 }
 
@@ -124,13 +113,17 @@ type Proxy struct {
 }
 
 type controlPersistProxyRoute struct {
-	Type     string
-	Addr     string
-	Port     string
+	Type string
+
+	Addr string
+	Port string
+
 	User     string
 	Password string
-	Command  string
-	Auth     []controlPersistAuthMethodDefinition
+
+	Command string
+
+	Auth []controlPersistAuthMethodDefinition
 }
 
 // CreateProxyDialer retrun ProxyDialer.
@@ -265,7 +258,7 @@ func (n *NetPipe) DialContext(ctx context.Context, network, addr string) (con ne
 	}
 }
 
-func buildProxyRouteDialer(routes []ProxyRoute) (proxy.ContextDialer, []*Connect, error) {
+func buildProxyRouteDialer(routes []ProxyRoute, prompt PromptFunc) (proxy.ContextDialer, []*Connect, error) {
 	var current ProxyDialer = proxy.Direct
 	var proxyConnects []*Connect
 
@@ -285,14 +278,13 @@ func buildProxyRouteDialer(routes []ProxyRoute) (proxy.ContextDialer, []*Connect
 				closeProxyConnectList(proxyConnects)
 				return nil, nil, err
 			}
-
 			if _, ok := proxyDialer.(proxy.ContextDialer); !ok {
 				closeProxyConnectList(proxyConnects)
 				return nil, nil, fmt.Errorf("sshlib: proxy route[%d] does not implement proxy.ContextDialer", i)
 			}
 			current = proxyDialer
 		case "ssh":
-			authMethods, err := route.authMethods()
+			authMethods, err := route.authMethods(prompt)
 			if err != nil {
 				closeProxyConnectList(proxyConnects)
 				return nil, nil, err
@@ -323,7 +315,7 @@ func buildProxyRouteDialer(routes []ProxyRoute) (proxy.ContextDialer, []*Connect
 	return contextDialer, proxyConnects, nil
 }
 
-func buildControlPersistProxyRouteDialer(routes []controlPersistProxyRoute) (proxy.ContextDialer, []*Connect, error) {
+func buildControlPersistProxyRouteDialer(routes []controlPersistProxyRoute, prompt PromptFunc) (proxy.ContextDialer, []*Connect, error) {
 	var current ProxyDialer = proxy.Direct
 	var proxyConnects []*Connect
 
@@ -343,14 +335,13 @@ func buildControlPersistProxyRouteDialer(routes []controlPersistProxyRoute) (pro
 				closeProxyConnectList(proxyConnects)
 				return nil, nil, err
 			}
-
 			if _, ok := proxyDialer.(proxy.ContextDialer); !ok {
 				closeProxyConnectList(proxyConnects)
 				return nil, nil, fmt.Errorf("sshlib: control persist proxy route[%d] does not implement proxy.ContextDialer", i)
 			}
 			current = proxyDialer
 		case "ssh":
-			authMethods, err := createControlPersistAuthMethods(route.Auth)
+			authMethods, err := createControlPersistAuthMethodsWithPrompt(route.Auth, prompt)
 			if err != nil {
 				closeProxyConnectList(proxyConnects)
 				return nil, nil, err
@@ -419,7 +410,7 @@ func serializeControlPersistProxyRoutes(routes []ProxyRoute) ([]controlPersistPr
 	return definitions, nil
 }
 
-func (r ProxyRoute) authMethods() ([]ssh.AuthMethod, error) {
+func (r ProxyRoute) authMethods(prompt PromptFunc) ([]ssh.AuthMethod, error) {
 	if r.Type != "ssh" {
 		return nil, nil
 	}
@@ -432,7 +423,7 @@ func (r ProxyRoute) authMethods() ([]ssh.AuthMethod, error) {
 		return nil, err
 	}
 
-	return createControlPersistAuthMethods(resolved)
+	return createControlPersistAuthMethodsWithPrompt(resolved, prompt)
 }
 
 func (r ProxyRoute) portOrDefault() string {

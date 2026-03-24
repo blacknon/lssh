@@ -45,9 +45,7 @@ type Connect struct {
 	// ProxyDialer
 	ProxyDialer proxy.ContextDialer
 
-	// ProxyRoute is a multi-stage proxy definition.
-	// When set, it takes precedence over ProxyDialer so detached ControlPersist
-	// helpers can rebuild the same route.
+	// ProxyRoute takes precedence over ProxyDialer when set.
 	ProxyRoute []ProxyRoute
 
 	// Connect timeout second.
@@ -158,6 +156,11 @@ func (c *Connect) CreateClient(host, port, user string, authMethods []ssh.AuthMe
 	c.controlPort = port
 	c.controlUser = user
 
+	authMethods, err = c.resolveAuthMethods(authMethods, nil)
+	if err != nil {
+		return err
+	}
+
 	mode := c.controlMode()
 	if mode == "" || mode == "no" {
 		return c.createDirectClient(host, port, user, authMethods)
@@ -208,6 +211,22 @@ func (c *Connect) CreateClient(host, port, user string, authMethods []ssh.AuthMe
 	return nil
 }
 
+func (c *Connect) resolveAuthMethods(authMethods []ssh.AuthMethod, prompt PromptFunc) ([]ssh.AuthMethod, error) {
+	if len(authMethods) > 0 {
+		return authMethods, nil
+	}
+	if c.ControlPersistAuth == nil {
+		return authMethods, nil
+	}
+
+	resolved, err := c.ControlPersistAuth.resolved()
+	if err != nil {
+		return nil, err
+	}
+
+	return createControlPersistAuthMethodsWithPrompt(resolved, prompt)
+}
+
 func (c *Connect) IsControlClient() bool {
 	return c.isControlClient()
 }
@@ -252,7 +271,7 @@ func (c *Connect) createDirectClient(host, port, user string, authMethods []ssh.
 		if err := c.closeProxyConnects(); err != nil {
 			return err
 		}
-		dialer, proxyConnects, err = buildProxyRouteDialer(c.ProxyRoute)
+		dialer, proxyConnects, err = buildProxyRouteDialer(c.ProxyRoute, nil)
 		if err != nil {
 			return err
 		}

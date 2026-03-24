@@ -104,6 +104,22 @@ func (r *Run) shell() (err error) {
 		return
 	}
 
+	// If this Connect is a ControlMaster client (i.e. talking to a control socket),
+	// create a control session rather than calling CreateSession which is unavailable.
+	if connect.IsControlClient() {
+		// Inform user that some features are not available over ControlMaster.
+		if config.SSHAgentUse {
+			fmt.Fprintln(os.Stderr, "Warning: agent forwarding is not supported over ControlMaster; skipping agent forwarding")
+		}
+		if config.X11 || r.X11 {
+			fmt.Fprintln(os.Stderr, "Warning: X11 forwarding is not supported over ControlMaster; skipping X11 forwarding")
+		}
+
+		// Start shell via control session (nil session signals control path).
+		err = connect.Shell(nil)
+		return
+	}
+
 	// Create session
 	session, err := connect.CreateSession()
 	if err != nil {
