@@ -79,7 +79,7 @@ func (r *Run) shell() (err error) {
 	if r.IsBashrc {
 		config.LocalRcUse = "yes"
 	}
-			// No special handling for ControlMaster: allow agent/X11 forwarding to proceed normally.
+	// No special handling for ControlMaster: allow agent/X11 forwarding to proceed normally.
 	connect, err := r.CreateSshConnect(server)
 	if err != nil {
 		return

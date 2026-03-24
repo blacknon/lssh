@@ -120,6 +120,13 @@ func (c *Connect) runControlCommand(req controlRequest) error {
 		stderr = c.PtyRelayTty
 	}
 
+	if c.logging {
+		stdout, stderr, err = c.logWriters(stdout, stderr)
+		if err != nil {
+			return err
+		}
+	}
+
 	go c.copyControlInput(writer, stdin)
 
 	if req.Options.TTY {
