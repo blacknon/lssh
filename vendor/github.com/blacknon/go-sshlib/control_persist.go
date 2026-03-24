@@ -24,6 +24,7 @@ type controlPersistPayload struct {
 	OverwriteKnownHosts bool
 	KnownHostsFiles     []string
 	Auth                []controlPersistAuthMethodDefinition
+	ProxyRoute          []controlPersistProxyRoute
 }
 
 type detachedControlMaster struct {
@@ -51,7 +52,7 @@ func (c *Connect) startDetachedControlMaster(host, port, user string) error {
 	if c.ControlPersistAuth == nil {
 		return errors.New("sshlib: ControlPersistAuth is required when ControlPersist is enabled")
 	}
-	if c.ProxyDialer != nil {
+	if len(c.ProxyRoute) == 0 && c.ProxyDialer != nil {
 		return errors.New("sshlib: detached ControlPersist does not support ProxyDialer yet")
 	}
 	if c.HostKeyCallback != nil && !c.CheckKnownHosts {
@@ -59,6 +60,11 @@ func (c *Connect) startDetachedControlMaster(host, port, user string) error {
 	}
 
 	resolvedAuths, err := c.ControlPersistAuth.resolved()
+	if err != nil {
+		return err
+	}
+
+	serializedProxyRoute, err := serializeControlPersistProxyRoutes(c.ProxyRoute)
 	if err != nil {
 		return err
 	}
@@ -73,6 +79,7 @@ func (c *Connect) startDetachedControlMaster(host, port, user string) error {
 		OverwriteKnownHosts: c.OverwriteKnownHosts,
 		KnownHostsFiles:     append([]string(nil), c.KnownHostsFiles...),
 		Auth:                resolvedAuths,
+		ProxyRoute:          serializedProxyRoute,
 	}
 
 	encoded, err := encodeControlPersistPayload(payload)
@@ -143,7 +150,17 @@ func runDetachedControlMaster(encoded string) error {
 		ControlPersist:      time.Duration(payload.ControlPersistNanos),
 	}
 
+	if len(payload.ProxyRoute) > 0 {
+		dialer, proxyConnects, err := buildControlPersistProxyRouteDialer(payload.ProxyRoute)
+		if err != nil {
+			return err
+		}
+		con.ProxyDialer = dialer
+		con.proxyConnects = proxyConnects
+	}
+
 	if err := con.createDirectClient(payload.Host, payload.Port, payload.User, authMethods); err != nil {
+		_ = con.closeProxyConnects()
 		return err
 	}
 

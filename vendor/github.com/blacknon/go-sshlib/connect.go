@@ -32,6 +32,7 @@ type Connect struct {
 	controlPort    string
 	controlUser    string
 	controlSpawned bool
+	proxyConnects  []*Connect
 
 	// Session
 	Session *ssh.Session
@@ -43,6 +44,11 @@ type Connect struct {
 
 	// ProxyDialer
 	ProxyDialer proxy.ContextDialer
+
+	// ProxyRoute is a multi-stage proxy definition.
+	// When set, it takes precedence over ProxyDialer so detached ControlPersist
+	// helpers can rebuild the same route.
+	ProxyRoute []ProxyRoute
 
 	// Connect timeout second.
 	ConnectTimeout int
@@ -240,33 +246,47 @@ func (c *Connect) createDirectClient(host, port, user string, authMethods []ssh.
 	}
 
 	// check Dialer
-	if c.ProxyDialer == nil {
-		c.ProxyDialer = proxy.Direct
+	dialer := c.ProxyDialer
+	proxyConnects := c.proxyConnects
+	if len(c.ProxyRoute) > 0 {
+		if err := c.closeProxyConnects(); err != nil {
+			return err
+		}
+		dialer, proxyConnects, err = buildProxyRouteDialer(c.ProxyRoute)
+		if err != nil {
+			return err
+		}
+	} else if dialer == nil {
+		dialer = proxy.Direct
 	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(c.ConnectTimeout)*time.Second)
 	defer cancel()
 
 	// Dial to host:port
-	netConn, cerr := c.ProxyDialer.DialContext(ctx, "tcp", uri)
+	netConn, cerr := dialer.DialContext(ctx, "tcp", uri)
 	if cerr != nil {
+		_ = closeProxyConnectList(proxyConnects)
 		return cerr
 	}
 
 	// Set deadline
-	netConn.SetDeadline(time.Now().Add(time.Duration(c.ConnectTimeout) * time.Second))
+	_ = netConn.SetDeadline(time.Now().Add(time.Duration(c.ConnectTimeout) * time.Second))
 
 	// Create new ssh connect
 	sshCon, channel, req, cerr := ssh.NewClientConn(netConn, uri, config)
 	if cerr != nil {
+		_ = netConn.Close()
+		_ = closeProxyConnectList(proxyConnects)
 		return cerr
 	}
 
 	// Reet deadline
-	netConn.SetDeadline(time.Time{})
+	_ = netConn.SetDeadline(time.Time{})
 
 	// Create *ssh.Client
 	c.Client = ssh.NewClient(sshCon, channel, req)
+	c.proxyConnects = proxyConnects
 
 	return
 }
@@ -288,23 +308,41 @@ func (c *Connect) isControlClient() bool {
 
 // Close releases control resources and the underlying SSH client.
 func (c *Connect) Close() error {
+	var err error
+
 	if c.controlClient != nil {
-		return c.controlClient.Close()
+		err = c.controlClient.Close()
+		c.controlClient = nil
 	}
 
 	if c.controlMaster != nil {
-		err := c.controlMaster.Close()
+		closeErr := c.controlMaster.Close()
 		c.controlMaster = nil
-		return err
+		if err == nil {
+			err = closeErr
+		}
 	}
 
 	if c.Client != nil {
-		err := c.Client.Close()
+		closeErr := c.Client.Close()
 		c.Client = nil
-		return err
+		if err == nil {
+			err = closeErr
+		}
 	}
 
-	return nil
+	closeErr := c.closeProxyConnects()
+	if err == nil {
+		err = closeErr
+	}
+
+	return err
+}
+
+func (c *Connect) closeProxyConnects() error {
+	err := closeProxyConnectList(c.proxyConnects)
+	c.proxyConnects = nil
+	return err
 }
 
 // CreateSession retrun ssh.Session

@@ -69,6 +69,9 @@ func (r *Run) cmd() (err error) {
 				return
 			}
 
+			// centralized informational output
+			r.PrintConnectInfo(server, conn, r.Conf.Server[server])
+
 			mu.Lock()
 			connmap[server] = conn
 			mu.Unlock()
@@ -81,11 +84,15 @@ func (r *Run) cmd() (err error) {
 	// Run command and print loop
 	writers := []io.WriteCloser{}
 	for s, c := range connmap {
-		// set session
-		c.Session, _ = c.CreateSession()
-
 		// Get server config
 		config := r.Conf.Server[s]
+
+		// Agent will be set by CreateSshConnect; ForwardAgent is configured there.
+
+		// If this connection is NOT a control client, create a session now
+		if !c.IsControlClient() {
+			c.Session, _ = c.CreateSession()
+		}
 
 		// create Output
 		o := &output.Output{
@@ -232,26 +239,36 @@ func (r *Run) cmd() (err error) {
 		conn := c
 		if r.IsParallel {
 			go func() {
+				// When control client, Command handles control path internally.
 				conn.Command(command)
 				finished <- true
 			}()
 		} else {
 			if len(stdinData) > 0 {
-				// get stdin
-				rd := bytes.NewReader(stdinData)
-				w, _ := conn.Session.StdinPipe()
+				// If control client, set conn.Stdin so runControlCommand reads it.
+				if conn.IsControlClient() {
+					conn.Stdin = bytes.NewReader(stdinData)
 
-				// run command
-				go func() {
+					// run command (synchronous)
 					conn.Command(command)
 					finished <- true
-				}()
+				} else {
+					// get stdin via session pipe for non-control client
+					rd := bytes.NewReader(stdinData)
+					w, _ := conn.Session.StdinPipe()
 
-				// send stdin
-				io.Copy(w, rd)
-				w.Close()
+					// run command
+					go func() {
+						conn.Command(command)
+						finished <- true
+					}()
+
+					// send stdin
+					io.Copy(w, rd)
+					w.Close()
+				}
 			} else {
-				// run command
+				// run command (both control and direct handled by Command)
 				conn.Command(command)
 				go func() { finished <- true }()
 			}

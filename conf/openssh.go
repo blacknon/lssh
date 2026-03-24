@@ -126,8 +126,8 @@ func getOpenSSHConfig(path, command string) (config map[string]ServerConfig, err
 		// ControlPersist
 		cper := ssh_config.Get(host, "ControlPersist")
 		if cper != "" {
-			if cperInt, err := strconv.Atoi(cper); err == nil {
-				serverConfig.ControlPersist = cperInt
+			if cperValue, err := parseControlPersist(cper); err == nil {
+				serverConfig.ControlPersist = cperValue
 			}
 		}
 

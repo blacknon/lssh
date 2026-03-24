@@ -374,6 +374,10 @@ func (m *controlMaster) Close() error {
 			}
 			m.connect.Client = nil
 		}
+		closeErr := m.connect.closeProxyConnects()
+		if err == nil {
+			err = closeErr
+		}
 		_ = os.Remove(m.path)
 	})
 	return err
