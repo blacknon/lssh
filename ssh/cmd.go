@@ -211,8 +211,18 @@ func (r *Run) cmd() (err error) {
 			}
 		} else {
 			if r.IsParallel {
-				w, _ := c.Session.StdinPipe()
-				writers = append(writers, w)
+				// For parallel mode, prepare writers to send stdin to each host.
+				// - For non-control clients: use session.StdinPipe()
+				// - For control clients: create an io.Pipe(), set read-side to c.Stdin
+				//   so Command() will read from it, and append write-side to writers.
+				if c.Session != nil {
+					w, _ := c.Session.StdinPipe()
+					writers = append(writers, w)
+				} else if c.IsControlClient() {
+					pr, pw := io.Pipe()
+					c.Stdin = pr
+					writers = append(writers, pw)
+				}
 			}
 		}
 	}
