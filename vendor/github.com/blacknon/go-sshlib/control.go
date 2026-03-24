@@ -47,12 +47,13 @@ type controlResponse struct {
 }
 
 type controlSessionOptions struct {
-	TTY          bool
-	Term         string
-	Width        int
-	Height       int
-	ForwardX11   bool
-	ForwardAgent bool
+	TTY               bool
+	Term              string
+	Width             int
+	Height            int
+	ForwardX11        bool
+	ForwardX11Trusted bool
+	ForwardAgent      bool
 }
 
 type controlMaster struct {
@@ -151,13 +152,6 @@ func (m *controlMaster) handleControlConn(conn net.Conn) {
 func (m *controlMaster) prepareSession(req controlRequest) (controlResponse, error) {
 	m.touch()
 
-	if req.Options.ForwardAgent {
-		return controlResponse{}, errors.New("sshlib: agent forwarding is not supported over ControlMaster yet")
-	}
-	if req.Options.ForwardX11 {
-		return controlResponse{}, errors.New("sshlib: X11 forwarding is not supported over ControlMaster yet")
-	}
-
 	streamPath, err := m.newStreamPath()
 	if err != nil {
 		return controlResponse{}, err
@@ -230,6 +224,22 @@ func (m *controlMaster) serveStream(req controlRequest, conn net.Conn) {
 			_ = writer.WriteFrame(streamFrameExit, encodeExitStatus(255))
 			return
 		}
+	}
+
+	if req.Options.ForwardX11 {
+		prevTrusted := m.connect.ForwardX11Trusted
+		m.connect.ForwardX11Trusted = req.Options.ForwardX11Trusted
+		err := m.connect.X11Forward(session)
+		m.connect.ForwardX11Trusted = prevTrusted
+		if err != nil {
+			_ = writer.WriteFrame(streamFrameError, []byte(err.Error()))
+			_ = writer.WriteFrame(streamFrameExit, encodeExitStatus(255))
+			return
+		}
+	}
+
+	if req.Options.ForwardAgent {
+		m.connect.ForwardSshAgent(session)
 	}
 
 	stdin, err := session.StdinPipe()

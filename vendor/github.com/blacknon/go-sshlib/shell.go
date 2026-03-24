@@ -356,12 +356,13 @@ func (c *Connect) controlSessionOptions(forceTTY bool) controlSessionOptions {
 	}
 
 	return controlSessionOptions{
-		TTY:          forceTTY,
-		Term:         os.Getenv("TERM"),
-		Width:        width,
-		Height:       height,
-		ForwardX11:   c.ForwardX11,
-		ForwardAgent: c.ForwardAgent,
+		TTY:               forceTTY,
+		Term:              os.Getenv("TERM"),
+		Width:             width,
+		Height:            height,
+		ForwardX11:        c.ForwardX11,
+		ForwardX11Trusted: c.ForwardX11Trusted,
+		ForwardAgent:      c.ForwardAgent,
 	}
 }
 

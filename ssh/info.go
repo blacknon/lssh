@@ -17,6 +17,20 @@ func (r *Run) PrintConnectInfo(server string, connect *sshlib.Connect, cfg conf.
 		fmt.Fprintf(os.Stderr, "Information   :This connect use local bashrc.\n")
 	}
 
+	// X11 info
+	if cfg.X11 || r.X11 {
+		if cfg.X11 && r.X11 {
+			fmt.Fprintln(os.Stderr, "Information   :X11 forwarding enabled (local and global)")
+		} else if cfg.X11 {
+			fmt.Fprintln(os.Stderr, "Information   :X11 forwarding enabled (from config)")
+		} else {
+			fmt.Fprintln(os.Stderr, "Information   :X11 forwarding enabled (from CLI)")
+		}
+		if cfg.X11Trusted || r.X11Trusted {
+			fmt.Fprintln(os.Stderr, "Information   :Trusted X11 forwarding enabled")
+		}
+	}
+
 	// ControlMaster info
 	if connect != nil && connect.ControlMaster != "" && connect.ControlMaster != "no" {
 		if connect.IsControlClient() {

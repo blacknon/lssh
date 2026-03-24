@@ -53,6 +53,10 @@ func (c *Connect) AddKeySshAgent(sshAgent interface{}, key interface{}) {
 
 // ForwardAgent forward ssh-agent in session.
 func (c *Connect) ForwardSshAgent(session *ssh.Session) {
+	if c.Agent == nil {
+		c.Agent = ConnectSshAgent()
+	}
+
 	// forward ssh-agent
 	switch ag := c.Agent.(type) {
 	case agent.Agent:

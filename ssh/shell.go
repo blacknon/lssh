@@ -79,23 +79,7 @@ func (r *Run) shell() (err error) {
 	if r.IsBashrc {
 		config.LocalRcUse = "yes"
 	}
-
-	// OverWrite local bashrc not use
-	if r.IsNotBashrc {
-		config.LocalRcUse = "no"
-	}
-
-	// header
-	r.PrintSelectServer()
-	for _, fw := range config.Forwards {
-		r.printPortForward(fw.Mode, fw.Local, fw.Remote)
-	}
-	r.printDynamicPortForward(config.DynamicPortForward)
-	r.printReverseDynamicPortForward(config.ReverseDynamicPortForward)
-	r.printHTTPDynamicPortForward(config.HTTPDynamicPortForward)
-	r.printProxy(server)
-
-	// Craete sshlib.Connect (Connect Proxy loop)
+			// No special handling for ControlMaster: allow agent/X11 forwarding to proceed normally.
 	connect, err := r.CreateSshConnect(server)
 	if err != nil {
 		return
@@ -104,10 +88,8 @@ func (r *Run) shell() (err error) {
 	// Print connection info (Local rc, ControlMaster state, etc.).
 	r.PrintConnectInfo(server, connect, config)
 
-	// Record whether this is a ControlMaster client. We do NOT return early
-	// here because we still need to run notifyParentReady, pre/post commands
-	// and logging setup. The control-client path will be handled later when
-	// starting the shell/localrc.
+	// Record whether this is a ControlMaster client. We still need to run
+	// pre/post commands and logging; only session creation differs later.
 	isControlClient := connect.IsControlClient()
 
 	var session *ssh.Session
@@ -204,21 +186,16 @@ func (r *Run) shell() (err error) {
 		}
 
 		// TODO(blacknon): local rc file add
-		// If this is a ControlMaster client, warn about unsupported features.
-		if isControlClient {
-			if config.SSHAgentUse {
-				fmt.Fprintln(os.Stderr, "Warning: agent forwarding is not supported over ControlMaster; skipping agent forwarding")
-			}
-			if config.X11 || r.X11 {
-				fmt.Fprintln(os.Stderr, "Warning: X11 forwarding is not supported over ControlMaster; skipping X11 forwarding")
-			}
-		}
+		// No special handling for ControlMaster: allow agent/X11 forwarding to proceed normally.
+
 		if config.LocalRcUse == "yes" {
 			err = localrcShell(connect, session, config.LocalRcPath, config.LocalRcDecodeCmd, config.LocalRcCompress, config.LocalRcUncompressCmd)
 		} else {
 			// Connect shell
 			err = connect.Shell(session)
 		}
+
+		// No special handling for ControlMaster: allow agent/X11 forwarding to proceed normally.
 	}
 
 	return
