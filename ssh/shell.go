@@ -79,6 +79,16 @@ func (r *Run) shell() (err error) {
 	if r.IsBashrc {
 		config.LocalRcUse = "yes"
 	}
+	// header
+	r.PrintSelectServer()
+	for _, fw := range config.Forwards {
+		r.printPortForward(fw.Mode, fw.Local, fw.Remote)
+	}
+	r.printDynamicPortForward(config.DynamicPortForward)
+	r.printReverseDynamicPortForward(config.ReverseDynamicPortForward)
+	r.printHTTPDynamicPortForward(config.HTTPDynamicPortForward)
+	r.printProxy(server)
+
 	// No special handling for ControlMaster: allow agent/X11 forwarding to proceed normally.
 	connect, err := r.CreateSshConnect(server)
 	if err != nil {
