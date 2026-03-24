@@ -21,6 +21,8 @@ const (
 type controlPersistPromptBridge struct {
 	reqReader  *os.File
 	respWriter *os.File
+	childReq   *os.File
+	childResp  *os.File
 }
 
 type controlPersistPromptRequest struct {
@@ -59,6 +61,8 @@ func setupControlPersistPromptIPC(cmd *exec.Cmd) (*controlPersistPromptBridge, f
 	bridge := &controlPersistPromptBridge{
 		reqReader:  reqReader,
 		respWriter: respWriter,
+		childReq:   reqWriter,
+		childResp:  respReader,
 	}
 
 	cleanup := func() {
@@ -74,6 +78,15 @@ func setupControlPersistPromptIPC(cmd *exec.Cmd) (*controlPersistPromptBridge, f
 func startControlPersistPromptIPC(bridge *controlPersistPromptBridge) {
 	if bridge == nil {
 		return
+	}
+
+	if bridge.childReq != nil {
+		_ = bridge.childReq.Close()
+		bridge.childReq = nil
+	}
+	if bridge.childResp != nil {
+		_ = bridge.childResp.Close()
+		bridge.childResp = nil
 	}
 
 	go func() {

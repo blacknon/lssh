@@ -13,6 +13,23 @@ import (
 )
 
 const controlPersistEnv = "GO_SSHLIB_CONTROL_PERSIST_PAYLOAD"
+const controlPersistLogEnv = "GO_SSHLIB_CONTROL_PERSIST_LOG"
+
+func controlPersistDebugEnabled() bool {
+	return os.Getenv(controlPersistEnv) != ""
+}
+
+func controlPersistDebugf(format string, args ...interface{}) {
+	if controlPersistDebugEnabled() {
+		fmt.Fprintf(os.Stderr, format, args...)
+	}
+}
+
+func controlPersistDebugln(args ...interface{}) {
+	if controlPersistDebugEnabled() {
+		fmt.Fprintln(os.Stderr, args...)
+	}
+}
 
 type controlPersistPayload struct {
 	Host                string
@@ -40,11 +57,13 @@ func init() {
 		return
 	}
 
+	controlPersistDebugln("sshlib: control persist helper starting")
 	err := runDetachedControlMaster(payload)
 	if err != nil {
-		fmt.Fprintln(os.Stderr, err)
+		controlPersistDebugln(err)
 		os.Exit(1)
 	}
+	controlPersistDebugln("sshlib: control persist helper exited cleanly")
 	os.Exit(0)
 }
 
@@ -105,14 +124,23 @@ func (c *Connect) startDetachedControlMaster(host, port, user string) error {
 	cmd.Stdout = devNull
 	cmd.Stderr = devNull
 
+	if logPath := os.Getenv(controlPersistLogEnv); logPath != "" {
+		logFile, logErr := os.OpenFile(logPath, os.O_WRONLY|os.O_APPEND|os.O_CREATE, 0600)
+		if logErr != nil {
+			return logErr
+		}
+		cmd.Stdout = logFile
+		cmd.Stderr = logFile
+	}
+
 	promptBridge, cleanupPromptIPC, err := setupControlPersistPromptIPC(cmd)
 	if err != nil {
 		return err
 	}
-	defer cleanupPromptIPC()
 
 	setDetachedSysProcAttr(cmd)
 	if err := cmd.Start(); err != nil {
+		cleanupPromptIPC()
 		return err
 	}
 
@@ -142,17 +170,20 @@ func decodeControlPersistPayload(encoded string) (controlPersistPayload, error) 
 }
 
 func runDetachedControlMaster(encoded string) error {
+	controlPersistDebugln("sshlib: decoding control persist payload")
 	payload, err := decodeControlPersistPayload(encoded)
 	if err != nil {
 		return err
 	}
 
+	controlPersistDebugln("sshlib: loading control persist prompt bridge")
 	prompt, cleanupPrompt, err := loadControlPersistPrompt()
 	if err != nil {
 		return err
 	}
 	defer cleanupPrompt()
 
+	controlPersistDebugln("sshlib: rebuilding auth methods")
 	authMethods, err := createControlPersistAuthMethodsWithPrompt(payload.Auth, prompt)
 	if err != nil {
 		return err
@@ -167,6 +198,7 @@ func runDetachedControlMaster(encoded string) error {
 	}
 
 	if len(payload.ProxyRoute) > 0 {
+		controlPersistDebugf("sshlib: rebuilding proxy route hops=%d\n", len(payload.ProxyRoute))
 		dialer, proxyConnects, err := buildControlPersistProxyRouteDialer(payload.ProxyRoute, prompt)
 		if err != nil {
 			return err
@@ -175,11 +207,13 @@ func runDetachedControlMaster(encoded string) error {
 		con.proxyConnects = proxyConnects
 	}
 
+	controlPersistDebugf("sshlib: connecting target %s:%s as %s\n", payload.Host, payload.Port, payload.User)
 	if err := con.createDirectClient(payload.Host, payload.Port, payload.User, authMethods); err != nil {
 		_ = con.closeProxyConnects()
 		return err
 	}
 
+	controlPersistDebugln("sshlib: starting detached control master listener")
 	master, err := newDetachedControlMaster(con, payload.ControlPath, time.Duration(payload.ControlPersistNanos))
 	if err != nil {
 		_ = con.Client.Close()

@@ -237,6 +237,7 @@ func (c *Connect) SpawnedControlMaster() bool {
 
 func (c *Connect) createDirectClient(host, port, user string, authMethods []ssh.AuthMethod) (err error) {
 	uri := net.JoinHostPort(host, port)
+	controlPersistDebugf("sshlib: createDirectClient begin uri=%s user=%s timeout=%ds\n", uri, user, c.ConnectTimeout)
 
 	timeout := 20
 	if c.ConnectTimeout == 0 {
@@ -283,22 +284,28 @@ func (c *Connect) createDirectClient(host, port, user string, authMethods []ssh.
 	defer cancel()
 
 	// Dial to host:port
+	controlPersistDebugf("sshlib: dialing network=tcp addr=%s\n", uri)
 	netConn, cerr := dialer.DialContext(ctx, "tcp", uri)
 	if cerr != nil {
+		controlPersistDebugf("sshlib: dial failed addr=%s err=%v\n", uri, cerr)
 		_ = closeProxyConnectList(proxyConnects)
 		return cerr
 	}
+	controlPersistDebugf("sshlib: dial succeeded addr=%s\n", uri)
 
 	// Set deadline
 	_ = netConn.SetDeadline(time.Now().Add(time.Duration(c.ConnectTimeout) * time.Second))
 
 	// Create new ssh connect
+	controlPersistDebugf("sshlib: starting ssh handshake addr=%s\n", uri)
 	sshCon, channel, req, cerr := ssh.NewClientConn(netConn, uri, config)
 	if cerr != nil {
+		controlPersistDebugf("sshlib: ssh handshake failed addr=%s err=%v\n", uri, cerr)
 		_ = netConn.Close()
 		_ = closeProxyConnectList(proxyConnects)
 		return cerr
 	}
+	controlPersistDebugf("sshlib: ssh handshake succeeded addr=%s\n", uri)
 
 	// Reet deadline
 	_ = netConn.SetDeadline(time.Time{})
@@ -306,6 +313,7 @@ func (c *Connect) createDirectClient(host, port, user string, authMethods []ssh.
 	// Create *ssh.Client
 	c.Client = ssh.NewClient(sshCon, channel, req)
 	c.proxyConnects = proxyConnects
+	controlPersistDebugf("sshlib: createDirectClient success uri=%s\n", uri)
 
 	return
 }
