@@ -79,6 +79,12 @@ func (r *Run) shell() (err error) {
 	if r.IsBashrc {
 		config.LocalRcUse = "yes"
 	}
+
+	// OverWrite local bashrc not use
+	if r.IsNotBashrc {
+		config.LocalRcUse = "no"
+	}
+
 	// header
 	r.PrintSelectServer()
 	for _, fw := range config.Forwards {
