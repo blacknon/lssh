@@ -115,6 +115,8 @@ type Connect struct {
 	// Set it before CraeteClient.
 	ForwardX11Trusted bool
 
+	x11HandlerOnce sync.Once
+
 	// Dynamic forward related logger
 	DynamicForwardLogger *log.Logger
 

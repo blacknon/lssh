@@ -241,7 +241,6 @@ func (m *controlMaster) serveStream(req controlRequest, conn net.Conn) {
 	if req.Options.ForwardAgent {
 		m.connect.ForwardSshAgent(session)
 	}
-
 	stdin, err := session.StdinPipe()
 	if err != nil {
 		_ = writer.WriteFrame(streamFrameError, []byte(err.Error()))
