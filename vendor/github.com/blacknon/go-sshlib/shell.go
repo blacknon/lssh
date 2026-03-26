@@ -77,8 +77,8 @@ func (c *Connect) Shell(session *ssh.Session) (err error) {
 		return
 	}
 
-	// keep alive packet
-	go c.SendKeepAlive(session)
+	stopKeepAlive := c.startSessionKeepAlive(session)
+	defer stopKeepAlive()
 
 	// if tty is set, get signal winch
 	if c.PtyRelayTty != nil {
@@ -150,8 +150,8 @@ func (c *Connect) CmdShell(session *ssh.Session, command string) (err error) {
 		return
 	}
 
-	// keep alive packet
-	go c.SendKeepAlive(session)
+	stopKeepAlive := c.startSessionKeepAlive(session)
+	defer stopKeepAlive()
 
 	err = session.Wait()
 	if err != nil {
@@ -346,9 +346,15 @@ func (c *Connect) runControlSession(req controlRequest) error {
 	go c.copyControlInput(writer, input)
 
 	err = c.copyControlOutput(conn, output, errput)
-	if req.Type == controlRequestShell {
+	if isInteractiveControlRequest(req.Type) {
 		var exitErr *controlExitError
 		if errors.As(err, &exitErr) {
+			if exitErr.status == 130 {
+				return nil
+			}
+			return nil
+		}
+		if errors.Is(err, io.EOF) || errors.Is(err, io.ErrUnexpectedEOF) {
 			return nil
 		}
 	}
@@ -425,7 +431,7 @@ func (c *Connect) copyControlOutput(conn net.Conn, stdout, stderr io.Writer) err
 		frameType, payload, err := readStreamFrame(conn)
 		if err != nil {
 			if err == io.EOF {
-				return nil
+				return io.ErrUnexpectedEOF
 			}
 			return err
 		}

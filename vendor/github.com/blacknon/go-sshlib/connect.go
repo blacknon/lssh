@@ -392,11 +392,8 @@ func (c *Connect) CreateSession() (session *ssh.Session, err error) {
 	return
 }
 
-// SendKeepAlive send packet to session.
-// TODO(blacknon): Interval及びMaxを設定できるようにする(v0.1.1)
-func (c *Connect) SendKeepAlive(session *ssh.Session) {
-	// keep alive interval (default 30 sec)
-	interval := 1
+func (c *Connect) keepAliveConfig() (time.Duration, int) {
+	interval := 30
 	if c.SendKeepAliveInterval > 0 {
 		interval = c.SendKeepAliveInterval
 	}
@@ -406,25 +403,63 @@ func (c *Connect) SendKeepAlive(session *ssh.Session) {
 		max = c.SendKeepAliveMax
 	}
 
-	t := time.NewTicker(time.Duration(c.ConnectTimeout) * time.Second)
-	defer t.Stop()
+	return time.Duration(interval) * time.Second, max
+}
 
-	count := 0
-	for {
-		select {
-		case <-t.C:
-			if _, err := session.SendRequest("keepalive@openssh.com", true, nil); err != nil {
-				log.Println("Failed to send keepalive packet:", err)
-				count += 1
-			} else {
-				// err is nil.
-				time.Sleep(time.Duration(interval) * time.Second)
+func (c *Connect) startSessionKeepAlive(session *ssh.Session) func() {
+	done := make(chan struct{})
+
+	go func() {
+		interval, max := c.keepAliveConfig()
+		t := time.NewTicker(interval)
+		defer t.Stop()
+
+		failures := 0
+		for {
+			select {
+			case <-done:
+				return
+			case <-t.C:
+				if _, err := session.SendRequest("keepalive@openssh.com", true, nil); err != nil {
+					log.Println("Failed to send keepalive packet:", err)
+					failures++
+					if failures > max {
+						_ = session.Close()
+						return
+					}
+					continue
+				}
+
+				failures = 0
 			}
 		}
+	}()
 
-		if count > max {
-			return
+	return func() {
+		close(done)
+	}
+}
+
+// SendKeepAlive send packet to session.
+// TODO(blacknon): Interval及びMaxを設定できるようにする(v0.1.1)
+func (c *Connect) SendKeepAlive(session *ssh.Session) {
+	interval, max := c.keepAliveConfig()
+	t := time.NewTicker(interval)
+	defer t.Stop()
+
+	failures := 0
+	for range t.C {
+		if _, err := session.SendRequest("keepalive@openssh.com", true, nil); err != nil {
+			log.Println("Failed to send keepalive packet:", err)
+			failures++
+			if failures > max {
+				_ = session.Close()
+				return
+			}
+			continue
 		}
+
+		failures = 0
 	}
 }
 

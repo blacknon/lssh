@@ -290,6 +290,9 @@ func (m *controlMaster) serveStream(req controlRequest, conn net.Conn) {
 		return
 	}
 
+	stopKeepAlive := m.connect.startSessionKeepAlive(session)
+	defer stopKeepAlive()
+
 	err = session.Wait()
 	_ = stdin.Close()
 	_ = session.Close()
@@ -307,12 +310,30 @@ func shouldSuppressControlStreamError(req controlRequest, err error) bool {
 		return false
 	}
 
-	if req.Type != controlRequestShell {
+	if !isInteractiveControlRequest(req.Type) {
 		return false
 	}
 
 	var exitErr *ssh.ExitError
-	return errors.As(err, &exitErr)
+	if errors.As(err, &exitErr) {
+		return true
+	}
+
+	var exitMissingErr *ssh.ExitMissingError
+	if errors.As(err, &exitMissingErr) {
+		return true
+	}
+
+	return exitStatusFromError(err) == 130
+}
+
+func isInteractiveControlRequest(requestType string) bool {
+	switch requestType {
+	case controlRequestShell, controlRequestCmdShell:
+		return true
+	default:
+		return false
+	}
 }
 
 func (m *controlMaster) touch() {

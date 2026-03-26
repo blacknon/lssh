@@ -305,16 +305,16 @@ func localrcShell(connect *sshlib.Connect, session *ssh.Session, localrcPath []s
 	// switch
 	switch {
 	case !compress && decoder != "":
-		cmd = fmt.Sprintf("bash --noprofile --rcfile <(echo %s | %s)", rcData, decoder)
+		cmd = fmt.Sprintf("bash --noprofile --rcfile <(echo %s | %s); exit 0", rcData, decoder)
 
 	case !compress && decoder == "":
-		cmd = fmt.Sprintf("bash --noprofile --rcfile <(echo %s | ( (base64 --help | grep -q coreutils) && base64 -d <(cat) || base64 -D <(cat) ) )", rcData)
+		cmd = fmt.Sprintf("bash --noprofile --rcfile <(echo %s | ( (base64 --help | grep -q coreutils) && base64 -d <(cat) || base64 -D <(cat) ) ); exit 0", rcData)
 
 	case compress && decoder != "":
-		cmd = fmt.Sprintf("bash --noprofile --rcfile <(echo %s | %s | %s)", rcData, decoder, uncompress)
+		cmd = fmt.Sprintf("bash --noprofile --rcfile <(echo %s | %s | %s); exit 0", rcData, decoder, uncompress)
 
 	case compress && decoder == "":
-		cmd = fmt.Sprintf("bash --noprofile --rcfile <(echo %s | ( (base64 --help | grep -q coreutils) && base64 -d <(cat) || base64 -D <(cat) ) | %s)", rcData, uncompress)
+		cmd = fmt.Sprintf("bash --noprofile --rcfile <(echo %s | ( (base64 --help | grep -q coreutils) && base64 -d <(cat) || base64 -D <(cat) ) | %s); exit 0", rcData, uncompress)
 
 	}
 

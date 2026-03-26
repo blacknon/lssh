@@ -80,8 +80,15 @@ func (c *Connect) Command(command string) (err error) {
 		return
 	}
 
-	// Run Command
-	c.Session.Run(command)
+	err = c.Session.Start(command)
+	if err != nil {
+		return
+	}
+
+	stopKeepAlive := c.startSessionKeepAlive(c.Session)
+	defer stopKeepAlive()
+
+	err = c.Session.Wait()
 
 	return
 }

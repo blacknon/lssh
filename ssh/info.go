@@ -33,10 +33,10 @@ func (r *Run) PrintConnectInfo(server string, connect *sshlib.Connect, cfg conf.
 
 	// ControlMaster info
 	if connect != nil && connect.ControlMaster != "" && connect.ControlMaster != "no" {
-		if connect.IsControlClient() {
-			fmt.Fprintln(os.Stderr, "Information   :ControlMaster enabled (connected to existing master)")
-		} else if connect.SpawnedControlMaster() {
+		if connect.SpawnedControlMaster() {
 			fmt.Fprintln(os.Stderr, "Information   :ControlMaster enabled (started detached master)")
+		} else if connect.IsControlClient() {
+			fmt.Fprintln(os.Stderr, "Information   :ControlMaster enabled (connected to existing master)")
 		} else {
 			fmt.Fprintln(os.Stderr, "Information   :ControlMaster enabled (started master)")
 		}
