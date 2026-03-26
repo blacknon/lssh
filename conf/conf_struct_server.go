@@ -128,6 +128,11 @@ type ServerConfig struct {
 	// Check KnownHosts File
 	KnownHostsFiles []string `toml:"known_hosts_files"`
 
+	// OpenSSH ControlMaster settings
+	ControlMaster  bool                   `toml:"control_master"`
+	ControlPath    string                 `toml:"control_path"`
+	ControlPersist ControlPersistDuration `toml:"control_persist"`
+
 	// note
 	Note string `toml:"note"`
 }

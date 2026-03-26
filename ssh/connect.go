@@ -8,14 +8,171 @@
 package ssh
 
 import (
+	"bufio"
+	"crypto/sha1"
 	"fmt"
+	"os"
+	osuser "os/user"
 	"strings"
+	"time"
 
 	"github.com/blacknon/go-sshlib"
 	"github.com/blacknon/lssh/conf"
 	"golang.org/x/crypto/ssh"
 	"golang.org/x/net/proxy"
 )
+
+// createSshConnectWithControlPersist constructs a Connect that passes
+// ProxyRoute directly to go-sshlib. It builds ControlPersist-capable
+// auth methods from server config (passwords, keys, certs, pkcs11).
+func (r *Run) createSshConnectWithControlPersist(server string, proxyRoute []*proxyRouteData) (connect *sshlib.Connect, err error) {
+	// build sshlib.ProxyRoute list from proxyRoute (internal)
+	routes := make([]sshlib.ProxyRoute, 0, len(proxyRoute))
+	for _, p := range proxyRoute {
+		switch p.Type {
+		case "http", "https", "socks", "socks5":
+			c := r.Conf.Proxy[p.Name]
+			routes = append(routes, sshlib.ProxyRoute{
+				Type:     p.Type,
+				Addr:     c.Addr,
+				Port:     c.Port,
+				User:     c.User,
+				Password: c.Pass,
+			})
+		case "command":
+			routes = append(routes, sshlib.ProxyRoute{
+				Type:    "command",
+				Command: p.Name,
+			})
+		default:
+			// ssh hop: build ControlPersistAuth from config (not runtime auth)
+			c := r.Conf.Server[p.Name]
+			methods, err := r.buildControlPersistAuthMethodsFromConfig(p.Name, c)
+			if err != nil {
+				return nil, err
+			}
+			routes = append(routes, sshlib.ProxyRoute{
+				Type: "ssh",
+				Addr: c.Addr,
+				Port: p.Port,
+				User: c.User,
+				Auth: &sshlib.ControlPersistAuth{AuthMethods: methods},
+			})
+		}
+	}
+
+	// target server config
+	s := r.Conf.Server[server]
+
+	// build top-level control-persist auth methods from config
+	topMethods, err := r.buildControlPersistAuthMethodsFromConfig(server, s)
+	if err != nil {
+		return nil, err
+	}
+
+	connect = &sshlib.Connect{
+		ProxyRoute:            routes,
+		ForwardAgent:          s.SSHAgentUse,
+		Agent:                 r.agent,
+		ForwardX11:            s.X11 || r.X11,
+		ForwardX11Trusted:     s.X11Trusted || r.X11Trusted,
+		TTY:                   r.IsTerm,
+		ConnectTimeout:        s.ConnectTimeout,
+		SendKeepAliveMax:      s.ServerAliveCountMax,
+		SendKeepAliveInterval: s.ServerAliveCountInterval,
+		CheckKnownHosts:       s.CheckKnownHosts,
+		KnownHostsFiles:       s.KnownHostsFiles,
+		OverwriteKnownHosts:   true,
+		ControlPersistAuth:    &sshlib.ControlPersistAuth{AuthMethods: topMethods},
+	}
+
+	if s.ControlMaster {
+		connect.ControlMaster = "auto"
+	} else {
+		connect.ControlMaster = "no"
+	}
+
+	connect.ControlPath = expandControlPath(s.ControlPath, server, s)
+
+	// ControlPersist duration
+	if s.ControlPersist > 0 {
+		// s.ControlPersist is seconds in config type
+		connect.ControlPersist, _ = time.ParseDuration(fmt.Sprintf("%ds", s.ControlPersist))
+	}
+
+	// done; return without calling CreateClient here — caller will call CreateClient
+	return connect, nil
+}
+
+// buildControlPersistAuthMethodsFromConfig creates ssh.AuthMethod values suitable
+// for ControlPersist from raw ServerConfig. It avoids using runtime agent/pkcs11
+// objects when possible; for PKCS11 it prompts for PIN if absent.
+func (r *Run) buildControlPersistAuthMethodsFromConfig(name string, c conf.ServerConfig) (methods []ssh.AuthMethod, err error) {
+	methods = []ssh.AuthMethod{}
+
+	// password
+	if c.Pass != "" {
+		methods = append(methods, sshlib.CreateAuthMethodPassword(c.Pass))
+	}
+	for _, p := range c.Passes {
+		methods = append(methods, sshlib.CreateAuthMethodPassword(p))
+	}
+
+	// single key
+	if c.Key != "" {
+		am, err := sshlib.CreateAuthMethodPublicKey(c.Key, c.KeyPass)
+		if err != nil {
+			return nil, err
+		}
+		methods = append(methods, am)
+	}
+	// multiple keys
+	for _, key := range c.Keys {
+		pair := strings.SplitN(key, "::", 2)
+		keyName := pair[0]
+		keyPass := ""
+		if len(pair) > 1 {
+			keyPass = pair[1]
+		}
+		am, err := sshlib.CreateAuthMethodPublicKey(keyName, keyPass)
+		if err != nil {
+			return nil, err
+		}
+		methods = append(methods, am)
+	}
+
+	// certificate
+	if c.Cert != "" {
+		signer, err := sshlib.CreateSignerPublicKeyPrompt(c.CertKey, c.CertKeyPass)
+		if err != nil {
+			return nil, err
+		}
+		am, err := sshlib.CreateAuthMethodCertificate(c.Cert, signer)
+		if err != nil {
+			return nil, err
+		}
+		methods = append(methods, am)
+	}
+
+	// PKCS11: prompt for PIN if needed and create auth methods
+	if c.PKCS11Use {
+		pin := c.PKCS11PIN
+		if pin == "" {
+			// Prompt user for PIN (simple IPC via stdin)
+			fmt.Fprintf(os.Stderr, "PKCS11 PIN for provider %s: ", c.PKCS11Provider)
+			reader := bufio.NewReader(os.Stdin)
+			line, _ := reader.ReadString('\n')
+			pin = strings.TrimSpace(line)
+		}
+		pkMethods, err := sshlib.CreateAuthMethodPKCS11(c.PKCS11Provider, pin)
+		if err != nil {
+			return nil, err
+		}
+		methods = append(methods, pkMethods...)
+	}
+
+	return methods, nil
+}
 
 // CreateSshConnect return *sshlib.Connect
 // this vaule in ssh.Client with proxy.
@@ -75,6 +232,34 @@ func (r *Run) CreateSshConnect(server string) (connect *sshlib.Connect, err erro
 	// server conf
 	s := r.Conf.Server[server]
 
+	// If ControlPersist is enabled for this server, build a Connect that
+	// passes ProxyRoute directly to go-sshlib so ControlMaster/ControlPersist
+	// can manage proxies. Use credential information from config (not
+	// runtime-auth methods) so the detached helper can recreate auth.
+	if s.ControlPersist > 0 {
+		connect, err = r.createSshConnectWithControlPersist(server, proxyRoute)
+		if err != nil {
+			return nil, err
+		}
+
+		if r.EnableStdoutMutex {
+			connect.StdoutMutex = &r.stdoutMutex
+		}
+
+		// Now create the underlying client (this will handle ControlMaster/ControlPersist
+		// behavior inside go-sshlib). Use the runtime auth methods for the immediate
+		// connection; ControlPersistAuth is already set on the connect for detached helper.
+		err = connect.CreateClient(s.Addr, s.Port, s.User, r.serverAuthMethodMap[server])
+		if err != nil {
+			if client, ok := dialer.(*ssh.Client); ok {
+				client.Close()
+			}
+			return nil, err
+		}
+
+		return connect, nil
+	}
+
 	// set x11
 	var x11 bool
 	if s.X11 || r.X11 {
@@ -101,6 +286,24 @@ func (r *Run) CreateSshConnect(server string) (connect *sshlib.Connect, err erro
 		CheckKnownHosts:       s.CheckKnownHosts,
 		KnownHostsFiles:       s.KnownHostsFiles,
 		OverwriteKnownHosts:   true,
+	}
+
+	// Apply ControlMaster settings (with sensible defaults)
+	if s.ControlMaster {
+		connect.ControlMaster = "auto"
+	} else {
+		connect.ControlMaster = "no"
+	}
+
+	// ControlPath: expand or set default under configured base path.
+	// Precedence: explicit s.ControlPath > s.ControlPathBase > s.Defaults.ControlPathBase > c.Common.Defaults.ControlPathBase > built-in
+	connect.ControlPath = expandControlPath(s.ControlPath, server, s)
+
+	// ControlPersist: precedence for default string is
+	// explicit s.ControlPersistDefault > s.Defaults.ControlPersistDefault > c.Common.Defaults.ControlPersistDefault > built-in "10m"
+	persist, err := time.ParseDuration(fmt.Sprintf("%ds", s.ControlPersist))
+	if err != nil || persist <= 0 {
+		persist = 10 * time.Minute
 	}
 
 	if r.EnableStdoutMutex {
@@ -199,6 +402,38 @@ proxyLoop:
 	}
 
 	return
+}
+
+func expandControlPath(controlPath, server string, config conf.ServerConfig) string {
+	localHost, _ := os.Hostname()
+	localShortHost := localHost
+	if idx := strings.IndexByte(localShortHost, '.'); idx >= 0 {
+		localShortHost = localShortHost[:idx]
+	}
+
+	localUser := ""
+	homeDir := ""
+	if currentUser, err := osuser.Current(); err == nil {
+		localUser = currentUser.Username
+		homeDir = currentUser.HomeDir
+	}
+
+	controlHash := fmt.Sprintf("%x", sha1.Sum([]byte(localHost+config.Addr+config.Port+config.User)))
+
+	replacer := strings.NewReplacer(
+		"%%", "%",
+		"%C", controlHash,
+		"%d", homeDir,
+		"%h", config.Addr,
+		"%L", localShortHost,
+		"%l", localHost,
+		"%n", server,
+		"%p", config.Port,
+		"%r", config.User,
+		"%u", localUser,
+	)
+
+	return replacer.Replace(controlPath)
 }
 
 func expansionProxyCommand(proxyCommand string, config conf.ServerConfig) string {

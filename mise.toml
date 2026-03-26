@@ -5,6 +5,15 @@
 
 # Tasks(binary)
 # ====================
+[tasks.binaly_install]
+description = "Install binary files lssh, lscp and lsftp"
+depends = ["binary_build"]
+run = """
+    cp lssh /usr/local/bin/lssh
+    cp lscp /usr/local/bin/lscp
+    cp lsftp /usr/local/bin/lsftp
+"""
+
 [tasks.binary_build]
 description = "Build binary files lssh, lscp and lsftp"
 depends = ["binary_clean"]

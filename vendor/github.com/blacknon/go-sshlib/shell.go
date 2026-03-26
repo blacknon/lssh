@@ -77,8 +77,8 @@ func (c *Connect) Shell(session *ssh.Session) (err error) {
 		return
 	}
 
-	// keep alive packet
-	go c.SendKeepAlive(session)
+	stopKeepAlive := c.startSessionKeepAlive(session)
+	defer stopKeepAlive()
 
 	// if tty is set, get signal winch
 	if c.PtyRelayTty != nil {
@@ -150,8 +150,8 @@ func (c *Connect) CmdShell(session *ssh.Session, command string) (err error) {
 		return
 	}
 
-	// keep alive packet
-	go c.SendKeepAlive(session)
+	stopKeepAlive := c.startSessionKeepAlive(session)
+	defer stopKeepAlive()
 
 	err = session.Wait()
 	if err != nil {
@@ -199,57 +199,62 @@ func (c *Connect) SetLogWithRemoveAnsiCode(path string, timestamp bool) {
 
 // logger is logging terminal log to c.logFile
 func (c *Connect) logger(session *ssh.Session) (err error) {
-	logfile, err := os.OpenFile(c.logFile, os.O_WRONLY|os.O_APPEND|os.O_CREATE, 0600)
+	stdout, stderr, err := c.logWriters(session.Stdout, session.Stderr)
 	if err != nil {
 		return
 	}
 
-	if !c.logTimestamp && !c.logRemoveAnsiCode {
-		session.Stdout = io.MultiWriter(session.Stdout, logfile)
-		session.Stderr = io.MultiWriter(session.Stderr, logfile)
-	} else {
-		buf := new(bytes.Buffer)
-		session.Stdout = io.MultiWriter(session.Stdout, buf)
-		session.Stderr = io.MultiWriter(session.Stderr, buf)
+	session.Stdout = stdout
+	session.Stderr = stderr
+	return nil
+}
 
-		go func() {
-			preLine := []byte{}
-			for {
-				if buf.Len() > 0 {
-					// get line
-					line, err := buf.ReadBytes('\n')
-
-					if err == io.EOF {
-						preLine = append(preLine, line...)
-						continue
-					} else {
-						printLine := string(append(preLine, line...))
-
-						if c.logTimestamp {
-							timestamp := time.Now().Format("2006/01/02 15:04:05 ") // yyyy/mm/dd HH:MM:SS
-							printLine = timestamp + printLine
-						}
-
-						// remove ansi code.
-						if c.logRemoveAnsiCode {
-							// NOTE:
-							//     In vtclean.Clean, the beginning of the line is deleted for some reason.
-							//     for that reason, one character add at line head.
-							printLine = "." + printLine
-							printLine = vtclean.Clean(printLine, false)
-						}
-
-						fmt.Fprint(logfile, printLine)
-						preLine = []byte{}
-					}
-				} else {
-					time.Sleep(10 * time.Millisecond)
-				}
-			}
-		}()
+func (c *Connect) logWriters(stdout, stderr io.Writer) (io.Writer, io.Writer, error) {
+	logfile, err := os.OpenFile(c.logFile, os.O_WRONLY|os.O_APPEND|os.O_CREATE, 0600)
+	if err != nil {
+		return nil, nil, err
 	}
 
-	return err
+	if !c.logTimestamp && !c.logRemoveAnsiCode {
+		return io.MultiWriter(stdout, logfile), io.MultiWriter(stderr, logfile), nil
+	}
+
+	buf := new(bytes.Buffer)
+	logStdout := io.MultiWriter(stdout, buf)
+	logStderr := io.MultiWriter(stderr, buf)
+
+	go func() {
+		preLine := []byte{}
+		for {
+			if buf.Len() > 0 {
+				line, err := buf.ReadBytes('\n')
+
+				if err == io.EOF {
+					preLine = append(preLine, line...)
+					continue
+				}
+
+				printLine := string(append(preLine, line...))
+
+				if c.logTimestamp {
+					timestamp := time.Now().Format("2006/01/02 15:04:05 ")
+					printLine = timestamp + printLine
+				}
+
+				if c.logRemoveAnsiCode {
+					printLine = "." + printLine
+					printLine = vtclean.Clean(printLine, false)
+				}
+
+				fmt.Fprint(logfile, printLine)
+				preLine = []byte{}
+			} else {
+				time.Sleep(10 * time.Millisecond)
+			}
+		}
+	}()
+
+	return logStdout, logStderr, nil
 }
 
 func (c *Connect) setupShell(session *ssh.Session) (err error) {
@@ -313,6 +318,13 @@ func (c *Connect) runControlSession(req controlRequest) error {
 		errput = c.PtyRelayTty
 	}
 
+	if c.logging {
+		output, errput, err = c.logWriters(output, errput)
+		if err != nil {
+			return err
+		}
+	}
+
 	var fd int
 	if c.PtyRelayTty != nil {
 		fd = int(c.PtyRelayTty.Fd())
@@ -334,9 +346,15 @@ func (c *Connect) runControlSession(req controlRequest) error {
 	go c.copyControlInput(writer, input)
 
 	err = c.copyControlOutput(conn, output, errput)
-	if req.Type == controlRequestShell {
+	if isInteractiveControlRequest(req.Type) {
 		var exitErr *controlExitError
 		if errors.As(err, &exitErr) {
+			if exitErr.status == 130 {
+				return nil
+			}
+			return nil
+		}
+		if errors.Is(err, io.EOF) || errors.Is(err, io.ErrUnexpectedEOF) {
 			return nil
 		}
 	}
@@ -356,12 +374,13 @@ func (c *Connect) controlSessionOptions(forceTTY bool) controlSessionOptions {
 	}
 
 	return controlSessionOptions{
-		TTY:          forceTTY,
-		Term:         os.Getenv("TERM"),
-		Width:        width,
-		Height:       height,
-		ForwardX11:   c.ForwardX11,
-		ForwardAgent: c.ForwardAgent,
+		TTY:               forceTTY,
+		Term:              os.Getenv("TERM"),
+		Width:             width,
+		Height:            height,
+		ForwardX11:        c.ForwardX11,
+		ForwardX11Trusted: c.ForwardX11Trusted,
+		ForwardAgent:      c.ForwardAgent,
 	}
 }
 
@@ -412,7 +431,7 @@ func (c *Connect) copyControlOutput(conn net.Conn, stdout, stderr io.Writer) err
 		frameType, payload, err := readStreamFrame(conn)
 		if err != nil {
 			if err == io.EOF {
-				return nil
+				return io.ErrUnexpectedEOF
 			}
 			return err
 		}

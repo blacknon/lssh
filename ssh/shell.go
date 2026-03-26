@@ -94,71 +94,78 @@ func (r *Run) shell() (err error) {
 	r.printReverseDynamicPortForward(config.ReverseDynamicPortForward)
 	r.printHTTPDynamicPortForward(config.HTTPDynamicPortForward)
 	r.printProxy(server)
-	if config.LocalRcUse == "yes" {
-		fmt.Fprintf(os.Stderr, "Information   :This connect use local bashrc.\n")
-	}
 
-	// Craete sshlib.Connect (Connect Proxy loop)
+	// No special handling for ControlMaster: allow agent/X11 forwarding to proceed normally.
 	connect, err := r.CreateSshConnect(server)
 	if err != nil {
 		return
 	}
 
-	// Create session
-	session, err := connect.CreateSession()
-	if err != nil {
-		return
-	}
+	// Print connection info (Local rc, ControlMaster state, etc.).
+	r.PrintConnectInfo(server, connect, config)
 
-	// ssh-agent
-	if config.SSHAgentUse {
-		connect.Agent = r.agent
-		connect.ForwardSshAgent(session)
-	}
+	// Record whether this is a ControlMaster client. We still need to run
+	// pre/post commands and logging; only session creation differs later.
+	isControlClient := connect.IsControlClient()
 
-	// Local/Remote Port Forwarding
-	for _, fw := range config.Forwards {
-		// port forwarding
-		switch fw.Mode {
-		case "L", "":
-			err = connect.TCPLocalForward(fw.Local, fw.Remote)
-		case "R":
-			err = connect.TCPRemoteForward(fw.Local, fw.Remote)
-		}
-
+	var session *ssh.Session
+	if !isControlClient {
+		// Create session
+		session, err = connect.CreateSession()
 		if err != nil {
-			fmt.Fprintln(os.Stderr, err)
+			return
 		}
-	}
 
-	// Dynamic Port Forwarding
-	if config.DynamicPortForward != "" {
-		go connect.TCPDynamicForward("localhost", config.DynamicPortForward)
-	}
+		// ssh-agent
+		if config.SSHAgentUse {
+			connect.Agent = r.agent
+			connect.ForwardSshAgent(session)
+		}
 
-	// Reverse Dynamic Port Forwarding
-	if config.ReverseDynamicPortForward != "" {
-		go connect.TCPReverseDynamicForward("localhost", config.ReverseDynamicPortForward)
-	}
+		// Local/Remote Port Forwarding
+		for _, fw := range config.Forwards {
+			// port forwarding
+			switch fw.Mode {
+			case "L", "":
+				err = connect.TCPLocalForward(fw.Local, fw.Remote)
+			case "R":
+				err = connect.TCPRemoteForward(fw.Local, fw.Remote)
+			}
 
-	// HTTP Dynamic Port Forwarding
-	if config.HTTPDynamicPortForward != "" {
-		go connect.HTTPDynamicForward("localhost", config.HTTPDynamicPortForward)
-	}
+			if err != nil {
+				fmt.Fprintln(os.Stderr, err)
+			}
+		}
 
-	// HTTP Reverse Dynamic Port Forwarding
-	if config.HTTPReverseDynamicPortForward != "" {
-		go connect.HTTPReverseDynamicForward("localhost", config.HTTPReverseDynamicPortForward)
-	}
+		// Dynamic Port Forwarding
+		if config.DynamicPortForward != "" {
+			go connect.TCPDynamicForward("localhost", config.DynamicPortForward)
+		}
 
-	// NFS Dynamic Forwarding
-	if config.NFSDynamicForwardPort != "" && config.NFSDynamicForwardPath != "" {
-		go connect.NFSForward("localhost", config.NFSDynamicForwardPort, config.NFSDynamicForwardPath)
-	}
+		// Reverse Dynamic Port Forwarding
+		if config.ReverseDynamicPortForward != "" {
+			go connect.TCPReverseDynamicForward("localhost", config.ReverseDynamicPortForward)
+		}
 
-	// NFS Reverse Dynamic Forwarding
-	if config.NFSReverseDynamicForwardPort != "" && config.NFSReverseDynamicForwardPath != "" {
-		go connect.NFSReverseForward("localhost", config.NFSReverseDynamicForwardPort, config.NFSReverseDynamicForwardPath)
+		// HTTP Dynamic Port Forwarding
+		if config.HTTPDynamicPortForward != "" {
+			go connect.HTTPDynamicForward("localhost", config.HTTPDynamicPortForward)
+		}
+
+		// HTTP Reverse Dynamic Port Forwarding
+		if config.HTTPReverseDynamicPortForward != "" {
+			go connect.HTTPReverseDynamicForward("localhost", config.HTTPReverseDynamicPortForward)
+		}
+
+		// NFS Dynamic Forwarding
+		if config.NFSDynamicForwardPort != "" && config.NFSDynamicForwardPath != "" {
+			go connect.NFSForward("localhost", config.NFSDynamicForwardPort, config.NFSDynamicForwardPath)
+		}
+
+		// NFS Reverse Dynamic Forwarding
+		if config.NFSReverseDynamicForwardPort != "" && config.NFSReverseDynamicForwardPath != "" {
+			go connect.NFSReverseForward("localhost", config.NFSReverseDynamicForwardPort, config.NFSReverseDynamicForwardPath)
+		}
 	}
 
 	// If started as daemonized child, notify parent that forwarding is ready
@@ -195,12 +202,16 @@ func (r *Run) shell() (err error) {
 		}
 
 		// TODO(blacknon): local rc file add
+		// No special handling for ControlMaster: allow agent/X11 forwarding to proceed normally.
+
 		if config.LocalRcUse == "yes" {
 			err = localrcShell(connect, session, config.LocalRcPath, config.LocalRcDecodeCmd, config.LocalRcCompress, config.LocalRcUncompressCmd)
 		} else {
 			// Connect shell
 			err = connect.Shell(session)
 		}
+
+		// No special handling for ControlMaster: allow agent/X11 forwarding to proceed normally.
 	}
 
 	return
@@ -294,16 +305,16 @@ func localrcShell(connect *sshlib.Connect, session *ssh.Session, localrcPath []s
 	// switch
 	switch {
 	case !compress && decoder != "":
-		cmd = fmt.Sprintf("bash --noprofile --rcfile <(echo %s | %s)", rcData, decoder)
+		cmd = fmt.Sprintf("bash --noprofile --rcfile <(echo %s | %s); exit 0", rcData, decoder)
 
 	case !compress && decoder == "":
-		cmd = fmt.Sprintf("bash --noprofile --rcfile <(echo %s | ( (base64 --help | grep -q coreutils) && base64 -d <(cat) || base64 -D <(cat) ) )", rcData)
+		cmd = fmt.Sprintf("bash --noprofile --rcfile <(echo %s | ( (base64 --help | grep -q coreutils) && base64 -d <(cat) || base64 -D <(cat) ) ); exit 0", rcData)
 
 	case compress && decoder != "":
-		cmd = fmt.Sprintf("bash --noprofile --rcfile <(echo %s | %s | %s)", rcData, decoder, uncompress)
+		cmd = fmt.Sprintf("bash --noprofile --rcfile <(echo %s | %s | %s); exit 0", rcData, decoder, uncompress)
 
 	case compress && decoder == "":
-		cmd = fmt.Sprintf("bash --noprofile --rcfile <(echo %s | ( (base64 --help | grep -q coreutils) && base64 -d <(cat) || base64 -D <(cat) ) | %s)", rcData, uncompress)
+		cmd = fmt.Sprintf("bash --noprofile --rcfile <(echo %s | ( (base64 --help | grep -q coreutils) && base64 -d <(cat) || base64 -D <(cat) ) | %s); exit 0", rcData, uncompress)
 
 	}
 

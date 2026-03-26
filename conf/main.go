@@ -178,6 +178,16 @@ func Read(confPath string) (c Config) {
 		}
 	}
 
+	// reduce default setting to common
+	c.Common = serverConfigReduct(
+		ServerConfig{
+			Port:           "22",
+			ControlPath:    "/tmp/lssh-control-%h-%p-%r",
+			ControlPersist: 10,
+		},
+		c.Common,
+	)
+
 	// reduce common setting (in .lssh.conf servers)
 	c.ReduceCommon()
 

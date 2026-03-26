@@ -47,12 +47,13 @@ type controlResponse struct {
 }
 
 type controlSessionOptions struct {
-	TTY          bool
-	Term         string
-	Width        int
-	Height       int
-	ForwardX11   bool
-	ForwardAgent bool
+	TTY               bool
+	Term              string
+	Width             int
+	Height            int
+	ForwardX11        bool
+	ForwardX11Trusted bool
+	ForwardAgent      bool
 }
 
 type controlMaster struct {
@@ -151,13 +152,6 @@ func (m *controlMaster) handleControlConn(conn net.Conn) {
 func (m *controlMaster) prepareSession(req controlRequest) (controlResponse, error) {
 	m.touch()
 
-	if req.Options.ForwardAgent {
-		return controlResponse{}, errors.New("sshlib: agent forwarding is not supported over ControlMaster yet")
-	}
-	if req.Options.ForwardX11 {
-		return controlResponse{}, errors.New("sshlib: X11 forwarding is not supported over ControlMaster yet")
-	}
-
 	streamPath, err := m.newStreamPath()
 	if err != nil {
 		return controlResponse{}, err
@@ -232,6 +226,21 @@ func (m *controlMaster) serveStream(req controlRequest, conn net.Conn) {
 		}
 	}
 
+	if req.Options.ForwardX11 {
+		prevTrusted := m.connect.ForwardX11Trusted
+		m.connect.ForwardX11Trusted = req.Options.ForwardX11Trusted
+		err := m.connect.X11Forward(session)
+		m.connect.ForwardX11Trusted = prevTrusted
+		if err != nil {
+			_ = writer.WriteFrame(streamFrameError, []byte(err.Error()))
+			_ = writer.WriteFrame(streamFrameExit, encodeExitStatus(255))
+			return
+		}
+	}
+
+	if req.Options.ForwardAgent {
+		m.connect.ForwardSshAgent(session)
+	}
 	stdin, err := session.StdinPipe()
 	if err != nil {
 		_ = writer.WriteFrame(streamFrameError, []byte(err.Error()))
@@ -280,6 +289,9 @@ func (m *controlMaster) serveStream(req controlRequest, conn net.Conn) {
 		return
 	}
 
+	stopKeepAlive := m.connect.startSessionKeepAlive(session)
+	defer stopKeepAlive()
+
 	err = session.Wait()
 	_ = stdin.Close()
 	_ = session.Close()
@@ -297,12 +309,30 @@ func shouldSuppressControlStreamError(req controlRequest, err error) bool {
 		return false
 	}
 
-	if req.Type != controlRequestShell {
+	if !isInteractiveControlRequest(req.Type) {
 		return false
 	}
 
 	var exitErr *ssh.ExitError
-	return errors.As(err, &exitErr)
+	if errors.As(err, &exitErr) {
+		return true
+	}
+
+	var exitMissingErr *ssh.ExitMissingError
+	if errors.As(err, &exitMissingErr) {
+		return true
+	}
+
+	return exitStatusFromError(err) == 130
+}
+
+func isInteractiveControlRequest(requestType string) bool {
+	switch requestType {
+	case controlRequestShell, controlRequestCmdShell:
+		return true
+	default:
+		return false
+	}
 }
 
 func (m *controlMaster) touch() {
@@ -373,6 +403,10 @@ func (m *controlMaster) Close() error {
 				err = closeErr
 			}
 			m.connect.Client = nil
+		}
+		closeErr := m.connect.closeProxyConnects()
+		if err == nil {
+			err = closeErr
 		}
 		_ = os.Remove(m.path)
 	})

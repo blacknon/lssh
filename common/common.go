@@ -73,25 +73,25 @@ func Contains(list interface{}, elem interface{}) bool {
 // WARN: This function returns a map, but updates value of map2 argument too.
 func MapReduce(map1, map2 map[string]interface{}) map[string]interface{} {
 	for ia, va := range map1 {
-		switch value := va.(type) {
-		case string:
-			if value != "" && map2[ia] == "" {
-				map2[ia] = value
+		value := reflect.ValueOf(va)
+		map2Value := reflect.ValueOf(map2[ia])
+
+		switch value.Kind() {
+		case reflect.String:
+			if value.String() != "" && map2[ia] == "" {
+				map2[ia] = va
 			}
-		case []string:
-			map2Value := reflect.ValueOf(map2[ia])
-			if len(value) > 0 && map2Value.Len() == 0 {
-				map2[ia] = value
+		case reflect.Slice:
+			if value.Len() > 0 && map2Value.Len() == 0 {
+				map2[ia] = va
 			}
-		case bool:
-			map2Value := reflect.ValueOf(map2[ia])
-			if value == true && map2Value.Bool() == false {
-				map2[ia] = value
+		case reflect.Bool:
+			if value.Bool() && !map2Value.Bool() {
+				map2[ia] = va
 			}
-		case int:
-			map2Value := reflect.ValueOf(map2[ia])
-			if value != 0 && map2Value.Int() == 0 {
-				map2[ia] = value
+		case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
+			if value.Int() != 0 && map2Value.Int() == 0 {
+				map2[ia] = va
 			}
 		}
 	}
