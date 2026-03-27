@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"testing"
 
+	sshlib "github.com/blacknon/go-sshlib"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -146,4 +147,36 @@ func TestStringCompression(t *testing.T) {
 		fmt.Println(arc)
 	}
 
+}
+
+func TestParseTunnelSpec_Valid(t *testing.T) {
+	tests := []struct {
+		in       string
+		expLocal int
+		expRem   int
+	}{
+		{"0:1", 0, 1},
+		{"any:any", int(sshlib.TunnelDeviceAny), int(sshlib.TunnelDeviceAny)},
+		{"any:2", int(sshlib.TunnelDeviceAny), 2},
+		{"3:any", 3, int(sshlib.TunnelDeviceAny)},
+	}
+
+	for _, tt := range tests {
+		l, r, err := ParseTunnelSpec(tt.in)
+		if err != nil {
+			t.Fatalf("unexpected error for %q: %v", tt.in, err)
+		}
+		if l != tt.expLocal || r != tt.expRem {
+			t.Fatalf("ParseTunnelSpec(%q) = (%d,%d), want (%d,%d)", tt.in, l, r, tt.expLocal, tt.expRem)
+		}
+	}
+}
+
+func TestParseTunnelSpec_Invalid(t *testing.T) {
+	invalid := []string{"", ":1", "1", "a:b", "1:2:3"}
+	for _, s := range invalid {
+		if _, _, err := ParseTunnelSpec(s); err == nil {
+			t.Fatalf("expected error for invalid spec %q", s)
+		}
+	}
 }

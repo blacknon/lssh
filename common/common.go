@@ -27,6 +27,8 @@ import (
 	"strconv"
 	"strings"
 
+	sshlib "github.com/blacknon/go-sshlib"
+
 	"github.com/urfave/cli"
 	"golang.org/x/crypto/ssh/terminal"
 )
@@ -397,6 +399,43 @@ func ParseNFSForwardPortPath(value string) (port, path string, err error) {
 	path = data[1]
 
 	return
+}
+
+// ParseTunnelSpec parses a tunnel specification string of the form
+// `<num|any>:<num|any>` and returns local and remote units. `any` maps to
+// sshlib.TunnelDeviceAny.
+func ParseTunnelSpec(s string) (int, int, error) {
+	if s == "" {
+		return 0, 0, fmt.Errorf("empty tunnel spec")
+	}
+
+	re := regexp.MustCompile(`^([0-9]+|any):([0-9]+|any)$`)
+	if !re.MatchString(s) {
+		return 0, 0, fmt.Errorf("invalid format")
+	}
+
+	parts := strings.SplitN(s, ":", 2)
+	parse := func(p string) (int, error) {
+		if p == "any" {
+			return int(sshlib.TunnelDeviceAny), nil
+		}
+		n, err := strconv.Atoi(p)
+		if err != nil {
+			return 0, err
+		}
+		return n, nil
+	}
+
+	l, err := parse(parts[0])
+	if err != nil {
+		return 0, 0, err
+	}
+	r, err := parse(parts[1])
+	if err != nil {
+		return 0, 0, err
+	}
+
+	return l, r, nil
 }
 
 // ParseHostPath return host and path, from host:/path/to/dir/file.

@@ -232,6 +232,8 @@ func (r *Run) CreateSshConnect(server string) (connect *sshlib.Connect, err erro
 	// server conf
 	s := r.Conf.Server[server]
 
+
+
 	// If ControlPersist is enabled for this server, build a Connect that
 	// passes ProxyRoute directly to go-sshlib so ControlMaster/ControlPersist
 	// can manage proxies. Use credential information from config (not
@@ -255,6 +257,21 @@ func (r *Run) CreateSshConnect(server string) (connect *sshlib.Connect, err erro
 				client.Close()
 			}
 			return nil, err
+		}
+
+		// Setup tunnel if requested
+		if r.TunnelEnabled {
+			tun, terr := connect.Tunnel(r.TunnelLocal, r.TunnelRemote)
+			if terr != nil {
+				if client, ok := dialer.(*ssh.Client); ok {
+					client.Close()
+				}
+				return nil, fmt.Errorf("tunnel error: %w", terr)
+			}
+			r.ActiveTunnel = tun
+			go func() {
+				_ = tun.Wait()
+			}()
 		}
 
 		return connect, nil
@@ -318,6 +335,21 @@ func (r *Run) CreateSshConnect(server string) (connect *sshlib.Connect, err erro
 		}
 
 		return nil, err
+	}
+
+	// Setup tunnel if requested
+	if r.TunnelEnabled {
+		tun, terr := connect.Tunnel(r.TunnelLocal, r.TunnelRemote)
+		if terr != nil {
+			if client, ok := dialer.(*ssh.Client); ok {
+				client.Close()
+			}
+			return nil, fmt.Errorf("tunnel error: %w", terr)
+		}
+		r.ActiveTunnel = tun
+		go func() {
+			_ = tun.Wait()
+		}()
 	}
 
 	return connect, nil

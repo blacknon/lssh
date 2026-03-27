@@ -15,6 +15,7 @@ import (
 
 	"github.com/blacknon/lssh/common"
 	"github.com/blacknon/lssh/conf"
+	"github.com/blacknon/go-sshlib"
 	"github.com/sevlyar/go-daemon"
 	"golang.org/x/crypto/ssh"
 	"golang.org/x/crypto/ssh/terminal"
@@ -116,6 +117,11 @@ type Run struct {
 	// set localhost path (ex. /path/to/local).
 	NFSReverseDynamicForwardPath string
 
+	// Tunnel device (-w equivalent). Enable and units.
+	TunnelEnabled bool
+	TunnelLocal   int
+	TunnelRemote  int
+
 	// Exec command
 	ExecCmd []string
 
@@ -148,6 +154,9 @@ type Run struct {
 	// If error occurs and pkcs11 processing occurs more than once, the library will keep the token and Panic will occur.
 	// this value is so for countermeasures.
 	donedPKCS11 bool
+
+	// ActiveTunnel holds the active tunnel created for this Run (if any)
+	ActiveTunnel *sshlib.Tunnel
 }
 
 // AuthKey Auth map key struct.
@@ -187,6 +196,14 @@ const (
 // Start ssh connect
 func (r *Run) Start() {
 	var err error
+
+	// Ensure any active tunnel is closed when Run exits
+	defer func() {
+		if r.ActiveTunnel != nil {
+			_ = r.ActiveTunnel.Close()
+			_ = r.ActiveTunnel.Wait()
+		}
+	}()
 
 	// Get stdin data(pipe)
 	// TODO(blacknon): os.StdinをReadAllで全部読み込んでから処理する方式だと、ストリームで処理出来ない

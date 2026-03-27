@@ -12,6 +12,7 @@ import (
 	"runtime"
 	"sort"
 	"syscall"
+    
 
 	"github.com/blacknon/lssh/check"
 	"github.com/blacknon/lssh/common"
@@ -93,6 +94,8 @@ USAGE:
 		cli.StringFlag{Name: "r", Usage: "HTTP Reverse Dynamic port forward mode. Specify a `port`. Only single connection works."},
 		cli.StringFlag{Name: "M", Usage: "NFS Dynamic forward mode. Specify a `port:/path/to/remote`. Only single connection works."},
 		cli.StringFlag{Name: "m", Usage: "NFS Reverse Dynamic forward mode. Specify a `port:/path/to/local`. Only single connection works."},
+		// tunnel device option (like `ssh -w local:remote`)
+		cli.StringFlag{Name: "tunnel", Usage: "Enable tunnel device. Specify `${local}:${remote}` (use 'any' to request next available)."},
 
 		// Other bool
 		cli.BoolFlag{Name: "w", Usage: "Displays the server header when in command execution mode."},
@@ -299,6 +302,18 @@ USAGE:
 
 		// HTTP Reverse Dynamic port forwarding port
 		r.HTTPReverseDynamicPortForward = c.String("r")
+
+		// Tunnel device (like ssh -w local:remote). Format: <num|any>:<num|any>
+		if t := c.String("tunnel"); t != "" {
+			local, remote, err := common.ParseTunnelSpec(t)
+			if err != nil {
+				fmt.Fprintln(os.Stderr, "Invalid --tunnel format:", err)
+				os.Exit(1)
+			}
+			r.TunnelEnabled = true
+			r.TunnelLocal = local
+			r.TunnelRemote = remote
+		}
 
 		// If -f specified and not already daemonized, re-exec to background
 		if c.Bool("f") && os.Getenv("_LSSH_DAEMON") != "1" {
