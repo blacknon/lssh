@@ -21,7 +21,7 @@ import (
 	"time"
 
 	"github.com/blacknon/lssh/common"
-	"github.com/blacknon/textcol"
+	"github.com/blacknon/lssh/internal/textcolsafe"
 	"github.com/dustin/go-humanize"
 	"github.com/pkg/sftp"
 	"github.com/urfave/cli"
@@ -286,9 +286,7 @@ func (r *RunSftp) executeRemoteLs(c *cli.Context, clients map[string]*TargetConn
 				item = append(item, f.Name())
 			}
 
-			textcol.Output = w
-			textcol.Padding = headerWidth
-			textcol.PrintColumns(&item, 2)
+			textcolsafe.PrintColumns(w, item, 2, headerWidth)
 		}
 	}
 }
