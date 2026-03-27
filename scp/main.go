@@ -185,17 +185,21 @@ func (cp *Scp) pushPath(ftp *sftp.Client, ow *io.PipeWriter, output *output.Outp
 
 	// Set remote path
 	relpath, _ := filepath.Rel(base, p)
-	if common.IsDirPath(cp.To.Path[0]) || len(cp.From.Path) > 1 {
-		rpath = filepath.Join(cp.To.Path[0], relpath)
+	// normalize relpath and target to use forward slashes for remote paths
+	relpath = filepath.ToSlash(relpath)
+	toPath := filepath.ToSlash(cp.To.Path[0])
+
+	if common.IsDirPath(toPath) || len(cp.From.Path) > 1 {
+		rpath = path.Join(toPath, relpath)
 	} else if len(cp.From.Path) == 1 {
-		rpath = cp.To.Path[0]
+		rpath = toPath
 		dInfo, _ := os.Lstat(cp.From.Path[0])
 		if dInfo.IsDir() {
-			ftp.Mkdir(cp.To.Path[0])
-			rpath = filepath.Join(cp.To.Path[0], relpath)
+			ftp.Mkdir(toPath)
+			rpath = path.Join(toPath, relpath)
 		}
 	} else {
-		rpath = filepath.Clean(cp.To.Path[0])
+		rpath = path.Clean(toPath)
 	}
 
 	// get local file info
@@ -238,10 +242,10 @@ func (cp *Scp) pushFile(lf io.Reader, ftp *sftp.Client, output *output.Output, p
 	ow := output.NewWriter()
 
 	// set path
-	dir := filepath.Dir(path)
-	dir = filepath.ToSlash(dir)
+	// use forward-slash based path handling for remote
+	dir := path.Dir(path)
 
-	// mkdir all
+	// mkdir all (expecting forward slashes)
 	err = ftp.MkdirAll(dir)
 
 	if err != nil {
