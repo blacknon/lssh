@@ -22,6 +22,7 @@ const (
 	controlRequestShell    = "shell"
 	controlRequestCmdShell = "cmdshell"
 	controlRequestCommand  = "command"
+	controlRequestTunnel   = "tunnel"
 )
 
 const (
@@ -38,6 +39,7 @@ type controlRequest struct {
 	Type    string
 	Command string
 	Options controlSessionOptions
+	Tunnel  controlTunnelOptions
 }
 
 type controlResponse struct {
@@ -54,6 +56,11 @@ type controlSessionOptions struct {
 	ForwardX11        bool
 	ForwardX11Trusted bool
 	ForwardAgent      bool
+}
+
+type controlTunnelOptions struct {
+	Mode TunnelMode
+	Unit int
 }
 
 type controlMaster struct {
@@ -137,7 +144,7 @@ func (m *controlMaster) handleControlConn(conn net.Conn) {
 	switch req.Type {
 	case controlRequestPing:
 		_ = encoder.Encode(controlResponse{OK: true})
-	case controlRequestShell, controlRequestCmdShell, controlRequestCommand:
+	case controlRequestShell, controlRequestCmdShell, controlRequestCommand, controlRequestTunnel:
 		resp, err := m.prepareSession(req)
 		if err != nil {
 			_ = encoder.Encode(controlResponse{OK: false, Error: err.Error()})
@@ -173,6 +180,11 @@ func (m *controlMaster) prepareSession(req controlRequest) (controlResponse, err
 			return
 		}
 		defer conn.Close()
+
+		if req.Type == controlRequestTunnel {
+			m.serveTunnelStream(req, conn)
+			return
+		}
 
 		m.serveStream(req, conn)
 	}()
@@ -304,6 +316,51 @@ func (m *controlMaster) serveStream(req controlRequest, conn net.Conn) {
 	_ = writer.WriteFrame(streamFrameExit, encodeExitStatus(exitStatusFromError(err)))
 }
 
+func (m *controlMaster) serveTunnelStream(req controlRequest, conn net.Conn) {
+	m.acquireSession()
+	defer m.releaseSession()
+	m.touch()
+
+	writer := &lockedFrameWriter{w: conn}
+
+	msg := tunnelOpenChannelMessage{
+		Mode: uint32(req.Tunnel.Mode),
+		Unit: normalizeTunnelUnit(req.Tunnel.Unit),
+	}
+
+	channel, reqs, err := m.connect.Client.OpenChannel("tun@openssh.com", ssh.Marshal(&msg))
+	if err != nil {
+		_ = writer.WriteFrame(streamFrameError, []byte(err.Error()))
+		_ = writer.WriteFrame(streamFrameExit, encodeExitStatus(255))
+		return
+	}
+	defer channel.Close()
+
+	go ssh.DiscardRequests(reqs)
+	go readControlTunnelStream(conn, channel, channel)
+
+	buf := make([]byte, 64*1024)
+	for {
+		n, err := channel.Read(buf)
+		if n > 0 {
+			if werr := writer.WriteFrame(streamFrameStdout, buf[:n]); werr != nil {
+				_ = channel.Close()
+				return
+			}
+			m.touch()
+		}
+		if err != nil {
+			if !errors.Is(err, io.EOF) {
+				_ = writer.WriteFrame(streamFrameError, []byte(err.Error()))
+				_ = writer.WriteFrame(streamFrameExit, encodeExitStatus(255))
+			} else {
+				_ = writer.WriteFrame(streamFrameExit, encodeExitStatus(0))
+			}
+			return
+		}
+	}
+}
+
 func shouldSuppressControlStreamError(req controlRequest, err error) bool {
 	if err == nil {
 		return false
@@ -386,6 +443,33 @@ func readClientStream(conn net.Conn, stdin io.WriteCloser, session *ssh.Session)
 			width := int(binary.BigEndian.Uint32(payload[:4]))
 			height := int(binary.BigEndian.Uint32(payload[4:]))
 			_ = session.WindowChange(height, width)
+		}
+	}
+}
+
+func readControlTunnelStream(conn net.Conn, dst io.WriteCloser, closer io.Closer) {
+	defer dst.Close()
+
+	for {
+		frameType, payload, err := readStreamFrame(conn)
+		if err != nil {
+			if !errors.Is(err, io.EOF) {
+				_ = closer.Close()
+			}
+			return
+		}
+
+		switch frameType {
+		case streamFrameStdin:
+			if len(payload) == 0 {
+				continue
+			}
+			if _, err := dst.Write(payload); err != nil {
+				_ = closer.Close()
+				return
+			}
+		case streamFrameCloseStdin:
+			return
 		}
 	}
 }

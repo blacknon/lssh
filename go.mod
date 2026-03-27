@@ -62,3 +62,5 @@ require (
 
 // replace
 replace github.com/c-bata/go-prompt v0.2.6 => github.com/blacknon/go-prompt v0.2.7
+
+replace github.com/blacknon/go-sshlib v0.1.23 => ../go-sshlib

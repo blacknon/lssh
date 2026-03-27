@@ -15,8 +15,6 @@ github.com/blacknon/crypto11 v1.6.2-0.20260315101107-fd111b1d25ce h1:e/O1bXnYwEq
 github.com/blacknon/crypto11 v1.6.2-0.20260315101107-fd111b1d25ce/go.mod h1:DK0nQEQvNRRg4/vN5CfNhvvUNTPbOQ2xAQ83qQFK20s=
 github.com/blacknon/go-prompt v0.2.7 h1:dVdTqVplKvpT/k4bB9BlbcBYl/k6amYX5tvjYBmuKkI=
 github.com/blacknon/go-prompt v0.2.7/go.mod h1:zNBmC/BPAyr+3ey1oRhPxuXJS9zz1lEmJpwaoQroe3w=
-github.com/blacknon/go-sshlib v0.1.23 h1:NXccByn0d++XAWAe/A79AqxHXgY/CXKX5YFZPG1dAYo=
-github.com/blacknon/go-sshlib v0.1.23/go.mod h1:h0156rkS41AR81QU8/VbrWRe56N4qrsZgN+I1N6wuxc=
 github.com/blacknon/go-x11auth v0.1.0 h1:SnljCPWcvglWeGAlKc1RAPMHnOfMpM9+GrTGEUQ1lqQ=
 github.com/blacknon/go-x11auth v0.1.0/go.mod h1:SKOCa19LluXHyB+OaLYobquzceE0SWxVW7e/qU5xGBM=
 github.com/blacknon/textcol v0.0.1 h1:x9h7yLPGyr8Pdz12XJ30h7Iz5mJlKd0CzfGYxhrmnk8=
