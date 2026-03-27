@@ -21,7 +21,7 @@ github.com/armon/go-socks5
 # github.com/blacknon/crypto11 v1.6.2-0.20260315101107-fd111b1d25ce
 ## explicit; go 1.25.1
 github.com/blacknon/crypto11
-# github.com/blacknon/go-sshlib v0.1.23 => ../go-sshlib
+# github.com/blacknon/go-sshlib v0.1.24
 ## explicit; go 1.25.1
 github.com/blacknon/go-sshlib
 # github.com/blacknon/go-x11auth v0.1.0
