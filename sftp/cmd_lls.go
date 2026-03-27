@@ -17,7 +17,7 @@ import (
 	"text/tabwriter"
 
 	"github.com/blacknon/lssh/common"
-	"github.com/blacknon/textcol"
+	"github.com/blacknon/lssh/internal/textcolsafe"
 	"github.com/dustin/go-humanize"
 	"github.com/urfave/cli"
 )
@@ -172,9 +172,7 @@ func (r *RunSftp) lls(args []string) (err error) {
 					item = append(item, f.Name())
 				}
 
-				textcol.Output = os.Stdout
-				textcol.Padding = 0
-				textcol.PrintColumns(&item, 2)
+				textcolsafe.PrintColumns(os.Stdout, item, 2, 0)
 			}
 		}
 
