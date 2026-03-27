@@ -11,6 +11,7 @@ package list
 import (
 	"bytes"
 	"fmt"
+	"os"
 	"regexp"
 	"strings"
 	"text/tabwriter"
@@ -190,7 +191,8 @@ func (l *ListInfo) View() {
 	}
 
 	if err := termbox.Init(); err != nil {
-		panic(err)
+		fmt.Fprintln(os.Stderr, "termbox init error:", err)
+		return
 	}
 	defer termbox.Close()
 
