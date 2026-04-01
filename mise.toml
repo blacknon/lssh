@@ -3,32 +3,162 @@
 # [env]
 # mise.file = "env"
 
-# Tasks(binary)
+# Tasks(full)
 # ====================
-[tasks.binaly_install]
-description = "Install binary files lssh, lscp and lsftp"
-depends = ["binary_build"]
-run = """
-    cp lssh /usr/local/bin/lssh
-    cp lscp /usr/local/bin/lscp
-    cp lsftp /usr/local/bin/lsftp
-"""
+[tasks.full_build]
+description = "Build binary files all"
+depends = ["core_build", "transfer_build", "monitor_build", "sysadmin_build"]
 
-[tasks.binary_build]
-description = "Build binary files lssh, lscp and lsftp"
-depends = ["binary_clean"]
+[tasks.full_install]
+description = "Install binary files all"
+depends = [
+    "core_install",
+    "transfer_install",
+    "monitor_install",
+    "sysadmin_install",
+]
+
+[tasks.full_test]
+description = "Run go test for all"
+depends = ["core_test", "transfer_test", "monitor_test", "sysadmin_test"]
+
+# Tasks(go module)
+# ====================
+[tasks.go_mod]
+description = "Run go mod tidy"
+depends = []
 run = """
     go mod tidy
     go mod vendor
+"""
 
+# Tasks(core)
+# Note: Coreは、lsshのみを対象とするタスク。
+# ====================
+[tasks.core_build]
+description = "Build binary file only lssh"
+depends = ["core_clean", "go_mod"]
+run = """
     go build -o lssh ./cmd/lssh
+"""
+
+[tasks.core_clean]
+description = "Clean binary file only lssh"
+depends = []
+run = """
+    rm -f lssh
+"""
+
+[tasks.core_install]
+description = "Install binary file only lssh"
+depends = ["core_build"]
+run = """
+    cp lssh /usr/local/bin/lssh
+"""
+
+[tasks.core_test]
+description = "Run go test for lssh"
+depends = ["go_mod"]
+run = """
+    go test -v ./internal/app/lssh/...
+"""
+
+
+# Tasks(Transfer)
+# Note: Transferは、lscpとlsftpのみを対象とするタスク。lscpとlsftpはcoreに含まれるため、coreのタスクでビルド・インストールされる。
+# ====================
+[tasks.transfer_build]
+description = "Build binary file only lscp and lsftp"
+depends = ["transfer_clean", "go_mod"]
+run = """
     go build -o lscp ./cmd/lscp
     go build -o lsftp ./cmd/lsftp
 """
 
-[tasks.binary_clean]
-description = "Clean binary files lssh, lscp and lsftp"
+[tasks.transfer_clean]
+description = "Clean binary file only lscp and lsftp"
 depends = []
 run = """
-    rm -f lssh lscp lsftp
+    rm -f lscp
+    rm -f lsftp
+"""
+
+[tasks.transfer_install]
+description = "Install binary file only lscp and lsftp"
+depends = ["transfer_build"]
+run = """
+    cp lscp /usr/local/bin/lscp
+    cp lsftp /usr/local/bin/lsftp
+"""
+
+[tasks.transfer_test]
+description = "Run go test for lscp and lsftp"
+depends = ["go_mod"]
+run = """
+    go test -v ./internal/app/lscp/...
+    go test -v ./internal/app/lsftp/...
+"""
+
+
+# Tasks(Monitor)
+# Note: Monitorは、lsmonのみを対象とするタスク。lsmonはcoreに含まれるため、coreのタスクでビルド・インストールされる。
+# ====================
+[tasks.monitor_build]
+description = "Build binary file only lsmon"
+depends = ["monitor_clean", "go_mod"]
+run = """
+    go build -o lsmon ./cmd/lsmon
+"""
+
+[tasks.monitor_clean]
+description = "Clean binary file only lsmon"
+depends = []
+run = """
+    rm -f lsmon
+"""
+
+[tasks.monitor_install]
+description = "Install binary file only lsmon"
+depends = ["monitor_build"]
+run = """
+    cp lsmon /usr/local/bin/lsmon
+"""
+
+[tasks.monitor_test]
+description = "Run go test for lsmon"
+depends = ["go_mod"]
+run = """
+    go test -v ./internal/app/lsmon/...
+"""
+
+
+# Tasks(Sysadmin)
+# Note: Sysadminは、lsshellのみを対象とするタスク。lsshはcoreに含まれるため、coreのタスクでビルド・インストールされる。
+# ====================
+[tasks.sysadmin_build]
+description = "Build binary files only lsshell"
+depends = ["sysadmin_clean", "go_mod"]
+run = """
+    go build -o lsshell ./cmd/lsshell
+"""
+
+[tasks.sysadmin_clean]
+description = "Clean binary file only lsshell"
+depends = []
+run = """
+    rm -f lsshell
+"""
+
+[tasks.sysadmin_install]
+description = "Install binary file only lsshell"
+depends = ["sysadmin_build"]
+run = """
+    cp lsshell /usr/local/bin/lsshell
+"""
+
+[tasks.sysadmin_test]
+description = "Run go test for lsshell"
+depends = ["go_mod"]
+run = """
+    go test -v ./internal/app/lsshell/...
 """

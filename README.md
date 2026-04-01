@@ -8,7 +8,7 @@ TUI list select ssh/scp/sftp client tools.
 ## Description
 
 This command utility to read a prepared list in advance and connect ssh/scp/sftp the selected host.
-List file is set in yaml format.
+List file is set in toml format.
 When selecting a host, you can filter by keywords.
 Can execute commands concurrently to multiple hosts.
 

@@ -47,16 +47,29 @@ require (
 )
 
 require (
+	github.com/blacknon/go-sshproc v0.1.1
+	github.com/blacknon/mview v0.1.5
+	github.com/c9s/goprocinfo v0.0.0-20210130143923-c95fcf8c64a8
+	github.com/gdamore/tcell/v2 v2.7.1
+	mvdan.cc/sh v2.6.4+incompatible
+)
+
+require (
+	code.rocketnine.space/tslocum/cbind v0.1.5 // indirect
 	github.com/clipperhouse/uax29/v2 v2.7.0 // indirect
 	github.com/cpuguy83/go-md2man/v2 v2.0.7 // indirect
 	github.com/cyphar/filepath-securejoin v0.6.1 // indirect
+	github.com/gdamore/encoding v1.0.0 // indirect
 	github.com/go-git/go-billy/v5 v5.8.0 // indirect
 	github.com/google/uuid v1.6.0 // indirect
 	github.com/hashicorp/golang-lru/v2 v2.0.7 // indirect
+	github.com/lucasb-eyer/go-colorful v1.2.0 // indirect
 	github.com/rasky/go-xdr v0.0.0-20170124162913-1a41d1a06c93 // indirect
+	github.com/rivo/uniseg v0.4.7 // indirect
 	github.com/russross/blackfriday/v2 v2.1.0 // indirect
 	github.com/willscott/go-nfs v0.0.3 // indirect
 	github.com/willscott/go-nfs-client v0.0.0-20251022144359-801f10d98886 // indirect
+	golang.org/x/text v0.35.0 // indirect
 )
 
 // replace

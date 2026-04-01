@@ -13,6 +13,9 @@ UNAME_S=$(shell uname -s)
 BUILDCMD_LSSH=$(GOBUILD) ./cmd/lssh
 BUILDCMD_LSCP=$(GOBUILD) ./cmd/lscp
 BUILDCMD_LSFTP=$(GOBUILD) ./cmd/lsftp
+BUILDCMD_LSMON=$(GOBUILD) ./cmd/lsmon
+BUILDCMD_LSMUX=$(GOBUILD) ./cmd/lsmux
+BUILDCMD_LSSHELL=$(GOBUILD) ./cmd/lsshell
 
 # install path
 INSTALL_PATH_LSSH=/usr/local/bin/lssh
@@ -31,12 +34,21 @@ build:
 	$(BUILDCMD_LSCP)
 	# Build lsftp
 	$(BUILDCMD_LSFTP)
+	# Build lsmon
+	$(BUILDCMD_LSMON)
+	# Build lsmux
+	$(BUILDCMD_LSMUX)
+	# Build lsshell
+	$(BUILDCMD_LSSHELL)
 
 clean:
 	$(GOCLEAN) ./...
 	rm -f lssh
 	rm -f lscp
 	rm -f lsftp
+	rm -f lsmon
+	rm -f lsmux
+	rm -f lsshell
 
 install:
 	# rm old binary
