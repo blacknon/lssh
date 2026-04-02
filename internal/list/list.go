@@ -21,14 +21,12 @@ import (
 )
 
 // TODO(blacknon):
-//     - 外部のライブラリとして外出しする
 //     - tomlやjsonなどを渡して、出力項目を指定できるようにする
 //     - 指定した項目だけでの検索などができるようにする
 //     - 検索方法の充実化(regexでの検索など)
 //     - 内部でのウィンドウの実装
 //         - 項目について、更新や閲覧ができるようにする
 //     - キーバインドの設定変更
-//     - Windowsでも動作するように修正する
 
 // ListInfo is Struct at view list.
 type ListInfo struct {

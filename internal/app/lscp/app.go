@@ -61,13 +61,11 @@ USAGE:
 	app.Copyright = "blacknon(blacknon@orebibou.com)"
 	app.Version = version.AppVersion(app.Name)
 
-	// options
-	// TODO(blacknon): オプションの追加(0.7.0)
-	//     -P <num> ... 同じホストでパラレルでファイルをコピーできるようにする。パラレル数を指定できるようにする。
 	app.Flags = []cli.Flag{
 		cli.StringSliceFlag{Name: "host,H", Usage: "connect servernames"},
 		cli.BoolFlag{Name: "list,l", Usage: "print server list from config"},
 		cli.StringFlag{Name: "file,F", Value: defConf, Usage: "config file path"},
+		cli.IntFlag{Name: "parallel,P", Value: 1, Usage: "parallel file copy count per host"},
 		cli.BoolFlag{Name: "permission,p", Usage: "copy file permission"},
 		cli.BoolFlag{Name: "help,h", Usage: "print this help"},
 	}
@@ -236,6 +234,8 @@ USAGE:
 		scp.To.Path = []string{toPath}
 		scp.To.Server = toServer
 
+		scp.Parallel = c.Int("parallel") > 1
+		scp.ParallelNum = c.Int("parallel")
 		scp.Permission = c.Bool("permission")
 		scp.Config = data
 

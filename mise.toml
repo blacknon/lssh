@@ -53,7 +53,7 @@ run = """
 description = "Install binary file only lssh"
 depends = ["core_build"]
 run = """
-    cp lssh /usr/local/bin/lssh
+    sudo cp lssh /usr/local/bin/lssh
 """
 
 [tasks.core_test]
@@ -87,8 +87,8 @@ run = """
 description = "Install binary file only lscp and lsftp"
 depends = ["transfer_build"]
 run = """
-    cp lscp /usr/local/bin/lscp
-    cp lsftp /usr/local/bin/lsftp
+    sudo cp lscp /usr/local/bin/lscp
+    sudo cp lsftp /usr/local/bin/lsftp
 """
 
 [tasks.transfer_test]
@@ -121,7 +121,7 @@ run = """
 description = "Install binary file only lsmon"
 depends = ["monitor_build"]
 run = """
-    cp lsmon /usr/local/bin/lsmon
+    sudo cp lsmon /usr/local/bin/lsmon
 """
 
 [tasks.monitor_test]
@@ -153,7 +153,7 @@ run = """
 description = "Install binary file only lsshell"
 depends = ["sysadmin_build"]
 run = """
-    cp lsshell /usr/local/bin/lsshell
+    sudo cp lsshell /usr/local/bin/lsshell
 """
 
 [tasks.sysadmin_test]

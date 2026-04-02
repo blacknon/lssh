@@ -115,11 +115,9 @@ func (cp *Scp) push() {
 	// create channel
 	exit := make(chan bool)
 
-	// create connection parallel
-	clients := cp.createScpConnects(targets)
-	if len(clients) == 0 {
-		fmt.Fprintf(os.Stderr, "There is no host to connect to\n")
-		return
+	parallelNum := 1
+	if cp.ParallelNum > 0 {
+		parallelNum = cp.ParallelNum
 	}
 
 	// get local host directory walk data
@@ -141,25 +139,51 @@ func (cp *Scp) push() {
 	}
 
 	// parallel push data
-	for _, c := range clients {
-		client := c
+	for _, target := range targets {
+		server := target
 		go func() {
-			// TODO(blacknon): Parallelで指定した数までは同時コピーできるようにする
+			type pushTask struct {
+				base string
+				path string
+			}
 
-			// set ftp client
-			ftp := client.Connect
+			tasks := make(chan pushTask)
+			workerExit := make(chan bool)
+			workerCount := 0
 
-			// get output writer
-			client.Output.Create(client.Server)
-			ow := client.Output.NewWriter()
+			for i := 0; i < parallelNum; i++ {
+				client := cp.createScpConnect(server, targets)
+				if client == nil {
+					continue
+				}
+				workerCount++
+				go func(client *ScpConnect) {
+					client.Output.Create(client.Server)
+					ow := client.Output.NewWriter()
+					defer ow.Close()
+					for task := range tasks {
+						cp.pushPath(client.Connect, ow, client.Output, task.base, task.path)
+					}
+					workerExit <- true
+				}(client)
+			}
 
-			// push path
+			if workerCount == 0 {
+				exit <- true
+				return
+			}
+
 			for _, p := range pathset {
 				base := p.Base
 				data := p.PathSlice
 				for _, path := range data {
-					cp.pushPath(ftp, ow, client.Output, base, path)
+					tasks <- pushTask{base: base, path: path}
 				}
+			}
+			close(tasks)
+
+			for i := 0; i < workerCount; i++ {
+				<-workerExit
 			}
 
 			// exit
@@ -168,7 +192,7 @@ func (cp *Scp) push() {
 	}
 
 	// wait send data
-	for i := 0; i < len(clients); i++ {
+	for i := 0; i < len(targets); i++ {
 		<-exit
 	}
 	close(exit)
@@ -298,9 +322,7 @@ func (cp *Scp) viaPush() {
 	}
 
 	// pull and push data
-	for _, path := range cp.From.Path {
-		cp.viaPushPath(path, fclient[0], tclient)
-	}
+	cp.viaPushPath(cp.From.Path, fclient[0], tclient)
 
 	// wait 0.3 sec
 	time.Sleep(300 * time.Millisecond)
@@ -309,53 +331,96 @@ func (cp *Scp) viaPush() {
 	fmt.Println("all push exit.")
 }
 
-func (cp *Scp) viaPushPath(path string, fclient *ScpConnect, tclients []*ScpConnect) {
+func (cp *Scp) viaPushPath(paths []string, fclient *ScpConnect, tclients []*ScpConnect) {
 	// from ftp client
 	ftp := fclient.Connect
-
-	// create from sftp walker
-	walker := ftp.Walk(path)
 
 	// get from sftp output writer
 	fclient.Output.Create(fclient.Server)
 	fow := fclient.Output.NewWriter()
+	defer fow.Close()
 
-	for walker.Step() {
-		err := walker.Err()
-		if err != nil {
-			fmt.Fprintf(fow, "Error: %s\n", err)
-			continue
-		}
+	type viaPushTask struct {
+		path string
+		size int64
+	}
 
-		p := walker.Path()
-		stat := walker.Stat()
-		if stat.IsDir() { // is directory
-			for _, tc := range tclients {
-				tc.Connect.Mkdir(p)
+	parallelNum := 1
+	if cp.ParallelNum > 0 {
+		parallelNum = cp.ParallelNum
+	}
+
+	taskMap := map[string]chan viaPushTask{}
+	exitMap := map[string]chan bool{}
+	workerCountMap := map[string]int{}
+	for _, tc := range tclients {
+		tasks := make(chan viaPushTask)
+		workerExit := make(chan bool)
+		taskMap[tc.Server] = tasks
+		exitMap[tc.Server] = workerExit
+		workerCountMap[tc.Server] = 0
+
+		for i := 0; i < parallelNum; i++ {
+			tclient := cp.createScpConnect(tc.Server, cp.To.Server)
+			sclient := cp.createScpConnect(fclient.Server, []string{fclient.Server})
+			if tclient == nil || sclient == nil {
+				continue
 			}
-		} else { // is file
-			// open from server file
-			file, err := ftp.Open(p)
+			workerCountMap[tc.Server]++
+			go func() {
+				tclient.Output.Create(tclient.Server)
+				for task := range tasks {
+					file, err := sclient.Connect.Open(task.path)
+					if err != nil {
+						tow := tclient.Output.NewWriter()
+						fmt.Fprintf(tow, "Error: %s\n", err)
+						tow.Close()
+						continue
+					}
+
+					cp.pushFile(file, tclient.Connect, tclient.Output, task.path, task.size)
+					file.Close()
+				}
+
+				workerExit <- true
+			}()
+		}
+	}
+	defer func() {
+		for _, tc := range tclients {
+			close(taskMap[tc.Server])
+		}
+		for _, tc := range tclients {
+			for i := 0; i < workerCountMap[tc.Server]; i++ {
+				<-exitMap[tc.Server]
+			}
+		}
+	}()
+
+	for _, path := range paths {
+		// create from sftp walker
+		walker := ftp.Walk(path)
+
+		for walker.Step() {
+			err := walker.Err()
 			if err != nil {
 				fmt.Fprintf(fow, "Error: %s\n", err)
 				continue
 			}
 
-			size := stat.Size()
-
-			exit := make(chan bool)
-			for _, tc := range tclients {
-				tclient := tc
-				go func() {
-					tclient.Output.Create(tclient.Server)
-
-					cp.pushFile(file, tclient.Connect, tclient.Output, p, size)
-					exit <- true
-				}()
-			}
-
-			for i := 0; i < len(tclients); i++ {
-				<-exit
+			p := walker.Path()
+			stat := walker.Stat()
+			if stat.IsDir() { // is directory
+				for _, tc := range tclients {
+					tc.Connect.Mkdir(p)
+				}
+			} else { // is file
+				for _, tc := range tclients {
+					taskMap[tc.Server] <- viaPushTask{
+						path: p,
+						size: stat.Size(),
+					}
+				}
 			}
 		}
 	}
@@ -407,6 +472,13 @@ func (cp *Scp) pullPath(client *ScpConnect) {
 	client.Output.Create(client.Server)
 	ow := client.Output.NewWriter()
 
+	type pullTask struct {
+		remotePath string
+		localPath  string
+		mode       os.FileMode
+		size       int64
+	}
+
 	// basedir
 	baseDir := filepath.Dir(cp.To.Path[0])
 	fileName := filepath.Base(cp.To.Path[0])
@@ -420,6 +492,76 @@ func (cp *Scp) pullPath(client *ScpConnect) {
 	// get abs path
 	baseDir, _ = filepath.Abs(baseDir)
 	baseDir = filepath.ToSlash(baseDir)
+
+	parallelNum := 1
+	if cp.ParallelNum > 0 {
+		parallelNum = cp.ParallelNum
+	}
+
+	tasks := make(chan pullTask)
+	workerExit := make(chan bool)
+	workerCount := 0
+
+	for i := 0; i < parallelNum; i++ {
+		wclient := cp.createScpConnect(client.Server, cp.From.Server)
+		if wclient == nil {
+			continue
+		}
+		workerCount++
+		go func(wclient *ScpConnect) {
+			wclient.Output.Create(wclient.Server)
+			wow := wclient.Output.NewWriter()
+			defer wow.Close()
+			for task := range tasks {
+				// open remote file
+				rf, err := wclient.Connect.Open(task.remotePath)
+				if err != nil {
+					fmt.Fprintf(wow, "Error: %s\n", err)
+					continue
+				}
+
+				err = os.MkdirAll(filepath.Dir(task.localPath), 0755)
+				if err != nil {
+					rf.Close()
+					fmt.Fprintf(wow, "Error: %s\n", err)
+					continue
+				}
+
+				// open local file
+				lf, err := os.OpenFile(task.localPath, os.O_RDWR|os.O_CREATE, 0644)
+				if err != nil {
+					rf.Close()
+					fmt.Fprintf(wow, "Error: %s\n", err)
+					continue
+				}
+
+				// empty the file
+				err = lf.Truncate(0)
+				if err != nil {
+					rf.Close()
+					lf.Close()
+					fmt.Fprintf(wow, "Error: %s\n", err)
+					continue
+				}
+
+				// set tee reader
+				rd := io.TeeReader(rf, lf)
+
+				cp.ProgressWG.Add(1)
+				client.Output.ProgressPrinter(task.size, rd, task.remotePath)
+
+				rf.Close()
+				lf.Close()
+
+				// set mode
+				if cp.Permission {
+					os.Chmod(task.localPath, task.mode)
+				}
+			}
+
+			workerExit <- true
+		}(wclient)
+	}
 
 	// walk remote path
 	for _, path := range cp.From.Path {
@@ -454,43 +596,20 @@ func (cp *Scp) pullPath(client *ScpConnect) {
 				if stat.IsDir() { // create dir
 					os.MkdirAll(lpath, 0755)
 				} else { // create file
-					// get size
-					size := stat.Size()
-
-					// open remote file
-					rf, err := ftp.Open(p)
-					if err != nil {
-						fmt.Fprintf(ow, "Error: %s\n", err)
-						continue
+					tasks <- pullTask{
+						remotePath: p,
+						localPath:  lpath,
+						mode:       stat.Mode(),
+						size:       stat.Size(),
 					}
-
-					// open local file
-					lf, err := os.OpenFile(lpath, os.O_RDWR|os.O_CREATE, 0644)
-					if err != nil {
-						fmt.Fprintf(ow, "Error: %s\n", err)
-						continue
-					}
-
-					// empty the file
-					err = lf.Truncate(0)
-					if err != nil {
-						fmt.Fprintf(ow, "Error: %s\n", err)
-						continue
-					}
-
-					// set tee reader
-					rd := io.TeeReader(rf, lf)
-
-					cp.ProgressWG.Add(1)
-					client.Output.ProgressPrinter(size, rd, p)
-				}
-
-				// set mode
-				if cp.Permission {
-					os.Chmod(lpath, stat.Mode())
 				}
 			}
 		}
+	}
+
+	close(tasks)
+	for i := 0; i < workerCount; i++ {
+		<-workerExit
 	}
 
 	return
@@ -503,42 +622,10 @@ func (cp *Scp) createScpConnects(targets []string) (result []*ScpConnect) {
 	for _, target := range targets {
 		server := target
 		go func() {
-			// ssh connect
-			conn, err := cp.Run.CreateSshConnectDirect(server)
-			if err != nil {
-				fmt.Fprintf(os.Stderr, "%s connect error: %s\n", server, err)
+			scpCon := cp.createScpConnect(server, targets)
+			if scpCon == nil {
 				ch <- true
 				return
-			}
-			if conn == nil || conn.Client == nil {
-				fmt.Fprintf(os.Stderr, "%s connect error: ssh client is not available for sftp\n", server)
-				ch <- true
-				return
-			}
-
-			// create sftp client
-			ftp, err := sftp.NewClient(conn.Client)
-			if err != nil {
-				fmt.Fprintf(os.Stderr, "%s create client error: %s\n", server, err)
-				ch <- true
-				return
-			}
-
-			// create output
-			o := &output.Output{
-				Templete:   oprompt,
-				ServerList: targets,
-				Conf:       cp.Config.Server[server],
-				AutoColor:  true,
-				Progress:   cp.Progress,
-				ProgressWG: cp.ProgressWG,
-			}
-
-			// create ScpConnect
-			scpCon := &ScpConnect{
-				Server:  server,
-				Connect: ftp,
-				Output:  o,
 			}
 
 			// append result
@@ -556,4 +643,40 @@ func (cp *Scp) createScpConnects(targets []string) (result []*ScpConnect) {
 	}
 
 	return result
+}
+
+func (cp *Scp) createScpConnect(server string, serverList []string) (result *ScpConnect) {
+	// ssh connect
+	conn, err := cp.Run.CreateSshConnectDirect(server)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "%s connect error: %s\n", server, err)
+		return nil
+	}
+	if conn == nil || conn.Client == nil {
+		fmt.Fprintf(os.Stderr, "%s connect error: ssh client is not available for sftp\n", server)
+		return nil
+	}
+
+	// create sftp client
+	ftp, err := sftp.NewClient(conn.Client)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "%s create client error: %s\n", server, err)
+		return nil
+	}
+
+	// create output
+	o := &output.Output{
+		Templete:   oprompt,
+		ServerList: serverList,
+		Conf:       cp.Config.Server[server],
+		AutoColor:  true,
+		Progress:   cp.Progress,
+		ProgressWG: cp.ProgressWG,
+	}
+
+	return &ScpConnect{
+		Server:  server,
+		Connect: ftp,
+		Output:  o,
+	}
 }
