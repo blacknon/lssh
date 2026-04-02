@@ -8,10 +8,8 @@ enable = true
 timestamp = true
 dirpath = "/path/to/logdir"
 
-
 #
 [common]
-
 
 #
 [server.PasswordAuth_ServerName]
@@ -27,6 +25,5 @@ note = "Password Auth Server"
 addr = "192.168.100.102"
 port = "22"
 user = "test"
-key  = "/tmp/key.pem"
+key = "/tmp/key.pem"
 note = "Key Auth Server"
-

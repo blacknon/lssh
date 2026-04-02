@@ -188,7 +188,7 @@ func (n *Node) CheckClientAlive() bool {
 
 func (n *Node) Connect(r *sshrun.Run) (err error) {
 	// Create *sshlib.Connect
-	con, err := r.CreateSshConnect(n.ServerName)
+	con, err := r.CreateSshConnectDirect(n.ServerName)
 	if err != nil {
 		log.Printf("CreateSshConnect %s Error: %s", n.ServerName, err)
 		n.con.Connect = nil
@@ -207,26 +207,6 @@ func (n *Node) Connect(r *sshrun.Run) (err error) {
 	}
 
 	n.con = procCon
-	session, err := con.CreateSession()
-	if err != nil {
-		log.Printf("CreateSession %s Error (ControlMaster may be enabled): %s", n.ServerName, err)
-		// When ControlMaster is enabled, CreateSession can be unavailable.
-		// Keep SFTP connection alive and continue without keepalive goroutine.
-		return
-	}
-
-	// send keepalive
-	go func() {
-		log.Println("Start KeepAlive. Server:", n.ServerName)
-		con.SendKeepAlive(session)
-
-		// close sftp client
-		session.Close()
-		err := procCon.CloseSftpClient()
-		if err != nil {
-			log.Printf("CloseSession Error: %s", err)
-		}
-	}()
 
 	return
 }

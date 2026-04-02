@@ -177,6 +177,16 @@ func (r *Run) buildControlPersistAuthMethodsFromConfig(name string, c conf.Serve
 // CreateSshConnect return *sshlib.Connect
 // this vaule in ssh.Client with proxy.
 func (r *Run) CreateSshConnect(server string) (connect *sshlib.Connect, err error) {
+	return r.createSshConnect(server, false)
+}
+
+// CreateSshConnectDirect returns *sshlib.Connect with ControlMaster/ControlPersist disabled.
+// This is used by features that require a concrete *ssh.Client (e.g. SFTP clients).
+func (r *Run) CreateSshConnectDirect(server string) (connect *sshlib.Connect, err error) {
+	return r.createSshConnect(server, true)
+}
+
+func (r *Run) createSshConnect(server string, forceDirect bool) (connect *sshlib.Connect, err error) {
 	// create proxyRoute
 	proxyRoute, err := getProxyRoute(server, r.Conf)
 	if err != nil {
@@ -231,6 +241,10 @@ func (r *Run) CreateSshConnect(server string) (connect *sshlib.Connect, err erro
 
 	// server conf
 	s := r.Conf.Server[server]
+	if forceDirect {
+		s.ControlMaster = false
+		s.ControlPersist = 0
+	}
 
 	// If ControlPersist is enabled for this server, build a Connect that
 	// passes ProxyRoute directly to go-sshlib so ControlMaster/ControlPersist
