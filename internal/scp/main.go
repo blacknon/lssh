@@ -215,8 +215,6 @@ func (cp *Scp) pushPath(ftp *sftp.Client, ow *io.PipeWriter, output *output.Outp
 		lstat, _ := os.Lstat(p)
 		size := lstat.Size()
 
-		// copy file
-		// TODO(blacknon): Outputからプログレスバーで出力できるようにする(io.MultiWriterを利用して書き込み？)
 		err = cp.pushFile(lf, ftp, output, rpath, size)
 		if err != nil {
 			fmt.Fprintf(ow, "%s\n", err)
@@ -255,6 +253,7 @@ func (cp *Scp) pushFile(lf io.Reader, ftp *sftp.Client, output *output.Output, p
 		fmt.Fprintf(ow, "%s\n", err)
 		return
 	}
+	defer rf.Close()
 
 	// empty the file
 	err = rf.Truncate(0)
@@ -263,12 +262,24 @@ func (cp *Scp) pushFile(lf io.Reader, ftp *sftp.Client, output *output.Output, p
 		return
 	}
 
-	// set tee reader
-	rd := io.TeeReader(lf, rf)
+	// stream file data to the remote file and the progress printer at the same time.
+	pr, pw := io.Pipe()
+	defer pr.Close()
 
-	// copy to data
 	cp.ProgressWG.Add(1)
-	output.ProgressPrinter(size, rd, path)
+	go output.ProgressPrinter(size, pr, path)
+
+	_, err = io.Copy(io.MultiWriter(rf, pw), lf)
+	closeErr := pw.Close()
+	if err != nil {
+		fmt.Fprintf(ow, "%s\n", err)
+		return
+	}
+	if closeErr != nil {
+		fmt.Fprintf(ow, "%s\n", closeErr)
+		err = closeErr
+		return
+	}
 
 	return
 }
@@ -493,9 +504,14 @@ func (cp *Scp) createScpConnects(targets []string) (result []*ScpConnect) {
 		server := target
 		go func() {
 			// ssh connect
-			conn, err := cp.Run.CreateSshConnect(server)
+			conn, err := cp.Run.CreateSshConnectDirect(server)
 			if err != nil {
 				fmt.Fprintf(os.Stderr, "%s connect error: %s\n", server, err)
+				ch <- true
+				return
+			}
+			if conn == nil || conn.Client == nil {
+				fmt.Fprintf(os.Stderr, "%s connect error: ssh client is not available for sftp\n", server)
 				ch <- true
 				return
 			}

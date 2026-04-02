@@ -63,7 +63,7 @@ USAGE:
 
 	// options
 	// TODO(blacknon): オプションの追加(0.7.0)
-	//     -P <num> ... 同じホストでパラレルでファイルをコピーできるようにする。パラレル数を指定。
+	//     -P <num> ... 同じホストでパラレルでファイルをコピーできるようにする。パラレル数を指定できるようにする。
 	app.Flags = []cli.Flag{
 		cli.StringSliceFlag{Name: "host,H", Usage: "connect servernames"},
 		cli.BoolFlag{Name: "list,l", Usage: "print server list from config"},

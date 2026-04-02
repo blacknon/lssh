@@ -128,9 +128,14 @@ func (r *RunSftp) createSftpConnect(targets []string) (result map[string]*SftpCo
 		server := target
 		go func() {
 			// ssh connect
-			conn, err := r.Run.CreateSshConnect(server)
+			conn, err := r.Run.CreateSshConnectDirect(server)
 			if err != nil {
 				fmt.Fprintf(os.Stderr, "%s connect error: %s\n", server, err)
+				ch <- true
+				return
+			}
+			if conn == nil || conn.Client == nil {
+				fmt.Fprintf(os.Stderr, "%s connect error: ssh client is not available for sftp\n", server)
 				ch <- true
 				return
 			}
