@@ -15,7 +15,8 @@ import (
 type TopCPUUsage struct {
 	*mview.Table
 
-	Node *Node
+	Node      *Node
+	coreWidth int
 }
 
 func (n *Node) CreateTopCPUUsage() (result *TopCPUUsage) {
@@ -43,11 +44,16 @@ func (n *Node) CreateTopCPUUsage() (result *TopCPUUsage) {
 	// Headers
 	headers := getTopCPUHeader()
 
+	coreWidth := len(fmt.Sprintf("%d", len(usages)-1))
+	if headerWidth := len(headers[0]); headerWidth > coreWidth {
+		coreWidth = headerWidth
+	}
+
 	// Create rows
 	rows := [][]string{}
 	for i, _ := range usages {
 		row := []string{}
-		row = append(row, fmt.Sprintf("%6d", i))
+		row = append(row, fmt.Sprintf("%*d", coreWidth, i))
 		row = append(row, fmt.Sprintf("%8.1f%% [%-20s]", float64(0), "-"))
 
 		rows = append(rows, row)
@@ -68,7 +74,6 @@ func (n *Node) CreateTopCPUUsage() (result *TopCPUUsage) {
 	// Set table data
 	for rowIndex, row := range rows {
 		for colIndex, cell := range row {
-			// TODO: col0の幅については不動のため、最大値を事前に取得して対応する
 			tableCell := mview.NewTableCell(cell)
 			tableCell.SetTextColor(tcell.ColorWhite)
 
@@ -77,6 +82,7 @@ func (n *Node) CreateTopCPUUsage() (result *TopCPUUsage) {
 				tableCell.SetAlign(mview.AlignLeft)
 			case 0:
 				tableCell.SetAlign(mview.AlignRight)
+				tableCell.SetMaxWidth(coreWidth)
 			}
 
 			table.SetCell(rowIndex+1, colIndex, tableCell)
@@ -84,8 +90,9 @@ func (n *Node) CreateTopCPUUsage() (result *TopCPUUsage) {
 	}
 
 	result = &TopCPUUsage{
-		Table: table,
-		Node:  n,
+		Table:     table,
+		Node:      n,
+		coreWidth: coreWidth,
 	}
 
 	return result
@@ -108,8 +115,10 @@ func (t *TopCPUUsage) Update(wg *sync.WaitGroup) {
 	} else {
 		// Set table data
 		for rowIndex, usage := range usages {
-			coreCell := mview.NewTableCell(fmt.Sprintf("%6d", rowIndex))
+			coreCell := mview.NewTableCell(fmt.Sprintf("%*d", t.coreWidth, rowIndex))
 			coreCell.SetTextColor(tcell.NewRGBColor(0, 255, 255))
+			coreCell.SetAlign(mview.AlignRight)
+			coreCell.SetMaxWidth(t.coreWidth)
 
 			barLength := 30
 			lowBarLength := int(usage.Low * float64(barLength))

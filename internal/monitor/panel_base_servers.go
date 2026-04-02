@@ -6,7 +6,7 @@ package monitor
 
 import (
 	"bytes"
-	"fmt"
+	"strings"
 	"sync"
 	"time"
 	"unsafe"
@@ -83,22 +83,26 @@ func (m *Monitor) createBaseGridTable() (table *mview.Table) {
 		table.SetCell(0, colIndex, tableCell)
 	}
 
-	// get server name width
+	// get fixed width for the first column in advance so the width does not
+	// change depending on the currently visible rows.
 	serverNamewidth := 0
+	if len(headers) > 0 {
+		serverNamewidth = len(headers[0])
+	}
 	for _, node := range m.Nodes {
 		if len(node.ServerName) > serverNamewidth {
 			serverNamewidth = len(node.ServerName)
+		}
+	}
+	for rowIndex := range rows {
+		if diff := serverNamewidth - len(rows[rowIndex][0]); diff > 0 {
+			rows[rowIndex][0] += strings.Repeat(" ", diff)
 		}
 	}
 
 	// Set table data
 	for rowIndex, row := range rows {
 		for colIndex, cell := range row {
-			// TODO: col0の幅については不動のため、最大値を事前に取得して対応する
-			if colIndex == 0 {
-				template := fmt.Sprintf("%%-%ds", serverNamewidth)
-				cell = fmt.Sprintf(template, cell)
-			}
 			tableCell := mview.NewTableCell(cell)
 
 			tableCell.SetTextColor(tcell.ColorWhite)

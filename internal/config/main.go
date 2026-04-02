@@ -6,18 +6,20 @@
 conf is a package used to read configuration file (~/.lssh.conf).
 */
 
-// TODO(blacknon): 各種クラウドの踏み台経由でのアクセスに対応する => pluginで処理させたいお気持ち
-//                 - AWS SSM(セッションマネージャー)
-//                 - Azure Bastion
-//                 - GCP(gcloud compute ssh)
-
 // TODO(blacknon): if/whenなどを使って、条件に応じて設定を追加するような仕組みを実装したい(v0.7.0)
-//                 ex) 現在のipアドレスのrangeが192.168.10.0/24 => xxxのnwだからproxy serverが必要
+//                 ex) 現在のipアドレスのrangeが192.168.10.0/24 => xxxのnwだからproxy serverが必要、という分岐機能の追加をする
 
 // TODO(blacknon): 接続成功時に特定のコマンドを実行可能にする(接続前しか今はないので)
 
 // TODO(blacknon): sshだけではなく、telnetやWinrmなどのプロトコルにも対応したい(v0.8.0)
-//                 ※ たぶん、実現するならプラグインを追加できるようにするのがよさそう
+//
+//	※ たぶん、実現するならプラグインを追加できるようにするのがよさそう
+//
+// 　　　　　　　　　　　　　　　　　　　　　　　　　　　※ 上位コマンドを作成し、そちらで統合させる（その中から呼び出す1プログラムとしてlsshは残す）
+// TODO(blacknon): 各種クラウドの踏み台経由でのアクセスに対応する => pluginで処理させたいお気持ち
+//   - AWS SSM(セッションマネージャー)
+//   - Azure Bastion
+//   - GCP(gcloud compute ssh)
 
 package conf
 

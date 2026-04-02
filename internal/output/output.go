@@ -63,7 +63,6 @@ type Output struct {
 	DisableHeader bool
 
 	// Auto Colorize flag
-	// TODO(blacknon): colormodeに応じて、パイプ経由だった場合は色分けしないなどの対応ができるように条件分岐する(v0.6.2)
 	AutoColor bool
 }
 
@@ -77,7 +76,10 @@ func (o *Output) Create(server string) {
 
 	// get color num
 	n := common.GetOrderNumber(server, o.ServerList)
-	colorServerName := OutColorStrings(n, server)
+	colorServerName := server
+	if o.AutoColor && isTerminal(os.Stdout) {
+		colorServerName = OutColorStrings(n, server)
+	}
 
 	// set templete
 	p := o.Templete
@@ -215,6 +217,15 @@ func OutColorStrings(num int, inStrings string) (str string) {
 
 	str = fmt.Sprintf("\x1b[%dm%s\x1b[0m", color, inStrings)
 	return
+}
+
+func isTerminal(f *os.File) bool {
+	info, err := f.Stat()
+	if err != nil {
+		return false
+	}
+
+	return (info.Mode() & os.ModeCharDevice) != 0
 }
 
 // PushInput is Reader([io.PipeReader, os.Stdin]) to []io.WriteCloser.
