@@ -175,6 +175,10 @@ func NewNode(name string) *Node {
 }
 
 func (n *Node) CheckClientAlive() bool {
+	if n.con == nil {
+		return false
+	}
+
 	if n.con.Connect == nil {
 		return false
 	}
@@ -205,9 +209,9 @@ func (n *Node) Connect(r *sshrun.Run) (err error) {
 	n.con = procCon
 	session, err := con.CreateSession()
 	if err != nil {
-		log.Printf("CreateSession %s Error: %s", n.ServerName, err)
-		n.con.Connect = nil
-		procCon.CloseSftpClient()
+		log.Printf("CreateSession %s Error (ControlMaster may be enabled): %s", n.ServerName, err)
+		// When ControlMaster is enabled, CreateSession can be unavailable.
+		// Keep SFTP connection alive and continue without keepalive goroutine.
 		return
 	}
 

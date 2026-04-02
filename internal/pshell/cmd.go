@@ -281,27 +281,22 @@ func (s *shell) executeRemotePipeLine(pline pipeLine, in *io.PipeReader, out *io
 	exitInput := make(chan bool) // Input finish channel
 	exitOutput := make(chan bool)
 
-	// create []io.WriteCloser
+	// create []io.WriteCloser for multi-stdin fanout
 	var writers []io.WriteCloser
 
-	// create []ssh.Session
+	// create []ssh.Session (direct connections only)
 	var sessions []*ssh.Session
 
-	// create session and writers
+	// runCount tracks total goroutines writing to exit channel
+	runCount := 0
+
 	m := new(sync.Mutex)
 	for _, c := range s.Connects {
-		// create session
-		session, err := c.CreateSession()
-		if err != nil {
+		if c == nil || c.Connect == nil {
 			continue
 		}
 
-		// Request tty (Only when input is os.Stdin and output is os.Stdout).
-		if stdin == os.Stdin && stdout == os.Stdout {
-			sshlib.RequestTty(session)
-		}
-
-		// set stdout
+		// Build output writer for this connection
 		var ow io.Writer
 		ow = stdout
 		if ow == os.Stdout {
@@ -316,45 +311,78 @@ func (s *shell) executeRemotePipeLine(pline pipeLine, in *io.PipeReader, out *io
 
 			ow = io.MultiWriter(w, hw)
 		}
-		session.Stdout = ow
 
-		// get and append stdin writer
-		w, _ := session.StdinPipe()
-		writers = append(writers, w)
+		if c.Connect.IsControlClient() {
+			// ControlMaster path: use Connect.Stdin/Stdout and Command()
+			stdinR, stdinW := io.Pipe()
+			c.Connect.Stdin = stdinR
+			c.Connect.Stdout = ow
+			c.Connect.Stderr = os.Stderr
+			writers = append(writers, stdinW)
+			runCount++
 
-		// append sessions
-		sessions = append(sessions, session)
+			go func(con *sConnect, r *io.PipeReader) {
+				con.Connect.Command(command)
+				r.CloseWithError(io.ErrClosedPipe)
+				exit <- true
+				if stdout == os.Stdout {
+					exitOutput <- true
+				}
+			}(c, stdinR)
+		} else {
+			// Direct session path
+			if c.Connect.Client == nil {
+				continue
+			}
+
+			session, err := safeCreateSession(c)
+			if err != nil {
+				continue
+			}
+
+			// Request tty (Only when input is os.Stdin and output is os.Stdout).
+			if stdin == os.Stdin && stdout == os.Stdout {
+				sshlib.RequestTty(session)
+			}
+
+			session.Stdout = ow
+
+			// get and append stdin writer
+			w, err := session.StdinPipe()
+			if err == nil && w != nil {
+				writers = append(writers, w)
+			}
+
+			sessions = append(sessions, session)
+			runCount++
+
+			go func(sess *ssh.Session) {
+				sess.Run(command)
+				sess.Close()
+				exit <- true
+				if stdout == os.Stdout {
+					exitOutput <- true
+				}
+			}(session)
+		}
 	}
 
 	// multi input-writer
 	go output.PushInput(exitInput, writers, stdin)
 
-	// run command
-	for _, s := range sessions {
-		session := s
-		go func() {
-			session.Run(command)
-			session.Close()
-			exit <- true
-			if stdout == os.Stdout {
-				exitOutput <- true
-			}
-		}()
-	}
-
 	// kill
 	go func() {
 		select {
 		case <-kill:
-			for _, s := range sessions {
-				s.Signal(ssh.SIGINT)
-				s.Close()
+			for _, sess := range sessions {
+				sess.Signal(ssh.SIGINT)
+				sess.Close()
 			}
 		}
 	}()
 
 	// wait
-	s.wait(len(sessions), exit)
+	s.wait(runCount, exit)
 
 	// wait time (0.050 sec)
 	time.Sleep(500 * time.Millisecond)

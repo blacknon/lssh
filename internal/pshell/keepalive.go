@@ -18,15 +18,24 @@ func (s *shell) checkKeepalive() {
 
 	for _, client := range clients {
 		go func(client *sConnect) {
+			if client == nil || client.Connect == nil {
+				ch <- true
+				return
+			}
+
 			// keepalive
+			// Note: client.Client may be nil for ControlMaster connections;
+			// CheckClientAlive() handles that case via controlClient.Ping().
 			err := client.Connect.CheckClientAlive()
 
 			if err != nil {
 				// error
 				fmt.Fprintf(os.Stderr, "Exit Connect %s, Error: %s\n", client.Name, err)
 
-				// close sftp client
-				client.Client.Close()
+				// close underlying ssh client if present (nil for ControlMaster connections)
+				if client.Client != nil {
+					client.Client.Close()
+				}
 			} else {
 				// delete client from map
 				m.Lock()
@@ -45,7 +54,7 @@ func (s *shell) checkKeepalive() {
 
 	s.Connects = result
 
-	if len(clients) == 0 {
+	if len(s.Connects) == 0 {
 		s.exit(1, "Error: No valid connections\n")
 	}
 
