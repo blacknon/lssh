@@ -18,7 +18,6 @@ require (
 	github.com/dchest/bcrypt_pbkdf v0.0.0-20150205184540-83f37f9c154a // indirect
 	github.com/disiqueira/gotree v1.0.0
 	github.com/dustin/go-humanize v1.0.1
-	github.com/kardianos/osext v0.0.0-20190222173326-2bc1f35cddc0 // indirect
 	github.com/kballard/go-shellquote v0.0.0-20180428030007-95032a82bc51
 	github.com/kevinburke/ssh_config v1.6.0
 	github.com/kr/fs v0.1.0 // indirect
@@ -34,7 +33,6 @@ require (
 	github.com/pkg/sftp v1.13.10
 	github.com/pkg/term v1.2.0-beta.2 // indirect
 	github.com/pmezard/go-difflib v1.0.0 // indirect
-	github.com/sevlyar/go-daemon v0.1.6
 	github.com/stretchr/testify v1.11.1
 	github.com/thales-e-security/pool v0.0.2 // indirect
 	github.com/urfave/cli v1.22.17

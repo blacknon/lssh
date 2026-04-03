@@ -283,6 +283,7 @@ func (s *shell) executeRemotePipeLine(pline pipeLine, in *io.PipeReader, out *io
 
 	// create []io.WriteCloser for multi-stdin fanout
 	var writers []io.WriteCloser
+	var controlWriters []io.WriteCloser
 
 	// create []ssh.Session (direct connections only)
 	var sessions []*ssh.Session
@@ -319,6 +320,7 @@ func (s *shell) executeRemotePipeLine(pline pipeLine, in *io.PipeReader, out *io
 			c.Connect.Stdout = ow
 			c.Connect.Stderr = os.Stderr
 			writers = append(writers, stdinW)
+			controlWriters = append(controlWriters, stdinW)
 			runCount++
 
 			go func(con *sConnect, r *io.PipeReader) {
@@ -374,6 +376,9 @@ func (s *shell) executeRemotePipeLine(pline pipeLine, in *io.PipeReader, out *io
 	go func() {
 		select {
 		case <-kill:
+			for _, w := range controlWriters {
+				_, _ = w.Write([]byte{3})
+			}
 			for _, sess := range sessions {
 				sess.Signal(ssh.SIGINT)
 				sess.Close()
