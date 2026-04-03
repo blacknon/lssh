@@ -22,6 +22,7 @@ func (r *RunSftp) pwd(args []string) {
 			// get writer
 			client.Output.Create(server)
 			w := client.Output.NewWriter()
+			defer w.Close()
 
 			// get current directory
 			pwd, _ := client.Connect.Getwd()

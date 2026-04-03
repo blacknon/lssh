@@ -9,17 +9,16 @@ package sftp
 
 import (
 	"fmt"
+	"os"
 	"path/filepath"
+	"strings"
 	"sync"
 
 	"github.com/blacknon/lssh/internal/common"
 	"github.com/disiqueira/gotree"
+	"github.com/dustin/go-humanize"
 	"github.com/urfave/cli"
 )
-
-// TODO(blacknon):
-//   とりあえず、↓のライブラリ使って開発を実施する。
-//     - https://github.com/DiSiqueira/GoTree
 
 // tree is remote tree command
 func (r *RunSftp) tree(args []string) (err error) {
@@ -92,7 +91,7 @@ func (r *RunSftp) tree(args []string) (err error) {
 }
 
 func (r *RunSftp) executeRemoteTree(c *cli.Context, clients map[string]*TargetConnectMap) {
-	treeData := map[string]gotree.Tree{}
+	treeData := map[string][]gotree.Tree{}
 	exit := make(chan bool)
 	m := new(sync.Mutex)
 
@@ -121,6 +120,7 @@ func (r *RunSftp) executeRemoteTree(c *cli.Context, clients map[string]*TargetCo
 			data, err := r.buildRemoteDirTree(client, c)
 			if err != nil {
 				fmt.Fprintf(w, "Error: %s\n", err)
+				w.Close()
 				exit <- true
 				return
 			}
@@ -129,36 +129,92 @@ func (r *RunSftp) executeRemoteTree(c *cli.Context, clients map[string]*TargetCo
 			m.Lock()
 			treeData[server] = data
 			m.Unlock()
+
+			w.Close()
+			exit <- true
 		}()
-
-		// wait get directory data
-		for i := 0; i < len(clients); i++ {
-			<-exit
-		}
-
 	}
 
-	// TODO: 各targetへの処理をかく(lsとかと同じ)
+	for i := 0; i < len(clients); i++ {
+		<-exit
+	}
 
-	// TODO: 各ホストで実行する処理になるので、あとでこの関数からは消す？
-	// for _, path := range pathList {
-	// // get dirctory tree data.
-	// dirTree, err := buildDirTree(nil, path, c)
-	// 	if err != nil {
-	// 		fmt.Fprintf(os.Stderr, "%s\n", err)
-	// 		return nil
-	// 	}
+	for server, trees := range treeData {
+		clients[server].Output.Create(server)
+		w := clients[server].Output.NewWriter()
 
-	// fmt.Println(dirTree.Print())
-	// }
+		for _, tree := range trees {
+			fmt.Fprintln(w, tree.Print())
+		}
+
+		w.Close()
+	}
 }
 
-func (r *RunSftp) buildRemoteDirTree(client *TargetConnectMap, options *cli.Context) (tree gotree.Tree, err error) {
-	// w := client.Output.NewWriter()
+func (r *RunSftp) buildRemoteDirTree(client *TargetConnectMap, options *cli.Context) (trees []gotree.Tree, err error) {
+	for _, path := range client.Path {
+		stat, statErr := client.Connect.Stat(path)
+		if statErr != nil {
+			return nil, statErr
+		}
 
-	// for _, ep := range client.Path {
+		tree := gotree.New(path)
+		if stat.IsDir() {
+			tree = r.buildRemoteDirNode(client, path, options)
+		}
 
-	// }
+		trees = append(trees, tree)
+	}
+
+	return
+}
+
+func (r *RunSftp) buildRemoteDirNode(client *TargetConnectMap, dir string, options *cli.Context) (dirTree gotree.Tree) {
+	dirName := filepath.Base(dir)
+	if dirName == "." || dirName == "/" || dirName == string(os.PathSeparator) {
+		dirName = dir
+	}
+
+	dirNameText := dirName + "/"
+
+	if stat, err := client.Connect.Stat(dir); err == nil {
+		switch {
+		case options.Bool("h"):
+			size := humanize.Bytes(uint64(stat.Size()))
+			dirNameText = fmt.Sprintf("[%10s] %s", size, dirNameText)
+		case options.Bool("s"):
+			dirNameText = fmt.Sprintf("[%10d] %s", stat.Size(), dirNameText)
+		}
+	}
+
+	dirTree = gotree.New(dirNameText)
+
+	files, err := client.Connect.ReadDir(dir)
+	if err != nil {
+		return gotree.New(dirNameText)
+	}
+
+	for _, info := range files {
+		fullPath := filepath.Join(dir, info.Name())
+
+		if info.IsDir() {
+			dirTree.AddTree(r.buildRemoteDirNode(client, fullPath, options))
+			continue
+		}
+
+		fileNameText := info.Name()
+		switch {
+		case options.Bool("h"):
+			size := humanize.Bytes(uint64(info.Size()))
+			fileNameText = fmt.Sprintf("[%10s] %s", size, fileNameText)
+		case options.Bool("s"):
+			fileNameText = fmt.Sprintf("[%10d] %s", info.Size(), fileNameText)
+		}
+
+		if !strings.Contains(fileNameText, "\n") {
+			dirTree.Add(fileNameText)
+		}
+	}
 
 	return
 }

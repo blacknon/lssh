@@ -53,6 +53,7 @@ func (r *RunSftp) ln(args []string) (err error) {
 				// get writer
 				client.Output.Create(server)
 				w := client.Output.NewWriter()
+				defer w.Close()
 
 				source := client.Path[0]
 

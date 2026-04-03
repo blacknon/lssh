@@ -109,7 +109,8 @@ func (r *RunSftp) Executor(command string) {
 		r.chmod(cmdline)
 	case "chown":
 		r.chown(cmdline)
-	// case "copy":
+	case "copy":
+		r.copy(cmdline)
 	case "df":
 		r.df(cmdline)
 	case "get":
@@ -144,7 +145,8 @@ func (r *RunSftp) Executor(command string) {
 		r.rmdir(cmdline)
 	case "symlink":
 		r.symlink(cmdline)
-	// case "tree":
+	case "tree":
+		r.tree(cmdline)
 	case "ltree":
 		r.ltree(cmdline)
 	// case "!": // ! or !command...
@@ -233,6 +235,8 @@ func (r *RunSftp) Completer(t prompt.Document) []prompt.Suggest {
 			case strings.Count(t.CurrentLineBeforeCursor(), " ") >= 2:
 				return r.PathComplete(true, false, false, t)
 			}
+		// TODO: Copyの補完処理を追加する
+		case "copy":
 		case "df":
 			// switch options or path
 			switch {
@@ -365,8 +369,8 @@ func (r *RunSftp) Completer(t prompt.Document) []prompt.Suggest {
 			case strings.Count(t.CurrentLineBeforeCursor(), " ") == 2: // not with select server
 				return r.PathComplete(true, false, true, t)
 			}
-			// TODO(blacknon): そのうち追加 ver0.6.2
-		// case "tree":
+			// TODO(blacknon): treeの補完処理を追加する
+		case "tree":
 		case "ltree":
 			return r.PathComplete(false, true, false, t)
 		default:

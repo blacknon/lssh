@@ -51,6 +51,7 @@ func (r *RunSftp) symlink(args []string) {
 				// get writer
 				client.Output.Create(server)
 				w := client.Output.NewWriter()
+				defer w.Close()
 				pList, err := ExpandRemotePath(client, client.Path[0])
 				if err != nil {
 					fmt.Fprintf(w, "%s\n", err)

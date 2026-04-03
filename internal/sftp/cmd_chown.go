@@ -56,6 +56,7 @@ func (r *RunSftp) chown(args []string) {
 				// get writer
 				client.Output.Create(server)
 				w := client.Output.NewWriter()
+				defer w.Close()
 
 				//
 				userid, err := strconv.Atoi(user)

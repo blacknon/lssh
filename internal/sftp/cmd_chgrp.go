@@ -56,6 +56,7 @@ func (r *RunSftp) chgrp(args []string) {
 				// get writer
 				client.Output.Create(server)
 				w := client.Output.NewWriter()
+				defer w.Close()
 
 				//
 				groupid, err := strconv.Atoi(group)

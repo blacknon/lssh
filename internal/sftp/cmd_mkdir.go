@@ -58,6 +58,7 @@ func (r *RunSftp) mkdir(args []string) {
 				// get writer
 				client.Output.Create(server)
 				w := client.Output.NewWriter()
+				defer w.Close()
 
 				pathList := []string{}
 				for _, p := range client.Path {

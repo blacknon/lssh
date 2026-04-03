@@ -21,6 +21,27 @@ import (
 	"github.com/vbauerster/mpb/decor"
 )
 
+type syncedPipeWriter struct {
+	writer *io.PipeWriter
+	done   <-chan struct{}
+}
+
+func (w *syncedPipeWriter) Write(p []byte) (n int, err error) {
+	return w.writer.Write(p)
+}
+
+func (w *syncedPipeWriter) Close() error {
+	err := w.writer.Close()
+	<-w.done
+	return err
+}
+
+func (w *syncedPipeWriter) CloseWithError(err error) error {
+	closeErr := w.writer.CloseWithError(err)
+	<-w.done
+	return closeErr
+}
+
 // Output struct. command execute and lssh-shell mode output data.
 type Output struct {
 	// Template variable value (in unimplemented).
@@ -102,40 +123,32 @@ func (o *Output) GetPrompt() (p string) {
 	return
 }
 
-// NewWriter return io.WriteCloser at Output printer.
-func (o *Output) NewWriter() (writer *io.PipeWriter) {
+// NewWriter returns a writer that blocks on Close until the printer drains.
+func (o *Output) NewWriter() *syncedPipeWriter {
 	// create io.PipeReader, io.PipeWriter
 	r, w := io.Pipe()
+	done := make(chan struct{})
 
 	// run output.Printer()
-	go o.Printer(r)
+	go func() {
+		o.Printer(r)
+		close(done)
+	}()
 
 	// return writer
-	return w
+	return &syncedPipeWriter{writer: w, done: done}
 }
 
 // Printer output stdout from reader.
 func (o *Output) Printer(reader io.ReadCloser) {
 	sc := bufio.NewScanner(reader)
-loop:
-	for {
-		for sc.Scan() {
-			text := sc.Text()
-			if (len(o.ServerList) > 1 && !o.DisableHeader) || o.EnableHeader {
-				oPrompt := o.GetPrompt()
-				fmt.Printf("%s %s\n", oPrompt, text)
-			} else {
-				fmt.Printf("%s\n", text)
-			}
-		}
-
-		if sc.Err() == io.ErrClosedPipe {
-			break loop
-		}
-
-		select {
-		case <-time.After(50 * time.Millisecond):
-			continue
+	for sc.Scan() {
+		text := sc.Text()
+		if (len(o.ServerList) > 1 && !o.DisableHeader) || o.EnableHeader {
+			oPrompt := o.GetPrompt()
+			fmt.Printf("%s %s\n", oPrompt, text)
+		} else {
+			fmt.Printf("%s\n", text)
 		}
 	}
 }

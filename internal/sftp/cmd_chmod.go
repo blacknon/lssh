@@ -55,6 +55,7 @@ func (r *RunSftp) chmod(args []string) {
 				// get writer
 				client.Output.Create(server)
 				w := client.Output.NewWriter()
+				defer w.Close()
 
 				// get mode
 				modeint, err := strconv.ParseUint(mode, 8, 32)

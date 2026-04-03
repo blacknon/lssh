@@ -48,6 +48,7 @@ func (r *RunSftp) rename(args []string) {
 				// get writer
 				client.Output.Create(server)
 				w := client.Output.NewWriter()
+				defer w.Close()
 
 				// get current directory
 				oldname := client.Path[0]

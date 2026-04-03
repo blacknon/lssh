@@ -51,6 +51,7 @@ func (r *RunSftp) cat(args []string) {
 			// Create Output
 			client.Output.Create(server)
 			w := client.Output.NewWriter()
+			defer w.Close()
 
 			for _, path := range client.Path {
 				// set arg path

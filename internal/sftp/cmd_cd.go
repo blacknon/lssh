@@ -35,6 +35,7 @@ func (r *RunSftp) cd(args []string) {
 		// get output
 		client.Output.Create(server)
 		w := client.Output.NewWriter()
+		defer w.Close()
 
 		var err error
 

@@ -204,7 +204,7 @@ func (cp *Scp) push() {
 	fmt.Println("all push exit.")
 }
 
-func (cp *Scp) pushPath(ftp *sftp.Client, ow *io.PipeWriter, output *output.Output, base, p string) (err error) {
+func (cp *Scp) pushPath(ftp *sftp.Client, ow io.Writer, output *output.Output, base, p string) (err error) {
 	var rpath string
 
 	// Set remote path
@@ -258,6 +258,7 @@ func (cp *Scp) pushPath(ftp *sftp.Client, ow *io.PipeWriter, output *output.Outp
 func (cp *Scp) pushFile(lf io.Reader, ftp *sftp.Client, output *output.Output, path string, size int64) (err error) {
 	// get output writer
 	ow := output.NewWriter()
+	defer ow.Close()
 
 	// set path
 	dir := filepath.Dir(path)

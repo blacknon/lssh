@@ -146,11 +146,10 @@ func (r *RunSftp) get(args []string) {
 func (r *RunSftp) pullData(client *TargetConnectMap, targetpath string, isdir bool) (err error) {
 	// set pullfile Permission.
 	filePerm := GeneratePermWithUmask([]string{"0", "6", "6", "6"}, r.LocalUmask)
+	ow := client.Output.NewWriter()
+	defer ow.Close()
 
 	for _, path := range client.Path {
-		// get writer
-		ow := client.Output.NewWriter()
-
 		// set arg path and targetdir
 		var rpath string
 

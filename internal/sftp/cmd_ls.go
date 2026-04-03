@@ -272,6 +272,8 @@ func (r *RunSftp) executeRemoteLs(c *cli.Context, clients map[string]*TargetConn
 
 				fmt.Fprintf(w, "%s\n", name)
 			}
+
+			w.Close()
 		}
 
 	default: // default
@@ -287,6 +289,7 @@ func (r *RunSftp) executeRemoteLs(c *cli.Context, clients map[string]*TargetConn
 			}
 
 			textcolsafe.PrintColumns(w, item, 2, headerWidth)
+			w.Close()
 		}
 	}
 }
@@ -294,6 +297,7 @@ func (r *RunSftp) executeRemoteLs(c *cli.Context, clients map[string]*TargetConn
 // getRemoteLsData
 func (r *RunSftp) getRemoteLsData(client *TargetConnectMap) (lsdata sftpLs, err error) {
 	w := client.Output.NewWriter()
+	defer w.Close()
 
 	data := []sftpFileInfo{}
 	re := regexp.MustCompile(`(.+)/$`)
