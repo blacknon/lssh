@@ -69,7 +69,7 @@ func checkBuildInCommand(cmd string) (isBuildInCmd bool) {
 // local machine command(%%command).
 func checkLocalCommand(cmd string) (isLocalCmd bool) {
 	// check local command regex
-	regex := regexp.MustCompile(`^!.*`)
+	regex := regexp.MustCompile(`^\+.*`)
 
 	// local command
 	switch {
@@ -140,7 +140,7 @@ func (s *shell) run(pline pipeLine, in *io.PipeReader, out *io.PipeWriter, ch ch
 	}
 
 	// check and exec local command
-	buildinRegex := regexp.MustCompile(`^!.*`)
+	buildinRegex := regexp.MustCompile(`^\+.*`)
 	switch {
 	case buildinRegex.MatchString(command):
 		// exec local machine
@@ -431,8 +431,8 @@ func (s *shell) executeLocalPipeLine(pline pipeLine, in *io.PipeReader, out *io.
 		stdoutw = stdout
 	}
 
-	// delete command prefix(`!`)
-	rep := regexp.MustCompile(`^!`)
+	// delete command prefix(`+`)
+	rep := regexp.MustCompile(`^\+`)
 	pline.Args[0] = rep.ReplaceAllString(pline.Args[0], "")
 
 	// join command

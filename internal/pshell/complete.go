@@ -203,7 +203,7 @@ func (s *shell) GetCommandComplete() {
 	sc := bufio.NewScanner(rd)
 	for sc.Scan() {
 		suggest := prompt.Suggest{
-			Text:        "!" + sc.Text(),
+			Text:        "+" + sc.Text(),
 			Description: "Command. from:localhost",
 		}
 		s.CmdComplete = append(s.CmdComplete, suggest)

@@ -22,21 +22,23 @@ import (
 	"github.com/c-bata/go-prompt"
 )
 
-// TODO(blacknon): 接続が切れた場合の再接続処理、および再接続ができなかった場合のsliceからの削除対応の追加(v0.3.0)
-// TODO(blacknon): pShellのログ(実行コマンド及び出力結果)をログとしてファイルに記録する機能の追加(v0.3.0) => 任意のファイルを指定するように
-// TODO(blacknon): グループ化(`()`で囲んだりする)や三項演算子への対応(v0.2.0)
-// TODO(blacknon): `サーバ名:command...` で、指定したサーバでのみコマンドを実行させる機能の追加(v0.2.0)
-// TODO(blacknon): petをうまいこと利用できるような仕組みを作る(v0.3.0)
-// TODO(blacknon): parallel shellでkeybindや関数が使えるような仕組みを作る(どうやってやるかは不明だが…)(v0.3.0)
+// TODO(blacknon): local commandの実行結果を、
+// TODO(blacknon): 接続が切れた場合の再接続処理、および再接続ができなかった場合のsliceからの削除対応の追加(v0.7.0)
+// TODO(blacknon): pShellのログ(実行コマンド及び出力結果)をログとしてファイルに記録する機能の追加(v0.7.0) => 任意のファイルを指定するように
+// TODO(blacknon): グループ化(`()`で囲んだりする)や三項演算子への対応(v0.7.0)
+// TODO(blacknon): `@サーバ名:command...` で、指定したサーバでのみコマンドを実行させる機能の追加(v0.7.0)
+//                   このとき、`@サーバ名,サーバ名:command...` で、複数のサーバでコマンドを実行させる機能も追加する(v0.7.0)
+// TODO(blacknon): petをうまいこと利用できるような仕組みを作る(v0.7.0)
+// TODO(blacknon): parallel shellでkeybindや関数が使えるような仕組みを作る(どうやってやるかは不明だが…)(v0.7.0)
 
 // TODO(blacknon):
 //     出力をvim diffに食わせてdiffを得られるようにしたい => 変数かプロセス置換か、なにかしらの方法でローカルコマンド実行時にssh経由で得られた出力を食わせる方法を実装する？
 //     => 多分、プロセス置換が良いんだと思う(プロセス置換時にssh先でコマンドを実行できるように、かつ実行したデータを個別にファイルとして扱えるようにしたい)
 //        ```bash
-//        !vimdiff <(cat /etc/passwd)
-//        => !vimdiff host1:/etc/passwd host2:/etc/passwd ....
+//        +vimdiff <(cat /etc/passwd)
+//        => +vimdiff host1:/etc/passwd host2:/etc/passwd ....
 //        ```
-//     やるなら普通に一時ファイルに書き出すのが良さそう(/tmp 配下とか。一応、ちゃんと権限周り気をつけないといかんね、というのと消さないといかんね、というお気持ち)
+//     名前付きPIPEを利用して、ssh先でコマンドを実行した結果をローカルのファイルとして扱えるようにするのがいいのかもしれない？
 
 // shell is lsshell struct
 type shell struct {
