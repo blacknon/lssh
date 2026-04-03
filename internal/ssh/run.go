@@ -6,7 +6,6 @@ package ssh
 
 import (
 	"fmt"
-	"log"
 	"os"
 	"os/exec"
 	"runtime"
@@ -16,7 +15,6 @@ import (
 	"github.com/blacknon/go-sshlib"
 	"github.com/blacknon/lssh/internal/common"
 	conf "github.com/blacknon/lssh/internal/config"
-	"github.com/sevlyar/go-daemon"
 	"golang.org/x/crypto/ssh"
 	"golang.org/x/crypto/ssh/terminal"
 )
@@ -188,10 +186,6 @@ func (r *Run) Start() {
 		}
 	}()
 
-	// Get stdin data(pipe)
-	// TODO(blacknon): os.StdinをReadAllで全部読み込んでから処理する方式だと、ストリームで処理出来ない
-	//                 (全部読み込み終わるまで待ってしまう)ので、Reader/Writerによるストリーム処理に切り替える(v0.7.0)
-	//                 => flagとして検知させて、あとはpushPipeWriterにos.Stdinを渡すことで対処する
 	if runtime.GOOS != "windows" {
 		stdin := 0
 		if !terminal.IsTerminal(stdin) {
@@ -422,28 +416,6 @@ func (r *Run) setPortForwards(server string, config conf.ServerConfig) (c conf.S
 func execLocalCommand(cmd string) {
 	out, _ := exec.Command("sh", "-c", cmd).CombinedOutput()
 	fmt.Printf(string(out))
-}
-
-// startBackgroundMode run deamon mode
-// not working... and not use... how this do ...?
-func startBackgroundMode() {
-	cntxt := &daemon.Context{}
-	d, err := cntxt.Reborn()
-	if err != nil {
-		log.Fatalln(err)
-	}
-
-	if d != nil {
-		return
-	}
-
-	defer func() {
-		if err := cntxt.Release(); err != nil {
-			log.Printf("error encountered while killing daemon: %v", err)
-		}
-	}()
-
-	return
 }
 
 // notifyParentReady writes readiness to fd 3 if child was started by parent with ExtraFiles.

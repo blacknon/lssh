@@ -18,6 +18,8 @@ import (
 	"github.com/vbauerster/mpb"
 )
 
+// TODO: lscp -P と同じように、パラレルで複数のサーバーにputできるようにする(v0.7.0)
+
 func (r *RunSftp) put(args []string) {
 	// create app
 	app := cli.NewApp()

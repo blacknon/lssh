@@ -186,6 +186,8 @@ func (r *Run) CreateSshConnectDirect(server string) (connect *sshlib.Connect, er
 	return r.createSshConnect(server, true)
 }
 
+// createSshConnect is the main function for creating sshlib.Connect objects.
+// If forceDirect is true, it disables ControlMaster/ControlPersist for the connection (used for features like SFTP that require a concrete *ssh.Client).
 func (r *Run) createSshConnect(server string, forceDirect bool) (connect *sshlib.Connect, err error) {
 	// create proxyRoute
 	proxyRoute, err := getProxyRoute(server, r.Conf)

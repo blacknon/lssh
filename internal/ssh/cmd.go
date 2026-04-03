@@ -8,7 +8,6 @@ import (
 	"bytes"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"log"
 	"os"
 	"strings"
@@ -234,14 +233,11 @@ func (r *Run) cmd() (err error) {
 	notifyParentReady()
 
 	var stdinData []byte
+	var stdinBuffer bytes.Buffer
+	stdinCaptured := false
 	switch {
 	case r.IsParallel && len(r.ServerList) > 1:
 		go output.PushInput(exitInput, writers, os.Stdin)
-
-	case !r.IsParallel && len(r.ServerList) > 1:
-		if r.IsStdinPipe {
-			stdinData, _ = ioutil.ReadAll(os.Stdin)
-		}
 	}
 
 	// run command
@@ -254,7 +250,34 @@ func (r *Run) cmd() (err error) {
 				finished <- true
 			}()
 		} else {
-			if len(stdinData) > 0 {
+			if !stdinCaptured && r.IsStdinPipe && len(r.ServerList) > 1 {
+				stdinCaptured = true
+				reader := io.TeeReader(os.Stdin, &stdinBuffer)
+
+				// If control client, set conn.Stdin so runControlCommand reads it.
+				if conn.IsControlClient() {
+					conn.Stdin = reader
+
+					// run command (synchronous)
+					conn.Command(command)
+					finished <- true
+				} else {
+					// get stdin via session pipe for non-control client
+					w, _ := conn.Session.StdinPipe()
+
+					// run command
+					go func() {
+						conn.Command(command)
+						finished <- true
+					}()
+
+					// send stdin while caching it for subsequent hosts
+					io.Copy(w, reader)
+					w.Close()
+				}
+
+				stdinData = stdinBuffer.Bytes()
+			} else if len(stdinData) > 0 {
 				// If control client, set conn.Stdin so runControlCommand reads it.
 				if conn.IsControlClient() {
 					conn.Stdin = bytes.NewReader(stdinData)
