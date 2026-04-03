@@ -8,6 +8,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"io/fs"
 	"os"
 	"os/signal"
 	"path/filepath"
@@ -17,11 +18,18 @@ import (
 	"time"
 
 	"github.com/blacknon/lssh/internal/common"
+	"github.com/blacknon/lssh/internal/output"
 	"github.com/urfave/cli"
 	"github.com/vbauerster/mpb"
 )
 
-// TODO: getでのパラレル取得が動いていない。putのコードを元に、getのコードを見直す必要がある。
+type pullTask struct {
+	remotePath string
+	localPath  string
+	size       int64
+	mode       fs.FileMode
+}
+
 // get
 func (r *RunSftp) get(args []string) {
 	// create app
@@ -114,6 +122,26 @@ func (r *RunSftp) get(args []string) {
 			closeExtraClients()
 		}()
 
+		newWorkerOutput := func(base *output.Output, server string) *output.Output {
+			if base == nil {
+				return nil
+			}
+
+			o := &output.Output{
+				Templete:      base.Templete,
+				ServerList:    append([]string(nil), base.ServerList...),
+				Conf:          base.Conf,
+				Progress:      r.Progress,
+				ProgressWG:    r.ProgressWG,
+				EnableHeader:  base.EnableHeader,
+				DisableHeader: base.DisableHeader,
+				AutoColor:     base.AutoColor,
+			}
+			o.Create(server)
+
+			return o
+		}
+
 		isMultiServer := len(targetmap) > 1
 		destinationIsDir := isMultiServer
 		if destinationIsDir {
@@ -152,11 +180,12 @@ func (r *RunSftp) get(args []string) {
 
 			// pullDataをホスト台数分だけ並列実行する.
 			go func() {
-				tasks := make(chan string)
+				tasks := make(chan pullTask)
 				workerExit := make(chan bool, parallelNum)
 				workerCount := 0
 
 				workers := make([]*TargetConnectMap, 0, parallelNum)
+				client.Output = newWorkerOutput(client.Output, server)
 				workers = append(workers, client)
 
 				if parallelNum > 1 {
@@ -166,6 +195,7 @@ func (r *RunSftp) get(args []string) {
 								SftpConnect: *extraClient,
 								Path:        client.Path,
 							}
+							worker.Output = newWorkerOutput(client.Output, server)
 							workers = append(workers, worker)
 							registerExtraClient(worker)
 						}
@@ -173,10 +203,6 @@ func (r *RunSftp) get(args []string) {
 				}
 
 				for _, workerClient := range workers {
-					workerClient.Output.Progress = r.Progress
-					workerClient.Output.ProgressWG = r.ProgressWG
-					workerClient.Output.Create(server)
-
 					workerCount++
 					go func(workerClient *TargetConnectMap) {
 						for {
@@ -196,26 +222,31 @@ func (r *RunSftp) get(args []string) {
 									return
 								}
 
-								taskClient := &TargetConnectMap{
-									SftpConnect: workerClient.SftpConnect,
-									Path:        []string{path},
-								}
-								r.pullData(ctx, taskClient, targetDestinationPath, destinationIsDir)
+								r.pullData(ctx, workerClient, path)
 							}
 						}
 					}(workerClient)
 				}
 
 				for _, path := range client.Path {
-					select {
-					case <-ctx.Done():
+					err := r.enqueuePullTasks(ctx, client, path, targetDestinationPath, destinationIsDir, func(task pullTask) error {
+						select {
+						case <-ctx.Done():
+							return ctx.Err()
+						case tasks <- task:
+							return nil
+						}
+					})
+					if err != nil {
 						close(tasks)
 						for i := 0; i < workerCount; i++ {
 							<-workerExit
 						}
+						if err != context.Canceled {
+							fmt.Fprintf(os.Stderr, "Error: %s\n", err)
+						}
 						exit <- true
 						return
-					case tasks <- path:
 					}
 				}
 				close(tasks)
@@ -250,141 +281,136 @@ func (r *RunSftp) get(args []string) {
 	return
 }
 
-// pullData
-func (r *RunSftp) pullData(ctx context.Context, client *TargetConnectMap, targetpath string, isdir bool) (err error) {
-	// set pullfile Permission.
-	filePerm := GeneratePermWithUmask([]string{"0", "6", "6", "6"}, r.LocalUmask)
+func (r *RunSftp) enqueuePullTasks(ctx context.Context, client *TargetConnectMap, path, targetpath string, isdir bool, enqueue func(task pullTask) error) error {
 	ow := client.Output.NewWriter()
 	defer ow.Close()
 
-	for _, path := range client.Path {
+	rpath := path
+	if !filepath.IsAbs(rpath) {
+		rpath = filepath.Join(client.Pwd, rpath)
+	}
+	base := filepath.Dir(rpath)
+
+	epath, err := ExpandRemotePath(client, rpath)
+	if err != nil {
+		fmt.Fprintf(ow, "Error: %s\n", err)
+		return err
+	}
+	if len(epath) == 0 {
+		fmt.Fprintf(ow, "Error: File Not founds.\n")
+		return fmt.Errorf("file not found: %s", path)
+	}
+
+	taskIsDir := isdir
+	if len(epath) > 1 {
+		taskIsDir = true
+	}
+
+	checkStat, err := client.Connect.Stat(epath[0])
+	if err != nil {
+		fmt.Fprintf(ow, "Error: %s\n", err)
+		return err
+	}
+	if checkStat.IsDir() {
+		taskIsDir = true
+	}
+
+	for _, ep := range epath {
 		select {
 		case <-ctx.Done():
 			return ctx.Err()
 		default:
 		}
 
-		// set arg path and targetdir
-		var rpath string
-
-		// set base dir
-		switch {
-		case filepath.IsAbs(path):
-			rpath = path
-		case !filepath.IsAbs(path):
-			rpath = filepath.Join(client.Pwd, path)
-		}
-		base := filepath.Dir(rpath)
-
-		// expantion path
-		epath, eerr := ExpandRemotePath(client, rpath)
-		if len(epath) == 0 {
-			// glob展開したpathが0の場合、取得対象がなかったものとみなしerror.
-			fmt.Fprintf(ow, "Error: File Not founds.\n")
-			return
-		} else if len(epath) > 1 {
-			// glob展開したpathが1より大きい場合、複数ファイルを取得するものとみなしてtargetpathはディレクトリを指定されたものとみなす.
-			isdir = true
-		}
-
-		if eerr != nil {
-			fmt.Fprintf(ow, "Error: %s\n", eerr)
-			return
-		}
-
-		// TODO: 取得元がディレクトリかどうかを識別して、isdirフラグの挙動を決める. 1個以上だったら問答無用でisdirが有効になるはずなので、1個目だけを見てやればいい？
-		//       その後は、isDirだった場合にはpathを足していくような処理をwalkerのforで定義してやればいい。。。はず？
-
-		checkStat, eerr := client.Connect.Stat(epath[0])
-		if eerr != nil {
-			fmt.Fprintf(ow, "Error: %s\n", eerr)
-			return
-		}
-		if checkStat.IsDir() {
-			isdir = true
-		}
-
-		// for walk
-		for _, ep := range epath {
+		walker := client.Connect.Walk(ep)
+		for walker.Step() {
 			select {
 			case <-ctx.Done():
 				return ctx.Err()
 			default:
 			}
 
-			walker := client.Connect.Walk(ep)
+			if err := walker.Err(); err != nil {
+				fmt.Fprintf(ow, "Error: %s\n", err)
+				continue
+			}
 
-			for walker.Step() {
-				select {
-				case <-ctx.Done():
-					return ctx.Err()
-				default:
-				}
+			p := walker.Path()
+			stat := walker.Stat()
+			localpath := targetpath
 
-				err := walker.Err()
+			if taskIsDir {
+				relpath, _ := filepath.Rel(base, p)
+				relpath = strings.Replace(relpath, "../", "", 1)
+				localpath = filepath.Join(targetpath, relpath)
+			}
+
+			if stat.IsDir() {
+				err := os.MkdirAll(localpath, 0755)
 				if err != nil {
 					fmt.Fprintf(ow, "Error: %s\n", err)
 					continue
 				}
-				var localpath string
-
-				p := walker.Path()
-				stat := walker.Stat()
-
-				if isdir {
-					relpath, _ := filepath.Rel(base, p)
-					relpath = strings.Replace(relpath, "../", "", 1)
-					if strings.Contains(relpath, "/") {
-						os.MkdirAll(filepath.Join(targetpath, filepath.Dir(relpath)), 0755)
-					}
-					localpath = filepath.Join(targetpath, relpath)
-
-				} else {
-					localpath = targetpath
-				}
-
-				//
-				if stat.IsDir() { // is directory
-					os.MkdirAll(localpath, 0755)
-				} else { // is not directory
-					// get size
-					size := stat.Size()
-
-					// open remote file
-					remotefile, err := client.Connect.Open(p)
-					if err != nil {
-						fmt.Fprintf(ow, "Error: %s\n", err)
-						continue
-					}
-
-					// open local file
-					localfile, err := os.OpenFile(localpath, os.O_RDWR|os.O_CREATE, filePerm)
-					if err != nil {
-						fmt.Fprintf(ow, "Error: %s\n", err)
-						continue
-					}
-
-					// empty the file
-					err = localfile.Truncate(0)
-					if err != nil {
-						fmt.Fprintf(ow, "Error: %s\n", err)
-						continue
-					}
-
-					// set tee reader
-					rd := io.TeeReader(remotefile, localfile)
-
-					r.ProgressWG.Add(1)
-					client.Output.ProgressPrinter(size, rd, p)
-				}
-
-				// set mode
 				if r.Permission {
-					os.Chmod(localpath, stat.Mode())
+					_ = os.Chmod(localpath, stat.Mode())
 				}
+				continue
+			}
+
+			if err := enqueue(pullTask{
+				remotePath: p,
+				localPath:  localpath,
+				size:       stat.Size(),
+				mode:       stat.Mode(),
+			}); err != nil {
+				return err
 			}
 		}
 	}
 
-	return
+	return nil
+}
+
+// pullData
+func (r *RunSftp) pullData(ctx context.Context, client *TargetConnectMap, task pullTask) (err error) {
+	filePerm := GeneratePermWithUmask([]string{"0", "6", "6", "6"}, r.LocalUmask)
+	ow := client.Output.NewWriter()
+	defer ow.Close()
+
+	select {
+	case <-ctx.Done():
+		return ctx.Err()
+	default:
+	}
+
+	err = os.MkdirAll(filepath.Dir(task.localPath), 0755)
+	if err != nil {
+		fmt.Fprintf(ow, "Error: %s\n", err)
+		return err
+	}
+
+	remotefile, err := client.Connect.Open(task.remotePath)
+	if err != nil {
+		fmt.Fprintf(ow, "Error: %s\n", err)
+		return err
+	}
+	defer remotefile.Close()
+
+	localfile, err := os.OpenFile(task.localPath, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, filePerm)
+	if err != nil {
+		fmt.Fprintf(ow, "Error: %s\n", err)
+		return err
+	}
+	defer localfile.Close()
+
+	rd := io.TeeReader(remotefile, localfile)
+
+	r.ProgressWG.Add(1)
+	client.Output.ProgressPrinter(task.size, rd, task.remotePath)
+
+	if r.Permission {
+		_ = os.Chmod(task.localPath, task.mode)
+	}
+
+	return nil
 }
