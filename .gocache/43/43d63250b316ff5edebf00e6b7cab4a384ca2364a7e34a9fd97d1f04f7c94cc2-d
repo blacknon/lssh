@@ -1,0 +1,6 @@
+./auth.go
+./credentials.go
+./request.go
+./resolver.go
+./ruleset.go
+./socks5.go

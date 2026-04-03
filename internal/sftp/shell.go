@@ -369,10 +369,30 @@ func (r *RunSftp) Completer(t prompt.Document) []prompt.Suggest {
 			case strings.Count(t.CurrentLineBeforeCursor(), " ") == 2: // not with select server
 				return r.PathComplete(true, false, true, t)
 			}
-			// TODO(blacknon): treeの補完処理を追加する
 		case "tree":
+			switch {
+			case contains([]string{"-"}, char):
+				suggest = []prompt.Suggest{
+					{Text: "-s", Description: "print the size in bytes of each file."},
+					{Text: "-h", Description: "print the size in a more human readable way."},
+				}
+				return prompt.FilterHasPrefix(suggest, t.GetWordBeforeCursor(), false)
+
+			default:
+				return r.PathComplete(true, false, false, t)
+			}
 		case "ltree":
-			return r.PathComplete(false, true, false, t)
+			switch {
+			case contains([]string{"-"}, char):
+				suggest = []prompt.Suggest{
+					{Text: "-s", Description: "print the size in bytes of each file."},
+					{Text: "-h", Description: "print the size in a more human readable way."},
+				}
+				return prompt.FilterHasPrefix(suggest, t.GetWordBeforeCursor(), false)
+
+			default:
+				return r.PathComplete(false, true, false, t)
+			}
 		default:
 		}
 	}

@@ -214,8 +214,12 @@ func (o *Output) ProgressPrinter(size int64, reader io.Reader, path string) {
 		bar.IncrBy(s, time.Since(start))
 
 		// check exit
-		if err == io.EOF {
-			bar.SetTotal(size, true)
+		if err != nil {
+			if err == io.EOF {
+				bar.SetTotal(size, true)
+			} else {
+				bar.SetTotal(int64(sum), true)
+			}
 			break
 		}
 	}

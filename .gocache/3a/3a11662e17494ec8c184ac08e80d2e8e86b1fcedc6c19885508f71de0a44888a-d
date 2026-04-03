@@ -1,0 +1,5 @@
+./decode.go
+./doc.go
+./encode.go
+./error.go
+./tag.go

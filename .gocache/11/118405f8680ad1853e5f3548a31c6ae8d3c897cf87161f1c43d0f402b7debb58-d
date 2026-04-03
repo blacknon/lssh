@@ -1,0 +1,3 @@
+./debug.go
+./md2man.go
+./roff.go

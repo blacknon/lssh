@@ -1,0 +1,7 @@
+./doc.go
+./ioctl.go
+./pty.go
+./pty_darwin.go
+./termios.go
+./termios_bsd.go
+./termios_const.go
