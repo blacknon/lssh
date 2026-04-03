@@ -180,7 +180,7 @@ func (r *RunSftp) Completer(t prompt.Document) []prompt.Suggest {
 			{Text: "chgrp", Description: "Change group of file 'path' to 'grp'"},
 			{Text: "chmod", Description: "Change mode of file 'path' to 'mode'"},
 			{Text: "chown", Description: "Change owner of file 'path' to 'own'"},
-			// {Text: "copy", Description: "Copy to file from 'remote' or 'local' to 'remote' or 'local'"},
+			{Text: "copy", Description: "Copy to file from 'remote' or 'local' to 'remote' or 'local'"},
 			{Text: "df", Description: "Display statistics for current directory or filesystem containing 'path'"},
 			{Text: "exit", Description: "Quit lsftp"},
 			{Text: "get", Description: "Download file"},
@@ -201,7 +201,7 @@ func (r *RunSftp) Completer(t prompt.Document) []prompt.Suggest {
 			{Text: "rm", Description: "Delete remote file"},
 			{Text: "rmdir", Description: "Remove remote directory"},
 			{Text: "symlink", Description: "Create symbolic link"},
-			// {Text: "tree", Description: "Tree view remote directory"},
+			{Text: "tree", Description: "Tree view remote directory"},
 			{Text: "ltree", Description: "Tree view local directory"},
 			// {Text: "!command", Description: "Execute 'command' in local shell"},
 			{Text: "!", Description: "Escape to local shell"},
@@ -235,8 +235,8 @@ func (r *RunSftp) Completer(t prompt.Document) []prompt.Suggest {
 			case strings.Count(t.CurrentLineBeforeCursor(), " ") >= 2:
 				return r.PathComplete(true, false, false, t)
 			}
-		// TODO: Copyの補完処理を追加する
 		case "copy":
+			return r.CopyPathComplete(t)
 		case "df":
 			// switch options or path
 			switch {
@@ -399,6 +399,72 @@ func (r *RunSftp) Completer(t prompt.Document) []prompt.Suggest {
 
 	// return prompt.FilterHasPrefix(suggest, t.GetWordBeforeCursor(), true)
 	return prompt.FilterHasPrefix(suggest, t.GetWordBeforeCursor(), false)
+}
+
+func (r *RunSftp) CopyPathComplete(t prompt.Document) []prompt.Suggest {
+	left := t.CurrentLineBeforeCursor()
+	arg := getCurrentArgToken(t.CurrentLineBeforeCursor())
+	char := ""
+	if len(left) > 0 {
+		char = string(left[len(left)-1])
+	}
+
+	// Before `:`, only host names are valid and copy uses `@host:path`.
+	if !strings.Contains(arg, ":") {
+		return r.copyHostComplete(arg)
+	}
+
+	// Keep the same behavior as the generic path completer: refresh
+	// candidates only when the user enters a path separator.
+	switch {
+	case contains([]string{":", "/", " "}, char):
+		completeArg := strings.TrimPrefix(arg, "@")
+		r.GetRemoteComplete(false, true, false, completeArg)
+	}
+
+	pathWord := arg[strings.LastIndex(arg, "/")+1:]
+	return prompt.FilterHasPrefix(r.RemoteComplete, pathWord, true)
+}
+
+func getCurrentArgToken(line string) string {
+	line = strings.TrimLeft(line, " ")
+	if line == "" {
+		return ""
+	}
+
+	if idx := strings.LastIndex(line, " "); idx >= 0 {
+		return line[idx+1:]
+	}
+
+	return line
+}
+
+func (r *RunSftp) copyHostComplete(arg string) []prompt.Suggest {
+	fragment := arg
+	if idx := strings.LastIndex(fragment, ","); idx >= 0 {
+		fragment = fragment[idx+1:]
+	}
+	fragment = strings.TrimPrefix(fragment, "@")
+
+	servers := make([]string, 0, len(r.Client))
+	for server := range r.Client {
+		servers = append(servers, server)
+	}
+	sort.Strings(servers)
+
+	suggest := make([]prompt.Suggest, 0, len(servers))
+	for _, server := range servers {
+		if !strings.HasPrefix(server, fragment) {
+			continue
+		}
+
+		suggest = append(suggest, prompt.Suggest{
+			Text:        "@" + server,
+			Description: "remote host.",
+		})
+	}
+
+	return suggest
 }
 
 // PathComplete return path complete data

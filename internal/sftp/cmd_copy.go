@@ -10,16 +10,18 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
+	"time"
 
 	"github.com/blacknon/lssh/internal/common"
+	"github.com/blacknon/lssh/internal/output"
 	"github.com/urfave/cli"
+	"github.com/vbauerster/mpb"
 )
 
 // copy - lsftp build-in command: copy
 //
 //	copy @source_host:/path... @target_host:/path
-//
-// TODO(blacknon): 転送時の進捗状況を表示するプログレスバーの表示はさせること
 func (r *RunSftp) copy(args []string) {
 	app := cli.NewApp()
 
@@ -37,6 +39,9 @@ func (r *RunSftp) copy(args []string) {
 			fmt.Println("copy @source_host:/path... @target_host:/path")
 			return nil
 		}
+
+		r.ProgressWG = new(sync.WaitGroup)
+		r.Progress = mpb.New(mpb.WithWaitGroup(r.ProgressWG))
 
 		argsSize := len(c.Args()) - 1
 		sourceArgs := c.Args()[:argsSize]
@@ -66,14 +71,58 @@ func (r *RunSftp) copy(args []string) {
 			return nil
 		}
 
-		targetIsDir := len(sources) > 1
-		for _, src := range sources {
-			for _, target := range targets {
-				if err := r.copyRemoteToRemote(src, target, targetPath, targetIsDir); err != nil {
-					fmt.Fprintf(os.Stderr, "Error: %s\n", err)
+		newWorkerOutput := func(base *output.Output, server string) *output.Output {
+			if base == nil {
+				return nil
+			}
+
+			o := &output.Output{
+				Templete:      base.Templete,
+				ServerList:    append([]string(nil), base.ServerList...),
+				Conf:          base.Conf,
+				Progress:      r.Progress,
+				ProgressWG:    r.ProgressWG,
+				EnableHeader:  base.EnableHeader,
+				DisableHeader: base.DisableHeader,
+				AutoColor:     base.AutoColor,
+			}
+			o.Create(server)
+
+			return o
+		}
+
+		for _, target := range targets {
+			serverName := ""
+			for name, client := range r.Client {
+				if client.Connect == target.Connect {
+					serverName = name
+					break
 				}
 			}
+			target.Output = newWorkerOutput(target.Output, serverName)
 		}
+
+		targetIsDir := len(sources) > 1
+		exit := make(chan bool, len(targets))
+		for _, target := range targets {
+			targetClient := target
+			go func() {
+				for _, src := range sources {
+					if err := r.copyRemoteToRemote(src, targetClient, targetPath, targetIsDir); err != nil {
+						fmt.Fprintf(os.Stderr, "Error: %s\n", err)
+					}
+				}
+				exit <- true
+			}()
+		}
+
+		for i := 0; i < len(targets); i++ {
+			<-exit
+		}
+		close(exit)
+
+		r.Progress.Wait()
+		time.Sleep(300 * time.Millisecond)
 
 		return nil
 	}
@@ -134,6 +183,16 @@ func (r *RunSftp) copyRemoteToRemote(src remoteCopySource, dst *TargetConnectMap
 		return fmt.Errorf("host %s not found", src.Host)
 	}
 
+	resolvedDstPath, err := resolveRemoteCopyPath(dst, dstPath)
+	if err != nil {
+		return fmt.Errorf("target %s: %w", dstPath, err)
+	}
+
+	targetIsDir, err = r.isRemoteCopyTargetDir(dst, dstPath, resolvedDstPath, targetIsDir)
+	if err != nil {
+		return fmt.Errorf("target %s: %w", resolvedDstPath, err)
+	}
+
 	sourceTarget := &TargetConnectMap{}
 	sourceTarget.SftpConnect = *srcClient
 	sourceTarget.Path = []string{src.Path}
@@ -156,9 +215,9 @@ func (r *RunSftp) copyRemoteToRemote(src remoteCopySource, dst *TargetConnectMap
 			return fmt.Errorf("%s:%s: %w", src.Host, sourcePath, err)
 		}
 
-		targetPath := dstPath
+		targetPath := resolvedDstPath
 		if targetIsDir || info.IsDir() {
-			targetPath = filepath.Join(dstPath, filepath.Base(sourcePath))
+			targetPath = filepath.Join(resolvedDstPath, filepath.Base(sourcePath))
 		}
 
 		if info.IsDir() {
@@ -174,6 +233,45 @@ func (r *RunSftp) copyRemoteToRemote(src remoteCopySource, dst *TargetConnectMap
 	}
 
 	return nil
+}
+
+func resolveRemoteCopyPath(client *TargetConnectMap, path string) (string, error) {
+	switch {
+	case path == "~":
+		return client.Connect.Getwd()
+	case strings.HasPrefix(path, "~/"):
+		home, err := client.Connect.Getwd()
+		if err != nil {
+			return "", err
+		}
+		return filepath.Join(home, path[2:]), nil
+	case !filepath.IsAbs(path):
+		return filepath.Join(client.Pwd, path), nil
+	default:
+		return path, nil
+	}
+}
+
+func (r *RunSftp) isRemoteCopyTargetDir(dst *TargetConnectMap, rawPath, resolvedPath string, defaultIsDir bool) (bool, error) {
+	if defaultIsDir || strings.HasSuffix(rawPath, "/") {
+		return true, nil
+	}
+
+	stat, err := dst.Connect.Stat(resolvedPath)
+	if err == nil {
+		return stat.IsDir(), nil
+	}
+	if os.IsNotExist(err) {
+		return false, nil
+	}
+
+	// Missing path and SSH_FX_NO_SUCH_FILE are both fine here: in that case
+	// the caller is creating a new destination file or directory.
+	if strings.Contains(strings.ToLower(err.Error()), "no such file") {
+		return false, nil
+	}
+
+	return false, err
 }
 
 func (r *RunSftp) copyRemoteDirToRemote(srcClient *SftpConnect, dst *TargetConnectMap, sourcePath, targetPath string) error {
@@ -231,9 +329,14 @@ func (r *RunSftp) copyRemoteFileToRemote(srcClient *SftpConnect, dst *TargetConn
 	}
 	defer dstFile.Close()
 
-	if _, err := io.Copy(dstFile, srcFile); err != nil {
-		return err
+	var size int64
+	if stat, err := srcClient.Connect.Stat(sourcePath); err == nil {
+		size = stat.Size()
 	}
+
+	rd := io.TeeReader(srcFile, dstFile)
+	r.ProgressWG.Add(1)
+	dst.Output.ProgressPrinter(size, rd, sourcePath)
 
 	if r.Permission {
 		if err := dst.Connect.Chmod(targetPath, mode); err != nil {
