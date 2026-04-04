@@ -166,12 +166,9 @@ func parseCallExpr(cmd *syntax.CallExpr) (pLine []string) {
 	printer := syntax.NewPrinter()
 
 	for _, arg := range cmd.Args {
-		for _, part := range arg.Parts {
-			buf := new(bytes.Buffer)
-			printer.Print(buf, part)
-			pLine = append(pLine, buf.String())
-
-		}
+		buf := new(bytes.Buffer)
+		printer.Print(buf, arg)
+		pLine = append(pLine, buf.String())
 	}
 	return
 }

@@ -463,6 +463,13 @@ func (s *shell) executeLocalPipeLine(pline pipeLine, in *io.PipeReader, out *io.
 
 	// join command
 	command := strings.Join(pline.Args, " ")
+	command, cleanup, err := s.expandLocalProcessSubstitutions(command)
+	if err != nil {
+		fmt.Fprintln(os.Stderr, err)
+		ch <- true
+		return err
+	}
+	defer cleanup()
 
 	// execute command
 	var cmd *exec.Cmd

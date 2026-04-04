@@ -49,21 +49,7 @@ import (
 // TODO(blacknon): petをうまいこと利用できるような仕組みを作る(v0.7.0)
 // TODO(blacknon): parallel shellでkeybindや関数が使えるような仕組みを作る(どうやってやるかは不明だが…)(v0.7.0)
 
-// TODO(blacknon): グループ化(`()`で囲んだりする)や三項演算子、プロセス置換(`<()`や`>()`)への対応(v0.7.0)
-// 　　　　　　なお、ローカルプロセスへのプロセス置換については、名前付きパイプを使って複数の指摘方法ができるようにする
-//     出力をvim diffに食わせてdiffを得られるようにしたい => 変数かプロセス置換か、なにかしらの方法でローカルコマンド実行時にssh経由で得られた出力を食わせる方法を実装する？
-//     => 多分、プロセス置換が良いんだと思う(プロセス置換時にssh先でコマンドを実行できるように、かつ実行したデータを個別にファイルとして扱えるようにしたい)
-//        ```bash
-//        +vimdiff <(cat /etc/passwd)
-//        => +vimdiff host1:/etc/passwd host2:/etc/passwd ....
-// 　　　　　　　　　　　　# もしくは
-//        +vimdiff <(cat /etc/passwd)
-//        => +vimdiff <(host1:/etc/passwd + host2:/etc/passwd ....) # 結合する
-//        +vimdiff +<(cat /etc/passwd)
-//        => +vimdiff host1:/etc/passwd host2:/etc/passwd ....　# 別ファイルとして扱う
-//        ```
-//     名前付きPIPEを利用して、ssh先でコマンドを実行した結果をローカルのファイルとして扱えるようにするのがいいのかもしれない？
-// 　　　　　　　ただ、連続してファイルとして扱えるようにするのが適切なコマンドとそうではないコマンドがあるため、表現の仕方を変える方がいいかもしれない
+// TODO(blacknon): グループ化(`()`で囲んだりする)や三項演算子の対応(v0.7.0)
 
 // shell is lsshell struct
 type shell struct {
