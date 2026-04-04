@@ -25,6 +25,15 @@ type outExecEnvrionment struct {
 // example:
 //   - %outexec -n [num] regist command...
 func (s *shell) buildin_outexec(pline pipeLine, in *io.PipeReader, out *io.PipeWriter, ch chan<- bool, kill chan bool) (err error) {
+	notified := false
+	notifyDone := func() {
+		if notified {
+			return
+		}
+		notified = true
+		ch <- true
+	}
+
 	// set help text template
 	pShellHelptext = `{{.Name}} - {{.Usage}}
 
@@ -67,6 +76,7 @@ func (s *shell) buildin_outexec(pline pipeLine, in *io.PipeReader, out *io.PipeW
 		// show help messages
 		if c.Bool("help") {
 			cli.ShowAppHelp(c)
+			notifyDone()
 			return nil
 		}
 
@@ -74,6 +84,7 @@ func (s *shell) buildin_outexec(pline pipeLine, in *io.PipeReader, out *io.PipeW
 		if len(c.Args()) < 1 {
 			fmt.Fprintln(os.Stderr, "Too few arguments.")
 			cli.ShowAppHelp(c)
+			notifyDone()
 			return nil
 		}
 
@@ -115,12 +126,16 @@ func (s *shell) buildin_outexec(pline pipeLine, in *io.PipeReader, out *io.PipeW
 		}
 
 		// run local command
+		notified = true
 		err = s.executeLocalPipeLine(ppline, in, out, ch, kill, childEnvrionment)
 
 		return err
 	}
 
-	app.Run(pline.Args)
+	if runErr := app.Run(pline.Args); runErr != nil {
+		err = runErr
+	}
+	notifyDone()
 
 	return
 }
