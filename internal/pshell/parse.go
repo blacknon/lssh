@@ -38,6 +38,7 @@ func joinPipeLineSlice(pslice []pipeLine) string {
 // local command as a command to be executed on a remote machine as a string.
 func joinPipeLine(pslice []pipeLine) []pipeLine {
 	beforeLocal := false
+	beforeTargeted := false
 	var bpline pipeLine // before pipeLine
 	result := []pipeLine{}
 
@@ -47,30 +48,50 @@ func joinPipeLine(pslice []pipeLine) []pipeLine {
 
 		// check in local or build-in command
 		isLocal := checkLocalBuildInCommand(cmd)
+		isTargetedRemote := isTargetedRemoteCommand(cmd)
 		switch {
-		case isLocal:
+		case isLocal || isTargetedRemote:
 			if len(bpline.Args) > 0 {
 				result = append(result, bpline)
 			}
 			bpline = pline
-			beforeLocal = true
+			beforeLocal = isLocal
+			beforeTargeted = isTargetedRemote
 		case !isLocal && beforeLocal: // RemoteCommand で前がLocalの場合
 			if len(bpline.Args) > 0 {
 				result = append(result, bpline)
 			}
 			bpline = pline
 			beforeLocal = false
-		case !isLocal && !beforeLocal: // RemoteCommandで前がRemoteの場合
+			beforeTargeted = false
+		case !isLocal && beforeTargeted:
+			if len(bpline.Args) > 0 {
+				result = append(result, bpline)
+			}
+			bpline = pline
+			beforeLocal = false
+			beforeTargeted = false
+		case !isLocal && !beforeLocal && !beforeTargeted: // RemoteCommandで前がRemoteの場合
 			// append bpline
 			bpline.Args = append(bpline.Args, bpline.Oprator)
 			bpline.Args = append(bpline.Args, pline.Args...)
 			bpline.Oprator = pline.Oprator
 			beforeLocal = false
+			beforeTargeted = false
 		}
 	}
 
 	result = append(result, bpline)
 	return result
+}
+
+func isTargetedRemoteCommand(cmd string) bool {
+	if !strings.HasPrefix(cmd, "@") {
+		return false
+	}
+
+	idx := strings.Index(cmd, ":")
+	return idx > 1
 }
 
 // parseCmdPipeLine return [][]pipeLine.

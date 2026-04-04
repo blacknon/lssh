@@ -247,38 +247,49 @@ func isTerminal(f *os.File) bool {
 
 // PushInput is Reader([io.PipeReader, os.Stdin]) to []io.WriteCloser.
 func PushInput(isExit <-chan bool, output []io.WriteCloser, input io.Reader) {
-	rd := bufio.NewReader(input)
+	type readResult struct {
+		buf  []byte
+		size int
+		err  error
+	}
+
+	results := make(chan readResult)
+	go func() {
+		rd := bufio.NewReader(input)
+		for {
+			buf := make([]byte, 1024)
+			size, err := rd.Read(buf)
+			results <- readResult{buf: buf, size: size, err: err}
+			if err != nil {
+				return
+			}
+		}
+	}()
 
 loop:
 	for {
-		buf := make([]byte, 1024)
-		size, err := rd.Read(buf)
-
 		select {
 		case <-isExit:
 			break loop
-		case <-time.After(10 * time.Millisecond):
-			if size > 0 {
-				d := buf[:size]
-
-				// write
+		case result := <-results:
+			if result.size > 0 {
+				d := result.buf[:result.size]
 				for _, w := range output {
-					w.Write(d)
+					_, _ = w.Write(d)
 				}
 			}
 
 			if input != os.Stdin {
-				switch err {
+				switch result.err {
 				case io.ErrClosedPipe, io.EOF:
 					break loop
 				}
 			}
-
 		}
 	}
 
 	// close output
 	for _, w := range output {
-		w.Close()
+		_ = w.Close()
 	}
 }

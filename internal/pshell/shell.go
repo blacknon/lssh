@@ -56,6 +56,10 @@ type shell struct {
 	latestCommand string
 	currentConns  []*sConnect
 	CmdComplete   []prompt.Suggest
+	TargetCmdComp []prompt.Suggest
+	TargetSrvComp []prompt.Suggest
+	TargetCmdKey  string
+	TargetSrvKey  string
 	PathComplete  []prompt.Suggest
 	Options       shellOption
 }
@@ -212,7 +216,7 @@ func Shell(r *sshcmd.Run) (err error) {
 		prompt.OptionLivePrefix(s.CreatePrompt),
 		prompt.OptionInputTextColor(prompt.Green),
 		prompt.OptionPrefixTextColor(prompt.Blue),
-		prompt.OptionCompletionWordSeparator("/: \\\""), // test
+		prompt.OptionCompletionWordSeparator(" /\\,:\""),
 		// Keybind
 		// Alt+Backspace
 		prompt.OptionAddASCIICodeBind(prompt.ASCIICodeBind{

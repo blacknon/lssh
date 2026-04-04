@@ -124,8 +124,17 @@ func (s *shell) run(pline pipeLine, in *io.PipeReader, out *io.PipeWriter, ch ch
 	case "%out":
 		num := s.Count - 1
 		if len(pline.Args) > 1 {
+			switch pline.Args[1] {
+			case "--help", "-h":
+				_, _ = io.WriteString(setOutput(out), "%out [num]\n")
+				ch <- true
+				return
+			}
+
 			num, err = strconv.Atoi(pline.Args[1])
 			if err != nil {
+				fmt.Fprintf(os.Stderr, "Error: invalid history number: %s\n", pline.Args[1])
+				ch <- true
 				return
 			}
 		}
@@ -269,12 +278,30 @@ func (s *shell) buildin_out(num int, out *io.PipeWriter, ch chan<- bool) {
 // executePipeLineRemote is exec command in remote machine.
 // Didn't know how to send data from Writer to Channel, so switch the function if * io.PipeWriter is Nil.
 func (s *shell) executeRemotePipeLine(pline pipeLine, in *io.PipeReader, out *io.PipeWriter, ch chan<- bool, kill chan bool) {
+	connects, args, err := s.resolveTargetedConnects(pline.Args)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "%s\n", err)
+		if out != nil {
+			out.CloseWithError(io.ErrClosedPipe)
+		}
+		ch <- true
+		return
+	}
+
 	// join command
-	command := strings.Join(pline.Args, " ")
+	command := strings.Join(args, " ")
 
 	// set stdin/stdout
 	stdin := setInput(in)
 	stdout := setOutput(out)
+	if in == nil && out != nil {
+		stdin = io.NopCloser(strings.NewReader(""))
+	}
+	defer func() {
+		if in != nil {
+			_ = in.Close()
+		}
+	}()
 
 	// create channels
 	exit := make(chan bool)
@@ -292,7 +319,7 @@ func (s *shell) executeRemotePipeLine(pline pipeLine, in *io.PipeReader, out *io
 	runCount := 0
 
 	m := new(sync.Mutex)
-	for _, c := range s.currentConns {
+	for _, c := range connects {
 		if c == nil || c.Connect == nil {
 			continue
 		}
@@ -313,60 +340,44 @@ func (s *shell) executeRemotePipeLine(pline pipeLine, in *io.PipeReader, out *io
 			ow = io.MultiWriter(w, hw)
 		}
 
-		if c.Connect.IsControlClient() {
-			// ControlMaster path: use Connect.Stdin/Stdout and Command()
-			stdinR, stdinW := io.Pipe()
-			c.Connect.Stdin = stdinR
-			c.Connect.Stdout = ow
-			c.Connect.Stderr = os.Stderr
-			writers = append(writers, stdinW)
-			controlWriters = append(controlWriters, stdinW)
-			runCount++
+		stdinR, stdinW := io.Pipe()
+		writers = append(writers, stdinW)
 
-			go func(con *sConnect, r *io.PipeReader) {
-				con.Connect.Command(command)
-				r.CloseWithError(io.ErrClosedPipe)
-				exit <- true
-				if stdout == os.Stdout {
-					exitOutput <- true
-				}
-			}(c, stdinR)
+		clone := *c.Connect
+		clone.Stdin = stdinR
+		clone.Stdout = ow
+		clone.Stderr = os.Stderr
+		clone.TTY = stdin == os.Stdin && stdout == os.Stdout
+
+		if clone.IsControlClient() {
+			controlWriters = append(controlWriters, stdinW)
 		} else {
-			// Direct session path
 			if c.Connect.Client == nil {
+				stdinR.CloseWithError(io.ErrClosedPipe)
+				stdinW.CloseWithError(io.ErrClosedPipe)
 				continue
 			}
 
 			session, err := safeCreateSession(c)
 			if err != nil {
+				stdinR.CloseWithError(io.ErrClosedPipe)
+				stdinW.CloseWithError(io.ErrClosedPipe)
 				continue
 			}
 
-			// Request tty (Only when input is os.Stdin and output is os.Stdout).
-			if stdin == os.Stdin && stdout == os.Stdout {
-				sshlib.RequestTty(session)
-			}
-
-			session.Stdout = ow
-
-			// get and append stdin writer
-			w, err := session.StdinPipe()
-			if err == nil && w != nil {
-				writers = append(writers, w)
-			}
-
+			clone.Session = session
 			sessions = append(sessions, session)
-			runCount++
-
-			go func(sess *ssh.Session) {
-				sess.Run(command)
-				sess.Close()
-				exit <- true
-				if stdout == os.Stdout {
-					exitOutput <- true
-				}
-			}(session)
 		}
+
+		runCount++
+		go func(conn sshlib.Connect, r *io.PipeReader) {
+			conn.Command(command)
+			r.CloseWithError(io.ErrClosedPipe)
+			exit <- true
+			if stdout == os.Stdout {
+				exitOutput <- true
+			}
+		}(clone, stdinR)
 	}
 
 	// multi input-writer
@@ -418,6 +429,14 @@ func (s *shell) executeLocalPipeLine(pline pipeLine, in *io.PipeReader, out *io.
 	// set stdin/stdout
 	stdin := setInput(in)
 	stdout := setOutput(out)
+	if in == nil && out != nil {
+		stdin = io.NopCloser(strings.NewReader(""))
+	}
+	defer func() {
+		if in != nil {
+			_ = in.Close()
+		}
+	}()
 
 	// set HistoryResult
 	var stdoutw io.Writer
