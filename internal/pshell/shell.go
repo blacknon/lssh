@@ -22,13 +22,35 @@ import (
 	"github.com/c-bata/go-prompt"
 )
 
+// TODO:
+// 　　パイプラインとして、以下のようにつなげる仕組みにする。
+// 　　例） +commandを使って、ローカルコマンドを使う場合(@server, @server2, @server3, @server4につながっている場合)
+//   remoteコマンド | +localコマンド | remoteコマンド
+//
+//   server1: remoteコマンド ┐                 ┌ server1: remoteコマンド
+//   server2: remoteコマンド ├─ +localコマンド ─ server2:remoteコマンド
+//   server3: remoteコマンド | 			       ├ server3: remoteコマンド
+//   server4: remoteコマンド ┘ 			     └ server4: remoteコマンド
+//
+// 　　例） ++commandを使って、ローカルコマンドを使う場合(@server, @server2, @server3, @server4につながっている場合)
+//   remoteコマンド | ++localコマンド | remoteコマンド
+//   server1: remoteコマンド ─ localコマンド ─ server1: remoteコマンド
+//   server2: remoteコマンド ─ localコマンド ─ server2:remoteコマンド
+//   server3: remoteコマンド ─ localコマンド ─ server3: remoteコマンド
+//   server4: remoteコマンド ─ localコマンド ─ server4: remoteコマンド
+//
+//   +のときはローカルコマンドは1プロセス、++のときはローカルコマンドは前のプロセスの数だけ実行し、もしパイプで後ろにつながっているコマンドがリモートコマンドで、かつプロセス数が同じであれば、1つのパイプとして扱うようにする。
+//
+// 　　このとき、上記どちらのパターンでもControl Persistentな接続の有効・無効を問わず同じように動く必要がある
+
 // TODO(blacknon): 接続が切れた場合の再接続処理、および再接続ができなかった場合のsliceからの削除対応の追加(v0.7.0)
 // TODO(blacknon): pShellのログ(実行コマンド及び出力結果)をログとしてファイルに記録する機能の追加(v0.7.0) => 任意のファイルを指定するように
-// TODO(blacknon): グループ化(`()`で囲んだりする)や三項演算子、プロセス置換(`<()`や`>()`)への対応(v0.7.0)
+
 // TODO(blacknon): petをうまいこと利用できるような仕組みを作る(v0.7.0)
 // TODO(blacknon): parallel shellでkeybindや関数が使えるような仕組みを作る(どうやってやるかは不明だが…)(v0.7.0)
 
-// TODO(blacknon):
+// TODO(blacknon): グループ化(`()`で囲んだりする)や三項演算子、プロセス置換(`<()`や`>()`)への対応(v0.7.0)
+// 　　　　　　なお、ローカルプロセスへのプロセス置換については、名前付きパイプを使って複数の指摘方法ができるようにする
 //     出力をvim diffに食わせてdiffを得られるようにしたい => 変数かプロセス置換か、なにかしらの方法でローカルコマンド実行時にssh経由で得られた出力を食わせる方法を実装する？
 //     => 多分、プロセス置換が良いんだと思う(プロセス置換時にssh先でコマンドを実行できるように、かつ実行したデータを個別にファイルとして扱えるようにしたい)
 //        ```bash
@@ -37,7 +59,7 @@ import (
 // 　　　　　　　　　　　　# もしくは
 //        +vimdiff <(cat /etc/passwd)
 //        => +vimdiff <(host1:/etc/passwd + host2:/etc/passwd ....) # 結合する
-//        +vimdiff <<(cat /etc/passwd)
+//        +vimdiff +<(cat /etc/passwd)
 //        => +vimdiff host1:/etc/passwd host2:/etc/passwd ....　# 別ファイルとして扱う
 //        ```
 //     名前付きPIPEを利用して、ssh先でコマンドを実行した結果をローカルのファイルとして扱えるようにするのがいいのかもしれない？
@@ -178,7 +200,7 @@ func Shell(r *sshcmd.Run) (err error) {
 		HistoryFile:  config.HistoryFile,
 		currentConns: cons,
 		Options: shellOption{
-			LocalCommandNotRecordResult: true, // debug
+			LocalCommandNotRecordResult: false,
 		},
 	}
 
