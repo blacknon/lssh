@@ -22,7 +22,6 @@ import (
 	"github.com/c-bata/go-prompt"
 )
 
-// TODO(blacknon): local commandの実行結果を、
 // TODO(blacknon): 接続が切れた場合の再接続処理、および再接続ができなかった場合のsliceからの削除対応の追加(v0.7.0)
 // TODO(blacknon): pShellのログ(実行コマンド及び出力結果)をログとしてファイルに記録する機能の追加(v0.7.0) => 任意のファイルを指定するように
 // TODO(blacknon): グループ化(`()`で囲んだりする)や三項演算子への対応(v0.7.0)
@@ -37,8 +36,14 @@ import (
 //        ```bash
 //        +vimdiff <(cat /etc/passwd)
 //        => +vimdiff host1:/etc/passwd host2:/etc/passwd ....
+// 　　　　　　　　　　　　# もしくは
+//        +vimdiff <(cat /etc/passwd)
+//        => +vimdiff <(host1:/etc/passwd + host2:/etc/passwd ....) # 結合する
+//        +vimdiff <<(cat /etc/passwd)
+//        => +vimdiff host1:/etc/passwd host2:/etc/passwd ....　# 別ファイルとして扱う
 //        ```
 //     名前付きPIPEを利用して、ssh先でコマンドを実行した結果をローカルのファイルとして扱えるようにするのがいいのかもしれない？
+// 　　　　　　　ただ、連続してファイルとして扱えるようにするのが適切なコマンドとそうではないコマンドがあるため、表現の仕方を変える方がいいかもしれない
 
 // shell is lsshell struct
 type shell struct {
