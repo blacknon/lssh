@@ -143,7 +143,7 @@ func (r *RunSftp) get(args []string) {
 		}
 
 		isMultiServer := len(targetmap) > 1
-		destinationIsDir := isMultiServer
+		destinationIsDir := shouldTreatLocalGetDestinationAsDir(destination, isMultiServer)
 		if destinationIsDir {
 			if stat, statErr := os.Stat(destination); statErr == nil && !stat.IsDir() {
 				fmt.Fprintf(os.Stderr, "Error: destination must be directory when getting from multiple servers: %s\n", destination)
@@ -337,13 +337,9 @@ func (r *RunSftp) enqueuePullTasks(ctx context.Context, client *TargetConnectMap
 
 			p := walker.Path()
 			stat := walker.Stat()
-			localpath := targetpath
-
-			if taskIsDir {
-				relpath, _ := filepath.Rel(base, p)
-				relpath = strings.Replace(relpath, "../", "", 1)
-				localpath = filepath.Join(targetpath, relpath)
-			}
+			relpath, _ := filepath.Rel(base, p)
+			relpath = strings.Replace(relpath, "../", "", 1)
+			localpath := resolveLocalGetDestinationPath(targetpath, relpath, taskIsDir)
 
 			if stat.IsDir() {
 				err := os.MkdirAll(localpath, 0755)

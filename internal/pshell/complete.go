@@ -163,6 +163,10 @@ func (s *shell) Completer(t prompt.Document) []prompt.Suggest {
 				{Text: "%out", Description: "%out [num], show history result."},
 				{Text: "%outlist", Description: "%outlist, show history result list."},
 				{Text: "%outexec", Description: "%outexec <-n num> command..., exec local command with output result. result is in env variable."},
+				{Text: "%get", Description: "%get remote local, copy files from remote hosts to localhost."},
+				{Text: "%put", Description: "%put local... remote, copy local files to remote hosts."},
+				{Text: "%save", Description: "reserved built-in command."},
+				{Text: "%set", Description: "reserved built-in command."},
 				// outの出力でdiffをするためのローカルコマンド。すべての出力と比較するのはあまりに辛いと思われるため、最初の出力との比較、といった方式で対応するのが良いか？？
 				// {Text: "%diff", Description: "%diff [num], show history result list."},
 			}
@@ -179,54 +183,7 @@ func (s *shell) Completer(t prompt.Document) []prompt.Suggest {
 			return prompt.FilterHasPrefix(c, wordBeforeCursor, false)
 
 		case checkBuildInCommand(c): // if build-in command.
-			var suggest []prompt.Suggest
-			switch c {
-			// %out
-			case "%out":
-				for i := 0; i < len(s.History); i++ {
-					var cmd string
-					for _, h := range s.History[i] {
-						cmd = h.Command
-					}
-
-					s := prompt.Suggest{
-						Text:        strconv.Itoa(i),
-						Description: cmd,
-					}
-					suggest = append(suggest, s)
-				}
-
-			// %outexec
-			case "%outexec":
-				// switch options or path
-				switch {
-				case contains([]string{"-"}, char):
-					suggest = []prompt.Suggest{
-						{Text: "--help", Description: "help message"},
-						{Text: "-h", Description: "help message"},
-						{Text: "-n", Description: "set history number"},
-					}
-
-				case "-n " == t.GetWordBeforeCursorWithSpace():
-					for i := 0; i < len(s.History); i++ {
-						var cmd string
-						for _, h := range s.History[i] {
-							cmd = h.Command
-						}
-
-						s := prompt.Suggest{
-							Text:        strconv.Itoa(i),
-							Description: cmd,
-						}
-						suggest = append(suggest, s)
-					}
-
-				default:
-					suggest = s.GetLocalhostCommandComplete()
-				}
-
-			}
-
+			suggest := s.getBuildInCommandSuggest(c, t, targetConns, num, char)
 			return prompt.FilterHasPrefix(suggest, t.GetWordBeforeCursor(), false)
 
 		default:
@@ -249,6 +206,86 @@ func (s *shell) Completer(t prompt.Document) []prompt.Suggest {
 	}
 
 	return prompt.FilterHasPrefix(nil, wordBeforeCursor, false)
+}
+
+func (s *shell) getBuildInCommandSuggest(command string, t prompt.Document, targetConns []*sConnect, num int, char string) []prompt.Suggest {
+	switch command {
+	case "%out":
+		return s.getHistorySuggest()
+
+	case "%outexec":
+		switch {
+		case contains([]string{"-"}, char):
+			return []prompt.Suggest{
+				{Text: "--help", Description: "help message"},
+				{Text: "-h", Description: "help message"},
+				{Text: "-n", Description: "set history number"},
+			}
+		case "-n " == t.GetWordBeforeCursorWithSpace():
+			return s.getHistorySuggest()
+		default:
+			return s.GetLocalhostCommandComplete()
+		}
+
+	case "%get":
+		switch {
+		case (num == 1 && char == " ") || (num == 2 && char != " "):
+			return s.GetPathCompleteForConnects(targetConns, true, t.GetWordBeforeCursor())
+		case (num == 2 && char == " ") || num >= 3:
+			return s.GetPathComplete(false, t.GetWordBeforeCursor())
+		}
+
+	case "%put":
+		switch {
+		case num == 1 || (num == 2 && char != " "):
+			return s.GetPathComplete(false, t.GetWordBeforeCursor())
+		case num >= 2 && char == " ":
+			return appendPathSuggests(
+				s.GetPathComplete(false, t.GetWordBeforeCursor()),
+				s.GetPathCompleteForConnects(targetConns, true, t.GetWordBeforeCursor()),
+			)
+		case num >= 3:
+			return s.GetPathComplete(false, t.GetWordBeforeCursor())
+		}
+	}
+
+	return nil
+}
+
+func (s *shell) getHistorySuggest() []prompt.Suggest {
+	suggest := make([]prompt.Suggest, 0, len(s.History))
+	for i := 0; i < len(s.History); i++ {
+		var cmd string
+		for _, h := range s.History[i] {
+			cmd = h.Command
+		}
+
+		suggest = append(suggest, prompt.Suggest{
+			Text:        strconv.Itoa(i),
+			Description: cmd,
+		})
+	}
+
+	return suggest
+}
+
+func appendPathSuggests(groups ...[]prompt.Suggest) []prompt.Suggest {
+	result := make([]prompt.Suggest, 0)
+	seen := map[string]struct{}{}
+
+	for _, group := range groups {
+		for _, suggest := range group {
+			key := suggest.Text + "\x00" + suggest.Description
+			if _, ok := seen[key]; ok {
+				continue
+			}
+			seen[key] = struct{}{}
+			result = append(result, suggest)
+		}
+	}
+
+	sort.SliceStable(result, func(i, j int) bool { return result[i].Text < result[j].Text })
+	return result
 }
 
 // GetLocalhostCommandComplete

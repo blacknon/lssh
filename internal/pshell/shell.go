@@ -55,6 +55,7 @@ import (
 type shell struct {
 	Config        conf.ShellConfig
 	Signal        chan os.Signal
+	Run           *sshcmd.Run
 	Count         int
 	ServerList    []string
 	Connects      []*sConnect
@@ -179,6 +180,7 @@ func Shell(r *sshcmd.Run) (err error) {
 	s := &shell{
 		Config:       config,
 		Signal:       make(chan os.Signal),
+		Run:          r,
 		ServerList:   r.ServerList,
 		Connects:     cons,
 		PROMPT:       config.Prompt,

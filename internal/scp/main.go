@@ -205,25 +205,20 @@ func (cp *Scp) push() {
 }
 
 func (cp *Scp) pushPath(ftp *sftp.Client, ow io.Writer, output *output.Output, base, p string) (err error) {
-	var rpath string
-
-	// Set remote path
 	relpath, _ := filepath.Rel(base, p)
-	if common.IsDirPath(cp.To.Path[0]) || len(cp.From.Path) > 1 {
-		rpath = filepath.Join(cp.To.Path[0], relpath)
-	} else if len(cp.From.Path) == 1 {
-		rpath = cp.To.Path[0]
-		dInfo, _ := os.Lstat(cp.From.Path[0])
-		if dInfo.IsDir() {
-			ftp.Mkdir(cp.To.Path[0])
-			rpath = filepath.Join(cp.To.Path[0], relpath)
-		}
-	} else {
-		rpath = filepath.Clean(cp.To.Path[0])
-	}
-
-	// get local file info
 	fInfo, _ := os.Lstat(p)
+	_, statErr := ftp.Lstat(cp.To.Path[0])
+	targetExistsAsDir := statErr == nil
+	if targetExistsAsDir {
+		targetInfo, err := ftp.Lstat(cp.To.Path[0])
+		targetExistsAsDir = err == nil && targetInfo.IsDir()
+	}
+	rpath := resolveRemoteDestinationPath(
+		cp.To.Path[0],
+		relpath,
+		shouldTreatRemoteDestinationAsDir(cp.To.Path[0], targetExistsAsDir, fInfo.IsDir(), len(cp.From.Path) > 1),
+	)
+
 	if fInfo.IsDir() { // directory
 		ftp.Mkdir(rpath)
 	} else { //file
@@ -480,19 +475,15 @@ func (cp *Scp) pullPath(client *ScpConnect) {
 		size       int64
 	}
 
-	// basedir
-	baseDir := filepath.Dir(cp.To.Path[0])
-	fileName := filepath.Base(cp.To.Path[0])
-
-	// if multi pull, servername add baseDir
+	destinationRoot := cp.To.Path[0]
+	destinationIsDir := shouldTreatLocalDestinationAsDir(destinationRoot, len(cp.From.Server) > 1 || len(cp.From.Path) > 1)
 	if len(cp.From.Server) > 1 {
-		baseDir = filepath.Join(baseDir, client.Server)
-		os.MkdirAll(baseDir, 0755)
+		destinationRoot = filepath.Join(destinationRoot, client.Server)
+		if err := os.MkdirAll(destinationRoot, 0755); err != nil {
+			fmt.Fprintf(ow, "Error: %s\n", err)
+			return
+		}
 	}
-
-	// get abs path
-	baseDir, _ = filepath.Abs(baseDir)
-	baseDir = filepath.ToSlash(baseDir)
 
 	parallelNum := 1
 	if cp.ParallelNum > 0 {
@@ -573,9 +564,14 @@ func (cp *Scp) pullPath(client *ScpConnect) {
 		}
 
 		for _, gp := range globpath {
+			sourceInfo, err := ftp.Stat(gp)
+			if err != nil {
+				fmt.Fprintf(ow, "Error: %s\n", err)
+				continue
+			}
+
 			walker := ftp.Walk(gp)
 			for walker.Step() {
-				// basedir
 				remoteBase := filepath.Dir(gp)
 				remoteBase = filepath.ToSlash(remoteBase)
 
@@ -586,12 +582,8 @@ func (cp *Scp) pullPath(client *ScpConnect) {
 				}
 
 				p := walker.Path()
-				// rp, _ := filepath.Rel(remoteBase, fileName)
 				rp, _ := filepath.Rel(remoteBase, p)
-				if fileName == "" {
-					rp, _ = filepath.Rel(remoteBase, fileName)
-				}
-				lpath := filepath.Join(baseDir, rp)
+				lpath := resolveLocalDestinationPath(destinationRoot, rp, destinationIsDir || len(globpath) > 1 || sourceInfo.IsDir())
 
 				stat := walker.Stat()
 				if stat.IsDir() { // create dir

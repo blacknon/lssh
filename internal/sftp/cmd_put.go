@@ -10,6 +10,7 @@ import (
 	"io"
 	"os"
 	"os/signal"
+	pathpkg "path"
 	"path/filepath"
 	"sort"
 	"strings"
@@ -292,28 +293,15 @@ func (r *RunSftp) pushData(client *TargetConnectMap, isMultiple bool, base, path
 		}
 
 		for _, t := range targetList {
-			rpath := ""
-
-			// set rpath
-			lstat, err := client.Connect.Lstat(t)
-			if err == nil {
-				if lstat.IsDir() {
-					rpath = filepath.Join(t, relpath)
-				}
-			}
-
-			if len(rpath) == 0 {
-				dInfo, _ := os.Lstat(path)
-				if dInfo.IsDir() || isMultiple {
-					rpath = filepath.Join(t, relpath)
-					client.Connect.Mkdir(t)
-				} else {
-					rpath = filepath.Clean(t)
-				}
-			}
-
 			// get local file info
 			fInfo, _ := os.Lstat(path)
+			lstat, err := client.Connect.Lstat(t)
+			targetExistsAsDir := err == nil && lstat.IsDir()
+			rpath := resolveRemotePutDestinationPath(
+				t,
+				relpath,
+				shouldTreatRemotePutDestinationAsDir(t, targetExistsAsDir, fInfo.IsDir(), isMultiple),
+			)
 			if fInfo.IsDir() { // directory
 				client.Connect.Mkdir(rpath)
 			} else { //file
@@ -348,7 +336,7 @@ func (r *RunSftp) pushData(client *TargetConnectMap, isMultiple bool, base, path
 // pushfile put file to path.
 func (r *RunSftp) pushFile(client *TargetConnectMap, localfile io.Reader, path string, size int64) (err error) {
 	// mkdir all
-	dir := filepath.Dir(path)
+	dir := pathpkg.Dir(path)
 	err = client.Connect.MkdirAll(dir)
 	if err != nil {
 		return

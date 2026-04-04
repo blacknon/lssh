@@ -54,14 +54,14 @@ VERSION:
     {{.Version}}
     {{end}}
 USAGE:
-    # connect parallel ssh shell
+    # connect parallel ssh monitoring command
 	lsmon
 `
 
 	// Create app
 	app = cli.NewApp()
 	app.Name = "lsmon"
-	app.Usage = "TUI list select and parallel ssh client shell."
+	app.Usage = "TUI list select and parallel ssh monitoring command."
 	app.Copyright = "blacknon(blacknon@orebibou.com)"
 	app.Version = version.AppVersion("lsmon")
 

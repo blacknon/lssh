@@ -10,6 +10,7 @@ import (
 	"io"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"reflect"
 	"regexp"
 	"runtime"
@@ -21,6 +22,8 @@ import (
 
 	"github.com/blacknon/go-sshlib"
 	"github.com/blacknon/lssh/internal/output"
+	pkgsftp "github.com/pkg/sftp"
+	"github.com/vbauerster/mpb"
 	"golang.org/x/crypto/ssh"
 )
 
@@ -33,24 +36,15 @@ var (
 	`
 )
 
-// TODO(blacknon): 以下のBuild-in Commandを追加する
+// TODO(blacknon): 以下のBuild-in Commandを追加する (v0.8.0)
 //     - %cd <PATH>         ... リモートのディレクトリを変更する(事前のチェックにsftpを使用か？)
-// TODO(blacknon): 以下のBuild-in Commandを追加する
+// TODO(blacknon): 以下のBuild-in Commandを追加する (v0.8.0)
 //     - %lcd <PATH>        ... ローカルのディレクトリを変更する
 // TODO(blacknon): 以下のBuild-in Commandを追加する
-//     - %save <num> <PATH> ... 指定したnumの履歴をPATHに記録する (v0.7.0)
+//     - %save <num> <PATH> ... 指定したnumの履歴をPATHに記録する (v0.8.0)
 // TODO(blacknon): 以下のBuild-in Commandを追加する
-//     - %set <args..>      ... 指定されたオプションを設定する(Optionsにて管理) (v0.7.0)
-// TODO(blacknon): 以下のBuild-in Commandを追加する
-//     - %diff <num>        ... 指定されたnumの履歴をdiffする(multi diff)。できるかどうか要検討。 (v0.7.0以降)
-// TODO(blacknon): 以下のBuild-in Commandを追加する
-//                              できれば、vimdiffのように横に差分表示させるようにしたいものだけど…？
-// TODO(blacknon): 以下のBuild-in Commandを追加する
-//     - %get remote local  ... sftpプロトコルを利用して、ファイルやディレクトリを取得する (v0.7.0)
-// TODO(blacknon): 以下のBuild-in Commandを追加する
-//     - %put local remote  ... sftpプロトコルを利用して、ファイルやディレクトリを配置する (v0.7.0)
-
-// TODO(blacknon): 任意のBuild-in Commandを追加できるようにする
+//     - %set <args..>      ... 指定されたオプションを設定する(Optionsにて管理) (v0.80)
+// TODO(blacknon): 任意のBuild-in Commandを追加できるようにする (v0.8.0)
 //    - configにて、環境変数に過去のoutの出力をつけて任意のスクリプトを実行できるようにしてやることで、任意のスクリプト実行が可能に出来たら良くないか？というネタ
 //    - もしくは、Goのモジュールとして機能追加できるようにするって方法もありかも？？
 
@@ -64,6 +58,7 @@ func checkBuildInCommand(cmd string) (isBuildInCmd bool) {
 	case
 		"%history",
 		"%out", "%outlist", "%outexec",
+		"%get", "%put",
 		"%save",
 		"%set": // parsent build-in command.
 		isBuildInCmd = true
@@ -153,6 +148,16 @@ func (s *shell) run(pline pipeLine, in *io.PipeReader, out *io.PipeWriter, ch ch
 	case "%outexec":
 		s.buildin_outexec(pline, in, out, ch, kill)
 		return
+
+	// %get remote local
+	case "%get":
+		s.buildin_get(pline.Args, out, ch)
+		return
+
+	// %put local remote
+	case "%put":
+		s.buildin_put(pline.Args, out, ch)
+		return
 	}
 
 	// check and exec local command
@@ -179,6 +184,438 @@ func (s *shell) run(pline pipeLine, in *io.PipeReader, out *io.PipeWriter, ch ch
 // TODO(blacknon): Optionsの値などについて、あとから変更できるようにする。
 // func (s *shell) buildin_save(args []string, out *io.PipeWriter, ch chan<- bool) {
 // }
+
+func expandLocalPath(path string) []string {
+	if path == "" {
+		return nil
+	}
+
+	if path == "~" || strings.HasPrefix(path, "~/") {
+		if home, err := os.UserHomeDir(); err == nil {
+			if path == "~" {
+				path = home
+			} else {
+				path = filepath.Join(home, path[2:])
+			}
+		}
+	}
+
+	paths, err := filepath.Glob(path)
+	if err != nil || len(paths) == 0 {
+		return []string{path}
+	}
+
+	return paths
+}
+
+func expandRemotePath(client *pkgsftp.Client, path string) ([]string, error) {
+	if path == "" {
+		return nil, nil
+	}
+
+	dir, err := client.Getwd()
+	if err != nil {
+		return nil, err
+	}
+
+	switch {
+	case path == "~":
+		path = dir
+	case strings.HasPrefix(path, "~/"):
+		path = filepath.Join(dir, path[2:])
+	case !filepath.IsAbs(path):
+		path = filepath.Join(dir, path)
+	}
+
+	paths, err := client.Glob(path)
+	if err != nil {
+		return nil, err
+	}
+	if len(paths) == 0 {
+		paths = append(paths, path)
+	}
+
+	return paths, nil
+}
+
+func (s *shell) openSFTPClient(conn *sConnect) (*pkgsftp.Client, func(), error) {
+	if conn == nil || conn.Connect == nil {
+		return nil, func() {}, fmt.Errorf("sftp unavailable")
+	}
+
+	if conn.Connect.Client != nil {
+		client, err := pkgsftp.NewClient(conn.Connect.Client)
+		if err != nil {
+			return nil, func() {}, err
+		}
+
+		return client, func() {
+			client.Close()
+		}, nil
+	}
+
+	if s.Run == nil {
+		return nil, func() {}, fmt.Errorf("sftp unavailable")
+	}
+
+	direct, err := s.Run.CreateSshConnectDirect(conn.Name)
+	if err != nil {
+		return nil, func() {}, err
+	}
+	if direct == nil || direct.Client == nil {
+		if direct != nil {
+			_ = direct.Close()
+		}
+		return nil, func() {}, fmt.Errorf("ssh client is not available for sftp")
+	}
+
+	client, err := pkgsftp.NewClient(direct.Client)
+	if err != nil {
+		_ = direct.Close()
+		return nil, func() {}, err
+	}
+
+	return client, func() {
+		client.Close()
+		_ = direct.Close()
+	}, nil
+}
+
+func copyWithProgress(dst io.Writer, src io.Reader, size int64, progressOutput *output.Output, path string) error {
+	if progressOutput == nil || progressOutput.Progress == nil || progressOutput.ProgressWG == nil {
+		_, err := io.Copy(dst, src)
+		return err
+	}
+
+	pr, pw := io.Pipe()
+	progressOutput.ProgressWG.Add(1)
+	go progressOutput.ProgressPrinter(size, pr, path)
+
+	_, err := io.Copy(io.MultiWriter(dst, pw), src)
+	closeErr := pw.Close()
+	if err != nil {
+		return err
+	}
+
+	return closeErr
+}
+
+func copyRemoteFile(client *pkgsftp.Client, remotePath, localPath string, progressOutput *output.Output) error {
+	if err := os.MkdirAll(filepath.Dir(localPath), 0755); err != nil {
+		return err
+	}
+
+	src, err := client.Open(remotePath)
+	if err != nil {
+		return err
+	}
+	defer src.Close()
+
+	dst, err := os.OpenFile(localPath, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0644)
+	if err != nil {
+		return err
+	}
+	defer dst.Close()
+
+	info, err := client.Stat(remotePath)
+	if err != nil {
+		return err
+	}
+
+	return copyWithProgress(dst, src, info.Size(), progressOutput, remotePath)
+}
+
+func copyRemotePath(client *pkgsftp.Client, remotePath, localBase string, forceDir bool, progressOutput *output.Output) error {
+	info, err := client.Stat(remotePath)
+	if err != nil {
+		return err
+	}
+
+	if !info.IsDir() && !forceDir {
+		return copyRemoteFile(client, remotePath, localBase, progressOutput)
+	}
+
+	base := filepath.Dir(remotePath)
+	walker := client.Walk(remotePath)
+	for walker.Step() {
+		if err := walker.Err(); err != nil {
+			return err
+		}
+
+		current := walker.Path()
+		stat := walker.Stat()
+		rel, err := filepath.Rel(base, current)
+		if err != nil {
+			return err
+		}
+
+		target := filepath.Join(localBase, rel)
+		if stat.IsDir() {
+			if err := os.MkdirAll(target, 0755); err != nil {
+				return err
+			}
+			continue
+		}
+
+		if err := copyRemoteFile(client, current, target, progressOutput); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func resolveRemotePutPath(client *pkgsftp.Client, path string) ([]string, error) {
+	if path == "" {
+		return nil, nil
+	}
+
+	if strings.ContainsAny(path, "*?[") {
+		return expandRemotePath(client, path)
+	}
+
+	dir, err := client.Getwd()
+	if err != nil {
+		return nil, err
+	}
+
+	switch {
+	case path == "~":
+		path = dir
+	case strings.HasPrefix(path, "~/"):
+		path = filepath.Join(dir, path[2:])
+	case !filepath.IsAbs(path):
+		path = filepath.Join(dir, path)
+	}
+
+	return []string{path}, nil
+}
+
+func copyLocalFile(client *pkgsftp.Client, localPath, remotePath string, progressOutput *output.Output) error {
+	if err := client.MkdirAll(filepath.Dir(remotePath)); err != nil {
+		return err
+	}
+
+	src, err := os.Open(localPath)
+	if err != nil {
+		return err
+	}
+	defer src.Close()
+
+	dst, err := client.OpenFile(remotePath, os.O_WRONLY|os.O_CREATE|os.O_TRUNC)
+	if err != nil {
+		return err
+	}
+	defer dst.Close()
+
+	info, err := os.Stat(localPath)
+	if err != nil {
+		return err
+	}
+
+	return copyWithProgress(dst, src, info.Size(), progressOutput, localPath)
+}
+
+func copyLocalPath(client *pkgsftp.Client, localPath, remoteBase string, forceDir bool, progressOutput *output.Output) error {
+	info, err := os.Lstat(localPath)
+	if err != nil {
+		return err
+	}
+
+	if !info.IsDir() && !forceDir {
+		return copyLocalFile(client, localPath, remoteBase, progressOutput)
+	}
+
+	base := filepath.Dir(localPath)
+	return filepath.Walk(localPath, func(current string, info os.FileInfo, walkErr error) error {
+		if walkErr != nil {
+			return walkErr
+		}
+
+		rel, err := filepath.Rel(base, current)
+		if err != nil {
+			return err
+		}
+
+		target := filepath.Join(remoteBase, rel)
+		if info.IsDir() {
+			return client.MkdirAll(target)
+		}
+
+		return copyLocalFile(client, current, target, progressOutput)
+	})
+}
+
+func (s *shell) buildin_get(args []string, out *io.PipeWriter, ch chan<- bool) {
+	stdout := setOutput(out)
+	progressWG := new(sync.WaitGroup)
+	progress := mpb.New(mpb.WithWaitGroup(progressWG))
+	defer func() {
+		progress.Wait()
+		switch stdout.(type) {
+		case *io.PipeWriter:
+			out.CloseWithError(io.ErrClosedPipe)
+		}
+		ch <- true
+	}()
+
+	if len(args) != 3 {
+		_, _ = io.WriteString(stdout, "%get remote local\n")
+		return
+	}
+
+	remotePath := args[1]
+	destinationList := expandLocalPath(args[2])
+	if len(destinationList) != 1 {
+		fmt.Fprintf(stdout, "Error: invalid local path: %s\n", args[2])
+		return
+	}
+	destination := destinationList[0]
+
+	isMultiServer := len(s.Connects) > 1
+	if isMultiServer {
+		if stat, err := os.Stat(destination); err == nil && !stat.IsDir() {
+			fmt.Fprintf(stdout, "Error: destination must be directory when getting from multiple servers: %s\n", destination)
+			return
+		}
+		if err := os.MkdirAll(destination, 0755); err != nil {
+			fmt.Fprintf(stdout, "Error: %s\n", err)
+			return
+		}
+	}
+
+	for _, conn := range s.Connects {
+		conn.Output.Progress = progress
+		conn.Output.ProgressWG = progressWG
+		client, closeClient, err := s.openSFTPClient(conn)
+		if err != nil {
+			fmt.Fprintf(stdout, "Error: %s: %s\n", conn.Name, err)
+			continue
+		}
+
+		func() {
+			defer closeClient()
+
+			remotePaths, err := expandRemotePath(client, remotePath)
+			if err != nil {
+				fmt.Fprintf(stdout, "Error: %s: %s\n", conn.Name, err)
+				return
+			}
+			if len(remotePaths) == 0 {
+				fmt.Fprintf(stdout, "Error: %s: file not found: %s\n", conn.Name, remotePath)
+				return
+			}
+
+			targetBase := destination
+			if isMultiServer {
+				targetBase = filepath.Join(destination, conn.Name)
+				if err := os.MkdirAll(targetBase, 0755); err != nil {
+					fmt.Fprintf(stdout, "Error: %s: %s\n", conn.Name, err)
+					return
+				}
+			}
+
+			forceDir := len(remotePaths) > 1
+			if !forceDir {
+				if info, err := client.Stat(remotePaths[0]); err == nil && info.IsDir() {
+					forceDir = true
+				}
+			}
+
+			for _, path := range remotePaths {
+				if err := copyRemotePath(client, path, targetBase, forceDir, conn.Output); err != nil {
+					fmt.Fprintf(stdout, "Error: %s: %s\n", conn.Name, err)
+					return
+				}
+			}
+		}()
+	}
+}
+
+func (s *shell) buildin_put(args []string, out *io.PipeWriter, ch chan<- bool) {
+	stdout := setOutput(out)
+	progressWG := new(sync.WaitGroup)
+	progress := mpb.New(mpb.WithWaitGroup(progressWG))
+	defer func() {
+		progress.Wait()
+		switch stdout.(type) {
+		case *io.PipeWriter:
+			out.CloseWithError(io.ErrClosedPipe)
+		}
+		ch <- true
+	}()
+
+	connects, args, err := s.resolveTargetedConnects(args)
+	if err != nil {
+		fmt.Fprintf(stdout, "Error: %s\n", err)
+		return
+	}
+
+	if len(args) < 3 {
+		_, _ = io.WriteString(stdout, "%put local... remote\n")
+		return
+	}
+
+	sourcePaths := make([]string, 0, len(args)-2)
+	for _, source := range args[1 : len(args)-1] {
+		sourcePaths = append(sourcePaths, expandLocalPath(source)...)
+	}
+	if len(sourcePaths) == 0 {
+		_, _ = io.WriteString(stdout, "Error: invalid local path\n")
+		return
+	}
+
+	destination := args[len(args)-1]
+	forceDir := len(sourcePaths) > 1
+
+	for _, conn := range connects {
+		conn.Output.Progress = progress
+		conn.Output.ProgressWG = progressWG
+		client, closeClient, err := s.openSFTPClient(conn)
+		if err != nil {
+			fmt.Fprintf(stdout, "Error: %s: %s\n", conn.Name, err)
+			continue
+		}
+
+		func() {
+			defer closeClient()
+
+			targets, err := resolveRemotePutPath(client, destination)
+			if err != nil {
+				fmt.Fprintf(stdout, "Error: %s: %s\n", conn.Name, err)
+				return
+			}
+			if len(targets) == 0 {
+				fmt.Fprintf(stdout, "Error: %s: invalid remote path: %s\n", conn.Name, destination)
+				return
+			}
+
+			for _, sourcePath := range sourcePaths {
+				sourceInfo, err := os.Lstat(sourcePath)
+				if err != nil {
+					fmt.Fprintf(stdout, "Error: %s: %s\n", conn.Name, err)
+					return
+				}
+
+				copyAsDir := forceDir || sourceInfo.IsDir()
+				for _, target := range targets {
+					if targetInfo, err := client.Lstat(target); err == nil && targetInfo.IsDir() {
+						if err := copyLocalPath(client, sourcePath, target, true, conn.Output); err != nil {
+							fmt.Fprintf(stdout, "Error: %s: %s\n", conn.Name, err)
+							return
+						}
+						continue
+					}
+
+					if err := copyLocalPath(client, sourcePath, target, copyAsDir, conn.Output); err != nil {
+						fmt.Fprintf(stdout, "Error: %s: %s\n", conn.Name, err)
+						return
+					}
+				}
+			}
+		}()
+	}
+}
 
 // localCmd_history is printout history (shell history)
 func (s *shell) buildin_history(out *io.PipeWriter, ch chan<- bool) {
