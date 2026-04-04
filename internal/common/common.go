@@ -281,7 +281,7 @@ func RandomString(n int) string {
 	return string(b)
 }
 
-// GetUniqueSlice return slice, removes duplicate values ​​from data(slice).
+// GetUniqueSlice return slice, removes duplicate values from data(slice).
 func GetUniqueSlice(data []string) (result []string) {
 	m := make(map[string]bool)
 

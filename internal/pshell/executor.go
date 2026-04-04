@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"slices"
 	"strings"
 )
 
@@ -21,6 +22,16 @@ type PipeSet struct {
 func (s *shell) Executor(command string) {
 	// trim space
 	command = strings.TrimSpace(command)
+	if command == "" {
+		return
+	}
+
+	connects, parsedCommand, err := s.parseTargetCommand(command)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "%s\n", err)
+		return
+	}
+	command = parsedCommand
 
 	// parse command
 	pslice, _ := parsePipeLine(command)
@@ -35,9 +46,68 @@ func (s *shell) Executor(command string) {
 	s.PutHistoryFile(command)
 
 	// exec pipeline
+	s.currentConns = connects
+	defer func() {
+		s.currentConns = s.Connects
+	}()
 	s.parseExecuter(pslice)
 
 	return
+}
+
+func (s *shell) parseTargetCommand(command string) ([]*sConnect, string, error) {
+	if !strings.HasPrefix(command, "@") {
+		return s.Connects, command, nil
+	}
+
+	idx := strings.Index(command, ":")
+	if idx <= 1 {
+		return nil, "", fmt.Errorf("invalid server selector")
+	}
+
+	targetSpec := strings.TrimSpace(command[1:idx])
+	commandBody := strings.TrimSpace(command[idx+1:])
+	if targetSpec == "" || commandBody == "" {
+		return nil, "", fmt.Errorf("invalid server selector")
+	}
+
+	targets := strings.Split(targetSpec, ",")
+	targetSet := make(map[string]struct{}, len(targets))
+	for _, target := range targets {
+		name := strings.TrimSpace(target)
+		if name == "" {
+			return nil, "", fmt.Errorf("invalid server selector")
+		}
+		targetSet[name] = struct{}{}
+	}
+
+	connects := make([]*sConnect, 0, len(targetSet))
+	found := make([]string, 0, len(targetSet))
+	for _, c := range s.Connects {
+		if c == nil {
+			continue
+		}
+		if _, ok := targetSet[c.Name]; ok {
+			connects = append(connects, c)
+			found = append(found, c.Name)
+		}
+	}
+
+	if len(connects) == 0 {
+		return nil, "", fmt.Errorf("target server not found: %s", targetSpec)
+	}
+
+	if len(found) != len(targetSet) {
+		missing := make([]string, 0, len(targetSet)-len(found))
+		for name := range targetSet {
+			if !slices.Contains(found, name) {
+				missing = append(missing, name)
+			}
+		}
+		return nil, "", fmt.Errorf("target server not found: %s", strings.Join(missing, ","))
+	}
+
+	return connects, commandBody, nil
 }
 
 // parseExecuter assemble and execute the parsed command line.

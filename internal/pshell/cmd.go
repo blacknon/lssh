@@ -252,7 +252,7 @@ func (s *shell) buildin_out(num int, out *io.PipeWriter, ch chan<- bool) {
 			// reset Output.Count
 			h.Output.Count = bc
 		} else {
-			fmt.Fprintf(stdout, h.Result)
+			fmt.Fprint(stdout, h.Result)
 		}
 	}
 
@@ -292,7 +292,7 @@ func (s *shell) executeRemotePipeLine(pline pipeLine, in *io.PipeReader, out *io
 	runCount := 0
 
 	m := new(sync.Mutex)
-	for _, c := range s.Connects {
+	for _, c := range s.currentConns {
 		if c == nil || c.Connect == nil {
 			continue
 		}

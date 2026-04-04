@@ -24,9 +24,7 @@ import (
 
 // TODO(blacknon): 接続が切れた場合の再接続処理、および再接続ができなかった場合のsliceからの削除対応の追加(v0.7.0)
 // TODO(blacknon): pShellのログ(実行コマンド及び出力結果)をログとしてファイルに記録する機能の追加(v0.7.0) => 任意のファイルを指定するように
-// TODO(blacknon): グループ化(`()`で囲んだりする)や三項演算子への対応(v0.7.0)
-// TODO(blacknon): `@サーバ名:command...` で、指定したサーバでのみコマンドを実行させる機能の追加(v0.7.0)
-//                   このとき、`@サーバ名,サーバ名:command...` で、複数のサーバでコマンドを実行させる機能も追加する(v0.7.0)
+// TODO(blacknon): グループ化(`()`で囲んだりする)や三項演算子、プロセス置換(`<()`や`>()`)への対応(v0.7.0)
 // TODO(blacknon): petをうまいこと利用できるような仕組みを作る(v0.7.0)
 // TODO(blacknon): parallel shellでkeybindや関数が使えるような仕組みを作る(どうやってやるかは不明だが…)(v0.7.0)
 
@@ -56,6 +54,7 @@ type shell struct {
 	History       map[int]map[string]*shellHistory
 	HistoryFile   string
 	latestCommand string
+	currentConns  []*sConnect
 	CmdComplete   []prompt.Suggest
 	PathComplete  []prompt.Suggest
 	Options       shellOption
@@ -166,13 +165,14 @@ func Shell(r *sshcmd.Run) (err error) {
 
 	// create new shell struct
 	s := &shell{
-		Config:      config,
-		Signal:      make(chan os.Signal),
-		ServerList:  r.ServerList,
-		Connects:    cons,
-		PROMPT:      config.Prompt,
-		History:     map[int]map[string]*shellHistory{},
-		HistoryFile: config.HistoryFile,
+		Config:       config,
+		Signal:       make(chan os.Signal),
+		ServerList:   r.ServerList,
+		Connects:     cons,
+		PROMPT:       config.Prompt,
+		History:      map[int]map[string]*shellHistory{},
+		HistoryFile:  config.HistoryFile,
+		currentConns: cons,
 		Options: shellOption{
 			LocalCommandNotRecordResult: true, // debug
 		},
@@ -288,7 +288,7 @@ func (s *shell) exitChecker(in string, breakline bool) bool {
 func (s *shell) exit(exitCode int, message string) {
 	if message != "" {
 		// error messages
-		fmt.Printf(message)
+		fmt.Print(message)
 	}
 
 	execLocalCommand(s.Config.PostCmd)
@@ -298,5 +298,5 @@ func (s *shell) exit(exitCode int, message string) {
 // runCmdLocal exec command local machine.
 func execLocalCommand(cmd string) {
 	out, _ := exec.Command("sh", "-c", cmd).CombinedOutput()
-	fmt.Printf(string(out))
+	fmt.Print(string(out))
 }
