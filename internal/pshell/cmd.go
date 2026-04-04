@@ -436,6 +436,7 @@ func (s *shell) executeLocalPipeLine(pline pipeLine, in *io.PipeReader, out *io.
 	// set stdin/stdout
 	stdin := setInput(in)
 	stdout := setOutput(out)
+	useTerminalIO := in == nil && out == nil && stdin == os.Stdin && stdout == os.Stdout
 	if in == nil && out != nil {
 		stdin = io.NopCloser(strings.NewReader(""))
 	}
@@ -449,7 +450,7 @@ func (s *shell) executeLocalPipeLine(pline pipeLine, in *io.PipeReader, out *io.
 	var stdoutw io.Writer
 	stdoutw = stdout
 	m := new(sync.Mutex)
-	if stdout == os.Stdout {
+	if stdout == os.Stdout && !useTerminalIO {
 		pw := s.NewHistoryWriter("localhost", nil, m)
 		defer pw.CloseWithError(io.ErrClosedPipe)
 		stdoutw = io.MultiWriter(pw, stdout)
@@ -481,7 +482,7 @@ func (s *shell) executeLocalPipeLine(pline pipeLine, in *io.PipeReader, out *io.
 
 	// set stdin, stdout, stderr
 	cmd.Stdin = stdin
-	if s.Options.LocalCommandNotRecordResult {
+	if useTerminalIO || s.Options.LocalCommandNotRecordResult {
 		cmd.Stdout = stdout
 	} else { // default
 		cmd.Stdout = stdoutw

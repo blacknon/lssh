@@ -43,13 +43,13 @@ import (
 //
 // 　　このとき、上記どちらのパターンでもControl Persistentな接続の有効・無効を問わず同じように動く必要がある
 
-// TODO(blacknon): 接続が切れた場合の再接続処理、および再接続ができなかった場合のsliceからの削除対応の追加(v0.7.0)
-// TODO(blacknon): pShellのログ(実行コマンド及び出力結果)をログとしてファイルに記録する機能の追加(v0.7.0) => 任意のファイルを指定するように
+// TODO(blacknon): 接続が切れた場合の再接続処理、および再接続ができなかった場合のsliceからの削除対応の追加(v0.8.0)
+// TODO(blacknon): pShellのログ(実行コマンド及び出力結果)をログとしてファイルに記録する機能の追加(v0.7.1) => 任意のファイルを指定するように
 
 // TODO(blacknon): petをうまいこと利用できるような仕組みを作る(v0.7.0)
-// TODO(blacknon): parallel shellでkeybindや関数が使えるような仕組みを作る(どうやってやるかは不明だが…)(v0.7.0)
+// TODO(blacknon): parallel shellでkeybindや関数が使えるような仕組みを作る(どうやってやるかは不明だが…)(v0.7.1)
 
-// TODO(blacknon): グループ化(`()`で囲んだりする)や三項演算子の対応(v0.7.0)
+// TODO(blacknon): グループ化(`()`で囲んだりする)や三項演算子の対応(v0.7.1)
 
 // shell is lsshell struct
 type shell struct {
