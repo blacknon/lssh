@@ -1,7 +1,0 @@
-./auth.go
-./cmd.go
-./connect.go
-./info.go
-./run.go
-./shell.go
-./shell_test.go

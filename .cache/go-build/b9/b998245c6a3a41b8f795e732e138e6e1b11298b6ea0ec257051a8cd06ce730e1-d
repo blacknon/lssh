@@ -1,2 +1,0 @@
-package crypto11
-//go:cgo_import_dynamic _ _ "/usr/lib/libSystem.B.dylib"

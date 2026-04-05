@@ -8,7 +8,10 @@
 .idea
 ## tmp
 .tmp*
+
+# cache
 .gocache
+.cache
 
 # Binary programs
 /lssh
