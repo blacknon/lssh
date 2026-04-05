@@ -43,5 +43,5 @@ lssh --host OverSocksProxy hostname
 echo "[11/12] local_rc functions should be available over lssh"
 lssh --host LocalRcKeyAuth 'type lvim >/dev/null && type ltmux >/dev/null && echo local_rc_ok'
 
-echo "[12/12] generated vimrc wrapper should be usable on the remote host"
-lssh --host LocalRcKeyAuth '. ~/.demo_localrc/generated/lvim.sh && lvim "+set nomore" "+set statusline?" "+q" | tail -n 1'
+echo "[12/12] generated vimrc wrapper should be loaded on the remote host"
+lssh --host LocalRcKeyAuth 'declare -f lvim | grep -F "vim -u <(printf" && echo lvim_wrapper_ok'

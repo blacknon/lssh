@@ -290,8 +290,8 @@ After connecting with `lssh --host LocalRcKeyAuth`, you can confirm that the wra
 # local_rc flag and generated functions
 demo_localrc_status
 
-# lvim should show the demo statusline from ~/.demo_localrc/vimrc
-. ~/.demo_localrc/generated/lvim.sh && lvim "+set nomore" "+set statusline?" "+q"
+# lvim wrapper should be loaded in the remote shell
+declare -f lvim
 
 # tmux should read ~/.demo_localrc/tmux.conf through ltmux
 tmux start-server \; show -gv status-left \; show-environment -g LSSH_DEMO_TMUX_CONF \; kill-server
@@ -300,7 +300,7 @@ tmux start-server \; show -gv status-left \; show-environment -g LSSH_DEMO_TMUX_
 Expected results:
 
 - `demo_localrc_status` reports `lvim: ready` and `ltmux: ready`
-- `vim` prints `statusline=[demo-localrc] %f`
+- `declare -f lvim` prints a function body that runs `vim -u <(printf ...)`
 - `tmux` prints `[demo-localrc] ` and `LSSH_DEMO_TMUX_CONF=enabled`
 
 If you edit `~/.demo_localrc/vimrc` or `~/.demo_localrc/tmux.conf`, run `update_lvim` and `update_ltmux` again before reconnecting so the generated wrapper files are refreshed.
