@@ -159,7 +159,7 @@ jobs:
             done
 
             if [ "$GOOS" = "windows" ]; then
-              powershell -NoLogo -NoProfile -Command "Compress-Archive -Path '$(pwd)/${root}/*' -DestinationPath '$(pwd)/dist/packages/${base}.zip' -Force"
+              powershell -NoLogo -NoProfile -Command "\$source = Join-Path (Get-Location) '${root}'; \$destination = Join-Path (Get-Location) 'dist/packages/${base}.zip'; Compress-Archive -Path (Join-Path \$source '*') -DestinationPath \$destination -Force"
             else
               tar -C "dist/archive" -czf "dist/packages/${base}.tar.gz" "${base}"
             fi
