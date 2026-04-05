@@ -1,10 +1,17 @@
 lsmon
 ===
 
+<p align="center">
+  <img src="./img/list.jpg" alt="lsmon host list" width="48%" />
+  <img src="./img/top.jpg" alt="lsmon monitor view" width="48%" />
+</p>
+
+
 ## About
 
 `lsmon` is a TUI monitor for watching multiple remote hosts side by side.
 It connects over SSH and shows system information such as CPU, memory, disk, network, and process status in one screen.
+Monitoring works by periodically reading `/proc` over the SFTP protocol, so no extra commands or agents need to be installed on the target hosts.
 
 ## Usage
 
@@ -50,6 +57,10 @@ lsmon
 lsmon -H web01 -H web02
 ```
 
+### htop like viewer
+
+Press `Ctrl + X` to open a top-screen-style window.
+
 ### metrics
 
 The monitor displays the following kinds of information
@@ -82,4 +93,3 @@ If no log file is specified, logs are written to `/dev/null`.
 
 Most data collection assumes Linux-style `/proc` information on the remote side, so in practice `lsmon` is aimed at Linux hosts.
 The SSH connect timeout is set to 5 seconds in the current implementation.
-

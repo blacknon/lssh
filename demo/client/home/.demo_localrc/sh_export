@@ -1,0 +1,2 @@
+export LSSH_LOCAL_RC=enabled
+export EDITOR=vi

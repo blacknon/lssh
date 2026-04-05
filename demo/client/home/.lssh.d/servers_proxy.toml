@@ -1,0 +1,24 @@
+[server.ssh_proxy]
+addr = "172.31.0.31"
+key = "~/.ssh/demo_lssh_ed25519"
+note = "ssh proxy hop server"
+
+[server.OverSshProxy]
+addr = "172.31.1.41"
+key = "~/.ssh/demo_lssh_ed25519"
+proxy = "ssh_proxy"
+note = "private ssh server over ssh proxy"
+
+[server.OverHttpProxy]
+addr = "172.31.1.41"
+key = "~/.ssh/demo_lssh_ed25519"
+proxy = "http_proxy"
+proxy_type = "http"
+note = "private ssh server over http proxy"
+
+[server.OverSocksProxy]
+addr = "172.31.1.41"
+key = "~/.ssh/demo_lssh_ed25519"
+proxy = "socks_proxy"
+proxy_type = "socks5"
+note = "private ssh server over socks5 proxy"

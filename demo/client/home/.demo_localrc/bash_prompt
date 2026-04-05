@@ -1,0 +1,11 @@
+if [[ -n "${SSH_CONNECTION:-}" || -n "${SSH_CLIENT:-}" || -n "${SSH_TTY:-}" ]]; then
+    prompt_mode='remote-rc'
+    user_color='\[\e[1;38;5;196m\]'
+    host_color='\[\e[1;38;5;202m\]'
+else
+    prompt_mode='local-rc'
+    user_color='\[\e[1;38;5;82m\]'
+    host_color='\[\e[1;38;5;214m\]'
+fi
+
+PS1="\[\e[1;38;5;45m\][\[\e[1;38;5;226m\]${prompt_mode}\[\e[1;38;5;45m\]:${user_color}\u\[\e[1;38;5;201m\]@${host_color}\h \[\e[1;38;5;51m\]\W\[\e[1;38;5;45m\]]\[\e[1;38;5;196m\]\$\[\e[0m\] "

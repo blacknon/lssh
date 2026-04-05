@@ -1,0 +1,3 @@
+demo_whoami() {
+    printf 'local_rc user=%s host=%s shell=%s\n' "$(whoami)" "$(hostname)" "$SHELL"
+}

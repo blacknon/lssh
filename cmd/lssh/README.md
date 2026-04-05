@@ -67,6 +67,12 @@ If needed, timestamps can also be included in the log output, which is useful wh
 
 ### command execution
 
+<p align="center">
+  <img src="./img/command_exec_1.gif" width="33%" />
+  <img src="./img/command_exec_2.gif" width="33%" />
+  <img src="./img/command_exec_3.gif" width="33%" />
+</p>
+
 You can also create a block for command execution and pass a command as an argument, just like the OpenSSH client.
 This is useful when you want to run a single remote command without starting an interactive shell.
 
@@ -82,7 +88,17 @@ If you add the `-p` option, the same command is executed in parallel on the sele
 lssh -p hostname
 ```
 
+If you pipe input before the command, `stdin` is sent to the selected server.
+
+```sh
+echo "hostname" | lssh hostname
+```
+
 ### pre_cmd / post_cmd
+
+<p align="center">
+<img src="./img/osi_escape.gif" width="720" />
+</p>
 
 You can run local commands before connecting with `pre_cmd` and after disconnecting with `post_cmd`.
 These options are useful for changing the local terminal state only while the SSH session is active.
@@ -107,6 +123,14 @@ For example, if your terminal supports OSC escape sequences, you can switch the 
 
 `lssh` supports `ssh-agent`, so you can use keys already loaded into your agent without specifying a private key file for each host.
 
+`~/.lssh.conf` example.
+
+    [server.agent]
+    addr = "192.168.100.20"
+    user = "demo"
+    ssh_agent = true
+    note = "use keys from ssh-agent"
+
 ### forwarding
 
 The following forwarding features are available
@@ -120,6 +144,11 @@ The following forwarding features are available
 - NFS Reverse Dynamic forward (`-m`)
 - Tunnel device (`--tunnel`)
 - x11 forward (`-X`, `-Y`)
+
+When using NFS forward, lssh starts the NFS server and begins listening on the specified port.
+After that, the forwarded PATH can be used as a mount point on the local machine or the remote machine.
+
+#### if use command line option
 
 Command line examples.
 
@@ -158,20 +187,74 @@ lssh -X
 lssh -Y
 ```
 
+#### if use config file
+
+`~/.lssh.conf` examples.
+
+```toml
+# local port forwarding
+[server.forward-local]
+port_forward = "local"
+port_forward_local = "8080"
+port_forward_remote = "localhost:80"
+
+# remote port forwarding
+[server.forward-remote]
+port_forward = "remote"
+port_forward_local = "80"
+port_forward_remote = "localhost:8080"
+
+# multiple port forwardings
+[server.forwards]
+port_forwards = [
+    "L:8080:localhost:80",
+    "R:80:localhost:8080",
+]
+
+# dynamic port forwarding (SOCKS5)
+[server.dynamic]
+dynamic_port_forward = "10080"
+
+# HTTP dynamic port forwarding
+[server.http-dynamic]
+http_dynamic_port_forward = "18080"
+
+# HTTP reverse dynamic port forwarding
+[server.http-reverse-dynamic]
+http_reverse_dynamic_port_forward = "18080"
+
+# NFS dynamic forward
+[server.nfs-dynamic]
+nfs_dynamic_forward = "2049"
+nfs_dynamic_forward_path = "/path/to/remote"
+
+# NFS reverse dynamic forward
+[server.nfs-reverse-dynamic]
+nfs_reverse_dynamic_forward = "2049"
+nfs_reverse_dynamic_forward_path = "/path/to/local"
+
+# x11 forwarding
+[server.x11]
+x11 = true
+
+# trusted x11 forwarding
+[server.x11-trusted]
+x11_trusted = true
+```
+
+Tunnel device forwarding is available from the command line with `--tunnel`.
+
+
+
 ### local bashrc
+
+<!-- TODO: 対象サーバにはキャッシュファイルなどは残さないため、ゴミ担ってしまわなない旨を既存文章に違和感がない形で盛り込む -->
 
 You can connect using a local bashrc file (if the ssh login shell is bash).
 
 <p align="center">
-<img src="./img/not_use_bashrc.gif" width="720" />
-</p>
-
-You can also connect with your local bashrc applied.
-
-<p align="center">
 <img src="./img/use_bashrc.gif" width="720" />
 </p>
-
 
 If you need to transfer a large bashrc, you can enable compression during transfer by setting `local_rc_compress = true`.
 

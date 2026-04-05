@@ -1,6 +1,10 @@
 lsftp
 ===
 
+<p align="center">
+<img src="./img/lsftp.gif" width="720" />
+</p>
+
 ## About
 
 `lsftp` is an interactive SFTP shell that can connect to one or more hosts at the same time.

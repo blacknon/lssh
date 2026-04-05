@@ -1,11 +1,17 @@
 lscp
 ===
 
+<p align="center">
+<img src="./img/lscp.gif" width="720" />
+</p>
+
 ## About
 
 `lscp` is an SCP client that lets you select hosts from the configuration file and copy files over SSH.
 It supports local-to-remote, remote-to-local, and remote-to-remote transfers.
 Although the command interface is SCP-style, file transfers are performed using the SFTP protocol over SSH.
+
+<!-- TODO: 他のコマンドと名称が被るので、用意しているパッケージ上は`lssh-scp`という名称になっている旨を記載する -->
 
 ## Usage
 
@@ -66,6 +72,14 @@ lscp remote:/var/log/app.log remote:/tmp/
 ```
 
 ### host selection
+
+You can also copy files with `get` or `put` across multiple hosts at once.
+In that case, select multiple hosts in the host selection screen.
+
+```bash
+# put the same file to multiple hosts selected in the TUI
+lscp ./build/app remote:/opt/app/
+```
 
 You can select the destination host from the TUI list, or specify it directly with `-H`.
 When both source and destination are remote paths, `lscp` first asks for the source host and then for the destination host.

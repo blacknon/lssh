@@ -1,0 +1,2 @@
+alias ll='ls -alF'
+alias demo-env='printf "LSSH_LOCAL_RC=%s\n" "${LSSH_LOCAL_RC:-unset}"'

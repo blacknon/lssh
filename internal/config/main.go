@@ -9,7 +9,7 @@ conf is a package used to read configuration file (~/.lssh.conf).
 // TODO(blacknon): if/whenなどを使って、条件に応じて設定を追加するような仕組みを実装したい(v0.7.0)
 //                 ex) 現在のipアドレスのrangeが192.168.10.0/24 => xxxのnwだからproxy serverが必要、という分岐機能の追加をする
 
-// TODO(blacknon): 接続成功時に特定のコマンドを実行可能にする(接続前しか今はないので)
+// TODO(blacknon): 接続成功時に特定のコマンドを実行可能にする(接続前しか今はないので): (v0.7.0)
 
 // TODO(blacknon): sshだけではなく、telnetやWinrmなどのプロトコルにも対応したい(v0.8.0)
 //
