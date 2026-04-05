@@ -183,8 +183,22 @@ run = """
 
 [tasks.demo_client]
 description = "Open a shell in the demo client container"
-depends = []
+depends = ["demo_up"]
 dir = "demo"
 run = """
-    docker compose exec client bash
+    docker compose exec --user demo client bash
+"""
+
+[tasks.demo_ssh]
+description = "Connect to the demo client bastion over SSH and start lssh"
+depends = ["demo_up"]
+run = """
+    ssh -t -p 2222 -i demo/client/home/.ssh/demo_lssh_ed25519 demo@127.0.0.1
+"""
+
+[tasks.demo_ssh_list]
+description = "List demo bastion targets through the forced lssh command"
+depends = ["demo_up"]
+run = """
+    ssh -p 2222 -i demo/client/home/.ssh/demo_lssh_ed25519 demo@127.0.0.1 -- --list
 """

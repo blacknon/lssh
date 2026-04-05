@@ -1,12 +1,14 @@
 [server.ssh_proxy]
 addr = "172.31.0.31"
 key = "~/.ssh/demo_lssh_ed25519"
+control_master = false
 note = "ssh proxy hop server"
 
 [server.OverSshProxy]
 addr = "172.31.1.41"
 key = "~/.ssh/demo_lssh_ed25519"
 proxy = "ssh_proxy"
+control_master = false
 note = "private ssh server over ssh proxy"
 
 [server.OverHttpProxy]
@@ -14,6 +16,7 @@ addr = "172.31.1.41"
 key = "~/.ssh/demo_lssh_ed25519"
 proxy = "http_proxy"
 proxy_type = "http"
+control_master = false
 note = "private ssh server over http proxy"
 
 [server.OverSocksProxy]
@@ -21,12 +24,14 @@ addr = "172.31.1.41"
 key = "~/.ssh/demo_lssh_ed25519"
 proxy = "socks_proxy"
 proxy_type = "socks5"
+control_master = false
 note = "private ssh server over socks5 proxy"
 
 [server.OverNestedSshProxy]
 addr = "172.31.2.51"
 key = "~/.ssh/demo_lssh_ed25519"
 proxy = "OverSshProxy"
+control_master = false
 note = "private ssh server over nested ssh proxy"
 
 [server.OverNestedHttpProxy]
@@ -34,6 +39,7 @@ addr = "172.31.3.71"
 key = "~/.ssh/demo_lssh_ed25519"
 proxy = "deep_http_proxy"
 proxy_type = "http"
+control_master = false
 note = "private ssh server over OverSshProxy and deep http proxy"
 
 [server.OverNestedSocksProxy]
@@ -41,4 +47,5 @@ addr = "172.31.3.71"
 key = "~/.ssh/demo_lssh_ed25519"
 proxy = "deep_socks_proxy"
 proxy_type = "socks5"
+control_master = false
 note = "private ssh server over OverSshProxy and deep socks5 proxy"

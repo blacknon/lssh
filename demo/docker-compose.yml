@@ -92,6 +92,9 @@ services:
       dockerfile: demo/images/socks-proxy/Dockerfile
     container_name: lssh-demo-socks-proxy
     hostname: socks-proxy
+    environment:
+      SOCKS_EXTERNAL_ADDR: "172.31.1.33"
+      SOCKS_ALLOW_FROM: "172.31.0.0/24"
     networks:
       frontend:
         ipv4_address: 172.31.0.33
@@ -148,6 +151,9 @@ services:
       dockerfile: demo/images/socks-proxy/Dockerfile
     container_name: lssh-demo-deep-socks-proxy
     hostname: deep-socks-proxy
+    environment:
+      SOCKS_EXTERNAL_ADDR: "172.31.3.62"
+      SOCKS_ALLOW_FROM: "172.31.2.0/24"
     networks:
       deepback:
         ipv4_address: 172.31.2.62

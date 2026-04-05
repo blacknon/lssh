@@ -451,12 +451,21 @@ proxyLoop:
 		switch proxyType {
 		case "http", "https", "socks", "socks5":
 			p.Type = proxyType
+			if proxyConf, ok := config.Proxy[proxyName]; ok {
+				p.Port = proxyConf.Port
+			} else {
+				p.Port = proxyPort
+			}
 		case "command":
 			p.Type = proxyType
 		default:
 			p.Type = "ssh"
+			if serverConf, ok := config.Server[proxyName]; ok {
+				p.Port = serverConf.Port
+			} else {
+				p.Port = proxyPort
+			}
 		}
-		p.Port = proxyPort
 
 		proxyRoute = append(proxyRoute, p)
 		conName = proxyName

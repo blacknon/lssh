@@ -180,7 +180,7 @@ func assertClientCommandContains(t *testing.T, demoDir, command, want string) {
 }
 
 func runClientCommand(demoDir, command string) (string, error) {
-	cmd := exec.Command("docker", "compose", "exec", "-T", "client", "bash", "-lc", command)
+	cmd := exec.Command("docker", "compose", "exec", "-T", "--user", "demo", "client", "bash", "-lc", command)
 	cmd.Dir = demoDir
 	output, err := cmd.CombinedOutput()
 	if err != nil {

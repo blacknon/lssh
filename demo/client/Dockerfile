@@ -46,10 +46,9 @@ RUN chown -R demo:demo /home/demo && \
     chmod +x /usr/local/bin/demo-client-entrypoint.sh /usr/local/bin/demo-lssh-bastion.sh && \
     chmod +x /home/demo/bin/demo-check.sh /home/demo/.demo_localrc/bin/update_lvim /home/demo/.demo_localrc/bin/update_ltmux
 
-USER demo
 WORKDIR /home/demo
 ENV HOME=/home/demo
 EXPOSE 2222
 
 ENTRYPOINT ["/usr/local/bin/demo-client-entrypoint.sh"]
-CMD ["sleep", "infinity"]
+CMD ["su", "-s", "/bin/bash", "demo", "-c", "sleep infinity"]

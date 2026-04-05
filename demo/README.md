@@ -104,7 +104,7 @@ To connect to it, you must go through `ssh_proxy`, `http_proxy`, or `socks_proxy
 ```sh
 cd demo
 docker compose up --build -d
-docker compose exec client bash
+docker compose exec --user demo client bash
 ```
 
 The `client` container also opens SSH on host port `2222`.
