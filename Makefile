@@ -14,14 +14,14 @@ BUILDCMD_LSSH=$(GOBUILD) ./cmd/lssh
 BUILDCMD_LSCP=$(GOBUILD) ./cmd/lscp
 BUILDCMD_LSFTP=$(GOBUILD) ./cmd/lsftp
 BUILDCMD_LSMON=$(GOBUILD) ./cmd/lsmon
-BUILDCMD_LSMUX=$(GOBUILD) ./cmd/lsmux
 BUILDCMD_LSSHELL=$(GOBUILD) ./cmd/lsshell
 
 # install path
 INSTALL_PATH_LSSH=/usr/local/bin/lssh
 INSTALL_PATH_LSCP=/usr/local/bin/lscp
 INSTALL_PATH_LSFTP=/usr/local/bin/lsftp
-
+INSTALL_PATH_LSSHELL=/usr/local/bin/lsshell
+INSTALL_PATH_LSMON=/usr/local/bin/lsmon
 build:
 	# Remove unnecessary dependent libraries
 	$(GOMOD) tidy
@@ -36,8 +36,6 @@ build:
 	$(BUILDCMD_LSFTP)
 	# Build lsmon
 	$(BUILDCMD_LSMON)
-	# Build lsmux
-	$(BUILDCMD_LSMUX)
 	# Build lsshell
 	$(BUILDCMD_LSSHELL)
 
@@ -47,7 +45,6 @@ clean:
 	rm -f lscp
 	rm -f lsftp
 	rm -f lsmon
-	rm -f lsmux
 	rm -f lsshell
 
 install:
@@ -55,11 +52,15 @@ install:
 	[ -e $(INSTALL_PATH_LSSH) ] && rm $(INSTALL_PATH_LSSH) || true
 	[ -e $(INSTALL_PATH_LSCP) ] && rm $(INSTALL_PATH_LSCP) || true
 	[ -e $(INSTALL_PATH_LSFTP) ] && rm $(INSTALL_PATH_LSFTP) || true
+	[ -e $(INSTALL_PATH_LSSHELL) ] && rm $(INSTALL_PATH_LSSHELL) || true
+	[ -e $(INSTALL_PATH_LSMON) ] && rm $(INSTALL_PATH_LSMON) || true
 
 	# copy binary to /usr/local/bin/
 	cp lssh $(INSTALL_PATH_LSSH)
 	cp lscp $(INSTALL_PATH_LSCP)
 	cp lsftp $(INSTALL_PATH_LSFTP)
+	cp lsshell $(INSTALL_PATH_LSSHELL)
+	cp lsmon $(INSTALL_PATH_LSMON)
 
 	# copy template config file
 	cp -n example/config.tml ~/.lssh.conf || true

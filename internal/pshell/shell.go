@@ -23,34 +23,13 @@ import (
 	"github.com/c-bata/go-prompt"
 )
 
-// TODO:
-// 　　パイプラインとして、以下のようにつなげる仕組みにする。
-// 　　例） +commandを使って、ローカルコマンドを使う場合(@server, @server2, @server3, @server4につながっている場合)
-//   remoteコマンド | +localコマンド | remoteコマンド
-//
-//   server1: remoteコマンド ┐                 ┌ server1: remoteコマンド
-//   server2: remoteコマンド ├─ +localコマンド ─ server2:remoteコマンド
-//   server3: remoteコマンド | 			       ├ server3: remoteコマンド
-//   server4: remoteコマンド ┘ 			     └ server4: remoteコマンド
-//
-// 　　例） ++commandを使って、ローカルコマンドを使う場合(@server, @server2, @server3, @server4につながっている場合)
-//   remoteコマンド | ++localコマンド | remoteコマンド
-//   server1: remoteコマンド ─ localコマンド ─ server1: remoteコマンド
-//   server2: remoteコマンド ─ localコマンド ─ server2:remoteコマンド
-//   server3: remoteコマンド ─ localコマンド ─ server3: remoteコマンド
-//   server4: remoteコマンド ─ localコマンド ─ server4: remoteコマンド
-//
-//   +のときはローカルコマンドは1プロセス、++のときはローカルコマンドは前のプロセスの数だけ実行し、もしパイプで後ろにつながっているコマンドがリモートコマンドで、かつプロセス数が同じであれば、1つのパイプとして扱うようにする。
-//
-// 　　このとき、上記どちらのパターンでもControl Persistentな接続の有効・無効を問わず同じように動く必要がある
-
 // TODO(blacknon): 接続が切れた場合の再接続処理、および再接続ができなかった場合のsliceからの削除対応の追加(v0.8.0)
 // TODO(blacknon): pShellのログ(実行コマンド及び出力結果)をログとしてファイルに記録する機能の追加(v0.7.1) => 任意のファイルを指定するように
 
 // TODO(blacknon): petをうまいこと利用できるような仕組みを作る(v0.7.0)
 // TODO(blacknon): parallel shellでkeybindや関数が使えるような仕組みを作る(どうやってやるかは不明だが…)(v0.7.1)
-
 // TODO(blacknon): グループ化(`()`で囲んだりする)や三項演算子の対応(v0.7.1)
+// TODO(blacknon): 環境変数などの仕組みを取り入れる。例えば、${SERVER}や${COUNT}などの変数をプロンプトやコマンドの中で使えるようにする(v0.7.1)
 
 // shell is lsshell struct
 type shell struct {
@@ -76,7 +55,7 @@ type shell struct {
 }
 
 // shellOption is optitons pshell.
-// TODO(blacknon): つくる。
+// TODO(blacknon): つくる。: v0.7.1
 type shellOption struct {
 	// trueの場合、リモートマシンでパイプライン処理をする際にパイプ経由でもOPROMPTを付与して出力する
 	// RemoteHeaderWithPipe bool

@@ -25,6 +25,30 @@ func TestNormalizeLocalCommand(t *testing.T) {
 	}
 }
 
+func TestCheckLocalCommand(t *testing.T) {
+	tests := []struct {
+		name string
+		in   string
+		want bool
+	}{
+		{name: "single plus command", in: "+cat", want: true},
+		{name: "double plus command", in: "++cat", want: true},
+		{name: "single plus only", in: "+", want: true},
+		{name: "double plus only", in: "++", want: true},
+		{name: "plain command", in: "cat", want: false},
+		{name: "empty", in: "", want: false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := checkLocalCommand(tt.in)
+			if got != tt.want {
+				t.Fatalf("checkLocalCommand(%q) = %v, want %v", tt.in, got, tt.want)
+			}
+		})
+	}
+}
+
 func TestNormalizePerHostPipeLine(t *testing.T) {
 	pline := []pipeLine{
 		{Args: []string{"hostname"}, Oprator: "|"},

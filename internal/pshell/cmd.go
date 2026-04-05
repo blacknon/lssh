@@ -12,7 +12,6 @@ import (
 	"os/exec"
 	"path/filepath"
 	"reflect"
-	"regexp"
 	"runtime"
 	"sort"
 	"strconv"
@@ -70,16 +69,7 @@ func checkBuildInCommand(cmd string) (isBuildInCmd bool) {
 // checkLocalCommand return bool, check is pshell build-in command or
 // local machine command(%%command).
 func checkLocalCommand(cmd string) (isLocalCmd bool) {
-	// check local command regex
-	regex := regexp.MustCompile(`^\+.*`)
-
-	// local command
-	switch {
-	case regex.MatchString(cmd):
-		isLocalCmd = true
-	}
-
-	return
+	return strings.HasPrefix(cmd, "+")
 }
 
 // check local or build-in command
@@ -169,9 +159,8 @@ func (s *shell) run(pline pipeLine, in *io.PipeReader, out *io.PipeWriter, ch ch
 	}
 
 	// check and exec local command
-	buildinRegex := regexp.MustCompile(`^\+.*`)
 	switch {
-	case buildinRegex.MatchString(command):
+	case checkLocalCommand(command):
 		// exec local machine
 		s.executeLocalPipeLine(pline, in, out, ch, kill, os.Environ())
 	default:

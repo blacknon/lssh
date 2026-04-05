@@ -1,6 +1,11 @@
 lsshell
 ===
 
+<p align="center">
+  <img src="./img/lsshell.gif" alt="lsmon host list" width="77%" />
+</p>
+
+
 ## About
 
 `lsshell` is a parallel interactive shell for sending commands to multiple hosts at once.
@@ -37,6 +42,24 @@ USAGE:
 ```
 
 ## OverView
+
+### shell config
+
+You can customize prompt display and other interactive shell behavior with settings under `shell` in the config file.
+
+### config example
+
+`~/.lssh.conf` example.
+
+```toml
+[shell]
+PROMPT = "[${COUNT}] <<< "
+OPROMPT = "[${SERVER}][${COUNT}] > "
+title = "lsshell"
+histfile = "~/.lssh_history"
+pre_cmd = "printf 'start lsshell\n'"
+post_cmd = "printf 'finish lsshell\n'"
+```
 
 ### interactive shell
 
