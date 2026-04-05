@@ -104,6 +104,32 @@ func (r *Run) CreateAuthMethodMap() {
 				continue
 			}
 		}
+		if len(config.Certs) > 0 {
+			for _, cert := range config.Certs {
+				pair := strings.SplitN(cert, "::", 3)
+				if len(pair) < 2 {
+					continue
+				}
+				certName := pair[0]
+				keyName := pair[1]
+				keyPass := ""
+				if len(pair) > 2 {
+					keyPass = pair[2]
+				}
+
+				keySigner, err := sshlib.CreateSignerPublicKeyPrompt(keyName, keyPass)
+				if err != nil {
+					fmt.Fprintln(os.Stderr, err)
+					continue
+				}
+
+				err = r.registAuthMapCertificate(server, certName, keySigner)
+				if err != nil {
+					fmt.Fprintln(os.Stderr, err)
+					continue
+				}
+			}
+		}
 
 		// PKCS11
 		if config.PKCS11Use {

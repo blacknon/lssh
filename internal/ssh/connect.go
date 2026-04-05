@@ -153,6 +153,27 @@ func (r *Run) buildControlPersistAuthMethodsFromConfig(name string, c conf.Serve
 		}
 		methods = append(methods, am)
 	}
+	for _, cert := range c.Certs {
+		pair := strings.SplitN(cert, "::", 3)
+		if len(pair) < 2 {
+			continue
+		}
+		certName := pair[0]
+		keyName := pair[1]
+		keyPass := ""
+		if len(pair) > 2 {
+			keyPass = pair[2]
+		}
+		signer, err := sshlib.CreateSignerPublicKeyPrompt(keyName, keyPass)
+		if err != nil {
+			return nil, err
+		}
+		am, err := sshlib.CreateAuthMethodCertificate(certName, signer)
+		if err != nil {
+			return nil, err
+		}
+		methods = append(methods, am)
+	}
 
 	// PKCS11: prompt for PIN if needed and create auth methods
 	if c.PKCS11Use {

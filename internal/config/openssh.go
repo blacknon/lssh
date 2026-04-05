@@ -89,14 +89,34 @@ func getOpenSSHConfig(path, command string) (config map[string]ServerConfig, err
 			serverConfig.User = os.Getenv("USER")
 		}
 
-		// TODO(blacknon): OpenSSSH設定ファイルだと、Certificateは複数指定可能な模様。ただ、あまり一般的な使い方ではないようなので、現状は複数のファイルを受け付けるように作っていない。
-		key := normalizeOpenSSHIdentityFile(ssh_config.Get(host, "IdentityFile"))
-		cert := ssh_config.Get(host, "Certificate")
-		if cert != "" {
-			serverConfig.Cert = cert
-			serverConfig.CertKey = key
-		} else {
-			serverConfig.Key = key
+		keys := getOpenSSHIdentityFiles(cfg, host)
+		certs := getOpenSSHValues(cfg, host, "Certificate")
+		if len(certs) > 0 {
+			serverConfig.Cert = certs[0]
+			if len(keys) > 0 {
+				serverConfig.CertKey = keys[0]
+			}
+			for i, cert := range certs {
+				key := ""
+				switch {
+				case len(keys) > i:
+					key = keys[i]
+				case len(keys) > 0:
+					key = keys[0]
+				}
+				if key == "" {
+					continue
+				}
+				if i == 0 {
+					continue
+				}
+				serverConfig.Certs = append(serverConfig.Certs, cert+"::"+key)
+			}
+		} else if len(keys) > 0 {
+			serverConfig.Key = keys[0]
+		}
+		if len(keys) > 1 {
+			serverConfig.Keys = append(serverConfig.Keys, keys[1:]...)
 		}
 
 		// PKCS11 provider
@@ -212,4 +232,40 @@ func normalizeOpenSSHIdentityFile(path string) string {
 	default:
 		return path
 	}
+}
+
+func getOpenSSHValues(cfg *ssh_config.Config, host, key string) []string {
+	values, err := cfg.GetAll(host, key)
+	if err != nil {
+		return nil
+	}
+
+	result := make([]string, 0, len(values))
+	for _, value := range values {
+		value = strings.TrimSpace(value)
+		if value == "" {
+			continue
+		}
+		result = append(result, value)
+	}
+
+	return result
+}
+
+func getOpenSSHIdentityFiles(cfg *ssh_config.Config, host string) []string {
+	values := getOpenSSHValues(cfg, host, "IdentityFile")
+	if len(values) == 0 {
+		return nil
+	}
+
+	keys := make([]string, 0, len(values))
+	for _, value := range values {
+		key := normalizeOpenSSHIdentityFile(value)
+		if key == "" {
+			continue
+		}
+		keys = append(keys, key)
+	}
+
+	return keys
 }

@@ -20,6 +20,7 @@ type ServerConfig struct {
 	KeyPass         string   `toml:"keypass"`
 	Keys            []string `toml:"keys"` // "keypath::passphrase"
 	Cert            string   `toml:"cert"`
+	Certs           []string `toml:"certs"` // "certpath::keypath::passphrase"
 	CertKey         string   `toml:"certkey"`
 	CertKeyPass     string   `toml:"certkeypass"`
 	CertPKCS11      bool     `toml:"certpkcs11"`
