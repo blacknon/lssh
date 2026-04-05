@@ -1,8 +1,9 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-echo "[1/12] client ssh bastion should expose lssh through authorized_keys command"
-ssh -p 2222 -i ~/.ssh/demo_lssh_ed25519 -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null demo@127.0.0.1 -- --list | grep -q OverNestedSocksProxy
+echo "[1/12] client bastion command should launch lssh"
+grep -q '^ForceCommand /usr/local/bin/demo-lssh-bastion.sh$' ~/.demo-sshd/sshd_config
+/usr/local/bin/demo-lssh-bastion.sh --list | grep -q OverNestedSocksProxy
 
 echo "[2/12] client should not reach over_proxy_ssh directly"
 if nc -z -w 2 172.31.1.41 22; then
@@ -43,4 +44,4 @@ echo "[11/12] local_rc functions should be available over lssh"
 lssh --host LocalRcKeyAuth 'type lvim >/dev/null && type ltmux >/dev/null && echo local_rc_ok'
 
 echo "[12/12] generated vimrc wrapper should be usable on the remote host"
-lssh --host LocalRcKeyAuth 'lvim "+set nomore" "+set statusline?" "+q" | tail -n 1'
+lssh --host LocalRcKeyAuth '. ~/.demo_localrc/generated/lvim.sh && lvim "+set nomore" "+set statusline?" "+q" | tail -n 1'

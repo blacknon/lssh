@@ -108,7 +108,7 @@ docker compose exec --user demo client bash
 ```
 
 The `client` container also opens SSH on host port `2222`.
-Its SSH daemon uses `ForceCommand /usr/local/bin/demo-lssh-bastion.sh`, so logging in with the demo key starts `lssh` instead of a normal shell.
+Its SSH daemon uses `ForceCommand /usr/local/bin/demo-lssh-bastion.sh`, and the same bastion wrapper can also be invoked directly inside the container for quick checks.
 
 From the host, you can try:
 
@@ -118,6 +118,9 @@ ssh -t -p 2222 -i demo/client/home/.ssh/demo_lssh_ed25519 demo@127.0.0.1
 
 # run a non-interactive check through the same forced command
 ssh -p 2222 -i demo/client/home/.ssh/demo_lssh_ed25519 demo@127.0.0.1 -- --list
+
+# or check the same bastion wrapper directly inside the client container
+docker compose exec --user demo client /usr/local/bin/demo-lssh-bastion.sh --list
 ```
 
 After entering the client container, the demo configuration is available at `/home/demo/.lssh.conf`.
@@ -288,7 +291,7 @@ After connecting with `lssh --host LocalRcKeyAuth`, you can confirm that the wra
 demo_localrc_status
 
 # lvim should show the demo statusline from ~/.demo_localrc/vimrc
-lvim "+set nomore" "+set statusline?" "+q"
+. ~/.demo_localrc/generated/lvim.sh && lvim "+set nomore" "+set statusline?" "+q"
 
 # tmux should read ~/.demo_localrc/tmux.conf through ltmux
 tmux start-server \; show -gv status-left \; show-environment -g LSSH_DEMO_TMUX_CONF \; kill-server

@@ -8,4 +8,8 @@ if [[ -n "${SSH_ORIGINAL_COMMAND:-}" ]]; then
     exec /usr/local/bin/lssh "${args[@]}"
 fi
 
+if [[ "$#" -gt 0 ]]; then
+    exec /usr/local/bin/lssh "$@"
+fi
+
 exec /usr/local/bin/lssh

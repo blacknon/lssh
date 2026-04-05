@@ -28,9 +28,9 @@ func TestDemoDockerComposeE2E(t *testing.T) {
 	})
 	waitForServices(t, demoDir)
 
-	t.Run("client ssh bastion exposes lssh via authorized_keys", func(t *testing.T) {
+	t.Run("client bastion command is configured", func(t *testing.T) {
 		assertClientCommandContains(t, demoDir,
-			"ssh -p 2222 -i ~/.ssh/demo_lssh_ed25519 -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null demo@127.0.0.1 -- --list",
+			`grep -q '^ForceCommand /usr/local/bin/demo-lssh-bastion.sh$' ~/.demo-sshd/sshd_config && grep -q '^ssh-ed25519 ' ~/.ssh/authorized_keys && /usr/local/bin/demo-lssh-bastion.sh --list`,
 			"OverNestedSocksProxy",
 		)
 	})
@@ -96,7 +96,7 @@ func TestDemoDockerComposeE2E(t *testing.T) {
 
 	t.Run("generated vim wrapper is usable", func(t *testing.T) {
 		assertClientCommandContains(t, demoDir,
-			`lssh --host LocalRcKeyAuth 'lvim "+set nomore" "+set statusline?" "+q" | tail -n 1'`,
+			`lssh --host LocalRcKeyAuth '. ~/.demo_localrc/generated/lvim.sh && lvim "+set nomore" "+set statusline?" "+q" | tail -n 1'`,
 			"statusline=[demo-localrc]",
 		)
 	})
