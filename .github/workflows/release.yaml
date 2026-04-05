@@ -290,4 +290,4 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           set -euo pipefail
-          gh release upload "v${{ needs.create-release.outputs.version }}" dist/packages/* --clobber
+          gh release upload "v${{ needs.create-release.outputs.version }}" dist/packages/* --clobber --repo "${{ github.repository }}"
