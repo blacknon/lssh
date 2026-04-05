@@ -96,6 +96,14 @@ func checkLocalBuildInCommand(cmd string) (result bool) {
 	return result
 }
 
+func normalizeLocalCommand(cmd string) string {
+	if strings.HasPrefix(cmd, "++") {
+		return strings.TrimPrefix(cmd, "++")
+	}
+
+	return strings.TrimPrefix(cmd, "+")
+}
+
 // runBuildInCommand is run buildin or local machine command.
 func (s *shell) run(pline pipeLine, in *io.PipeReader, out *io.PipeWriter, ch chan<- bool, kill chan bool) (err error) {
 	// get 1st element
@@ -762,7 +770,6 @@ func (s *shell) executeRemotePipeLine(pline pipeLine, in *io.PipeReader, out *io
 	// runCount tracks total goroutines writing to exit channel
 	runCount := 0
 
-	m := new(sync.Mutex)
 	for _, c := range connects {
 		if c == nil || c.Connect == nil {
 			continue
@@ -778,7 +785,7 @@ func (s *shell) executeRemotePipeLine(pline pipeLine, in *io.PipeReader, out *io
 			defer w.CloseWithError(io.ErrClosedPipe)
 
 			// create pShellHistory Writer
-			hw := s.NewHistoryWriter(c.Output.Server, c.Output, m)
+			hw := s.NewHistoryWriter(c.Output.Server, c.Output)
 			defer hw.CloseWithError(io.ErrClosedPipe)
 
 			ow = io.MultiWriter(w, hw)
@@ -886,18 +893,16 @@ func (s *shell) executeLocalPipeLine(pline pipeLine, in *io.PipeReader, out *io.
 	// set HistoryResult
 	var stdoutw io.Writer
 	stdoutw = stdout
-	m := new(sync.Mutex)
 	if stdout == os.Stdout && !useTerminalIO {
-		pw := s.NewHistoryWriter("localhost", nil, m)
+		pw := s.NewHistoryWriter("localhost", nil)
 		defer pw.CloseWithError(io.ErrClosedPipe)
 		stdoutw = io.MultiWriter(pw, stdout)
 	} else {
 		stdoutw = stdout
 	}
 
-	// delete command prefix(`+`)
-	rep := regexp.MustCompile(`^\+`)
-	pline.Args[0] = rep.ReplaceAllString(pline.Args[0], "")
+	// delete local command prefix (`+` or `++`)
+	pline.Args[0] = normalizeLocalCommand(pline.Args[0])
 
 	// join command
 	command := strings.Join(pline.Args, " ")

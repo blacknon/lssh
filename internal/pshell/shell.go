@@ -12,6 +12,7 @@ import (
 	"os/signal"
 	"strconv"
 	"strings"
+	"sync"
 	"syscall"
 	"time"
 
@@ -61,6 +62,7 @@ type shell struct {
 	Connects      []*sConnect
 	PROMPT        string
 	History       map[int]map[string]*shellHistory
+	HistoryMu     *sync.Mutex
 	HistoryFile   string
 	latestCommand string
 	currentConns  []*sConnect
@@ -185,6 +187,7 @@ func Shell(r *sshcmd.Run) (err error) {
 		Connects:     cons,
 		PROMPT:       config.Prompt,
 		History:      map[int]map[string]*shellHistory{},
+		HistoryMu:    new(sync.Mutex),
 		HistoryFile:  config.HistoryFile,
 		currentConns: cons,
 		Options: shellOption{

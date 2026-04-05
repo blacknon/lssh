@@ -4,8 +4,8 @@ lssh
 ====
 
 <p align="center">
-  <img src="./images/lssh_linux.gif" width="33%" />
   <img src="./images/lssh_macosx.gif" width="33%" />
+  <img src="./images/lssh_linux.gif" width="33%" />
   <img src="./images/lssh_windows.gif" width="33%" />
 </p>
 
@@ -41,7 +41,9 @@ The `lssh` suite provides multiple commands for different SSH-related workflows.
 
 ## Demo
 
+The animations at the top of this README show `lssh` running on macOS, Linux, and Windows.
 
+If you want to try the main connection patterns locally, see [demo/README.md](./demo/README.md). It provides a Docker Compose based demo environment with ready-to-use sample hosts, proxy routes, and client configuration.
 
 ## Install
 
@@ -91,14 +93,14 @@ For command-specific features and CLI usage, see [cmd/README.md](/Users/blacknon
 Most `lssh` commands open the same host selection TUI when you do not pass hosts with `-H`.
 You can filter the list by typing, then move and confirm the selection from the keyboard.
 
-- `Up` / `Down`: move the cursor one line
-- `Left` / `Right`: move between pages
-- `Tab`: toggle the current host and move to the next line in multi-select screens
-- `Ctrl + A`: select or unselect all visible hosts in multi-select screens
-- `Backspace`: delete one character from the current filter
-- `Space`: insert a space into the filter text
-- `Enter`: confirm the current selection
-- `Esc` or `Ctrl + C`: quit immediately
+- <kbd>Up</kbd> / <kbd>Down</kbd>: move the cursor one line
+- <kbd>Left</kbd> / <kbd>Right</kbd>: move between pages
+- <kbd>Tab</kbd>: toggle the current host and move to the next line in multi-select screens
+- <kbd>Ctrl</kbd> + <kbd>A</kbd>: select or unselect all visible hosts in multi-select screens
+- <kbd>Backspace</kbd>: delete one character from the current filter
+- <kbd>Space</kbd>: insert a space into the filter text
+- <kbd>Enter</kbd>: confirm the current selection
+- <kbd>Esc</kbd> or `Ctrl + C`: quit immediately
 
 Mouse left click also moves the cursor to the clicked line.
 
@@ -138,9 +140,11 @@ At minimum, a server entry needs `addr`, `user`, and authentication settings suc
 You can configure SSH keepalive probes with `alive_interval` and `alive_max`.
 These behave like OpenSSH `ServerAliveInterval` and `ServerAliveCountMax`.
 
-	[common]
-	alive_interval = 10
-	alive_max = 3
+```toml
+[common]
+alive_interval = 10
+alive_max = 3
+```
 
 With the example above, `lssh` sends a keepalive request every 10 seconds and closes the connection after 3 consecutive failures.
 
@@ -154,10 +158,12 @@ Load and use `~/.ssh/config` by default.\
 
 Alternatively, you can specify and read the path as follows: In addition to the path, ServerConfig items can be specified and applied collectively.
 
-	[sshconfig.default]
-	path = "~/.ssh/config"
-	pre_cmd = 'printf "\033]50;SetProfile=local\a"'
-	post_cmd = 'printf "\033]50;SetProfile=Default\a"'
+```toml
+[sshconfig.default]
+path = "~/.ssh/config"
+pre_cmd = 'printf "\033]50;SetProfile=local\a"'
+post_cmd = 'printf "\033]50;SetProfile=Default\a"'
+```
 
 </details>
 
@@ -169,32 +175,36 @@ You can include server settings in another file.\
 
 `~/.lssh.conf` example.
 
-	[includes]
-	path = [
-    	 "~/.lssh.d/home.conf"
-    	,"~/.lssh.d/cloud.conf"
-	]
+```toml
+[includes]
+path = [
+	 "~/.lssh.d/home.conf"
+	,"~/.lssh.d/cloud.conf"
+]
+```
 
 `~/.lssh.d/home.conf` example.
 
-	[common]
-	pre_cmd = 'printf "\033]50;SetProfile=dq\a"'       # iterm2 ssh theme
-	post_cmd = 'printf "\033]50;SetProfile=Default\a"' # iterm2 local theme
-	ssh_agent_key = ["~/.ssh/id_rsa"]
-	ssh_agent = false
-	user = "user"
-	key = "~/.ssh/id_rsa"
-	pkcs11provider = "/usr/local/lib/opensc-pkcs11.so"
+```toml
+[common]
+pre_cmd = 'printf "\033]50;SetProfile=dq\a"'       # iterm2 ssh theme
+post_cmd = 'printf "\033]50;SetProfile=Default\a"' # iterm2 local theme
+ssh_agent_key = ["~/.ssh/id_rsa"]
+ssh_agent = false
+user = "user"
+key = "~/.ssh/id_rsa"
+pkcs11provider = "/usr/local/lib/opensc-pkcs11.so"
 
-	[server.Server1]
-	addr = "172.16.200.1"
-	note = "TEST Server1"
-	local_rc = "yes"
+[server.Server1]
+addr = "172.16.200.1"
+note = "TEST Server1"
+local_rc = "yes"
 
-	[server.Server2]
-	addr = "172.16.200.2"
-	note = "TEST Server2"
-	local_rc = "yes"
+[server.Server2]
+addr = "172.16.200.2"
+note = "TEST Server2"
+local_rc = "yes"
+```
 
 The priority of setting values ​​is as follows.
 
@@ -216,59 +226,65 @@ Besides this, you can also specify ProxyCommand like OpenSSH.
 
 `http` proxy example.
 
-	[proxy.HttpProxy]
-	addr = "example.com"
-	port = "8080"
+```toml
+[proxy.HttpProxy]
+addr = "example.com"
+port = "8080"
 
-	[server.overHttpProxy]
-	addr = "over-http-proxy.com"
-	key  = "/path/to/private_key"
-	note = "connect use http proxy"
-	proxy = "HttpProxy"
-	proxy_type = "http"
+[server.overHttpProxy]
+addr = "over-http-proxy.com"
+key  = "/path/to/private_key"
+note = "connect use http proxy"
+proxy = "HttpProxy"
+proxy_type = "http"
+```
 
 
 `socks5` proxy example.
 
-	[proxy.Socks5Proxy]
-	addr = "example.com"
-	port = "54321"
+```toml
+[proxy.Socks5Proxy]
+addr = "example.com"
+port = "54321"
 
-	[server.overSocks5Proxy]
-	addr = "192.168.10.101"
-	key  = "/path/to/private_key"
-	note = "connect use socks5 proxy"
-	proxy = "Socks5Proxy"
-	proxy_type = "socks5"
-
+[server.overSocks5Proxy]
+addr = "192.168.10.101"
+key  = "/path/to/private_key"
+note = "connect use socks5 proxy"
+proxy = "Socks5Proxy"
+proxy_type = "socks5"
+```
 
 `ssh` proxy example.
 
-	[server.sshProxyServer]
-	addr = "192.168.100.200"
-	key  = "/path/to/private_key"
-	note = "proxy server"
+```toml
+[server.sshProxyServer]
+addr = "192.168.100.200"
+key  = "/path/to/private_key"
+note = "proxy server"
 
-	[server.overProxyServer]
-	addr = "192.168.10.10"
-	key  = "/path/to/private_key"
-	note = "connect use ssh proxy"
-	proxy = "sshProxyServer"
+[server.overProxyServer]
+addr = "192.168.10.10"
+key  = "/path/to/private_key"
+note = "connect use ssh proxy"
+proxy = "sshProxyServer"
 
-	[server.overProxyServer2]
-	addr = "192.168.10.100"
-	key  = "/path/to/private_key"
-	note = "connect use ssh proxy(multiple)"
-	proxy = "overProxyServer"
-
+[server.overProxyServer2]
+addr = "192.168.10.100"
+key  = "/path/to/private_key"
+note = "connect use ssh proxy(multiple)"
+proxy = "overProxyServer"
+```
 
 `ProxyCommand` proxy example.
 
-	[server.ProxyCommand]
-	addr = "192.168.10.20"
-	key  = "/path/to/private_key"
-	note = "connect use ssh proxy(multiple)"
-	proxy_cmd = "ssh -W %h:%p proxy"
+```toml
+[server.ProxyCommand]
+addr = "192.168.10.20"
+key  = "/path/to/private_key"
+note = "connect use ssh proxy(multiple)"
+proxy_cmd = "ssh -W %h:%p proxy"
+```
 
 </details>
 
@@ -284,73 +300,79 @@ Besides this, you can also specify ProxyCommand like OpenSSH.
 
 `password` auth example.
 
-	[server.PasswordAuth]
-	addr = "password_auth.local"
-	user = "user"
-	pass = "Password"
-	note = "password auth server"
-
+```toml
+[server.PasswordAuth]
+addr = "password_auth.local"
+user = "user"
+pass = "Password"
+note = "password auth server"
+```
 
 `publickey` auth example.
 
-	[server.PublicKeyAuth]
-	addr = "pubkey_auth.local"
-	user = "user"
-	key = "~/path/to/key"
-	note = "Public key auth server"
+```toml
+[server.PublicKeyAuth]
+addr = "pubkey_auth.local"
+user = "user"
+key = "~/path/to/key"
+note = "Public key auth server"
 
-	[server.PublicKeyAuth_with_passwd]
-	addr = "password_auth.local"
-	user = "user"
-	key = "~/path/to/key"
-	keypass = "passphrase"
-	note = "Public key auth server with passphrase"
-
+[server.PublicKeyAuth_with_passwd]
+addr = "password_auth.local"
+user = "user"
+key = "~/path/to/key"
+keypass = "passphrase"
+note = "Public key auth server with passphrase"
+```
 
 `cert` auth example.\
 (pkcs11 key is not supported in the current version.)
 
-	[server.CertAuth]
-	addr = "cert_auth.local"
-	user = "user"
-	cert = "~/path/to/cert"
-	certkey = "~/path/to/certkey"
-	note = "Certificate auth server"
+```toml
+[server.CertAuth]
+addr = "cert_auth.local"
+user = "user"
+cert = "~/path/to/cert"
+certkey = "~/path/to/certkey"
+note = "Certificate auth server"
 
-	[server.CertAuth_with_passwd]
-	addr = "cert_auth.local"
-	user = "user"
-	cert = "~/path/to/cert"
-	certkey = "~/path/to/certkey"
-	certkeypass = "passphrase"
-	note = "Certificate auth server with passphrase"
-
+[server.CertAuth_with_passwd]
+addr = "cert_auth.local"
+user = "user"
+cert = "~/path/to/cert"
+certkey = "~/path/to/certkey"
+certkeypass = "passphrase"
+note = "Certificate auth server with passphrase"
+```
 
 `pkcs11` auth example.
 
-	[server.PKCS11Auth]
-	addr = "pkcs11_auth.local"
-	user = "user"
-	pkcs11provider = "/usr/local/lib/opensc-pkcs11.so"
-	pkcs11 = true
-	note = "PKCS11 auth server"
+```toml
+[server.PKCS11Auth]
+addr = "pkcs11_auth.local"
+user = "user"
+pkcs11provider = "/usr/local/lib/opensc-pkcs11.so"
+pkcs11 = true
+note = "PKCS11 auth server"
 
-	[server.PKCS11Auth_with_PIN]
-	addr = "pkcs11_auth.local"
-	user = "user"
-	pkcs11provider = "/usr/local/lib/opensc-pkcs11.so"
-	pkcs11 = true
-	pkcs11pin = "123456"
-	note = "PKCS11 auth server"
-
+[server.PKCS11Auth_with_PIN]
+addr = "pkcs11_auth.local"
+user = "user"
+pkcs11provider = "/usr/local/lib/opensc-pkcs11.so"
+pkcs11 = true
+pkcs11pin = "123456"
+note = "PKCS11 auth server"
+```
 
 `ssh-agent` auth example.
 
-	[server.SshAgentAuth]
-	addr = "agent_auth.local"
-	user = "user"
-	agentauth = true # auth ssh-agent
-	note = "ssh-agent auth server"
+```toml
+[server.SshAgentAuth]
+addr = "agent_auth.local"
+user = "user"
+agentauth = true # auth ssh-agent
+note = "ssh-agent auth server"
+```
 
 </details>
 
@@ -362,18 +384,20 @@ If you want to enable check KnownHost, set `check_known_hosts` to `true` in Serv
 
 If you want to specify a file to record KnownHosts, add file path to `known_hosts_files`.
 
-	[server.CheckKnownHosts]
-	addr = "check_knwon_hosts.local"
-	user = "user"
-	check_known_hosts = true
-	note = "check known hosts example"
+```toml
+[server.CheckKnownHosts]
+addr = "check_knwon_hosts.local"
+user = "user"
+check_known_hosts = true
+note = "check known hosts example"
 
-	[server.CheckKnownHostsToOriginalFile]
-	addr = "check_knwon_hosts.local"
-	user = "user"
-	check_known_hosts = true
-	known_hosts_files = ["/path/to/known_hosts"]
-	note = "check known hosts example"
+[server.CheckKnownHostsToOriginalFile]
+addr = "check_knwon_hosts.local"
+user = "user"
+check_known_hosts = true
+known_hosts_files = ["/path/to/known_hosts"]
+note = "check known hosts example"
+```
 
 </details>
 
@@ -385,16 +409,18 @@ This is useful when multiple operations connect to the same host repeatedly.
 
 `~/.lssh.conf` example.
 
-	[common]
-	control_master = true
-	control_path = "/tmp/lssh-control-%h-%p-%r"
-	control_persist = "10m"
+```toml
+[common]
+control_master = true
+control_path = "/tmp/lssh-control-%h-%p-%r"
+control_persist = "10m"
 
-	[server.controlmaster]
-	addr = "192.168.100.110"
-	user = "demo"
-	key = "~/.ssh/id_rsa"
-	note = "reuse ssh session"
+[server.controlmaster]
+addr = "192.168.100.110"
+user = "demo"
+key = "~/.ssh/id_rsa"
+note = "reuse ssh session"
+```
 
 </details>
 

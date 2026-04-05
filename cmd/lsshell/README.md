@@ -61,6 +61,71 @@ cat /etc/hosts | +sort | +uniq
 +vimdiff +<(cat /etc/hosts)
 ```
 
+### pipeline
+
+The pipeline behavior differs between `+command` and `++command`.
+
+#### if use +command
+
+```bash
+remote-command | +command | remote-command
+```
+
+```shell
+[0] <<< hostname | +cat | cat
+[Command: hostname |+cat |cat  ]
+[server-1][0] >  server-2
+[server-2][0] >  server-2
+[server-3][0] >  server-2
+[server-3][0] >  server-3
+[server-1][0] >  server-3
+[server-2][0] >  server-3
+[server-3][0] >  server-1
+[server-2][0] >  server-1
+[server-1][0] >  server-1
+
+```
+
+```mermaid
+flowchart LR
+    r1["server-1: remote command"] --> local["+command<br/>single local process"]
+    r2["server-2: remote command"] --> local
+    r3["server-3: remote command"] --> local
+    r4["server-4: remote command"] --> local
+
+    local --> n1["server-1: next remote command"]
+    local --> n2["server-2: next remote command"]
+    local --> n3["server-3: next remote command"]
+    local --> n4["server-4: next remote command"]
+```
+
+#### if use ++command
+
+```bash
+remote-command | ++command | remote-command
+```
+
+```shell
+[0] <<< hostname | ++cat | cat
+[Command: hostname |++cat |cat  ]
+[server-1][0] >  server-1
+[server-2][0] >  server-2
+[server-3][0] >  server-3
+```
+
+```mermaid
+flowchart LR
+    r1["server-1: remote command"] --> l1["++command<br/>local process for server-1"]
+    r2["server-2: remote command"] --> l2["++command<br/>local process for server-2"]
+    r3["server-3: remote command"] --> l3["++command<br/>local process for server-3"]
+    r4["server-4: remote command"] --> l4["++command<br/>local process for server-4"]
+
+    l1 --> n1["server-1: next remote command"]
+    l2 --> n2["server-2: next remote command"]
+    l3 --> n3["server-3: next remote command"]
+    l4 --> n4["server-4: next remote command"]
+```
+
 ### command routing
 
 You can broadcast commands to all selected hosts, limit a command to specific hosts, or run a local command.

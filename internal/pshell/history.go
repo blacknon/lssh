@@ -27,7 +27,7 @@ type shellHistory struct {
 	Output    *output.Output
 }
 
-func (s *shell) NewHistoryWriter(server string, output *output.Output, m *sync.Mutex) *io.PipeWriter {
+func (s *shell) NewHistoryWriter(server string, output *output.Output) *io.PipeWriter {
 	// craete pShellHistory struct
 	psh := &shellHistory{
 		Command:   s.latestCommand,
@@ -39,13 +39,13 @@ func (s *shell) NewHistoryWriter(server string, output *output.Output, m *sync.M
 	r, w := io.Pipe()
 
 	// output Struct
-	go s.shellHistoryPrint(psh, server, r, m)
+	go s.shellHistoryPrint(psh, server, r)
 
 	// return io.PipeWriter
 	return w
 }
 
-func (s *shell) shellHistoryPrint(psh *shellHistory, server string, r *io.PipeReader, m *sync.Mutex) {
+func (s *shell) shellHistoryPrint(psh *shellHistory, server string, r *io.PipeReader) {
 	count := s.Count
 
 	var result string
@@ -71,9 +71,13 @@ loop:
 	psh.Result = result
 
 	// Add History
-	m.Lock()
+	if s.HistoryMu == nil {
+		s.HistoryMu = new(sync.Mutex)
+	}
+
+	s.HistoryMu.Lock()
 	s.History[count][server] = psh
-	m.Unlock()
+	s.HistoryMu.Unlock()
 }
 
 // GetHistoryFromFile return []History from historyfile

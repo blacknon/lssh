@@ -107,17 +107,19 @@ For example, if your terminal supports OSC escape sequences, you can switch the 
 
 `~/.lssh.conf` example.
 
-    [server.theme]
-    addr = "192.168.100.10"
-    user = "demo"
-    pre_cmd = 'printf "\033]50;SetProfile=Remote\a"'    # switch terminal theme on connect. it used iTerm2.
-    post_cmd = 'printf "\033]50;SetProfile=Default\a"'  # restore terminal theme on disconnect. it used iTerm2.
+```toml
+[server.theme]
+addr = "192.168.100.10"
+user = "demo"
+pre_cmd = 'printf "\033]50;SetProfile=Remote\a"'    # switch terminal theme on connect. it used iTerm2.
+post_cmd = 'printf "\033]50;SetProfile=Default\a"'  # restore terminal theme on disconnect. it used iTerm2.
 
-    [server.color]
-    addr = "192.168.100.11"
-    user = "demo"
-    pre_cmd = 'printf "\e]10;#ffffff\a\e]11;#503000\a"'  # change foreground/background colors
-    post_cmd = 'printf "\e]10;#ffffff\a\e]11;#000000\a"' # restore local colors
+[server.color]
+addr = "192.168.100.11"
+user = "demo"
+pre_cmd = 'printf "\e]10;#ffffff\a\e]11;#503000\a"'  # change foreground/background colors
+post_cmd = 'printf "\e]10;#ffffff\a\e]11;#000000\a"' # restore local colors
+```
 
 ### ssh-agent
 
@@ -125,11 +127,13 @@ For example, if your terminal supports OSC escape sequences, you can switch the 
 
 `~/.lssh.conf` example.
 
-    [server.agent]
-    addr = "192.168.100.20"
-    user = "demo"
-    ssh_agent = true
-    note = "use keys from ssh-agent"
+```toml
+[server.agent]
+addr = "192.168.100.20"
+user = "demo"
+ssh_agent = true
+note = "use keys from ssh-agent"
+```
 
 ### forwarding
 
@@ -260,19 +264,21 @@ If you need to transfer a large bashrc, you can enable compression during transf
 
 `~/.lssh.conf` example.
 
-    [server.localrc]
-    addr = "192.168.100.104"
-    key  = "/path/to/private_key"
-    note = "Use local bashrc files."
-    local_rc = 'yes'
-    local_rc_compress = true # gzip compress localrc file data
-    local_rc_file = [
-         "~/dotfiles/.bashrc"
-        ,"~/dotfiles/bash_prompt"
-        ,"~/dotfiles/sh_alias"
-        ,"~/dotfiles/sh_export"
-        ,"~/dotfiles/sh_function"
-    ]
+```toml
+[server.localrc]
+addr = "192.168.100.104"
+key  = "/path/to/private_key"
+note = "Use local bashrc files."
+local_rc = 'yes'
+local_rc_compress = true # gzip compress localrc file data
+local_rc_file = [
+     "~/dotfiles/.bashrc"
+    ,"~/dotfiles/bash_prompt"
+    ,"~/dotfiles/sh_alias"
+    ,"~/dotfiles/sh_export"
+    ,"~/dotfiles/sh_function"
+]
+```
 
 #### Tips
 

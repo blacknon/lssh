@@ -6,10 +6,10 @@
 conf is a package used to read configuration file (~/.lssh.conf).
 */
 
-// TODO(blacknon): if/whenなどを使って、条件に応じて設定を追加するような仕組みを実装したい(v0.7.0)
+// TODO(blacknon): if/whenなどを使って、条件に応じて設定を追加するような仕組みを実装したい(v0.7.X)
 //                 ex) 現在のipアドレスのrangeが192.168.10.0/24 => xxxのnwだからproxy serverが必要、という分岐機能の追加をする
 
-// TODO(blacknon): 接続成功時に特定のコマンドを実行可能にする(接続前しか今はないので): (v0.7.0)
+// TODO(blacknon): 接続成功時に特定のコマンドを実行可能にする(接続前しか今はないので): (v0.7.X)
 
 // TODO(blacknon): sshだけではなく、telnetやWinrmなどのプロトコルにも対応したい(v0.8.0)
 //
@@ -20,6 +20,11 @@ conf is a package used to read configuration file (~/.lssh.conf).
 //   - AWS SSM(セッションマネージャー)
 //   - Azure Bastion
 //   - GCP(gcloud compute ssh)
+
+// TODO(blacknon): configの中に`plugin`structwを追加して、そこにプラグインの設定を記述できるようにする(v0.8.X)
+//                  このとき、このstruct側でプラグインファイルのパスを指定するほか、どのようなプラグインなのかをこのstructもしくは対象化で持たせるようにすることで、ファイルの転送やコマンドの実行など、機能の制限を付けられるようにする。これにより、lsshや　lscpで実行する際に表示の制御や実行対象外を拾えるようにできる。
+// 　　　　　　　　　　　　　　　　　　　　　　　　　　　　　例えば、winrmやtelnetの場合はファイル転送が難しいため、ターミナル操作だけを対象にすることで、lscpやlsftpでの実行を禁止するなどの制御ができるようにする。使えるバイナリや機能だけを使えるようにすれば、実現の難しいプロトコルにも対応できるようになるのではないかと考えている。
+//                  このとき、server structをそのまま使うと面倒になるので、専用のstructを使わせるようにすれば混在を防げないだろうか？（型として継承するのは要検討）
 
 package conf
 

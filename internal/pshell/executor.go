@@ -10,6 +10,7 @@ import (
 	"os"
 	"slices"
 	"strings"
+	"sync"
 )
 
 // PipeSet is pipe in/out set struct.
@@ -53,76 +54,13 @@ func (s *shell) parseExecuter(pslice [][]pipeLine) {
 
 	// for pslice
 	for _, pline := range pslice {
-		// count pipe num
-		pnum := countPipeSet(pline, "|")
-
-		// create pipe set
-		pipes := createPipeSet(pnum)
-
 		// join pipe set
 		pline = joinPipeLine(pline)
 
 		// printout run command
 		fmt.Printf("[Command:%s ]\n", joinPipeLineSlice(pline))
 
-		// pipe counter
-		var n int
-
-		// create channel
-		ch := make(chan bool)
-		defer close(ch)
-
-		kill := make(chan bool)
-		defer close(kill)
-
-		for i, p := range pline {
-			// declare nextPipeLine
-			var bp pipeLine
-
-			// declare in,out
-			var in *io.PipeReader
-			var out *io.PipeWriter
-
-			// get next pipe line
-			if i > 0 {
-				bp = pline[i-1]
-			}
-
-			// set stdin
-			// If the before delimiter is a pipe, set the stdin before io.PipeReader.
-			if bp.Oprator == "|" {
-				in = pipes[n-1].in
-			}
-
-			// set stdout
-			// If the delimiter is a pipe, set the stdout output a io.PipeWriter.
-			if p.Oprator == "|" {
-				out = pipes[n].out
-
-				// add pipe num
-				n++
-			}
-
-			// exec pipeline
-			go s.run(p, in, out, ch, kill)
-		}
-
-		// get and send kill
-		killExit := make(chan bool)
-		defer close(killExit)
-		go func(sig chan os.Signal) {
-			select {
-			case <-sig:
-				for i := 0; i < len(pline); i++ {
-					kill <- true
-				}
-			case <-killExit:
-				return
-			}
-		}(s.Signal)
-
-		// wait channel
-		s.wait(len(pline), ch)
+		s.executeJoinedPipeLine(pline)
 	}
 
 	// add s.Count
@@ -145,14 +83,217 @@ func (s *shell) parseExecuter(pslice [][]pipeLine) {
 	}
 }
 
+func (s *shell) executeJoinedPipeLine(pline []pipeLine) {
+	if hasPerHostLocalCommand(pline) {
+		s.executePerHostPipeLine(pline)
+		return
+	}
+
+	// count pipe num
+	pnum := countPipeSet(pline, "|")
+
+	// create pipe set
+	pipes := createPipeSet(pnum)
+
+	// pipe counter
+	var n int
+
+	// create channel
+	ch := make(chan bool)
+	defer close(ch)
+
+	kill := make(chan bool)
+	defer close(kill)
+
+	for i, p := range pline {
+		// declare nextPipeLine
+		var bp pipeLine
+
+		// declare in,out
+		var in *io.PipeReader
+		var out *io.PipeWriter
+
+		// get next pipe line
+		if i > 0 {
+			bp = pline[i-1]
+		}
+
+		// set stdin
+		// If the before delimiter is a pipe, set the stdin before io.PipeReader.
+		if bp.Oprator == "|" {
+			in = pipes[n-1].in
+		}
+
+		// set stdout
+		// If the delimiter is a pipe, set the stdout output a io.PipeWriter.
+		if p.Oprator == "|" {
+			out = pipes[n].out
+
+			// add pipe num
+			n++
+		}
+
+		// exec pipeline
+		go s.run(p, in, out, ch, kill)
+	}
+
+	// get and send kill
+	killExit := make(chan bool)
+	defer close(killExit)
+	go func(sig chan os.Signal) {
+		select {
+		case <-sig:
+			for i := 0; i < len(pline); i++ {
+				kill <- true
+			}
+		case <-killExit:
+			return
+		}
+	}(s.Signal)
+
+	// wait channel
+	s.wait(len(pline), ch)
+}
+
+func (s *shell) executePerHostPipeLine(pline []pipeLine) {
+	connects := s.pipelineScopedConnects(pline)
+	if len(connects) == 0 {
+		return
+	}
+
+	var wg sync.WaitGroup
+	for _, conn := range connects {
+		if conn == nil {
+			continue
+		}
+
+		wg.Add(1)
+		go func(conn *sConnect) {
+			defer wg.Done()
+
+			scoped := *s
+			scoped.currentConns = []*sConnect{conn}
+			scoped.executeJoinedPipeLine(normalizePerHostPipeLine(pline))
+		}(conn)
+	}
+
+	wg.Wait()
+}
+
+func hasPerHostLocalCommand(pline []pipeLine) bool {
+	for _, p := range pline {
+		if len(p.Args) == 0 {
+			continue
+		}
+		if strings.HasPrefix(p.Args[0], "++") {
+			return true
+		}
+	}
+
+	return false
+}
+
+func normalizePerHostPipeLine(pline []pipeLine) []pipeLine {
+	result := make([]pipeLine, 0, len(pline))
+	for _, p := range pline {
+		cloned := pipeLine{
+			Args:    append([]string{}, p.Args...),
+			Oprator: p.Oprator,
+		}
+		if len(cloned.Args) > 0 && strings.HasPrefix(cloned.Args[0], "++") {
+			cloned.Args[0] = "+" + strings.TrimPrefix(cloned.Args[0], "++")
+		}
+		result = append(result, cloned)
+	}
+
+	return result
+}
+
+func (s *shell) activeConnects() []*sConnect {
+	if len(s.currentConns) > 0 {
+		return s.currentConns
+	}
+
+	return s.Connects
+}
+
+func (s *shell) pipelineScopedConnects(pline []pipeLine) []*sConnect {
+	connects := append([]*sConnect{}, s.activeConnects()...)
+	if len(connects) == 0 {
+		return nil
+	}
+
+	targeted := false
+	for _, p := range pline {
+		if len(p.Args) == 0 || checkLocalBuildInCommand(p.Args[0]) {
+			continue
+		}
+		if !isTargetedRemoteCommand(p.Args[0]) {
+			continue
+		}
+
+		targeted = true
+		targetNames, err := parseTargetedNames(p.Args[0])
+		if err != nil {
+			return nil
+		}
+
+		filtered := make([]*sConnect, 0, len(connects))
+		for _, c := range connects {
+			if c == nil {
+				continue
+			}
+			if slices.Contains(targetNames, c.Name) {
+				filtered = append(filtered, c)
+			}
+		}
+		connects = filtered
+		if len(connects) == 0 {
+			return nil
+		}
+	}
+
+	if targeted {
+		return connects
+	}
+
+	return s.activeConnects()
+}
+
+func parseTargetedNames(command string) ([]string, error) {
+	if !isTargetedRemoteCommand(command) {
+		return nil, fmt.Errorf("not targeted command")
+	}
+
+	idx := strings.Index(command, ":")
+	targetSpec := strings.TrimSpace(command[1:idx])
+	if targetSpec == "" {
+		return nil, fmt.Errorf("invalid server selector")
+	}
+
+	targets := strings.Split(targetSpec, ",")
+	result := make([]string, 0, len(targets))
+	for _, target := range targets {
+		name := strings.TrimSpace(target)
+		if name == "" {
+			return nil, fmt.Errorf("invalid server selector")
+		}
+		result = append(result, name)
+	}
+
+	return result, nil
+}
+
 func (s *shell) resolveTargetedConnects(args []string) ([]*sConnect, []string, error) {
+	baseConnects := s.activeConnects()
+
 	if len(args) == 0 {
-		return s.Connects, args, nil
+		return baseConnects, args, nil
 	}
 
 	command := args[0]
 	if !isTargetedRemoteCommand(command) {
-		return s.Connects, args, nil
+		return baseConnects, args, nil
 	}
 
 	idx := strings.Index(command, ":")
@@ -174,7 +315,7 @@ func (s *shell) resolveTargetedConnects(args []string) ([]*sConnect, []string, e
 
 	connects := make([]*sConnect, 0, len(targetSet))
 	found := make([]string, 0, len(targetSet))
-	for _, c := range s.Connects {
+	for _, c := range baseConnects {
 		if c == nil {
 			continue
 		}
