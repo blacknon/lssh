@@ -151,7 +151,30 @@ func waitForServices(t *testing.T, demoDir string) {
 	t.Helper()
 
 	deadline := time.Now().Add(150 * time.Second)
-	check := "nc -z 127.0.0.1 2222 && nc -z 172.31.0.21 22 && nc -z 172.31.0.22 22 && nc -z 172.31.0.31 22 && nc -z 172.31.0.32 8888 && nc -z 172.31.0.33 1080 && nc -z 172.31.1.41 22"
+	check := `
+failed=0
+for item in \
+  "client_sshd 127.0.0.1 2222" \
+  "password_ssh 172.31.0.21 22" \
+  "key_ssh 172.31.0.22 22" \
+  "ssh_proxy 172.31.0.31 22" \
+  "http_proxy 172.31.0.32 8888" \
+  "socks_proxy 172.31.0.33 1080" \
+  "over_proxy_ssh 172.31.1.41 22"
+do
+  set -- $item
+  name="$1"
+  host="$2"
+  port="$3"
+  if nc -z -w 2 "$host" "$port" >/dev/null 2>&1; then
+    echo "ok $name $host:$port"
+  else
+    echo "ng $name $host:$port"
+    failed=1
+  fi
+done
+exit $failed
+`
 	var lastOutput string
 
 	for time.Now().Before(deadline) {
