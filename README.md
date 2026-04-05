@@ -117,14 +117,16 @@ Values in `[server.<name>]` override values from `[common]`.
 
 Minimal example.
 
-	[common]
-	user = "demo"
-	port = "22"
-	key = "~/.ssh/id_rsa"
+```toml
+[common]
+user = "demo"
+port = "22"
+key = "~/.ssh/id_rsa"
 
-	[server.dev]
-	addr = "192.168.100.10"
-	note = "development server"
+[server.dev]
+addr = "192.168.100.10"
+note = "development server"
+```
 
 At minimum, a server entry needs `addr`, `user`, and authentication settings such as `pass`, `key`, `cert`, `pkcs11`, or `agentauth`.
 
