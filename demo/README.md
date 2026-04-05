@@ -4,9 +4,12 @@ Demo
 `demo/` provides a Docker Compose environment for trying the main `lssh` connection patterns locally in one place.
 From the client container, you can use `lssh` / `lscp` / `lsftp` / `lsshell` / `lsmon` to verify the following:
 
+- Using the demo client itself as an SSH bastion that launches `lssh`
 - Password-based SSH authentication
 - Private key-based SSH authentication
 - Multi-hop connections through an SSH proxy
+- Nested SSH proxy chains through an intermediate private host
+- HTTP and SOCKS5 proxy hops that sit behind an SSH-only intermediate host
 - Connections through an HTTP proxy
 - Connections through a SOCKS5 proxy
 - Loading local settings with `local_rc`
@@ -14,7 +17,7 @@ From the client container, you can use `lssh` / `lscp` / `lsftp` / `lsshell` / `
 
 ## Structure
 
-This Compose setup uses two Docker networks.
+This Compose setup uses four Docker networks.
 
 ```mermaid
 flowchart LR
@@ -30,6 +33,18 @@ frontend
     over_proxy_ssh["over_proxy_ssh
 backend
 172.31.1.41"]
+    deep_proxy_ssh["deep_proxy_ssh
+deepback
+172.31.2.51"]
+    deep_http_proxy["deep_http_proxy
+deepback: 172.31.2.61
+finalback: 172.31.3.61"]
+    deep_socks_proxy["deep_socks_proxy
+deepback: 172.31.2.62
+finalback: 172.31.3.62"]
+    over_deep_http_ssh["over_deep_http_ssh
+finalback
+172.31.3.71"]
 
     ssh_proxy["ssh_proxy
 frontend: 172.31.0.31
@@ -50,6 +65,11 @@ backend: 172.31.1.33"]
     ssh_proxy --> over_proxy_ssh
     http_proxy --> over_proxy_ssh
     socks_proxy --> over_proxy_ssh
+    over_proxy_ssh --> deep_proxy_ssh
+    over_proxy_ssh --> deep_http_proxy
+    over_proxy_ssh --> deep_socks_proxy
+    deep_http_proxy --> over_deep_http_ssh
+    deep_socks_proxy --> over_deep_http_ssh
 ```
 
 - `frontend`
@@ -64,9 +84,20 @@ backend: 172.31.1.33"]
   - `http_proxy`
   - `socks_proxy`
   - `over_proxy_ssh`
+- `deepback`
+  - `over_proxy_ssh`
+  - `deep_proxy_ssh`
+  - `deep_http_proxy`
+  - `deep_socks_proxy`
+- `finalback`
+  - `deep_http_proxy`
+  - `deep_socks_proxy`
+  - `over_deep_http_ssh`
 
 `over_proxy_ssh` belongs only to `backend`, so it is not directly reachable from `client`.
 To connect to it, you must go through `ssh_proxy`, `http_proxy`, or `socks_proxy`.
+`deep_proxy_ssh` belongs only to `deepback`, so it is reachable only through `over_proxy_ssh`.
+`over_deep_http_ssh` belongs only to `finalback`, so it is reachable only after `OverSshProxy` and then either `deep_http_proxy` or `deep_socks_proxy`.
 
 ## Start
 
@@ -74,6 +105,19 @@ To connect to it, you must go through `ssh_proxy`, `http_proxy`, or `socks_proxy
 cd demo
 docker compose up --build -d
 docker compose exec client bash
+```
+
+The `client` container also opens SSH on host port `2222`.
+Its `~/.ssh/authorized_keys` is generated with a forced `command="/usr/local/bin/demo-lssh-bastion.sh"` entry, so logging in with the demo key starts `lssh` instead of a normal shell.
+
+From the host, you can try:
+
+```sh
+# open the interactive lssh bastion session
+ssh -t -p 2222 -i demo/client/home/.ssh/demo_lssh_ed25519 demo@127.0.0.1
+
+# run a non-interactive check through the same forced command
+ssh -p 2222 -i demo/client/home/.ssh/demo_lssh_ed25519 demo@127.0.0.1 -- --list
 ```
 
 After entering the client container, the demo configuration is available at `/home/demo/.lssh.conf`.
@@ -98,8 +142,11 @@ The split files are:
   - `OverSshProxy`
   - `OverHttpProxy`
   - `OverSocksProxy`
+  - `OverNestedSshProxy`
+  - `OverNestedHttpProxy`
+  - `OverNestedSocksProxy`
 
-`~/.lssh.conf` also defines shared settings in `[common]` and the proxy entries `http_proxy` and `socks_proxy`.
+`~/.lssh.conf` also defines shared settings in `[common]` and the proxy entries `http_proxy`, `socks_proxy`, `deep_http_proxy`, and `deep_socks_proxy`.
 
 ## Demo Targets
 
@@ -115,6 +162,12 @@ The split files are:
   - Private server reached through an HTTP proxy
 - `OverSocksProxy`
   - Private server reached through a SOCKS5 proxy
+- `OverNestedSshProxy`
+  - Private server reached through `OverSshProxy` as a second SSH hop
+- `OverNestedHttpProxy`
+  - Private server reached through `OverSshProxy` and then an HTTP proxy
+- `OverNestedSocksProxy`
+  - Private server reached through `OverSshProxy` and then a SOCKS5 proxy
 - `LocalRcKeyAuth`
   - Private key-authenticated server with `local_rc = "yes"` enabled
 
@@ -141,8 +194,55 @@ lssh --host OverHttpProxy
 # Connect to the private server through a SOCKS5 proxy
 lssh --host OverSocksProxy
 
+# Connect to the deeper private server through OverSshProxy
+lssh --host OverNestedSshProxy
+
+# Connect to the final private server through OverSshProxy and a deep HTTP proxy
+lssh --host OverNestedHttpProxy
+
+# Connect to the final private server through OverSshProxy and a deep SOCKS5 proxy
+lssh --host OverNestedSocksProxy
+
 # Connect with local_rc applied
 lssh --host LocalRcKeyAuth
+```
+
+From the host, you can also treat `client` as a jump entrypoint that always launches `lssh`:
+
+```sh
+# choose from the configured hosts over SSH
+ssh -t -p 2222 -i demo/client/home/.ssh/demo_lssh_ed25519 demo@127.0.0.1
+
+# or forward arguments to the forced lssh command
+ssh -p 2222 -i demo/client/home/.ssh/demo_lssh_ed25519 demo@127.0.0.1 -- --host OverNestedSshProxy hostname
+
+# or reach the final host through OverSshProxy and deep_http_proxy
+ssh -p 2222 -i demo/client/home/.ssh/demo_lssh_ed25519 demo@127.0.0.1 -- --host OverNestedHttpProxy hostname
+```
+
+The nested SSH and nested HTTP examples are defined like this:
+
+```toml
+[server.OverSshProxy]
+addr = "172.31.1.41"
+key = "~/.ssh/demo_lssh_ed25519"
+proxy = "ssh_proxy"
+
+[server.OverNestedSshProxy]
+addr = "172.31.2.51"
+key = "~/.ssh/demo_lssh_ed25519"
+proxy = "OverSshProxy"
+
+[proxy.deep_http_proxy]
+addr = "172.31.2.61"
+port = "8888"
+proxy = "OverSshProxy"
+
+[server.OverNestedHttpProxy]
+addr = "172.31.3.71"
+key = "~/.ssh/demo_lssh_ed25519"
+proxy = "deep_http_proxy"
+proxy_type = "http"
 ```
 
 `LocalRcKeyAuth` is configured to transfer the following local files:
@@ -209,9 +309,11 @@ You can confirm this by running the following inside the client container:
 
 ```sh
 nc -zv 172.31.1.41 22
+nc -zv 172.31.2.51 22
+nc -zv 172.31.3.71 22
 ```
 
-Direct access should fail, while proxy-based connections such as `lssh --host OverSshProxy` should succeed.
+Direct access should fail, while proxy-based connections such as `lssh --host OverSshProxy`, `lssh --host OverNestedSshProxy`, `lssh --host OverNestedHttpProxy`, and `lssh --host OverNestedSocksProxy` should succeed.
 
 ## Notes
 

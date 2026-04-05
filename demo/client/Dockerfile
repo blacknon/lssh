@@ -20,6 +20,7 @@ RUN apt-get update && \
       iproute2 \
       iputils-ping \
       less \
+      openssh-server \
       netcat-openbsd \
       openssh-client \
       procps \
@@ -35,15 +36,20 @@ COPY --from=builder /out/lscp /usr/local/bin/lscp
 COPY --from=builder /out/lsftp /usr/local/bin/lsftp
 COPY --from=builder /out/lsshell /usr/local/bin/lsshell
 COPY --from=builder /out/lsmon /usr/local/bin/lsmon
+COPY demo/client/entrypoint.sh /usr/local/bin/demo-client-entrypoint.sh
+COPY demo/client/lssh-bastion.sh /usr/local/bin/demo-lssh-bastion.sh
 COPY demo/client/home/ /home/demo/
 
 RUN chown -R demo:demo /home/demo && \
     chmod 700 /home/demo/.ssh && \
     chmod 600 /home/demo/.ssh/demo_lssh_ed25519 /home/demo/.lssh.conf && \
+    chmod +x /usr/local/bin/demo-client-entrypoint.sh /usr/local/bin/demo-lssh-bastion.sh && \
     chmod +x /home/demo/bin/demo-check.sh /home/demo/.demo_localrc/bin/update_lvim /home/demo/.demo_localrc/bin/update_ltmux
 
 USER demo
 WORKDIR /home/demo
 ENV HOME=/home/demo
+EXPOSE 2222
 
-CMD ["bash"]
+ENTRYPOINT ["/usr/local/bin/demo-client-entrypoint.sh"]
+CMD ["sleep", "infinity"]

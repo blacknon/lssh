@@ -22,3 +22,23 @@ key = "~/.ssh/demo_lssh_ed25519"
 proxy = "socks_proxy"
 proxy_type = "socks5"
 note = "private ssh server over socks5 proxy"
+
+[server.OverNestedSshProxy]
+addr = "172.31.2.51"
+key = "~/.ssh/demo_lssh_ed25519"
+proxy = "OverSshProxy"
+note = "private ssh server over nested ssh proxy"
+
+[server.OverNestedHttpProxy]
+addr = "172.31.3.71"
+key = "~/.ssh/demo_lssh_ed25519"
+proxy = "deep_http_proxy"
+proxy_type = "http"
+note = "private ssh server over OverSshProxy and deep http proxy"
+
+[server.OverNestedSocksProxy]
+addr = "172.31.3.71"
+key = "~/.ssh/demo_lssh_ed25519"
+proxy = "deep_socks_proxy"
+proxy_type = "socks5"
+note = "private ssh server over OverSshProxy and deep socks5 proxy"

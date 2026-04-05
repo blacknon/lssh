@@ -1,27 +1,46 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-echo "[1/7] client should not reach over_proxy_ssh directly"
+echo "[1/12] client ssh bastion should expose lssh through authorized_keys command"
+ssh -p 2222 -i ~/.ssh/demo_lssh_ed25519 -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null demo@127.0.0.1 -- --list | grep -q OverNestedSocksProxy
+
+echo "[2/12] client should not reach over_proxy_ssh directly"
 if nc -z -w 2 172.31.1.41 22; then
     echo "unexpected: direct access succeeded"
     exit 1
 fi
 echo "ok: direct access blocked"
 
-echo "[2/7] password auth with OpenSSH"
+echo "[3/12] client should not reach deep_proxy_ssh directly"
+if nc -z -w 2 172.31.2.51 22; then
+    echo "unexpected: direct access to deep host succeeded"
+    exit 1
+fi
+echo "ok: deep direct access blocked"
+
+echo "[4/12] password auth with OpenSSH"
 sshpass -p demo-password ssh -o StrictHostKeyChecking=no demo@172.31.0.21 hostname
 
-echo "[3/7] key auth with OpenSSH"
+echo "[5/12] key auth with OpenSSH"
 ssh -i ~/.ssh/demo_lssh_ed25519 demo@172.31.0.22 hostname
 
-echo "[4/7] over ssh proxy with lssh"
+echo "[6/12] over ssh proxy with lssh"
 lssh --host OverSshProxy hostname
 
-echo "[5/7] over socks proxy with lssh"
+echo "[7/12] over nested ssh proxy with lssh"
+lssh --host OverNestedSshProxy hostname
+
+echo "[8/12] over nested http proxy with lssh"
+lssh --host OverNestedHttpProxy hostname
+
+echo "[9/12] over nested socks proxy with lssh"
+lssh --host OverNestedSocksProxy hostname
+
+echo "[10/12] over socks proxy with lssh"
 lssh --host OverSocksProxy hostname
 
-echo "[6/7] local_rc functions should be available over lssh"
+echo "[11/12] local_rc functions should be available over lssh"
 lssh --host LocalRcKeyAuth 'type lvim >/dev/null && type ltmux >/dev/null && echo local_rc_ok'
 
-echo "[7/7] generated vimrc wrapper should be usable on the remote host"
+echo "[12/12] generated vimrc wrapper should be usable on the remote host"
 lssh --host LocalRcKeyAuth 'vim "+set nomore" "+set statusline?" "+q" | tail -n 1'

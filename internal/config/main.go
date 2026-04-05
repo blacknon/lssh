@@ -6,6 +6,7 @@
 conf is a package used to read configuration file (~/.lssh.conf).
 */
 
+// TODO(blacknon): 1password managerなどの外部ツールと連携して、パスワードや秘密鍵の管理を行えるようにする(v0.7.X)
 // TODO(blacknon): if/whenなどを使って、条件に応じて設定を追加するような仕組みを実装したい(v0.7.X)
 //                 ex) 現在のipアドレスのrangeが192.168.10.0/24 => xxxのnwだからproxy serverが必要、という分岐機能の追加をする
 

@@ -1,0 +1,35 @@
+# Copyright (c) 2026 Blacknon. All rights reserved.
+# Use of this source code is governed by an MIT license
+# that can be found in the LICENSE file.
+
+name: Test Job.
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  test:
+    strategy:
+      fail-fast: false
+      matrix:
+        os:
+          - ubuntu-latest
+          - macos-latest
+          - windows-latest
+
+    runs-on: ${{ matrix.os }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up mise
+        uses: jdx/mise-action@v2
+
+      - name: Set up Go 1.22
+        uses: actions/setup-go@v5
+        with:
+          go-version: "1.22"
+
+      - name: Run full test
+        run: mise run full_test
