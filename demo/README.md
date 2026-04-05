@@ -108,7 +108,7 @@ docker compose exec --user demo client bash
 ```
 
 The `client` container also opens SSH on host port `2222`.
-Its `~/.ssh/authorized_keys` is generated with a forced `command="/usr/local/bin/demo-lssh-bastion.sh"` entry, so logging in with the demo key starts `lssh` instead of a normal shell.
+Its SSH daemon uses `ForceCommand /usr/local/bin/demo-lssh-bastion.sh`, so logging in with the demo key starts `lssh` instead of a normal shell.
 
 From the host, you can try:
 
@@ -287,8 +287,8 @@ After connecting with `lssh --host LocalRcKeyAuth`, you can confirm that the wra
 # local_rc flag and generated functions
 demo_localrc_status
 
-# vim should show the demo statusline from ~/.demo_localrc/vimrc
-vim "+set nomore" "+set statusline?" "+q"
+# lvim should show the demo statusline from ~/.demo_localrc/vimrc
+lvim "+set nomore" "+set statusline?" "+q"
 
 # tmux should read ~/.demo_localrc/tmux.conf through ltmux
 tmux start-server \; show -gv status-left \; show-environment -g LSSH_DEMO_TMUX_CONF \; kill-server

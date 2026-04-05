@@ -43,4 +43,4 @@ echo "[11/12] local_rc functions should be available over lssh"
 lssh --host LocalRcKeyAuth 'type lvim >/dev/null && type ltmux >/dev/null && echo local_rc_ok'
 
 echo "[12/12] generated vimrc wrapper should be usable on the remote host"
-lssh --host LocalRcKeyAuth 'vim "+set nomore" "+set statusline?" "+q" | tail -n 1'
+lssh --host LocalRcKeyAuth 'lvim "+set nomore" "+set statusline?" "+q" | tail -n 1'

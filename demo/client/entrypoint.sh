@@ -18,7 +18,7 @@ if [[ ! -f "${HOST_KEY}" ]]; then
 fi
 
 if [[ -f "${PUBKEY_FILE}" ]]; then
-    printf 'command="/usr/local/bin/demo-lssh-bastion.sh" %s\n' "$(cat "${PUBKEY_FILE}")" >"${AUTHORIZED_KEYS}"
+    cat "${PUBKEY_FILE}" >"${AUTHORIZED_KEYS}"
     chown demo:demo "${AUTHORIZED_KEYS}" "${PUBKEY_FILE}" "${HOST_KEY}" "${HOST_KEY}.pub"
     chmod 600 "${AUTHORIZED_KEYS}"
 fi
@@ -32,6 +32,7 @@ KbdInteractiveAuthentication no
 ChallengeResponseAuthentication no
 UsePAM no
 AllowUsers demo
+ForceCommand /usr/local/bin/demo-lssh-bastion.sh
 PidFile ${STATE_DIR}/sshd.pid
 AuthorizedKeysFile ${AUTHORIZED_KEYS}
 HostKey ${HOST_KEY}

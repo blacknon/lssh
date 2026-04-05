@@ -96,7 +96,7 @@ func TestDemoDockerComposeE2E(t *testing.T) {
 
 	t.Run("generated vim wrapper is usable", func(t *testing.T) {
 		assertClientCommandContains(t, demoDir,
-			`lssh --host LocalRcKeyAuth 'vim "+set nomore" "+set statusline?" "+q" | tail -n 1'`,
+			`lssh --host LocalRcKeyAuth 'lvim "+set nomore" "+set statusline?" "+q" | tail -n 1'`,
 			"statusline=[demo-localrc]",
 		)
 	})
