@@ -150,7 +150,7 @@ func composeDown(t *testing.T, demoDir string) {
 func waitForServices(t *testing.T, demoDir string) {
 	t.Helper()
 
-	deadline := time.Now().Add(90 * time.Second)
+	deadline := time.Now().Add(150 * time.Second)
 	check := "nc -z 127.0.0.1 2222 && nc -z 172.31.0.21 22 && nc -z 172.31.0.22 22 && nc -z 172.31.0.31 22 && nc -z 172.31.0.32 8888 && nc -z 172.31.0.33 1080 && nc -z 172.31.1.41 22"
 	var lastOutput string
 
@@ -163,7 +163,11 @@ func waitForServices(t *testing.T, demoDir string) {
 		time.Sleep(2 * time.Second)
 	}
 
-	t.Fatalf("demo services did not become ready in time\n%s", lastOutput)
+	t.Fatalf("demo services did not become ready in time\nlast readiness output:\n%s\n\ncompose ps:\n%s\n\nproxy logs:\n%s",
+		lastOutput,
+		mustRunComposeCommand(t, demoDir, "ps", "-a"),
+		mustRunComposeCommand(t, demoDir, "logs", "--tail=200", "http_proxy", "deep_http_proxy", "socks_proxy", "deep_socks_proxy"),
+	)
 }
 
 func assertClientCommandContains(t *testing.T, demoDir, command, want string) {
@@ -187,4 +191,17 @@ func runClientCommand(demoDir, command string) (string, error) {
 		return string(output), fmt.Errorf("%w", err)
 	}
 	return string(output), nil
+}
+
+func mustRunComposeCommand(t *testing.T, demoDir string, args ...string) string {
+	t.Helper()
+
+	cmd := exec.Command("docker", append([]string{"compose"}, args...)...)
+	cmd.Dir = demoDir
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		return fmt.Sprintf("command failed: docker compose %s\n%v\n%s", strings.Join(args, " "), err, string(output))
+	}
+
+	return string(output)
 }

@@ -11,7 +11,6 @@ import (
 	"regexp"
 	"runtime"
 	"sort"
-	"syscall"
 
 	"github.com/blacknon/lssh/internal/check"
 	"github.com/blacknon/lssh/internal/common"
@@ -358,7 +357,7 @@ USAGE:
 			if runtime.GOOS != "windows" {
 				// pass write end as fd 3 in child
 				cmd.ExtraFiles = []*os.File{wpipe}
-				cmd.SysProcAttr = &syscall.SysProcAttr{Setsid: true}
+				cmd.SysProcAttr = daemonSysProcAttr()
 			}
 
 			// detach stdin
