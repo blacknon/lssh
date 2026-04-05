@@ -7,11 +7,12 @@ package main
 import (
 	"os"
 
-	"github.com/blacknon/lssh/common"
+	"github.com/blacknon/lssh/internal/common"
+	"github.com/blacknon/lssh/internal/app/lscp"
 )
 
 func main() {
-	app := Lscp()
+	app := lscp.Lscp()
 	args := common.ParseArgs(app.Flags, os.Args)
 	app.Run(args)
 }

@@ -6,11 +6,19 @@
 .vscode
 ## GoLand
 .idea
+## tmp
+.tmp*
+
+# cache
+.gocache
+.cache
 
 # Binary programs
 /lssh
 /lscp
 /lsftp
+/lsmon
+/lsshell
 /lsshfs
 /lssync
 *.exe

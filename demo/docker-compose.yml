@@ -1,0 +1,198 @@
+name: lssh-demo
+
+services:
+  client:
+    build:
+      context: ..
+      dockerfile: demo/client/Dockerfile
+    container_name: lssh-demo-client
+    hostname: client
+    depends_on:
+      - password_ssh
+      - key_ssh
+      - ssh_proxy
+      - http_proxy
+      - socks_proxy
+      - over_proxy_ssh
+      - deep_proxy_ssh
+      - deep_http_proxy
+      - deep_socks_proxy
+      - over_deep_http_ssh
+    stdin_open: true
+    tty: true
+    command: ["sleep", "infinity"]
+    ports:
+      - "2222:2222"
+    networks:
+      frontend:
+        ipv4_address: 172.31.0.10
+
+  password_ssh:
+    build:
+      context: ..
+      dockerfile: demo/images/sshd/Dockerfile
+    container_name: lssh-demo-password-ssh
+    hostname: password-ssh
+    environment:
+      SSH_USER: demo
+      SSH_PASSWORD: demo-password
+      ENABLE_PASSWORD_AUTH: "true"
+      ENABLE_PUBKEY_AUTH: "false"
+    networks:
+      frontend:
+        ipv4_address: 172.31.0.21
+
+  key_ssh:
+    build:
+      context: ..
+      dockerfile: demo/images/sshd/Dockerfile
+    container_name: lssh-demo-key-ssh
+    hostname: key-ssh
+    environment:
+      SSH_USER: demo
+      ENABLE_PASSWORD_AUTH: "false"
+      ENABLE_PUBKEY_AUTH: "true"
+      AUTHORIZED_KEY: "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAINX/x+7sNsuzX3JMiLPYgN+1SxmOJAgWGTXD4O1K+pRH demo-client@lssh"
+    networks:
+      frontend:
+        ipv4_address: 172.31.0.22
+
+  ssh_proxy:
+    build:
+      context: ..
+      dockerfile: demo/images/sshd/Dockerfile
+    container_name: lssh-demo-ssh-proxy
+    hostname: ssh-proxy
+    environment:
+      SSH_USER: demo
+      ENABLE_PASSWORD_AUTH: "false"
+      ENABLE_PUBKEY_AUTH: "true"
+      AUTHORIZED_KEY: "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAINX/x+7sNsuzX3JMiLPYgN+1SxmOJAgWGTXD4O1K+pRH demo-client@lssh"
+    networks:
+      frontend:
+        ipv4_address: 172.31.0.31
+      backend:
+        ipv4_address: 172.31.1.31
+
+  http_proxy:
+    build:
+      context: ..
+      dockerfile: demo/images/http-proxy/Dockerfile
+    container_name: lssh-demo-http-proxy
+    hostname: http-proxy
+    networks:
+      frontend:
+        ipv4_address: 172.31.0.32
+      backend:
+        ipv4_address: 172.31.1.32
+
+  socks_proxy:
+    build:
+      context: ..
+      dockerfile: demo/images/socks-proxy/Dockerfile
+    container_name: lssh-demo-socks-proxy
+    hostname: socks-proxy
+    environment:
+      SOCKS_EXTERNAL_ADDR: "172.31.1.33"
+      SOCKS_ALLOW_FROM: "172.31.0.0/24"
+    networks:
+      frontend:
+        ipv4_address: 172.31.0.33
+      backend:
+        ipv4_address: 172.31.1.33
+
+  over_proxy_ssh:
+    build:
+      context: ..
+      dockerfile: demo/images/sshd/Dockerfile
+    container_name: lssh-demo-over-proxy-ssh
+    hostname: over-proxy-ssh
+    environment:
+      SSH_USER: demo
+      ENABLE_PASSWORD_AUTH: "false"
+      ENABLE_PUBKEY_AUTH: "true"
+      AUTHORIZED_KEY: "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAINX/x+7sNsuzX3JMiLPYgN+1SxmOJAgWGTXD4O1K+pRH demo-client@lssh"
+    networks:
+      backend:
+        ipv4_address: 172.31.1.41
+      deepback:
+        ipv4_address: 172.31.2.41
+
+  deep_proxy_ssh:
+    build:
+      context: ..
+      dockerfile: demo/images/sshd/Dockerfile
+    container_name: lssh-demo-deep-proxy-ssh
+    hostname: deep-proxy-ssh
+    environment:
+      SSH_USER: demo
+      ENABLE_PASSWORD_AUTH: "false"
+      ENABLE_PUBKEY_AUTH: "true"
+      AUTHORIZED_KEY: "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAINX/x+7sNsuzX3JMiLPYgN+1SxmOJAgWGTXD4O1K+pRH demo-client@lssh"
+    networks:
+      deepback:
+        ipv4_address: 172.31.2.51
+
+  deep_http_proxy:
+    build:
+      context: ..
+      dockerfile: demo/images/http-proxy/Dockerfile
+    container_name: lssh-demo-deep-http-proxy
+    hostname: deep-http-proxy
+    networks:
+      deepback:
+        ipv4_address: 172.31.2.61
+      finalback:
+        ipv4_address: 172.31.3.61
+
+  deep_socks_proxy:
+    build:
+      context: ..
+      dockerfile: demo/images/socks-proxy/Dockerfile
+    container_name: lssh-demo-deep-socks-proxy
+    hostname: deep-socks-proxy
+    environment:
+      SOCKS_EXTERNAL_ADDR: "172.31.3.62"
+      SOCKS_ALLOW_FROM: "172.31.2.0/24"
+    networks:
+      deepback:
+        ipv4_address: 172.31.2.62
+      finalback:
+        ipv4_address: 172.31.3.62
+
+  over_deep_http_ssh:
+    build:
+      context: ..
+      dockerfile: demo/images/sshd/Dockerfile
+    container_name: lssh-demo-over-deep-http-ssh
+    hostname: over-deep-http-ssh
+    environment:
+      SSH_USER: demo
+      ENABLE_PASSWORD_AUTH: "false"
+      ENABLE_PUBKEY_AUTH: "true"
+      AUTHORIZED_KEY: "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAINX/x+7sNsuzX3JMiLPYgN+1SxmOJAgWGTXD4O1K+pRH demo-client@lssh"
+    networks:
+      finalback:
+        ipv4_address: 172.31.3.71
+
+networks:
+  frontend:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.31.0.0/24
+  backend:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.31.1.0/24
+  deepback:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.31.2.0/24
+  finalback:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.31.3.0/24

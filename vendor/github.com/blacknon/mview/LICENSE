@@ -1,0 +1,98 @@
+cview forked tview at the following commit:
+
+1ee8d9874dcfca377e638a1572ef3718f416ee0d
+Sun Dec 29 17:56:09 2019 +0100
+Merge pull request #292 from mikeschinkel/box_gettitle
+
+The tview license applies to the above commit, all commits before it, and the
+following merged commits:
+
+3d7e978b90b6ee025e3bca83adfea9c8589f3a98
+Fri Jun 7 04:38:19 2019 -0700
+Fixed TextView's reset [-] setting the wrong color
+
+6e0ac2dd4b5adbd656f16786949fc986d973037a
+Sat Aug 24 18:06:28 2019 -0500
+Don't skip regions at end of line
+
+9aa08ad7c7ec3eb820cc7b53ded6d36c882962e3
+Fri Sep 13 20:12:34 2019 -0400
+Handle ansi code 39 and 49
+
+commit 697baf37a8d105d9d9d9c9cc90356598d5c54300
+Thu Nov 14 10:48:40 2019 +0000
+Add support for displaying text next to a checkbox
+
+1f765c8695c3f4b35dae57f469d3aee0b1adbde7
+Sun Mar 29 21:43:46 2020 +0200
+Merge pull request #422 from rivo/mouse
+
+b4085a157266a69db1d3b92053d8f343714f2235
+Mon May 11 16:51:00 2020 -0400
+Fix ANSI colors 0-15
+
+06a427a43af45cb113de2fe946403882f93b58d6
+Wed May 27 21:41:21 2020 +0200
+Bugfixes in ANSI escape sequence handling as well as TextView
+
+81c828bfe0be91864afdc55aa58adfb8cae787dc
+Sun Jul 12 13:34:19 2020 +0200
+TextView.GetText() and .GetRegionText() didn't filter out empty colour tags. Fixes #453
+
+d689098cf1ab89315db61d7020efa5bf4c0c1b44 (HEAD -> master)
+Tue Apr 27 09:08:36 2021 +0200
+Fixed missed tag at EOL in TextView
+
+The cview license applies to all other commits.
+
+----------
+
+cview license:
+
+MIT License
+
+Copyright (c) 2020 Trevor Slocum <trevor@rocketnine.space>
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+
+----------
+
+tview license:
+
+MIT License
+
+Copyright (c) 2018 Oliver Kuederle
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
