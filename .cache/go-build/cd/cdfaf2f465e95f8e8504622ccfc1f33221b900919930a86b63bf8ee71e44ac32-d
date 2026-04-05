@@ -1,0 +1,9 @@
+./conf_struct_log.go
+./conf_struct_other.go
+./conf_struct_portforward.go
+./conf_struct_proxy.go
+./conf_struct_server.go
+./conf_struct_shell.go
+./control_persist.go
+./main.go
+./openssh.go

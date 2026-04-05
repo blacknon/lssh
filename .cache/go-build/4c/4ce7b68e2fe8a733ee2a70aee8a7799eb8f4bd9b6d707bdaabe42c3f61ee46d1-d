@@ -1,0 +1,10 @@
+./bar.go
+./bar_filler.go
+./bar_option.go
+./doc.go
+./options.go
+./priority_queue.go
+./progress.go
+./progress_posix.go
+./proxyreader.go
+./spinner_filler.go

@@ -296,8 +296,7 @@ func localrcShell(connect *sshlib.Connect, session *ssh.Session, localrcPath []s
 	}
 
 	// get bashrc base64 data
-	// rcData, err := common.GetFilesBase64(localrcPath, common.ARCHIVE_NONE)
-	rcData, _ := common.GetFilesBase64(localrcPath, common.ARCHIVE_GZIP)
+	rcData, _ := common.GetFilesBase64(localrcPath, localrcArchiveMode(compress))
 
 	// set default uncompress command
 	if uncompress == "" {
@@ -323,4 +322,12 @@ func localrcShell(connect *sshlib.Connect, session *ssh.Session, localrcPath []s
 	connect.CmdShell(session, cmd)
 
 	return
+}
+
+func localrcArchiveMode(compress bool) int {
+	if compress {
+		return common.ARCHIVE_GZIP
+	}
+
+	return common.ARCHIVE_NONE
 }

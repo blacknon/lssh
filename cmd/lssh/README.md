@@ -282,25 +282,43 @@ local_rc_file = [
 
 #### Tips
 
-When you want to use your local `vimrc` or `tmux.conf` on the remote side without leaving files behind, the practical approach is to wrap the tool with a shell function and load the local config through process substitution. Unlike `bash --rcfile`, these tools need the config every time they start, so it is easier to keep a small wrapper in `local_rc_file`, decode the local config from `base64`, and replace the command with an alias such as `alias vim=lvim`.
+When you want to use your local `vimrc` or `tmux.conf` on the remote side without leaving files behind, the practical approach is to generate wrapper functions and transfer those wrappers with `local_rc_file`. Unlike `bash --rcfile`, these tools need the config every time they start, so it is easier to decode the local config inside a function such as `lvim` or `ltmux` and then replace the command with an alias like `alias vim=lvim`.
 
-If you want to carry your `vimrc` or `tmux` settings with you, it is often easier to package them as shell functions instead of distributing the files directly with `local_rc_file`.
-If the files are written only when needed on the remote host, it is less likely to break existing settings and updates are easier to manage.
+This is the same approach used in `blacknon/dotfiles` with `update_lvim` and `update_ltmux`: keep the editable source files locally, then regenerate small shell functions that embed the latest config as `base64`.
 
-For example, you can define functions like the following in `~/dotfiles/sh_function`.
+For example:
 
 ```bash
-lvim() {
-    vim -u <(printf '%s' 'BASE64_ENCODED_VIMRC' | base64 -d) "$@"
-}
+# editable local files
+~/dotfiles/.vimrc
+~/dotfiles/.tmux.conf
 
-ltmux() {
-    tmux -f <(printf '%s' 'BASE64_ENCODED_TMUX_CONF' | base64 -d) "$@"
-}
-
-alias vim=lvim
-alias tmux=ltmux
+# generated wrapper files
+~/dotfiles/sh/functions/lvim.sh
+~/dotfiles/sh/functions/ltmux.sh
 ```
 
-After connecting, run `load_vimrc` or `load_tmuxconf` to write the configuration files on demand.
-This is useful when you want to keep them as portable functions and apply them only on the hosts where you need them.
+```bash
+update_lvim
+update_ltmux
+```
+
+`lvim.sh` can define a wrapper like this:
+
+```bash
+function lvim() {
+    \vim -u <(printf '%s' 'BASE64_ENCODED_VIMRC' | base64 -d | gzip -dc) "$@"
+}
+alias vim=lvim
+```
+
+`ltmux.sh` can do the same for `tmux`, and can also append a generated `default-command` so that shells started inside tmux reuse the same local rc bundle.
+
+The demo environment under [demo/README.md](../../demo/README.md) includes a working example with:
+
+- `~/.demo_localrc/vimrc`
+- `~/.demo_localrc/tmux.conf`
+- `~/.demo_localrc/bin/update_lvim`
+- `~/.demo_localrc/bin/update_ltmux`
+- `~/.demo_localrc/generated/lvim.sh`
+- `~/.demo_localrc/generated/ltmux.sh`

@@ -1,3 +1,9 @@
 demo_whoami() {
     printf 'local_rc user=%s host=%s shell=%s\n' "$(whoami)" "$(hostname)" "$SHELL"
 }
+
+demo_localrc_status() {
+    printf 'LSSH_LOCAL_RC=%s\n' "${LSSH_LOCAL_RC:-unset}"
+    type lvim >/dev/null 2>&1 && echo 'lvim: ready' || echo 'lvim: missing'
+    type ltmux >/dev/null 2>&1 && echo 'ltmux: ready' || echo 'ltmux: missing'
+}

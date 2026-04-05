@@ -1,0 +1,7 @@
+set nocompatible
+set number
+set ruler
+set laststatus=2
+set statusline=[demo-localrc]\ %f
+
+let $LSSH_DEMO_VIMRC = 'enabled'

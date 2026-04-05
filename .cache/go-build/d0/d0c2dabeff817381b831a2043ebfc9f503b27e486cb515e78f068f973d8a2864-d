@@ -1,0 +1,2 @@
+./writer.go
+./writer_posix.go

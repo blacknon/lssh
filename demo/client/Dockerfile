@@ -16,13 +16,16 @@ RUN apt-get update && \
       bash \
       ca-certificates \
       curl \
+      gzip \
       iproute2 \
       iputils-ping \
       less \
       netcat-openbsd \
       openssh-client \
       procps \
-      sshpass && \
+      sshpass \
+      tmux \
+      vim && \
     rm -rf /var/lib/apt/lists/*
 
 RUN useradd -m -s /bin/bash demo
@@ -37,7 +40,7 @@ COPY demo/client/home/ /home/demo/
 RUN chown -R demo:demo /home/demo && \
     chmod 700 /home/demo/.ssh && \
     chmod 600 /home/demo/.ssh/demo_lssh_ed25519 /home/demo/.lssh.conf && \
-    chmod +x /home/demo/bin/demo-check.sh
+    chmod +x /home/demo/bin/demo-check.sh /home/demo/.demo_localrc/bin/update_lvim /home/demo/.demo_localrc/bin/update_ltmux
 
 USER demo
 WORKDIR /home/demo

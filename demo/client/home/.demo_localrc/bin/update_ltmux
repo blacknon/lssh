@@ -1,0 +1,54 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+base64_encode() {
+    case "${OSTYPE:-}" in
+        darwin*) base64 ;;
+        *) base64 -w0 ;;
+    esac
+}
+
+ROOT="${HOME}/.demo_localrc"
+OUT="${ROOT}/generated/ltmux.sh"
+
+mkdir -p "$(dirname "${OUT}")"
+
+bashrc_data="$(
+    cat \
+        "${ROOT}/bash_prompt" \
+        "${ROOT}/sh_export" \
+        "${ROOT}/sh_alias" \
+        "${ROOT}/sh_function" \
+        "${ROOT}/generated/lvim.sh" |
+        gzip -fc - |
+        base64_encode
+)"
+
+default_cmd_data="$(
+    printf "%s" "set -g default-command '/bin/bash --noprofile --rcfile <(printf ''%s'' \"${bashrc_data}\" | base64 -d | gzip -dc)'" |
+        base64_encode
+)"
+
+tmux_conf_data="$(
+    gzip -fc "${ROOT}/tmux.conf" | base64_encode
+)"
+
+cat <<EOF >"${OUT}"
+function ltmux() {
+    local default_cmd=""
+
+    if command -v tmux >/dev/null 2>&1 && [ "\$(tmux -V | awk '{if (\$2 >= 2.6) print 1}')" = "1" ]; then
+        default_cmd="\$(printf '%s' '${default_cmd_data}' | base64 -d)"
+    fi
+
+    \tmux -L "\${USER}_demo_localrc" -f <(
+        printf '%s' '${tmux_conf_data}' | base64 -d | gzip -dc
+        if [ -n "\${default_cmd}" ]; then
+            printf '\n%s\n' "\${default_cmd}"
+        fi
+    ) "\$@"
+}
+alias tmux=ltmux
+EOF
+
+echo "updated ${OUT}"

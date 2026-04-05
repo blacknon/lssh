@@ -1,0 +1,9 @@
+./counters.go
+./decorator.go
+./doc.go
+./elapsed.go
+./eta.go
+./moving-average.go
+./name.go
+./percentage.go
+./speed.go

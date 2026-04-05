@@ -6,7 +6,9 @@ RUN apt-get update && \
       ca-certificates \
       gzip \
       openssh-server \
-      procps && \
+      procps \
+      tmux \
+      vim && \
     rm -rf /var/lib/apt/lists/* && \
     mkdir -p /var/run/sshd /etc/ssh/sshd_config.d
 

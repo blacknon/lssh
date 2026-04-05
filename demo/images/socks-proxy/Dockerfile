@@ -1,7 +1,9 @@
 FROM debian:bookworm-slim
 
 RUN apt-get update && \
-    apt-get install -y --no-install-recommends dante-server && \
+    apt-get install -y --no-install-recommends \
+      dante-server \
+      vim && \
     rm -rf /var/lib/apt/lists/*
 
 COPY demo/images/socks-proxy/danted.conf /etc/danted.conf
