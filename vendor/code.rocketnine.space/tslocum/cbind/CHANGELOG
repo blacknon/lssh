@@ -1,0 +1,19 @@
+0.1.5:
+- Update docs
+
+0.1.4:
+- Add UnifyEnterKeys option to interpret KPEnter as Enter (enabled by default)
+
+0.1.3:
+- Add Configuration.Set
+- Return ErrInvalidKeyEvent when encoding or decoding fails
+
+0.1.2:
+- Add method to remove all handlers
+- Upgrade tcell to v2
+
+0.1.1:
+- Add CtrlKey support
+
+0.1.0:
+- Initial release

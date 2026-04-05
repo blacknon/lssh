@@ -1,0 +1,15 @@
+[server.PasswordAuth]
+addr = "172.31.0.21"
+pass = "demo-password"
+note = "password auth ssh server"
+
+[server.KeyAuth]
+addr = "172.31.0.22"
+key = "~/.ssh/demo_lssh_ed25519"
+note = "public key auth ssh server"
+
+[server.LocalRcKeyAuth]
+addr = "172.31.0.22"
+key = "~/.ssh/demo_lssh_ed25519"
+local_rc = "yes"
+note = "public key auth server with local_rc"

@@ -1,0 +1,27 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+base64_encode() {
+    case "${OSTYPE:-}" in
+        darwin*) base64 ;;
+        *) base64 -w0 ;;
+    esac
+}
+
+ROOT="${HOME}/.demo_localrc"
+OUT="${ROOT}/generated/lvim.sh"
+
+mkdir -p "$(dirname "${OUT}")"
+
+vimrc_data="$(
+    gzip -fc "${ROOT}/vimrc" | base64_encode
+)"
+
+cat <<EOF >"${OUT}"
+function lvim() {
+    \vim -u <(printf '%s' '${vimrc_data}' | base64 -d | gzip -dc) "\$@"
+}
+alias vim=lvim
+EOF
+
+echo "updated ${OUT}"

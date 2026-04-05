@@ -31,6 +31,13 @@ func ConnectSshAgent() (ag AgentInterface) {
 	return
 }
 
+// ensureSshAgent lazily initializes the agent used for forwarding.
+func (c *Connect) ensureSshAgent() {
+	if c.Agent == nil {
+		c.Agent = ConnectSshAgent()
+	}
+}
+
 // AddKeySshAgent is rapper agent.Add().
 // key must be a *rsa.PrivateKey, *dsa.PrivateKey or
 // *ecdsa.PrivateKey, which will be inserted into the agent.
@@ -53,6 +60,8 @@ func (c *Connect) AddKeySshAgent(sshAgent interface{}, key interface{}) {
 
 // ForwardAgent forward ssh-agent in session.
 func (c *Connect) ForwardSshAgent(session *ssh.Session) {
+	c.ensureSshAgent()
+
 	// forward ssh-agent
 	switch ag := c.Agent.(type) {
 	case agent.Agent:

@@ -80,8 +80,15 @@ func (c *Connect) Command(command string) (err error) {
 		return
 	}
 
-	// Run Command
-	c.Session.Run(command)
+	err = c.Session.Start(command)
+	if err != nil {
+		return
+	}
+
+	stopKeepAlive := c.startSessionKeepAlive(c.Session)
+	defer stopKeepAlive()
+
+	err = c.Session.Wait()
 
 	return
 }
@@ -118,6 +125,13 @@ func (c *Connect) runControlCommand(req controlRequest) error {
 		stderr = c.Stderr
 	} else if c.PtyRelayTty != nil {
 		stderr = c.PtyRelayTty
+	}
+
+	if c.logging {
+		stdout, stderr, err = c.logWriters(stdout, stderr)
+		if err != nil {
+			return err
+		}
 	}
 
 	go c.copyControlInput(writer, stdin)

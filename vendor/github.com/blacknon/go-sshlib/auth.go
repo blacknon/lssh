@@ -28,6 +28,22 @@ type ControlPersistAuth struct {
 	// AuthMethods allows reusing auth methods created by sshlib helper functions
 	// such as CreateAuthMethodPassword/CreateAuthMethodPublicKey.
 	AuthMethods []ssh.AuthMethod `json:"-"`
+
+	// Methods stores serializable auth definitions for detached ControlPersist
+	// helpers and proxy routes.
+	Methods []ControlPersistAuthMethod
+}
+
+type ControlPersistAuthMethod struct {
+	Type string
+
+	Password string
+
+	KeyPath string
+	KeyPass string
+
+	PKCS11Provider string
+	PKCS11PIN      string
 }
 
 type authMethodRegistryKey struct {
@@ -36,10 +52,15 @@ type authMethodRegistryKey struct {
 }
 
 type controlPersistAuthMethodDefinition struct {
-	Type     string
+	Type string
+
 	Password string
-	KeyPath  string
-	KeyPass  string
+
+	KeyPath string
+	KeyPass string
+
+	PKCS11Provider string
+	PKCS11PIN      string
 }
 
 var controlPersistAuthMethodRegistry sync.Map
@@ -47,6 +68,24 @@ var controlPersistAuthMethodRegistry sync.Map
 func (a *ControlPersistAuth) resolved() ([]controlPersistAuthMethodDefinition, error) {
 	if a == nil {
 		return nil, fmt.Errorf("sshlib: ControlPersistAuth is required for detached ControlPersist helper")
+	}
+
+	if len(a.Methods) > 0 {
+		resolved := make([]controlPersistAuthMethodDefinition, 0, len(a.Methods))
+		for _, method := range a.Methods {
+			resolved = append(resolved, controlPersistAuthMethodDefinition{
+				Type:           method.Type,
+				Password:       method.Password,
+				KeyPath:        method.KeyPath,
+				KeyPass:        method.KeyPass,
+				PKCS11Provider: method.PKCS11Provider,
+				PKCS11PIN:      method.PKCS11PIN,
+			})
+		}
+		if err := validateControlPersistAuthDefinitions(resolved); err != nil {
+			return nil, err
+		}
+		return resolved, nil
 	}
 
 	if len(a.AuthMethods) == 0 {
@@ -65,6 +104,14 @@ func (a *ControlPersistAuth) resolved() ([]controlPersistAuthMethodDefinition, e
 }
 
 func createControlPersistAuthMethods(definitions []controlPersistAuthMethodDefinition) ([]ssh.AuthMethod, error) {
+	return createControlPersistAuthMethodsWithPrompt(definitions, nil)
+}
+
+func createControlPersistAuthMethodsWithPrompt(definitions []controlPersistAuthMethodDefinition, prompt PromptFunc) ([]ssh.AuthMethod, error) {
+	if err := validateControlPersistAuthDefinitions(definitions); err != nil {
+		return nil, err
+	}
+
 	authMethods := make([]ssh.AuthMethod, 0, len(definitions))
 	for _, persistAuth := range definitions {
 		switch persistAuth.Type {
@@ -76,12 +123,45 @@ func createControlPersistAuthMethods(definitions []controlPersistAuthMethodDefin
 				return nil, err
 			}
 			authMethods = append(authMethods, auth)
+		case "pkcs11":
+			auth, err := CreateAuthMethodPKCS11WithPrompt(persistAuth.PKCS11Provider, persistAuth.PKCS11PIN, prompt)
+			if err != nil {
+				return nil, err
+			}
+			authMethods = append(authMethods, auth...)
 		default:
 			return nil, fmt.Errorf("sshlib: unsupported ControlPersistAuth type %q", persistAuth.Type)
 		}
 	}
 
 	return authMethods, nil
+}
+
+func validateControlPersistAuthDefinitions(definitions []controlPersistAuthMethodDefinition) error {
+	if len(definitions) == 0 {
+		return fmt.Errorf("sshlib: ControlPersistAuth.AuthMethods is required for detached ControlPersist helper")
+	}
+
+	for _, persistAuth := range definitions {
+		switch persistAuth.Type {
+		case "password":
+			if persistAuth.Password == "" {
+				return fmt.Errorf("sshlib: password auth requires Password")
+			}
+		case "publickey":
+			if persistAuth.KeyPath == "" {
+				return fmt.Errorf("sshlib: publickey auth requires KeyPath")
+			}
+		case "pkcs11":
+			if persistAuth.PKCS11Provider == "" {
+				return fmt.Errorf("sshlib: pkcs11 auth requires PKCS11Provider")
+			}
+		default:
+			return fmt.Errorf("sshlib: unsupported ControlPersistAuth type %q", persistAuth.Type)
+		}
+	}
+
+	return nil
 }
 
 func registerControlPersistAuthMethod(auth ssh.AuthMethod, persistAuth controlPersistAuthMethodDefinition) {

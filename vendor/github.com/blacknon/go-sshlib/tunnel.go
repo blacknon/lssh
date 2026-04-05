@@ -68,6 +68,7 @@ type Tunnel struct {
 
 	local   io.ReadWriteCloser
 	channel ssh.Channel
+	remote  io.Closer
 
 	closeOnce sync.Once
 	doneOnce  sync.Once
@@ -79,8 +80,16 @@ func (t *Tunnel) Close() error {
 	var errs []error
 
 	t.closeOnce.Do(func() {
-		if err := t.channel.Close(); err != nil && !errors.Is(err, io.EOF) {
-			errs = append(errs, err)
+		if t.channel != nil {
+			if err := t.channel.Close(); err != nil && !errors.Is(err, io.EOF) {
+				errs = append(errs, err)
+			}
+		}
+
+		if t.remote != nil {
+			if err := t.remote.Close(); err != nil && !errors.Is(err, io.EOF) {
+				errs = append(errs, err)
+			}
 		}
 
 		if err := t.local.Close(); err != nil && !errors.Is(err, io.EOF) {
@@ -118,12 +127,16 @@ func (c *Connect) Tunnel(localTun, remoteTun int) (*Tunnel, error) {
 // This mirrors OpenSSH's Tunnel/TunnelDevice directives. The caller is still
 // responsible for configuring IP addresses and routes on both ends.
 func (c *Connect) TunnelWithMode(localTun, remoteTun int, mode TunnelMode) (*Tunnel, error) {
-	if c.Client == nil {
-		return nil, errors.New("ssh client is nil")
-	}
-
 	if err := mode.validate(); err != nil {
 		return nil, err
+	}
+
+	if c.isControlClient() {
+		return c.openControlTunnel(localTun, remoteTun, mode)
+	}
+
+	if c.Client == nil {
+		return nil, errors.New("ssh client is nil")
 	}
 
 	localDevice, err := openTunnelDevice(localTun, mode)
@@ -160,6 +173,48 @@ func (c *Connect) TunnelWithMode(localTun, remoteTun int, mode TunnelMode) (*Tun
 	return tunnel, nil
 }
 
+func (c *Connect) openControlTunnel(localTun, remoteTun int, mode TunnelMode) (*Tunnel, error) {
+	localDevice, err := openTunnelDevice(localTun, mode)
+	if err != nil {
+		return nil, fmt.Errorf("open local tunnel device (local=%s, mode=%s): %w", describeTunnelUnit(localTun), mode.String(), err)
+	}
+
+	req := controlRequest{
+		Type: controlRequestTunnel,
+		Tunnel: controlTunnelOptions{
+			Mode: mode,
+			Unit: remoteTun,
+		},
+	}
+
+	resp, err := c.requestControl(req)
+	if err != nil {
+		_ = localDevice.Close()
+		return nil, err
+	}
+
+	conn, err := net.Dial("unix", resp.StreamPath)
+	if err != nil {
+		_ = localDevice.Close()
+		return nil, err
+	}
+
+	tunnel := &Tunnel{
+		LocalName: localDevice.Name,
+		LocalID:   localDevice.Unit,
+		RemoteID:  remoteTun,
+		Mode:      mode,
+		local:     localDevice,
+		remote:    conn,
+		done:      make(chan error, 1),
+	}
+
+	go tunnel.copyControlInput(conn, localDevice)
+	go tunnel.copyControlOutput(localDevice, conn)
+
+	return tunnel, nil
+}
+
 func (t *Tunnel) copyPackets(dst io.Writer, src io.Reader) {
 	buf := make([]byte, 64*1024)
 
@@ -192,6 +247,84 @@ func (t *Tunnel) copyPackets(dst io.Writer, src io.Reader) {
 				t.finish(err)
 			} else {
 				t.finish(nil)
+			}
+			_ = t.Close()
+			return
+		}
+	}
+}
+
+func (t *Tunnel) copyControlInput(dst io.Writer, src io.Reader) {
+	buf := make([]byte, 64*1024)
+
+	for {
+		n, err := src.Read(buf)
+		if err != nil {
+			if shouldRetryTunnelCopyError(err) {
+				time.Sleep(100 * time.Millisecond)
+				continue
+			}
+			if !errors.Is(err, io.EOF) {
+				t.finish(err)
+			} else {
+				t.finish(nil)
+			}
+			_ = t.Close()
+			return
+		}
+
+		if n == 0 {
+			continue
+		}
+
+		if err := writeStreamFrame(dst, streamFrameStdin, buf[:n]); err != nil {
+			if !errors.Is(err, io.EOF) {
+				t.finish(err)
+			} else {
+				t.finish(nil)
+			}
+			_ = t.Close()
+			return
+		}
+	}
+}
+
+func (t *Tunnel) copyControlOutput(dst io.Writer, src io.Reader) {
+	for {
+		frameType, payload, err := readStreamFrame(src)
+		if err != nil {
+			if err == io.EOF {
+				t.finish(nil)
+			} else {
+				t.finish(err)
+			}
+			_ = t.Close()
+			return
+		}
+
+		switch frameType {
+		case streamFrameStdout:
+			if len(payload) == 0 {
+				continue
+			}
+			if _, err := dst.Write(payload); err != nil {
+				t.finish(err)
+				_ = t.Close()
+				return
+			}
+		case streamFrameError:
+			if len(payload) > 0 {
+				t.finish(errors.New(string(payload)))
+			} else {
+				t.finish(errors.New("sshlib: control tunnel failed"))
+			}
+			_ = t.Close()
+			return
+		case streamFrameExit:
+			if len(payload) == 4 && binary.BigEndian.Uint32(payload) == 0 {
+				t.finish(nil)
+			} else {
+				t.finish(errors.New("sshlib: control tunnel closed unexpectedly"))
 			}
 			_ = t.Close()
 			return

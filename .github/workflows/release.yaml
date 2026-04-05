@@ -1,10 +1,6 @@
 # Copyright (c) 2021 Blacknon. All rights reserved.
 # Use of this source code is governed by an MIT license
 # that can be found in the LICENSE file.
-# reference:
-#   - https://motemen.hatenablog.com/entry/2019/11/github-actions-crossbuild-rust
-#     - https://github.com/motemen/lssh/blob/97d3745dcc8931a1d75217573d5ca60705be632f/.github/workflows/release.yml
-#   - https://github.com/greymd/teip/blob/master/.github/workflows/release.yml
 
 name: Release Job.
 
@@ -13,8 +9,10 @@ on:
     branches:
       - master
 
+permissions:
+  contents: write
+
 jobs:
-  # build rust binary
   build:
     strategy:
       matrix:
@@ -22,157 +20,242 @@ jobs:
           - goos: linux
             goarch: amd64
             os: ubuntu-latest
-            ext: tar.gz
-          - goos: linux
-            goarch: amd64
-            os: ubuntu-latest
-            ext: rpm
-          - goos: linux
-            goarch: amd64
-            os: ubuntu-latest
-            ext: deb
+            archive_ext: tar.gz
           - goos: darwin
             goarch: amd64
             os: macos-latest
-            ext: tar.gz
+            archive_ext: tar.gz
           - goos: darwin
             goarch: arm64
             os: macos-latest
-            ext: tar.gz
+            archive_ext: tar.gz
           - goos: windows
             goarch: amd64
             os: windows-latest
-            ext: zip
+            archive_ext: zip
+
     runs-on: ${{ matrix.os }}
+
     steps:
-      - uses: actions/checkout@v1
+      - uses: actions/checkout@v4
 
       - name: Set up Go 1.22
-        uses: actions/setup-go@v1
+        uses: actions/setup-go@v5
         with:
-          go-version: 1.22
+          go-version: "1.22"
 
       - name: Get version
         id: package_version
         shell: bash
         run: |
-          VERSION="$(go run ./cmd/lssh/ --version | awk '{print $NF}')"
-          echo "::set-output name=version::$VERSION"
+          set -euo pipefail
+          VERSION="$(go run ./cmd/lssh --version | grep -Eo '[0-9]+\.[0-9]+\.[0-9]+' | head -n1)"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
 
-      - name: Build binary
+      - name: Install nfpm
+        if: matrix.goos == 'linux'
+        shell: bash
         run: |
-          go build -o lssh.${{ matrix.goos }}_${{ matrix.goarch }} ./cmd/lssh
-          go build -o lscp.${{ matrix.goos }}_${{ matrix.goarch }} ./cmd/lscp
-          go build -o lsftp.${{ matrix.goos }}_${{ matrix.goarch }} ./cmd/lsftp
+          set -euo pipefail
+          go install github.com/goreleaser/nfpm/v2/cmd/nfpm@latest
+          echo "$(go env GOPATH)/bin" >> "$GITHUB_PATH"
 
-      - name: Create package file
-        if: ${{ (matrix.ext == 'tar.gz') || (matrix.ext == 'rpm') || (matrix.ext == 'deb') }}
+      - name: Build binaries
+        shell: bash
+        env:
+          GOOS: ${{ matrix.goos }}
+          GOARCH: ${{ matrix.goarch }}
         run: |
-          _TAR=lssh_${{ steps.package_version.outputs.version }}_${{ matrix.goos }}_${{ matrix.goarch }}.tar.gz
-          mkdir -p package/bin
-          mv lssh.${{ matrix.goos }}_${{ matrix.goarch }} package/bin/lssh
-          mv lscp.${{ matrix.goos }}_${{ matrix.goarch }} package/bin/lscp
-          mv lsftp.${{ matrix.goos }}_${{ matrix.goarch }} package/bin/lsftp
-          ## mkdir -p package/man
-          ## cp man/lssh.1 package/man
-          cp -r completion package/
-          ## sed -i is not used due to difference between macOS and Linux
-          perl -i -pe s/___VERSION___/${{ steps.package_version.outputs.version }}/ ./package/.tar2package.yml
-          ## tar czvf "$_TAR" -C "$PWD/package" completion bin man .tar2package.yml
-          tar czvf "$_TAR" -C "$PWD/package" completion bin .tar2package.yml
+          set -euo pipefail
+          mkdir -p dist/bin
+          ext=""
+          if [ "${GOOS}" = "windows" ]; then
+            ext=".exe"
+          fi
 
-      - name: Create package file(Windows)
-        if: matrix.ext == 'zip'
+          for cmd in lssh lscp lsftp lsmon lsshell; do
+            go build -o "dist/bin/${cmd}${ext}" "./cmd/${cmd}"
+          done
+
+      - name: Create release packages
+        shell: bash
+        env:
+          VERSION: ${{ steps.package_version.outputs.version }}
+          GOOS: ${{ matrix.goos }}
+          GOARCH: ${{ matrix.goarch }}
+          ARCHIVE_EXT: ${{ matrix.archive_ext }}
         run: |
-          mkdir package/bin
-          move lssh.${{ matrix.goos }}_${{ matrix.goarch }} package/bin/lssh.exe
-          move lscp.${{ matrix.goos }}_${{ matrix.goarch }} package/bin/lscp.exe
-          move lsftp.${{ matrix.goos }}_${{ matrix.goarch }} package/bin/lsftp.exe
-          powershell Compress-Archive package lssh_${{ steps.package_version.outputs.version }}_${{ matrix.goos }}_${{ matrix.goarch }}.zip
+          set -euo pipefail
+          mkdir -p dist/packages dist/nfpm
 
-      # use: https://github.com/greymd/tar2package
-      - name: Build rpm
-        id: rpm
-        if: matrix.ext == 'rpm'
-        run: |
-          _TAR=lssh_${{ steps.package_version.outputs.version }}_${{ matrix.goos }}_${{ matrix.goarch }}.tar.gz
-          docker run -i "greymd/tar2rpm:1.0.1" < "$_TAR" > lssh_${{ steps.package_version.outputs.version }}_${{ matrix.goos }}_${{ matrix.goarch }}.rpm
-          echo ::set-output name=sha256::$( sha256sum lssh_${{ steps.package_version.outputs.version }}_${{ matrix.goos }}_${{ matrix.goarch }}.rpm | awk '{print $1}' )
+          package_name() {
+            case "$1" in
+              full) echo "lssh" ;;
+              core) echo "lssh-core" ;;
+              transfer) echo "lssh-transfer" ;;
+              monitor) echo "lssh-monitor" ;;
+              sysadmin) echo "lssh-sysadmin" ;;
+            esac
+          }
 
-      # use: https://github.com/greymd/tar2package
-      - name: Build deb
-        id: deb
-        if: matrix.ext == 'deb'
-        run: |
-          _TAR=lssh_${{ steps.package_version.outputs.version }}_${{ matrix.goos }}_${{ matrix.goarch }}.tar.gz
-          docker run -i "greymd/tar2deb:1.0.1" < "$_TAR" > lssh_${{ steps.package_version.outputs.version }}_${{ matrix.goos }}_${{ matrix.goarch }}.deb
-          echo ::set-output name=sha256::$( sha256sum lssh_${{ steps.package_version.outputs.version }}_${{ matrix.goos }}_${{ matrix.goarch }}.deb | awk '{print $1}' )
+          package_description() {
+            case "$1" in
+              full) echo "Full lssh suite with SSH, transfer, monitoring, and parallel shell tools." ;;
+              core) echo "Core SSH client package for the lssh suite." ;;
+              transfer) echo "Transfer tools package for the lssh suite, including lscp and lsftp." ;;
+              monitor) echo "Monitoring tools package for the lssh suite, including lsmon." ;;
+              sysadmin) echo "Sysadmin tools package for the lssh suite, including lsshell." ;;
+            esac
+          }
 
-      - name: README for rpm
-        if: matrix.ext == 'rpm'
-        run: |
-          _TAR=lssh_${{ steps.package_version.outputs.version }}_${{ matrix.goos }}_${{ matrix.goarch }}.rpm
+          package_binaries() {
+            case "$1" in
+              full) echo "lssh lscp lsftp lsmon lsshell" ;;
+              core) echo "lssh" ;;
+              transfer) echo "lscp lsftp" ;;
+              monitor) echo "lsmon" ;;
+              sysadmin) echo "lsshell" ;;
+            esac
+          }
 
-      - name: Upload artifact
-        if: matrix.ext == 'rpm'
+          deb_arch() {
+            case "$1" in
+              amd64) echo "amd64" ;;
+              arm64) echo "arm64" ;;
+              *) echo "$1" ;;
+            esac
+          }
+
+          rpm_arch() {
+            case "$1" in
+              amd64) echo "x86_64" ;;
+              arm64) echo "aarch64" ;;
+              *) echo "$1" ;;
+            esac
+          }
+
+          create_archive() {
+            local package_id="$1"
+            local pkg
+            local base
+            local root
+            pkg="$(package_name "$package_id")"
+            base="${pkg}_${VERSION}_${GOOS}_${GOARCH}"
+            root="dist/archive/${base}"
+
+            rm -rf "$root"
+            mkdir -p "$root/bin" "$root/completion/zsh"
+            cp README.md LICENSE.md "$root/"
+
+            for bin in $(package_binaries "$package_id"); do
+              local ext=""
+              if [ "$GOOS" = "windows" ]; then
+                ext=".exe"
+              fi
+              cp "dist/bin/${bin}${ext}" "$root/bin/${bin}${ext}"
+              if [ -f "completion/zsh/_${bin}" ]; then
+                cp "completion/zsh/_${bin}" "$root/completion/zsh/_${bin}"
+              fi
+            done
+
+            if [ "$GOOS" = "windows" ]; then
+              powershell -NoLogo -NoProfile -Command "Compress-Archive -Path '$(pwd)/${root}/*' -DestinationPath '$(pwd)/dist/packages/${base}.zip' -Force"
+            else
+              tar -C "dist/archive" -czf "dist/packages/${base}.tar.gz" "${base}"
+            fi
+          }
+
+          create_nfpm_config() {
+            local package_id="$1"
+            local pkg
+            local desc
+            local config_path
+            pkg="$(package_name "$package_id")"
+            desc="$(package_description "$package_id")"
+            config_path="dist/nfpm/${pkg}.yaml"
+
+            cat > "$config_path" <<EOF
+          name: ${pkg}
+          arch: $(deb_arch "$GOARCH")
+          platform: linux
+          version: ${VERSION}
+          section: net
+          priority: optional
+          maintainer: blacknon <blacknon@orebibou.com>
+          description: |
+            ${desc}
+          vendor: blacknon
+          homepage: https://github.com/blacknon/lssh
+          license: MIT
+          contents:
+            - src: ./README.md
+              dst: /usr/share/doc/${pkg}/README.md
+            - src: ./LICENSE.md
+              dst: /usr/share/doc/${pkg}/LICENSE.md
+          EOF
+
+            for bin in $(package_binaries "$package_id"); do
+              cat >> "$config_path" <<EOF
+            - src: ./dist/bin/${bin}
+              dst: /usr/bin/${bin}
+              file_info:
+                mode: 0755
+          EOF
+
+              if [ -f "completion/zsh/_${bin}" ]; then
+                cat >> "$config_path" <<EOF
+            - src: ./completion/zsh/_${bin}
+              dst: /usr/share/zsh/vendor-completions/_${bin}
+              file_info:
+                mode: 0644
+          EOF
+              fi
+            done
+          }
+
+          for package_id in full core transfer monitor sysadmin; do
+            create_archive "$package_id"
+
+            if [ "$GOOS" = "linux" ]; then
+              pkg="$(package_name "$package_id")"
+              create_nfpm_config "$package_id"
+              nfpm package --packager deb --config "dist/nfpm/${pkg}.yaml" --target "dist/packages/${pkg}_${VERSION}_$(deb_arch "$GOARCH").deb"
+              nfpm package --packager rpm --config "dist/nfpm/${pkg}.yaml" --target "dist/packages/${pkg}-${VERSION}-1.$(rpm_arch "$GOARCH").rpm"
+            fi
+          done
+
+      - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: build-${{ matrix.goos }}_${{ matrix.goarch }}_${{ matrix.ext }}
-          path: lssh_${{ steps.package_version.outputs.version }}_${{ matrix.goos }}_${{ matrix.goarch }}.rpm
-          if-no-files-found: warn
+          name: release-${{ matrix.goos }}-${{ matrix.goarch }}
+          path: dist/packages/*
+          if-no-files-found: error
           overwrite: true
 
-      - name: README for deb
-        if: matrix.ext == 'deb'
-        run: |
-          _TAR=lssh_${{ steps.package_version.outputs.version }}_${{ matrix.goos }}_${{ matrix.goarch }}.deb
-
-      - name: Upload artifact
-        if: matrix.ext == 'deb'
-        uses: actions/upload-artifact@v4
-        with:
-          name: build-${{ matrix.goos }}_${{ matrix.goarch }}_${{ matrix.ext }}
-          path: lssh_${{ steps.package_version.outputs.version }}_${{ matrix.goos }}_${{ matrix.goarch }}.deb
-          if-no-files-found: warn
-          overwrite: true
-
-      - name: Upload artifact
-        if: matrix.ext == 'tar.gz'
-        uses: actions/upload-artifact@v4
-        with:
-          name: build-${{ matrix.goos }}_${{ matrix.goarch }}_${{ matrix.ext }}
-          path: lssh_${{ steps.package_version.outputs.version }}_${{ matrix.goos }}_${{ matrix.goarch }}.tar.gz
-          if-no-files-found: warn
-          overwrite: true
-
-      - name: Upload artifact
-        if: matrix.ext == 'zip'
-        uses: actions/upload-artifact@v4
-        with:
-          name: build-${{ matrix.goos }}_${{ matrix.goarch }}_${{ matrix.ext }}
-          path: lssh_${{ steps.package_version.outputs.version }}_${{ matrix.goos }}_${{ matrix.goarch }}.zip
-          if-no-files-found: warn
-          overwrite: true
-
-  # create package release
   create-release:
     needs:
       - build
     runs-on: ubuntu-latest
     outputs:
       version: ${{ steps.package_version.outputs.version }}
-      upload_url: ${{ steps.create-release.outputs.upload_url }}
+
     steps:
-      - uses: actions/checkout@v1
+      - uses: actions/checkout@v4
+
+      - name: Set up Go 1.22
+        uses: actions/setup-go@v5
+        with:
+          go-version: "1.22"
 
       - name: Get version
         id: package_version
         shell: bash
         run: |
-          VERSION="$(go run ./cmd/lssh/ --version | awk '{print $NF}')"
-          echo "::set-output name=version::$VERSION"
+          set -euo pipefail
+          VERSION="$(go run ./cmd/lssh --version | grep -Eo '[0-9]+\.[0-9]+\.[0-9]+' | head -n1)"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
 
-      - id: create-release
+      - name: Create release
         uses: actions/create-release@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -182,55 +265,29 @@ jobs:
           draft: true
           prerelease: false
 
-      # upload_url is exported as a job output and will be consumed by downstream jobs
-
   upload-release:
-    strategy:
-      matrix:
-        include:
-          - goos: linux
-            goarch: amd64
-            os: ubuntu-latest
-            ext: tar.gz
-          - goos: linux
-            goarch: amd64
-            os: ubuntu-latest
-            ext: rpm
-          - goos: linux
-            goarch: amd64
-            os: ubuntu-latest
-            ext: deb
-          - goos: darwin
-            goarch: amd64
-            os: macos-latest
-            ext: tar.gz
-          - goos: darwin
-            goarch: arm64
-            os: macos-latest
-            ext: tar.gz
-          - goos: windows
-            goarch: amd64
-            os: windows-latest
-            ext: zip
-
-    needs: [create-release]
+    needs:
+      - build
+      - create-release
     runs-on: ubuntu-latest
+
     steps:
       - uses: actions/download-artifact@v4
         with:
-          name: build-${{ matrix.goos }}_${{ matrix.goarch }}_${{ matrix.ext }}
-          path: ./build-${{ matrix.goos }}_${{ matrix.goarch }}_${{ matrix.ext }}
+          pattern: release-*
+          path: dist/packages
+          merge-multiple: true
 
       - name: List build artifact files
+        shell: bash
         run: |
-          echo "Listing ./build-${{ matrix.goos }}_${{ matrix.goarch }}_${{ matrix.ext }}:"
-          ls -la ./build-${{ matrix.goos }}_${{ matrix.goarch }}_${{ matrix.ext }} || { echo "Artifact directory missing"; ls -la .; exit 1; }
+          set -euo pipefail
+          find dist/packages -maxdepth 1 -type f | sort
 
-      - uses: actions/upload-release-asset@v1
+      - name: Upload release assets
+        shell: bash
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          upload_url: ${{ needs.create-release.outputs.upload_url }}
-          asset_path: ./build-${{ matrix.goos }}_${{ matrix.goarch }}_${{ matrix.ext }}/lssh_${{ needs.create-release.outputs.version }}_${{ matrix.goos }}_${{ matrix.goarch }}.${{ matrix.ext }}
-          asset_name: lssh_${{ needs.create-release.outputs.version }}_${{ matrix.goos }}_${{ matrix.goarch }}.${{ matrix.ext }}
-          asset_content_type: application/octet-stream
+        run: |
+          set -euo pipefail
+          gh release upload "v${{ needs.create-release.outputs.version }}" dist/packages/* --clobber

@@ -3,370 +3,155 @@
 lssh
 ====
 
-TUI list select ssh/scp/sftp client tools.
+<p align="center">
+  <img src="./images/lssh_macosx.gif" width="33%" />
+  <img src="./images/lssh_linux.gif" width="33%" />
+  <img src="./images/lssh_windows.gif" width="33%" />
+</p>
+
+lssh is a pure Go, list-oriented SSH toolkit that lets you select hosts from a TOML-defined inventory and connect with SSH, SCP, or SFTP. It is designed for interactive and parallel operations across multiple servers, with support for multi-stage proxies, port forwarding, ssh-agent, OpenSSH config import, and cross-platform use on Linux, macOS, and Windows.
 
 ## Description
 
-This command utility to read a prepared list in advance and connect ssh/scp/sftp the selected host.
-List file is set in yaml format.
-When selecting a host, you can filter by keywords.
-Can execute commands concurrently to multiple hosts.
+### Features
 
-lsftp shells can be connected in parallel.
+- Pure Go SSH toolkit with cross-platform support for Linux, macOS, and Windows
+- Host inventory defined in TOML, with interactive filtering and selection
+- SSH, SCP, and SFTP workflows from a single tool suite
+- Parallel operations across multiple hosts, including command execution and interactive shells
+- Support for multi-stage proxy chains over SSH, HTTP, and SOCKS5
+- Port forwarding features including local, remote, dynamic, reverse dynamic, and X11 forwarding
+- NFS forwarding features for exporting remote paths locally and reverse-mounting local paths to remote hosts
+- Authentication support for password, public key, certificate, PKCS#11, and `ssh-agent`
+- OpenSSH config import, known_hosts support
+- ControlMaster/ControlPersist session reuse
 
-Supported multiple ssh proxy, http/socks5 proxy, x11 forward, and port forwarding.
 
-## Features
+### Commands
 
-* List selection type Pure Go ssh client.
-* It can run on **Linux**, **macOS** and **Windows**.
-* Commands can be executed by ssh connection in **parallel**.
-* There is a shell function that connects to multiple hosts in parallel for interactive operation and connects with local commands via pipes.
-* Supported multiple proxy, **ssh**, **http**, and **socks5** proxy. It's supported multi-stage proxy.
-* Supported **ssh-agent**.
-* Supported **Local** and **Remote Port forward**, **Dynamic Forward(SOCKS5, http)**, **Reverse Dynamic Forward(SOCKS5, http)** and **x11 forward**.
-* Supported KnownHosts.
-* By using **NFS Forward**/**NFS Reverse Forward**, the NFS server starts listening to the PATH of the local host or remote machine, making it available via local port forwarding.
-* Can use bashrc of local machine at ssh connection destination.
-* It supports various authentication methods. Password, Public key, Certificate and PKCS11(Yubikey etc.).
-* Can read the OpenSSH config (~/.ssh/config) and use it as it is.
+The `lssh` suite provides multiple commands for different SSH-related workflows. Use the table below to choose the right command for your task and jump to its dedicated README.
+
+| Command | Best for | Overview |
+| --- | --- | --- |
+| [lssh](./cmd/lssh/README.md) | Interactive SSH access and port forwarding | TUI-based SSH client for host selection, interactive login, parallel command execution, and forwarding features. |
+| [lsftp](./cmd/lsftp/README.md) | Interactive file operations over SFTP | Interactive SFTP shell for browsing directories, transferring files, and managing one or more hosts together. |
+| [lscp](./cmd/lscp/README.md) | SCP-style file transfer | File transfer command for local-to-remote, remote-to-local, and remote-to-remote copy operations over SSH. |
+| [lsshell](./cmd/lsshell/README.md) | Sending commands to multiple hosts | Parallel interactive shell that can broadcast commands to selected hosts from a single prompt. |
+| [lsmon](./cmd/lsmon/README.md) | Monitoring multiple remote hosts | TUI monitor that displays CPU, memory, disk, network, and process information from multiple hosts side by side. |
+
 
 ## Demo
 
-<p align="center">
-<img src="./images/lssh_linux.gif" />
-</p>
+The animations at the top of this README show `lssh` running on macOS, Linux, and Windows.
+
+If you want to try the main connection patterns locally, see [demo/README.md](./demo/README.md). It provides a Docker Compose based demo environment with ready-to-use sample hosts, proxy routes, and client configuration.
 
 ## Install
 
-### compile
+You can install `lssh` with `go install`, Homebrew, or by building from source.
 
-compile gofile(tested go1.22.5).
+### go install
 
-    GO111MODULE=auto go get -u github.com/blacknon/lssh/cmd/lssh
-    GO111MODULE=auto go get -u github.com/blacknon/lssh/cmd/lscp
-    GO111MODULE=auto go get -u github.com/blacknon/lssh/cmd/lsftp
+Install the latest version directly with Go.
 
-    # copy sample config. create `~/.lssh.conf`.
-    test -f ~/.lssh.conf||curl -s https://raw.githubusercontent.com/blacknon/lssh/master/example/config.tml -o ~/.lssh.conf
+```bash
+go install github.com/blacknon/lssh/cmd/lssh@latest
+go install github.com/blacknon/lssh/cmd/lscp@latest
+go install github.com/blacknon/lssh/cmd/lsftp@latest
+go install github.com/blacknon/lssh/cmd/lshell@latest
+go install github.com/blacknon/lssh/cmd/lsmon@latest
+```
 
-or
+### build from source
 
-    git clone https://github.com/blacknon/lssh
-    cd lssh
-    GO111MODULE=auto make && sudo make install
+Build from the repository when you want to work from the local source tree.
 
-    # copy sample config. create `~/.lssh.conf`.
-    test -f ~/.lssh.conf||curl -s https://raw.githubusercontent.com/blacknon/lssh/master/example/config.tml -o ~/.lssh.conf
+```bash
+GO111MODULE=auto go get -u github.com/blacknon/lssh/cmd/lssh
+GO111MODULE=auto go get -u github.com/blacknon/lssh/cmd/lscp
+GO111MODULE=auto go get -u github.com/blacknon/lssh/cmd/lsftp
+GO111MODULE=auto go get -u github.com/blacknon/lssh/cmd/lsshell
+GO111MODULE=auto go get -u github.com/blacknon/lssh/cmd/lsmon
+```
 
 ### brew install
 
-brew install(Mac OS X)
+Install with Homebrew on macOS.
 
-	brew tap blacknon/lssh
-	brew install lssh
-
-	# copy sample config. create `~/.lssh.conf`.
-	test -f ~/.lssh.conf||curl -s https://raw.githubusercontent.com/blacknon/lssh/master/example/config.tml -o ~/.lssh.conf
-
-## Config
-
-Please edit "~/.lssh.conf".\
-For details see [wiki](https://github.com/blacknon/lssh/wiki/Config).
+```bash
+brew install blacknon/lssh/lssh
+```
 
 ## Usage
 
-### lssh
+This section describes shared configuration features used across the `lssh` suite.
+For command-specific features and CLI usage, see [cmd/README.md](/Users/blacknon/_go/src/github.com/blacknon/lssh/cmd/README.md) and the README in each command directory.
 
-run command.
+### TUI navigation and key bindings
 
-    lssh
-
-
-option(lssh)
-
-	NAME:
-	    lssh - TUI list select and parallel ssh client command.
-	USAGE:
-	    lssh [options] [commands...]
-
-	OPTIONS:
-	    --host servername, -H servername            connect servername.
-	    --file filepath, -F filepath                config filepath. (default: "/Users/blacknon/.lssh.conf")
-	    -L [bind_address:]port:remote_address:port  Local port forward mode.Specify a [bind_address:]port:remote_address:port. Only single connection works.
-	    -R [bind_address:]port:remote_address:port  Remote port forward mode.Specify a [bind_address:]port:remote_address:port. If only one port is specified, it will operate as Reverse Dynamic Forward. Only single connection works.
-	    -D port                                     Dynamic port forward mode(Socks5). Specify a port. Only single connection works.
-	    -d port                                     HTTP Dynamic port forward mode. Specify a port. Only single connection works.
-	    -r port                                     HTTP Reverse Dynamic port forward mode. Specify a port. Only single connection works.
-	    -M port:/path/to/remote                     NFS Dynamic forward mode. Specify a port:/path/to/remote. Only single connection works.
-	    -m port:/path/to/local                      NFS Reverse Dynamic forward mode. Specify a port:/path/to/local. Only single connection works.
-	    -w                                          Displays the server header when in command execution mode.
-	    -W                                          Not displays the server header when in command execution mode.
-	    --not-execute, -N                           not execute remote command and shell.
-	    --X11, -X                                   Enable x11 forwarding(forward to ${DISPLAY}).
-	    -Y                                          Enable trusted x11 forwarding(forward to ${DISPLAY}).
-	    --term, -t                                  run specified command at terminal.
-	    --parallel, -p                              run command parallel node(tail -F etc...).
-	    --localrc                                   use local bashrc shell.
-	    --not-localrc                               not use local bashrc shell.
-	    --list, -l                                  print server list from config.
-	    --help, -h                                  print this help
-	    --version, -v                               print the version
-
-	COPYRIGHT:
-	    blacknon(blacknon@orebibou.com)
-
-	VERSION:
-	    0.6.12
-
-	USAGE:
-	    # connect ssh
-	    lssh
-
-	    # run command selected server over ssh.
-	    lssh command...
-
-	    # run command parallel in selected server over ssh.
-	    lssh -p command...
-
-
-### lscpd
-
-run command.
-
-    lscp from... to
-
-option(lscp)
-
-	NAME:
-	    lscp - TUI list select and parallel scp client command.
-	USAGE:
-	    lscp [options] (local|remote):from_path... (local|remote):to_path
-
-	OPTIONS:
-	    --host value, -H value  connect servernames
-	    --list, -l              print server list from config
-	    --file value, -F value  config file path (default: "/Users/blacknon/.lssh.conf")
-	    --permission, -p        copy file permission
-	    --help, -h              print this help
-	    --version, -v           print the version
-
-	COPYRIGHT:
-	    blacknon(blacknon@orebibou.com)
-
-	VERSION:
-	    0.6.12
-
-	USAGE:
-	    # local to remote scp
-	    lscp /path/to/local... remote:/path/to/remote
-
-	    # remote to local scp
-	    lscp remote:/path/to/remote... /path/to/local
-
-	    # remote to remote scp
-	    lscp remote:/path/to/remote... remote:/path/to/local
-
-
-### lsftp
-
-run command.
-
-    lsftp
-
-option(lsftp)
-
-	NAME:
-	    lsftp - TUI list select and parallel sftp client command.
-	USAGE:
-	    lsftp [options]
-
-	OPTIONS:
-	    --file value, -F value  config file path (default: "/Users/blacknon/.lssh.conf")
-	    --help, -h              print this help
-	    --version, -v           print the version
-
-	COPYRIGHT:
-	    blacknon(blacknon@orebibou.com)
-
-	VERSION:
-	    0.6.12
-
-	USAGE:
-	    # start lsftp shell
-	    lsftp
-
-
-If you specify a command as an argument, you can select multiple hosts. Select host <kbd>Tab</kbd>, select all displayed hosts <kbd>Ctrl</kbd> + <kbd>a</kbd>.
-
-
-### 1. [lssh] connect terminal
 <details>
 
-You can connect to the terminal like a normal ssh command (OpenSSH).
+Most `lssh` commands open the same host selection TUI when you do not pass hosts with `-H`.
+You can filter the list by typing, then move and confirm the selection from the keyboard.
 
-<p align="center">
-<img src="./images/1-1.gif" />
-</p>
+- <kbd>Up</kbd> / <kbd>Down</kbd>: move the cursor one line
+- <kbd>Left</kbd> / <kbd>Right</kbd>: move between pages
+- <kbd>Tab</kbd>: toggle the current host and move to the next line in multi-select screens
+- <kbd>Ctrl</kbd> + <kbd>A</kbd>: select or unselect all visible hosts in multi-select screens
+- <kbd>Backspace</kbd>: delete one character from the current filter
+- <kbd>Space</kbd>: insert a space into the filter text
+- <kbd>Enter</kbd>: confirm the current selection
+- <kbd>Esc</kbd> or `Ctrl + C`: quit immediately
 
+Mouse left click also moves the cursor to the clicked line.
 
-You can connect using a local bashrc file (if ssh login shell is bash).
+`lsmon` adds one extra key binding after startup:
 
-<p align="center">
-<img src="./images/1-2.gif" />
-</p>
-
-`~/.lssh.conf` example.
-
-    [server.localrc]
-	addr = "192.168.100.104"
-	key  = "/path/to/private_key"
-	note = "Use local bashrc files."
-	local_rc = 'yes'
-	local_rc_compress = true # gzip compress localrc file data
-	local_rc_file = [
-         "~/dotfiles/.bashrc"
-        ,"~/dotfiles/bash_prompt"
-        ,"~/dotfiles/sh_alias"
-        ,"~/dotfiles/sh_export"
-        ,"~/dotfiles/sh_function"
-	]
-
-
-You can execute commands before and after ssh connection.\
-You can also change the color of each host's terminal by combining it with the OSC escape sequence.
-
-if iTerm2, you can also change the profile.
-
-<p align="center">
-<img src="./images/1-3.gif" />
-</p>
-
-
-`~/.lssh.conf` example.
-
-    [server.iTerm2_sample]
-	addr = "192.168.100.103"
-	key  = "/path/to/private_key"
-	note = "Before/After run local command"
-	pre_cmd = 'printf "\033]50;SetProfile=Theme\a"'    # ssh theme
-    post_cmd = 'printf "\033]50;SetProfile=Default\a"' # local theme
-	note = "(option) exec command after ssh disconnected."
-
-    [server.GnomeTerminal_sample]
-	addr = "192.168.100.103"
-	key  = "/path/to/private_key"
-	note = "Before/After run local command"
-	pre_cmd = 'printf "\e]10;#ffffff\a\e]11;#503000\a"'  # ssh color
-    post_cmd = 'printf "\e]10;#ffffff\a\e]11;#000000\a"' # local color
-	note = "(option) exec command after ssh disconnected."
-
-
-A terminal log can be recorded by writing a configuration file.
-
-`~/.lssh.conf` example.
-
-	[log]
-	enable = true
-	timestamp = true
-	dirpath = "~/log/lssh/<Date>/<Hostname>"
-
-
-There are other parameters corresponding to ClientAliveInterval and ClientAliveCountMax.
-
-    [server.alivecount]
-	addr = "192.168.100.101"
-	key  = "/path/to/private_key"
-	note = "alive count max."
-	alive_max = 3 # ServerAliveCountMax
-	alive_interval = 60 # ServerAliveCountInterval
-
+- `Ctrl + X`: toggle the top-panel view for the currently selected host
 
 </details>
 
-### 2. [lssh] run command (with parallel)
+### shared host inventory
 <details>
 
-It is possible to execute by specifying command in argument.\
-Parallel execution can be performed by adding the `-p` option.
+`lssh` reads `~/.lssh.conf` by default.
+You can define shared settings in `[common]` and host entries in `[server.<name>]`.
+Values in `[server.<name>]` override values from `[common]`.
 
-<p align="center">
-<img src="./images/2-1.gif" />
-</p>
+Minimal example.
 
-	# exec command over ssh.
-	lssh <command...>
+```toml
+[common]
+user = "demo"
+port = "22"
+key = "~/.ssh/id_rsa"
 
-	# exec command over ssh, parallel.
-	lssh -p <command>
+[server.dev]
+addr = "192.168.100.10"
+note = "development server"
+```
 
-
-In parallel connection mode (`-p` option), Stdin can be sent to each host.\
-
-<p align="center">
-<img src="./images/2-2.gif" />
-</p>
-
-
-Can be piped to send Stdin.
-
-<p align="center">
-<img src="./images/2-3.gif" />
-</p>
-
-	# You can pass values ​​in a pipe
-	command... | lssh <command...>
-
+At minimum, a server entry needs `addr`, `user`, and authentication settings such as `pass`, `key`, `cert`, `pkcs11`, or `agentauth`.
 
 </details>
 
-### 3. [lscp] scp (local=>remote(multi), remote(multi)=>local, remote=>remote(multi))
+### keepalive settings
 <details>
 
-You can do scp by selecting a list with the command lscp.\
-You can select multiple connection destinations. This program use sftp protocol.
+You can configure SSH keepalive probes with `alive_interval` and `alive_max`.
+These behave like OpenSSH `ServerAliveInterval` and `ServerAliveCountMax`.
 
-<p align="center">
-<img src="./images/4-1.gif" />
-</p>
+```toml
+[common]
+alive_interval = 10
+alive_max = 3
+```
 
-`local => remote(multiple)`
-
-    # lscp local => remote(multiple)
-    lscp /path/to/local... r:/path/to/remote
-
-
-`remote(multiple) => local`
-
-    # lscp remote(multiple) => local
-    lscp r:/path/to/remote... /path/to/local
-
-
-`remote => remote(multiple)`
-
-    # lscp remote => remote(multiple)
-    lscp r:/path/to/remote... r:/path/to/local
-
+With the example above, `lssh` sends a keepalive request every 10 seconds and closes the connection after 3 consecutive failures.
 
 </details>
 
-### 4. [lsftp] sftp (local=>remote(multi), remote(multi)=>local)
-<details>
-
-You can do sftp by selecting a list with the command lstp.\
-You can select multiple connection destinations.
-
-<p align="center">
-<img src="./images/5-1.gif" />
-</p>
-
-`lsftp`
-
-
-</details>
-
-
-### 5. include ~/.ssh/config file.
+### OpenSSH config import
 <details>
 
 Load and use `~/.ssh/config` by default.\
@@ -374,14 +159,16 @@ Load and use `~/.ssh/config` by default.\
 
 Alternatively, you can specify and read the path as follows: In addition to the path, ServerConfig items can be specified and applied collectively.
 
-	[sshconfig.default]
-	path = "~/.ssh/config"
-	pre_cmd = 'printf "\033]50;SetProfile=local\a"'
-	post_cmd = 'printf "\033]50;SetProfile=Default\a"'
+```toml
+[sshconfig.default]
+path = "~/.ssh/config"
+pre_cmd = 'printf "\033]50;SetProfile=local\a"'
+post_cmd = 'printf "\033]50;SetProfile=Default\a"'
+```
 
 </details>
 
-### 6. include other ServerConfig file.
+### split config into multiple files
 <details>
 
 You can include server settings in another file.\
@@ -389,32 +176,36 @@ You can include server settings in another file.\
 
 `~/.lssh.conf` example.
 
-	[includes]
-	path = [
-    	 "~/.lssh.d/home.conf"
-    	,"~/.lssh.d/cloud.conf"
-	]
+```toml
+[includes]
+path = [
+	 "~/.lssh.d/home.conf"
+	,"~/.lssh.d/cloud.conf"
+]
+```
 
 `~/.lssh.d/home.conf` example.
 
-	[common]
-	pre_cmd = 'printf "\033]50;SetProfile=dq\a"'       # iterm2 ssh theme
-	post_cmd = 'printf "\033]50;SetProfile=Default\a"' # iterm2 local theme
-	ssh_agent_key = ["~/.ssh/id_rsa"]
-	ssh_agent = false
-	user = "user"
-	key = "~/.ssh/id_rsa"
-	pkcs11provider = "/usr/local/lib/opensc-pkcs11.so"
+```toml
+[common]
+pre_cmd = 'printf "\033]50;SetProfile=dq\a"'       # iterm2 ssh theme
+post_cmd = 'printf "\033]50;SetProfile=Default\a"' # iterm2 local theme
+ssh_agent_key = ["~/.ssh/id_rsa"]
+ssh_agent = false
+user = "user"
+key = "~/.ssh/id_rsa"
+pkcs11provider = "/usr/local/lib/opensc-pkcs11.so"
 
-	[server.Server1]
-	addr = "172.16.200.1"
-	note = "TEST Server1"
-	local_rc = "yes"
+[server.Server1]
+addr = "172.16.200.1"
+note = "TEST Server1"
+local_rc = "yes"
 
-	[server.Server2]
-	addr = "172.16.200.2"
-	note = "TEST Server2"
-	local_rc = "yes"
+[server.Server2]
+addr = "172.16.200.2"
+note = "TEST Server2"
+local_rc = "yes"
+```
 
 The priority of setting values ​​is as follows.
 
@@ -423,7 +214,7 @@ The priority of setting values ​​is as follows.
 
 </details>
 
-### 7. Supported Proxy
+### multi-stage proxy
 <details>
 
 Supports multiple proxy.
@@ -436,65 +227,70 @@ Besides this, you can also specify ProxyCommand like OpenSSH.
 
 `http` proxy example.
 
-	[proxy.HttpProxy]
-	addr = "example.com"
-	port = "8080"
+```toml
+[proxy.HttpProxy]
+addr = "example.com"
+port = "8080"
 
-	[server.overHttpProxy]
-	addr = "over-http-proxy.com"
-	key  = "/path/to/private_key"
-	note = "connect use http proxy"
-	proxy = "HttpProxy"
-	proxy_type = "http"
+[server.overHttpProxy]
+addr = "over-http-proxy.com"
+key  = "/path/to/private_key"
+note = "connect use http proxy"
+proxy = "HttpProxy"
+proxy_type = "http"
+```
 
 
 `socks5` proxy example.
 
-	[proxy.Socks5Proxy]
-	addr = "example.com"
-	port = "54321"
+```toml
+[proxy.Socks5Proxy]
+addr = "example.com"
+port = "54321"
 
-	[server.overSocks5Proxy]
-	addr = "192.168.10.101"
-	key  = "/path/to/private_key"
-	note = "connect use socks5 proxy"
-	proxy = "Socks5Proxy"
-	proxy_type = "socks5"
-
+[server.overSocks5Proxy]
+addr = "192.168.10.101"
+key  = "/path/to/private_key"
+note = "connect use socks5 proxy"
+proxy = "Socks5Proxy"
+proxy_type = "socks5"
+```
 
 `ssh` proxy example.
 
-	[server.sshProxyServer]
-	addr = "192.168.100.200"
-	key  = "/path/to/private_key"
-	note = "proxy server"
+```toml
+[server.sshProxyServer]
+addr = "192.168.100.200"
+key  = "/path/to/private_key"
+note = "proxy server"
 
-	[server.overProxyServer]
-	addr = "192.168.10.10"
-	key  = "/path/to/private_key"
-	note = "connect use ssh proxy"
-	proxy = "sshProxyServer"
+[server.overProxyServer]
+addr = "192.168.10.10"
+key  = "/path/to/private_key"
+note = "connect use ssh proxy"
+proxy = "sshProxyServer"
 
-	[server.overProxyServer2]
-	addr = "192.168.10.100"
-	key  = "/path/to/private_key"
-	note = "connect use ssh proxy(multiple)"
-	proxy = "overProxyServer"
-
+[server.overProxyServer2]
+addr = "192.168.10.100"
+key  = "/path/to/private_key"
+note = "connect use ssh proxy(multiple)"
+proxy = "overProxyServer"
+```
 
 `ProxyCommand` proxy example.
 
-	[server.ProxyCommand]
-	addr = "192.168.10.20"
-	key  = "/path/to/private_key"
-	note = "connect use ssh proxy(multiple)"
-	proxy_cmd = "ssh -W %h:%p proxy"
-
+```toml
+[server.ProxyCommand]
+addr = "192.168.10.20"
+key  = "/path/to/private_key"
+note = "connect use ssh proxy(multiple)"
+proxy_cmd = "ssh -W %h:%p proxy"
+```
 
 </details>
 
 
-### 8. Available authentication method
+### available authentication methods
 <details>
 
 * Password auth
@@ -505,134 +301,83 @@ Besides this, you can also specify ProxyCommand like OpenSSH.
 
 `password` auth example.
 
-	[server.PasswordAuth]
-	addr = "password_auth.local"
-	user = "user"
-	pass = "Password"
-	note = "password auth server"
-
+```toml
+[server.PasswordAuth]
+addr = "password_auth.local"
+user = "user"
+pass = "Password"
+note = "password auth server"
+```
 
 `publickey` auth example.
 
-	[server.PublicKeyAuth]
-	addr = "pubkey_auth.local"
-	user = "user"
-	key = "~/path/to/key"
-	note = "Public key auth server"
+```toml
+[server.PublicKeyAuth]
+addr = "pubkey_auth.local"
+user = "user"
+key = "~/path/to/key"
+note = "Public key auth server"
 
-	[server.PublicKeyAuth_with_passwd]
-	addr = "password_auth.local"
-	user = "user"
-	key = "~/path/to/key"
-	keypass = "passphrase"
-	note = "Public key auth server with passphrase"
-
+[server.PublicKeyAuth_with_passwd]
+addr = "password_auth.local"
+user = "user"
+key = "~/path/to/key"
+keypass = "passphrase"
+note = "Public key auth server with passphrase"
+```
 
 `cert` auth example.\
 (pkcs11 key is not supported in the current version.)
 
-	[server.CertAuth]
-	addr = "cert_auth.local"
-	user = "user"
-	cert = "~/path/to/cert"
-	certkey = "~/path/to/certkey"
-	note = "Certificate auth server"
+```toml
+[server.CertAuth]
+addr = "cert_auth.local"
+user = "user"
+cert = "~/path/to/cert"
+certkey = "~/path/to/certkey"
+note = "Certificate auth server"
 
-	[server.CertAuth_with_passwd]
-	addr = "cert_auth.local"
-	user = "user"
-	cert = "~/path/to/cert"
-	certkey = "~/path/to/certkey"
-	certkeypass = "passphrase"
-	note = "Certificate auth server with passphrase"
-
+[server.CertAuth_with_passwd]
+addr = "cert_auth.local"
+user = "user"
+cert = "~/path/to/cert"
+certkey = "~/path/to/certkey"
+certkeypass = "passphrase"
+note = "Certificate auth server with passphrase"
+```
 
 `pkcs11` auth example.
 
-	[server.PKCS11Auth]
-	addr = "pkcs11_auth.local"
-	user = "user"
-	pkcs11provider = "/usr/local/lib/opensc-pkcs11.so"
-	pkcs11 = true
-	note = "PKCS11 auth server"
+```toml
+[server.PKCS11Auth]
+addr = "pkcs11_auth.local"
+user = "user"
+pkcs11provider = "/usr/local/lib/opensc-pkcs11.so"
+pkcs11 = true
+note = "PKCS11 auth server"
 
-	[server.PKCS11Auth_with_PIN]
-	addr = "pkcs11_auth.local"
-	user = "user"
-	pkcs11provider = "/usr/local/lib/opensc-pkcs11.so"
-	pkcs11 = true
-	pkcs11pin = "123456"
-	note = "PKCS11 auth server"
-
+[server.PKCS11Auth_with_PIN]
+addr = "pkcs11_auth.local"
+user = "user"
+pkcs11provider = "/usr/local/lib/opensc-pkcs11.so"
+pkcs11 = true
+pkcs11pin = "123456"
+note = "PKCS11 auth server"
+```
 
 `ssh-agent` auth example.
 
-	[server.SshAgentAuth]
-	addr = "agent_auth.local"
-	user = "user"
-	agentauth = true # auth ssh-agent
-	note = "ssh-agent auth server"
+```toml
+[server.SshAgentAuth]
+addr = "agent_auth.local"
+user = "user"
+agentauth = true # auth ssh-agent
+note = "ssh-agent auth server"
+```
 
 </details>
 
-
-### 9. Port forwarding
-<details>
-
-Supported Local/Remote/Dynamic port forwarding.\
-You can specify from the command line or from the configuration file.
-
-When using NFS forward, lssh starts the NFS server and begins listening on the specified port.
-After that, the forwarded PATH can be used as a mount point on the local machine or the remote machine.
-
-#### command line option
-
-    lssh -L 8080:localhost:80    # local port forwarding
-    lssh -R 80:localhost:8080    # remote port forwarding
-    lssh -D 10080                # dynamic port forwarding
-    lssh -R 10080                # Reverse Dynamic port forwarding
-	lssh -M port:/path/to/remote # NFS Dynamic forward.
-	lssh -m port:/path/to/local  # NFS Reverse Dynamic forward.
-
-#### config file
-
-	[server.LocalPortForward]
-	addr = "localforward.local"
-	user = "user"
-	agentauth = true
-	port_forward_local = "localhost:8080"
-	port_forward_remote = "localhost:80"
-	note = "local port forwawrd example"
-
-	[server.RemotePortForward]
-	addr = "remoteforward.local"
-	user = "user"
-	agentauth = true
-	port_forward = "REMOTE"
-	port_forward_local = "localhost:80"
-	port_forward_remote = "localhost:8080"
-	note = "remote port forwawrd example"
-
-	[server.DynamicForward]
-	addr = "dynamicforward.local"
-	user = "user"
-	agentauth = true
-	dynamic_port_forward = "11080"
-	note = "dynamic forwawrd example"
-
-	[server.ReverseDynamicForward]
-	addr = "reversedynamicforward.local"
-	user = "user"
-	agentauth = true
-	reverse_dynamic_port_forward = "11080"
-	note = "reverse dynamic forwawrd example"
-
-If OpenSsh config is loaded, it will be loaded as it is.
-
-
-</details>
-
-### 10. Check KnownHosts
+### check KnownHosts
 <details>
 
 Supported check KnownHosts.
@@ -640,26 +385,49 @@ If you want to enable check KnownHost, set `check_known_hosts` to `true` in Serv
 
 If you want to specify a file to record KnownHosts, add file path to `known_hosts_files`.
 
-	[server.CheckKnownHosts]
-	addr = "check_knwon_hosts.local"
-	user = "user"
-	check_known_hosts = true
-	note = "check known hosts example"
+```toml
+[server.CheckKnownHosts]
+addr = "check_knwon_hosts.local"
+user = "user"
+check_known_hosts = true
+note = "check known hosts example"
 
-	[server.CheckKnownHostsToOriginalFile]
-	addr = "check_knwon_hosts.local"
-	user = "user"
-	check_known_hosts = true
-	known_hosts_files = ["/path/to/known_hosts"]
-	note = "check known hosts example"
+[server.CheckKnownHostsToOriginalFile]
+addr = "check_knwon_hosts.local"
+user = "user"
+check_known_hosts = true
+known_hosts_files = ["/path/to/known_hosts"]
+note = "check known hosts example"
+```
+
+</details>
+
+### ControlMaster / ControlPersist
+<details>
+
+You can reuse SSH sessions with OpenSSH-style ControlMaster settings.
+This is useful when multiple operations connect to the same host repeatedly.
+
+`~/.lssh.conf` example.
+
+```toml
+[common]
+control_master = true
+control_path = "/tmp/lssh-control-%h-%p-%r"
+control_persist = "10m"
+
+[server.controlmaster]
+addr = "192.168.100.110"
+user = "demo"
+key = "~/.ssh/id_rsa"
+note = "reuse ssh session"
+```
 
 </details>
 
 ## Related projects
 
-- [go-sshlib](https://github.com/blacknon/go-sshlib)
-- [lsshell](https://github.com/blacknon/lsshell)
-- [lsmon](https://github.com/blacknon/lsmon)
+- [go-sshlib](https://github.com/blacknon/go-sshlib) ... A Go library for SSH connections, command execution, and interactive shell handling.
 
 ## Licence
 
