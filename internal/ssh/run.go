@@ -415,7 +415,7 @@ func (r *Run) setPortForwards(server string, config conf.ServerConfig) (c conf.S
 // Mainly used in r.shell().
 func execLocalCommand(cmd string) {
 	out, _ := exec.Command("sh", "-c", cmd).CombinedOutput()
-	fmt.Printf(string(out))
+	fmt.Print(string(out))
 }
 
 // notifyParentReady writes readiness to fd 3 if child was started by parent with ExtraFiles.

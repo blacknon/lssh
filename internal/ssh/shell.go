@@ -93,6 +93,8 @@ func (r *Run) shell() (err error) {
 	r.printDynamicPortForward(config.DynamicPortForward)
 	r.printReverseDynamicPortForward(config.ReverseDynamicPortForward)
 	r.printHTTPDynamicPortForward(config.HTTPDynamicPortForward)
+	r.printNFSDynamicForward(config.NFSDynamicForwardPort, config.NFSDynamicForwardPath)
+	r.printNFSReverseDynamicForward(config.NFSReverseDynamicForwardPort, config.NFSReverseDynamicForwardPath)
 	r.printProxy(server)
 
 	// No special handling for ControlMaster: allow agent/X11 forwarding to proceed normally.

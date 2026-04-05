@@ -134,6 +134,26 @@ func (r *Run) cmd() (err error) {
 				config.HTTPReverseDynamicPortForward = r.HTTPReverseDynamicPortForward
 			}
 
+			// OverWrite nfs dynamic forwarding
+			if r.NFSDynamicForwardPort != "" {
+				config.NFSDynamicForwardPort = r.NFSDynamicForwardPort
+			}
+
+			// OverWrite nfs dynamic path
+			if r.NFSDynamicForwardPath != "" {
+				config.NFSDynamicForwardPath = r.NFSDynamicForwardPath
+			}
+
+			// OverWrite nfs reverse dynamic forwarding
+			if r.NFSReverseDynamicForwardPort != "" {
+				config.NFSReverseDynamicForwardPort = r.NFSReverseDynamicForwardPort
+			}
+
+			// OverWrite nfs reverse dynamic path
+			if r.NFSReverseDynamicForwardPath != "" {
+				config.NFSReverseDynamicForwardPath = r.NFSReverseDynamicForwardPath
+			}
+
 			// OverWrite local bashrc use
 			if r.IsBashrc {
 				config.LocalRcUse = "yes"
@@ -189,16 +209,14 @@ func (r *Run) cmd() (err error) {
 			}
 
 			// NFS Dynamic Forward
-			if r.NFSDynamicForwardPort != "" && r.NFSDynamicForwardPath != "" {
-				config.NFSDynamicForwardPort = r.NFSDynamicForwardPort
-				config.NFSDynamicForwardPath = r.NFSDynamicForwardPath
+			if config.NFSDynamicForwardPort != "" && config.NFSDynamicForwardPath != "" {
+				r.printNFSDynamicForward(config.NFSDynamicForwardPort, config.NFSDynamicForwardPath)
 				go c.NFSForward("localhost", config.NFSDynamicForwardPort, config.NFSDynamicForwardPath)
 			}
 
 			// NFS Reverse Dynamic Forward
-			if r.NFSReverseDynamicForwardPort != "" && r.NFSReverseDynamicForwardPath != "" {
-				config.NFSReverseDynamicForwardPort = r.NFSReverseDynamicForwardPort
-				config.NFSReverseDynamicForwardPath = r.NFSReverseDynamicForwardPath
+			if config.NFSReverseDynamicForwardPort != "" && config.NFSReverseDynamicForwardPath != "" {
+				r.printNFSReverseDynamicForward(config.NFSReverseDynamicForwardPort, config.NFSReverseDynamicForwardPath)
 				go c.NFSReverseForward("localhost", config.NFSReverseDynamicForwardPort, config.NFSReverseDynamicForwardPath)
 			}
 

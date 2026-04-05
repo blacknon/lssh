@@ -21,6 +21,7 @@ lssh is a pure Go, list-oriented SSH toolkit that lets you select hosts from a T
 - Parallel operations across multiple hosts, including command execution and interactive shells
 - Support for multi-stage proxy chains over SSH, HTTP, and SOCKS5
 - Port forwarding features including local, remote, dynamic, reverse dynamic, and X11 forwarding
+- NFS forwarding features for exporting remote paths locally and reverse-mounting local paths to remote hosts
 - Authentication support for password, public key, certificate, PKCS#11, and `ssh-agent`
 - OpenSSH config import, known_hosts support
 - ControlMaster/ControlPersist session reuse
