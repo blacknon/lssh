@@ -63,13 +63,13 @@ backend: 172.31.1.33"]
     client -. via proxy .-> socks_proxy
 
     ssh_proxy --> over_proxy_ssh
-    http_proxy --> over_proxy_ssh
-    socks_proxy --> over_proxy_ssh
+    http_proxy -. via proxy .->  over_proxy_ssh
+    socks_proxy -. via proxy .->  over_proxy_ssh
     over_proxy_ssh --> deep_proxy_ssh
-    over_proxy_ssh --> deep_http_proxy
-    over_proxy_ssh --> deep_socks_proxy
-    deep_http_proxy --> over_deep_http_ssh
-    deep_socks_proxy --> over_deep_http_ssh
+    over_proxy_ssh -. via proxy .->  deep_http_proxy
+    over_proxy_ssh -. via proxy .->  deep_socks_proxy
+    deep_http_proxy -. via proxy .->  over_deep_http_ssh
+    deep_socks_proxy -. via proxy .->  over_deep_http_ssh
 ```
 
 - `frontend`
