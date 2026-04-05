@@ -64,8 +64,15 @@ func (c *Connect) X11Forward(session *ssh.Session) (err error) {
 	ok, err := session.SendRequest("x11-req", true, ssh.Marshal(payload))
 	if err == nil && !ok {
 		return errors.New("ssh: x11-req failed")
-	} else {
-		// Open HandleChannel x11
+	}
+
+	c.startX11ChannelHandler()
+
+	return err
+}
+
+func (c *Connect) startX11ChannelHandler() {
+	c.x11HandlerOnce.Do(func() {
 		x11channels := c.Client.HandleChannelOpen("x11")
 
 		go func() {
@@ -78,9 +85,7 @@ func (c *Connect) X11Forward(session *ssh.Session) (err error) {
 				go x11forwarder(channel)
 			}
 		}()
-	}
-
-	return err
+	})
 }
 
 // x11Connect return net.Conn x11 socket.

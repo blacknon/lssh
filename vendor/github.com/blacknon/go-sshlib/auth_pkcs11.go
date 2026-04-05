@@ -20,7 +20,11 @@ import (
 //
 // WORNING: Does not work if multiple tokens are stuck at the same time.
 func CreateAuthMethodPKCS11(provider, pin string) (auth []ssh.AuthMethod, err error) {
-	signers, err := CreateSignerPKCS11(provider, pin)
+	return CreateAuthMethodPKCS11WithPrompt(provider, pin, nil)
+}
+
+func CreateAuthMethodPKCS11WithPrompt(provider, pin string, prompt PromptFunc) (auth []ssh.AuthMethod, err error) {
+	signers, err := CreateSignerPKCS11WithPrompt(provider, pin, prompt)
 	if err != nil {
 		return
 	}
@@ -37,6 +41,10 @@ func CreateAuthMethodPKCS11(provider, pin string) (auth []ssh.AuthMethod, err er
 //
 // WORNING: Does not work if multiple tokens are stuck at the same time.
 func CreateSignerPKCS11(provider, pin string) (signers []ssh.Signer, err error) {
+	return CreateSignerPKCS11WithPrompt(provider, pin, nil)
+}
+
+func CreateSignerPKCS11WithPrompt(provider, pin string, prompt PromptFunc) (signers []ssh.Signer, err error) {
 	// get absolute path
 	provider = getAbsPath(provider)
 
@@ -71,6 +79,7 @@ func CreateSignerPKCS11(provider, pin string) (signers []ssh.Signer, err error) 
 			Label: tokenInfo.Label,
 			PIN:   pin,
 		}
+		c.Prompt = prompt
 
 		c11array = append(c11array, c)
 	}

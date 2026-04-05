@@ -1,0 +1,250 @@
+v1.5.9 (2022-02-02)
+- Fix unlocking application mutex when failing to initialize the screen
+- Fix DropDown.SetCurrentOption Unlock of unlocked RWMutex panic
+
+v1.5.8 (2022-08-01)
+- Add TabbedPanels.SetChangedFunc
+- Add DropDown.SetDropDownSelectedSymbolRune (PR by gdamore)
+- Add List.SetIndicators (PR by gdamore)
+- Fix some missing ANSI translations
+
+v1.5.7 (2021-09-01)
+- Add Application.HandlePanic
+- Add Modal.SetButtonsAlign and Modal.SetTextAlign
+- Fix Application.QueueEvent
+- Fix TextView.GetRegionText error when text contains color tags
+- Fix TextView region tags when placed at the end of a line
+- Do not customize Modal window styling by default (use GetForm and GetFrame to customize)
+- Draw application after updating root primitive via Application.SetRoot
+
+v1.5.6 (2021-07-08)
+- Add TrueColorTags option and do not use TrueColor tag values by default
+- Add TextView.SetHighlightForegroundColor and TextView.SetHighlightBackgroundColor
+- Add TextView.SetVerticalAlign
+- Add Button.SetCursorRune (cursors are now shown within Buttons when focused by default)
+- Add CheckBox.SetCursorRune (cursors are now shown within CheckBoxes when focused by default)
+- Add DropDown.SetAlwaysDrawDropDownSymbol (DropDown symbols are now shown only when focused by default)
+- Add DropDown.SetDropDownOpenSymbolRune
+- Fix TextView always visible scroll bar not appearing when empty
+- Fix passing mouse events to Grid items (events are now only passed to the item under the mouse)
+- Fix drawing InputField cursor outside of the field
+- Draw additional accents when rendering a list divider
+- Update Application.Draw and Application.QueueUpdateDraw to accept one or more
+primitives to draw instead of the whole screen
+- Update List, Table and TreeView to not handle Tab or Backtab
+- Allow specifying TabbedPanels switcher height
+- Change default colors (fields and buttons are now green)
+- When resetting color with "-" tag, set background color to primitive
+background color, rather than the terminal background color
+
+v1.5.5 (2021-05-24)
+- Fix Application.Suspend by restructuring event loop (queued updates will now only run between draws)
+
+v1.5.4 (2021-04-03)
+- Add TextView.GetBufferSize
+- Fix strikethrough support
+
+v1.5.3 (2021-01-14)
+- Document how to prevent screen artifacts when using SetBackgroundTransparent
+- Fix highlighting focused Form element
+- Fix incorrect TabbedPanels colors
+- Preserve order of panels when updating panel
+
+v1.5.2 (2020-12-04)
+- Handle input events before executing queued update functions
+- Fix WindowManager background not being drawn
+
+v1.5.1 (2020-11-05)
+- Add FocusManager
+- Add Slider
+- Add TabbedPanels
+- Add Application.Init
+- Add Application.GetScreen and Application.GetScreenSize
+- Add SetVisible and GetVisible to all widgets
+- Add TextView.SetBytes, TextView.GetBytes and TextView.SetWrapWidth
+- Add TableCell.SetBytes, TableCell.GetBytes and TableCell.GetText
+- Fix List dividers allowing selection
+- Fix List.Transform not calling handler set via SetChangedFunc
+- Fix WordWrap bounds out of range
+- Fix WordWrap dropping last character of closing tag
+- Allow modification of scroll bar render text
+- Allow scrolling List horizontally
+- Clarify that Table rows must each have the same number of columns
+- Clarify that WordWrap accepts unescaped text only
+- Display TextView scroll bar automatically by default
+- Generalize tag stripping as StripTags
+- Make printWithStyle public and rename as PrintStyle
+- Optimize TextView (writing is 90% faster, drawing is 50% faster)
+- Reduce Box inner rect calculations
+- Remove return values from methods which return their primitive (breaks chaining)
+- Remove Application.ForceDraw (Application.Draw may be called anywhere)
+- Rename SetBorderPadding and GetBorderPadding as SetPadding and GetPadding
+- Rename Pages as Panels
+- Support bracketed paste mode via tcell
+
+v1.5.0 (2020-10-03)
+- Add scroll bar to TextView
+- Add Window and WindowManager
+- Add focus-driven style options
+- Add InputField autocomplete style options
+- Add arrow symbol to DropDown
+- Add Makefile
+- Allow autocomplete selection value customization
+- Provide DropDownOption in DropDown handlers
+- Provide ListItem in List handlers
+- Panic when attempting to add an invalid FormItem
+- Release lock on InputField while executing DoneFunc and FinishedFunc
+
+v1.4.9 (2020-09-08)
+- Add InputField.GetCursorPosition and InputField.SetCursorPosition
+- Add Table.Sort, Table.SetSortFunc and Table.SetSortClicked
+- Add TextView.SetReindexBuffer
+- Base List PageUp and PageDown on the number of items displayed
+- Upgrade tcell to v2: includes strikethrough support
+
+v1.4.8 (2020-08-11)
+- Add italic text formatting flag
+- Add Modal.GetForm and Modal.GetFrame
+- Fix Form.Clear deadlock
+- Fill nil Flex space with default background color
+- Position ContextMenu on selected item when negative coordinates are provided
+- Use sync.RWMutex in all widgets
+
+v1.4.7 (2020-06-09)
+- Add Box.SetBackgroundTransparent
+- Add List.SetSelectedAlwaysCentered
+- Fix default background transparency of Flex and Grid
+- Fix negative List offset and DropDown selection
+- Fix panic when clicking nil primitive in Flex
+- Fix deadlock when calling Pages.SendToFront
+- Fix ANSI colors 0-15
+- Fix ANSI SGR codes
+
+v1.4.6 (2020-05-18)
+- Add Box.ShowFocus
+- Add Keys to allow default keyboard shortcuts to be modified
+- Add List.GetOffset, List.SetOffset and List.SetSelectedTextAttributes
+- Add TextView.SetMaxLines
+- Add Vim-style keybindings to List
+- Fix List not updating selected item before calling selected handlers
+- Do not handle right click on List when there is no context menu
+- Always initialize context menu List
+- Document how to override default keybindings
+
+v1.4.5 (2020-04-25)
+- Add multithreading support
+- Add ContextMenu (initially supported by List)
+- Add List.Transform and TreeView.Transform
+- Add Application.SetBeforeFocusFunc and Application.SetAfterFocusFunc
+- Merge upstream mouse support
+
+v1.4.4 (2020-02-24)
+- Fix panic when navigating empty list
+- Fix resize event dimensions on Windows
+- Clarify that Box does not have inner text
+- Do not wrap around form by default
+
+v1.4.3 (2020-02-13)
+- Add SetFocusedFunc to TreeNode
+- Add option to always show scroll bar
+- Fix scrolling Table with PageDown and PageUp
+- Do not wrap around List by default
+
+v1.4.2 (2020-02-02)
+- Add scroll bar to List, DropDown, Table and TreeView
+- Add SetDoneFunc to TreeView
+- Fix mouse support when resuming after Application.Suspend
+- Fix rendering issues with TextViews which have their background color set to
+ColorDefault
+
+v1.4.1 (2020-01-23)
+- Add ProgressBar widget
+- Add Application.RingBell
+- Add example multi-layout application and mouse-enabled application
+- Add documentation for GetChildren methods
+
+v1.4.0 (2020-01-16)
+- Bump version to resolve issues with "go get"
+
+v0.2.2 (2020-01-06)
+- Add optional message displayed after CheckBox
+- Fix Dropdown mouse capture behavior
+- Fix TextView region highlighting on last line
+
+v0.2.1 (2020-01-01)
+- Add initial mouse support (some widgets are unsupported)
+- Add window size change handler
+- Fix resetting TextView color with [-]
+- Fix adding unnecessary padding to some runes
+- Fix handling ANSI color escape codes 39 (default foreground) and 49 (default
+background)
+
+v0.2.0 (2019-12-30)
+- Fork tview as cview
+
+v0.1.20 (2019-07-08)
+- Added autocomplete functionality to InputField.
+
+v0.1.19 (2018-10-28)
+- Added QueueUpdate() and QueueEvent() to Application to help with
+modifications to primitives from goroutines.
+
+v0.1.18 (2018-10-18)
+- InputField elements can now be navigated freely.
+
+v0.1.17 (2018-06-20)
+- Added TreeView.
+
+v0.1.15 (2018-05-02)
+- Flex and Grid don't clear their background per default, thus allowing for
+custom modals.
+
+v0.1.14 (2018-04-13)
+- Added an Escape() function which keep strings like color or region tags from
+being recognized as such.
+- Added ANSIWriter() and TranslateANSI() which convert ANSI escape sequences to
+tview color tags.
+
+v0.1.13 (2018-04-01)
+- Added background colors and text attributes to color tags.
+
+v0.1.12 (2018-03-13)
+- Added "suspended mode" to Application.
+
+v0.1.11 (2018-03-02)
+- Added a RemoveItem() function to Grid and Flex.
+
+v0.1.10 (2018-02-22)
+- Direct access to the screen object through callback in Box (i.e. for all
+primitives).
+
+v0.1.9 (2018-02-20)
+- Introduced Grid layout.
+- Direct access to the screen object through callbacks in Application.
+
+v0.1.8 (2018-01-17)
+- Color tags can now be used almost everywhere.
+
+v0.1.7 (2018-01-16)
+- Forms can now also have a horizontal layout.
+
+v0.1.6 (2018-01-14)
+- All primitives can now intercept all key events when they have focus.
+- Key events can also be intercepted globally (changed to a more general, consistent handling)
+
+v0.1.5 (2018-01-13)
+- TextView now has word wrapping and text alignment
+
+v0.1.4 (2018-01-12)
+- TextView now accepts color tags with any W3C color (including RGB hex values).
+- Support for wide unicode characters.
+
+v0.1.3 (2018-01-11)
+- Added masking to InputField and password entry to Form.
+
+v0.1.2 (2018-01-10)
+- Added Styles variable with default colors for primitives.
+- Completed some missing InputField functions.
+
+v0.1.1 (2018-01-06)
+- First Release.
