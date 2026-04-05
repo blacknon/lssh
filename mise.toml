@@ -162,3 +162,29 @@ depends = ["go_mod"]
 run = """
     go test -v ./internal/app/lsshell/...
 """
+
+# Tasks(Demo)
+# ====================
+[tasks.demo_up]
+description = "Start demo containers with docker compose"
+depends = []
+dir = "demo"
+run = """
+    docker compose up --build -d
+"""
+
+[tasks.demo_down]
+description = "Stop demo containers with docker compose"
+depends = []
+dir = "demo"
+run = """
+    docker compose down -v
+"""
+
+[tasks.demo_client]
+description = "Open a shell in the demo client container"
+depends = []
+dir = "demo"
+run = """
+    docker compose exec client bash
+"""

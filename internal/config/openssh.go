@@ -9,6 +9,7 @@ import (
 	"io"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"regexp"
 	"strconv"
 	"strings"
@@ -89,7 +90,7 @@ func getOpenSSHConfig(path, command string) (config map[string]ServerConfig, err
 		}
 
 		// TODO(blacknon): OpenSSSH設定ファイルだと、Certificateは複数指定可能な模様。ただ、あまり一般的な使い方ではないようなので、現状は複数のファイルを受け付けるように作っていない。
-		key := ssh_config.Get(host, "IdentityFile")
+		key := normalizeOpenSSHIdentityFile(ssh_config.Get(host, "IdentityFile"))
 		cert := ssh_config.Get(host, "Certificate")
 		if cert != "" {
 			serverConfig.Cert = cert
@@ -188,4 +189,27 @@ func getOpenSSHConfig(path, command string) (config map[string]ServerConfig, err
 	}
 
 	return config, err
+}
+
+func normalizeOpenSSHIdentityFile(path string) string {
+	path = strings.TrimSpace(path)
+	if path == "" {
+		return ""
+	}
+
+	fullPath := common.GetFullPath(path)
+	if fullPath == "" {
+		return path
+	}
+
+	if _, err := os.Stat(fullPath); err == nil {
+		return path
+	}
+
+	switch filepath.Base(fullPath) {
+	case "identity", "id_rsa", "id_dsa", "id_ecdsa", "id_ecdsa_sk", "id_ed25519", "id_ed25519_sk", "id_xmss":
+		return ""
+	default:
+		return path
+	}
 }
