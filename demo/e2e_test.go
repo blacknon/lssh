@@ -159,8 +159,7 @@ for item in \
   "key_ssh 172.31.0.22 22" \
   "ssh_proxy 172.31.0.31 22" \
   "http_proxy 172.31.0.32 8888" \
-  "socks_proxy 172.31.0.33 1080" \
-  "over_proxy_ssh 172.31.1.41 22"
+  "socks_proxy 172.31.0.33 1080"
 do
   set -- $item
   name="$1"
