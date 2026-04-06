@@ -172,12 +172,26 @@ type badgeOverlay struct {
 	color tcell.Color
 }
 
+type modalOverlay struct {
+	*tview.Box
+	child   tview.Primitive
+	overlay tview.Primitive
+}
+
 func newBadgeOverlay(child tview.Primitive, label string, color tcell.Color) *badgeOverlay {
 	return &badgeOverlay{
 		Box:   tview.NewBox(),
 		child: child,
 		label: label,
 		color: color,
+	}
+}
+
+func newModalOverlay(child, overlay tview.Primitive) *modalOverlay {
+	return &modalOverlay{
+		Box:     tview.NewBox(),
+		child:   child,
+		overlay: overlay,
 	}
 }
 
@@ -252,4 +266,85 @@ func (b *badgeOverlay) HasFocus() bool {
 		return false
 	}
 	return b.child.HasFocus()
+}
+
+func (m *modalOverlay) Draw(screen tcell.Screen) {
+	x, y, width, height := m.GetRect()
+	if m.child != nil {
+		m.child.SetRect(x, y, width, height)
+		m.child.Draw(screen)
+	}
+	if m.overlay != nil {
+		m.overlay.SetRect(x, y, width, height)
+		m.overlay.Draw(screen)
+	}
+}
+
+func (m *modalOverlay) SetRect(x, y, width, height int) {
+	m.Box.SetRect(x, y, width, height)
+	if m.child != nil {
+		m.child.SetRect(x, y, width, height)
+	}
+	if m.overlay != nil {
+		m.overlay.SetRect(x, y, width, height)
+	}
+}
+
+func (m *modalOverlay) GetRect() (int, int, int, int) {
+	return m.Box.GetRect()
+}
+
+func (m *modalOverlay) InputHandler() func(event *tcell.EventKey, setFocus func(p tview.Primitive)) {
+	if m.overlay == nil {
+		return nil
+	}
+	return m.overlay.InputHandler()
+}
+
+func (m *modalOverlay) PasteHandler() func(text string, setFocus func(p tview.Primitive)) {
+	if m.overlay == nil {
+		return nil
+	}
+	return m.overlay.PasteHandler()
+}
+
+func (m *modalOverlay) MouseHandler() func(action tview.MouseAction, event *tcell.EventMouse, setFocus func(p tview.Primitive)) (bool, tview.Primitive) {
+	return m.WrapMouseHandler(func(action tview.MouseAction, event *tcell.EventMouse, setFocus func(p tview.Primitive)) (bool, tview.Primitive) {
+		if event == nil {
+			return false, nil
+		}
+		x, y := event.Position()
+		if !m.InRect(x, y) {
+			return false, nil
+		}
+		if m.overlay != nil {
+			if handler := m.overlay.MouseHandler(); handler != nil {
+				consumed, capture := handler(action, event, setFocus)
+				if consumed {
+					return true, capture
+				}
+			}
+			return true, m.overlay
+		}
+		return true, m
+	})
+}
+
+func (m *modalOverlay) Focus(delegate func(p tview.Primitive)) {
+	if m.overlay != nil {
+		m.overlay.Focus(delegate)
+	}
+}
+
+func (m *modalOverlay) Blur() {
+	if m.overlay != nil {
+		m.overlay.Blur()
+	}
+}
+
+func (m *modalOverlay) HasFocus() bool {
+	if m.overlay == nil {
+		return false
+	}
+	return m.overlay.HasFocus()
 }
