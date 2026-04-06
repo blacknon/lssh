@@ -133,7 +133,7 @@ func TestDemoDockerComposeE2E(t *testing.T) {
 		)
 
 		waitForComposeExecContains(t, demoDir, "over_proxy_ssh",
-			`banner=$(nc -w 5 127.0.0.1 10082 | head -c 8); printf '%s' "$banner"`,
+			`banner=$(bash -lc 'exec 3<>/dev/tcp/127.0.0.1/10082; head -c 8 <&3' 2>/dev/null || true); printf '%s' "$banner"`,
 			"SSH-2.0-",
 		)
 	})
