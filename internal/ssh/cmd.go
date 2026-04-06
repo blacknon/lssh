@@ -61,7 +61,6 @@ func (r *Run) cmd() (err error) {
 				return
 			}
 
-			// Create sshlib.Connect
 			conn, err := r.CreateSshConnect(server)
 			if err != nil {
 				log.Printf("Error: %s:%s\n", server, err)

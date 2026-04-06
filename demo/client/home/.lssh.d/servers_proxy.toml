@@ -11,6 +11,21 @@ proxy = "ssh_proxy"
 control_master = false
 note = "private ssh server over ssh proxy"
 
+[server.ssh_proxy_cm]
+addr = "172.31.0.31"
+key = "~/.ssh/demo_lssh_ed25519"
+control_master = true
+control_persist = "30s"
+note = "ssh proxy hop server with ControlMaster"
+
+[server.OverSshProxyCM]
+addr = "172.31.1.41"
+key = "~/.ssh/demo_lssh_ed25519"
+proxy = "ssh_proxy_cm"
+control_master = true
+control_persist = "30s"
+note = "private ssh server over ssh proxy with ControlMaster"
+
 [server.OverHttpProxy]
 addr = "172.31.1.41"
 key = "~/.ssh/demo_lssh_ed25519"

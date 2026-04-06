@@ -10,7 +10,6 @@ import (
 	"strings"
 
 	osfs "github.com/go-git/go-billy/v5/osfs"
-	"github.com/pkg/sftp"
 	nfs "github.com/willscott/go-nfs"
 	nfshelper "github.com/willscott/go-nfs/helpers"
 )
@@ -23,10 +22,11 @@ func (c *Connect) NFSForward(address, port, basepoint string) (err error) {
 	}
 	defer listener.Close()
 
-	client, err := sftp.NewClient(c.Client)
+	client, err := c.newSFTPClient()
 	if err != nil {
 		return
 	}
+	defer client.Close()
 
 	// create abs path
 	homepoint, err := client.RealPath(".")
@@ -51,7 +51,7 @@ func (c *Connect) NFSForward(address, port, basepoint string) (err error) {
 // This port is forawrd GO-NFS Server.
 func (c *Connect) NFSReverseForward(address, port, sharepoint string) (err error) {
 	// create listener
-	listener, err := c.Client.Listen("tcp", net.JoinHostPort(address, port))
+	listener, err := c.Listen("tcp", net.JoinHostPort(address, port))
 	if err != nil {
 		return
 	}

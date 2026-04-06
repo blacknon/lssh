@@ -394,6 +394,30 @@ func (c *Connect) CreateSession() (session *ssh.Session, err error) {
 	return
 }
 
+// Dial opens a connection using the active SSH transport.
+// When ControlMaster is enabled, the dial is tunneled via the control socket.
+func (c *Connect) Dial(network, addr string) (net.Conn, error) {
+	if c.isControlClient() {
+		return c.controlClient.Dial(network, addr)
+	}
+	if c.Client == nil {
+		return nil, errors.New("ssh client is nil")
+	}
+	return c.Client.Dial(network, addr)
+}
+
+// Listen starts a remote listener using the active SSH transport.
+// When ControlMaster is enabled, the listener is managed by the control master.
+func (c *Connect) Listen(network, addr string) (net.Listener, error) {
+	if c.isControlClient() {
+		return c.controlClient.Listen(network, addr)
+	}
+	if c.Client == nil {
+		return nil, errors.New("ssh client is nil")
+	}
+	return c.Client.Listen(network, addr)
+}
+
 func (c *Connect) keepAliveConfig() (time.Duration, int) {
 	interval := 30
 	if c.SendKeepAliveInterval > 0 {

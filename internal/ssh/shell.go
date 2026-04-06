@@ -97,7 +97,6 @@ func (r *Run) shell() (err error) {
 	r.printNFSReverseDynamicForward(config.NFSReverseDynamicForwardPort, config.NFSReverseDynamicForwardPath)
 	r.printProxy(server)
 
-	// No special handling for ControlMaster: allow agent/X11 forwarding to proceed normally.
 	connect, err := r.CreateSshConnect(server)
 	if err != nil {
 		return
@@ -123,51 +122,50 @@ func (r *Run) shell() (err error) {
 			connect.Agent = r.agent
 			connect.ForwardSshAgent(session)
 		}
+	}
 
-		// Local/Remote Port Forwarding
-		for _, fw := range config.Forwards {
-			// port forwarding
-			switch fw.Mode {
-			case "L", "":
-				err = connect.TCPLocalForward(fw.Local, fw.Remote)
-			case "R":
-				err = connect.TCPRemoteForward(fw.Local, fw.Remote)
-			}
-
-			if err != nil {
-				fmt.Fprintln(os.Stderr, err)
-			}
+	// Local/Remote Port Forwarding
+	for _, fw := range config.Forwards {
+		switch fw.Mode {
+		case "L", "":
+			err = connect.TCPLocalForward(fw.Local, fw.Remote)
+		case "R":
+			err = connect.TCPRemoteForward(fw.Local, fw.Remote)
 		}
 
-		// Dynamic Port Forwarding
-		if config.DynamicPortForward != "" {
-			go connect.TCPDynamicForward("localhost", config.DynamicPortForward)
+		if err != nil {
+			fmt.Fprintln(os.Stderr, err)
 		}
+	}
 
-		// Reverse Dynamic Port Forwarding
-		if config.ReverseDynamicPortForward != "" {
-			go connect.TCPReverseDynamicForward("localhost", config.ReverseDynamicPortForward)
-		}
+	// Dynamic Port Forwarding
+	if config.DynamicPortForward != "" {
+		go connect.TCPDynamicForward("localhost", config.DynamicPortForward)
+	}
 
-		// HTTP Dynamic Port Forwarding
-		if config.HTTPDynamicPortForward != "" {
-			go connect.HTTPDynamicForward("localhost", config.HTTPDynamicPortForward)
-		}
+	// Reverse Dynamic Port Forwarding
+	if config.ReverseDynamicPortForward != "" {
+		go connect.TCPReverseDynamicForward("localhost", config.ReverseDynamicPortForward)
+	}
 
-		// HTTP Reverse Dynamic Port Forwarding
-		if config.HTTPReverseDynamicPortForward != "" {
-			go connect.HTTPReverseDynamicForward("localhost", config.HTTPReverseDynamicPortForward)
-		}
+	// HTTP Dynamic Port Forwarding
+	if config.HTTPDynamicPortForward != "" {
+		go connect.HTTPDynamicForward("localhost", config.HTTPDynamicPortForward)
+	}
 
-		// NFS Dynamic Forwarding
-		if config.NFSDynamicForwardPort != "" && config.NFSDynamicForwardPath != "" {
-			go connect.NFSForward("localhost", config.NFSDynamicForwardPort, config.NFSDynamicForwardPath)
-		}
+	// HTTP Reverse Dynamic Port Forwarding
+	if config.HTTPReverseDynamicPortForward != "" {
+		go connect.HTTPReverseDynamicForward("localhost", config.HTTPReverseDynamicPortForward)
+	}
 
-		// NFS Reverse Dynamic Forwarding
-		if config.NFSReverseDynamicForwardPort != "" && config.NFSReverseDynamicForwardPath != "" {
-			go connect.NFSReverseForward("localhost", config.NFSReverseDynamicForwardPort, config.NFSReverseDynamicForwardPath)
-		}
+	// NFS Dynamic Forwarding
+	if config.NFSDynamicForwardPort != "" && config.NFSDynamicForwardPath != "" {
+		go connect.NFSForward("localhost", config.NFSDynamicForwardPort, config.NFSDynamicForwardPath)
+	}
+
+	// NFS Reverse Dynamic Forwarding
+	if config.NFSReverseDynamicForwardPort != "" && config.NFSReverseDynamicForwardPath != "" {
+		go connect.NFSReverseForward("localhost", config.NFSReverseDynamicForwardPort, config.NFSReverseDynamicForwardPath)
 	}
 
 	// If started as daemonized child, notify parent that forwarding is ready
