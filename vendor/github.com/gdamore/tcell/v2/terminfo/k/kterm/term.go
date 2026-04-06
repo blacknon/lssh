@@ -42,7 +42,7 @@ func init() {
 		KeyLeft:           "\x1bOD",
 		KeyInsert:         "\x1b[2~",
 		KeyDelete:         "\x1b[3~",
-		KeyBackspace:      "\b",
+		KeyBackspace:      "\x7f",
 		KeyPgUp:           "\x1b[5~",
 		KeyPgDn:           "\x1b[6~",
 		KeyF1:             "\x1b[11~",
@@ -66,5 +66,6 @@ func init() {
 		KeyF19:            "\x1b[33~",
 		KeyF20:            "\x1b[34~",
 		AutoMargin:        true,
+		XTermLike:         true,
 	})
 }

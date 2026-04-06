@@ -133,34 +133,38 @@ run = """
 
 
 # Tasks(Sysadmin)
-# Note: Sysadminは、lsshellのみを対象とするタスク。lsshはcoreに含まれるため、coreのタスクでビルド・インストールされる。
+# Note: Sysadminは、lsshell, lsmuxのみを対象とするタスク。lsshはcoreに含まれるため、coreのタスクでビルド・インストールされる。
 # ====================
 [tasks.sysadmin_build]
-description = "Build binary files only lsshell"
+description = "Build binary files only lsshell and lsmux"
 depends = ["sysadmin_clean", "go_mod"]
 run = """
     go build -o lsshell ./cmd/lsshell
+    go build -o lsmux ./cmd/lsmux
 """
 
 [tasks.sysadmin_clean]
-description = "Clean binary file only lsshell"
+description = "Clean binary files only lsshell and lsmux"
 depends = []
 run = """
     rm -f lsshell
+    rm -f lsmux
 """
 
 [tasks.sysadmin_install]
-description = "Install binary file only lsshell"
+description = "Install binary files only lsshell and lsmux"
 depends = ["sysadmin_build"]
 run = """
     sudo cp lsshell /usr/local/bin/lsshell
+    sudo cp lsmux /usr/local/bin/lsmux
 """
 
 [tasks.sysadmin_test]
-description = "Run go test for lsshell"
+description = "Run go test for lsshell and lsmux"
 depends = ["go_mod"]
 run = """
     go test -v ./internal/app/lsshell/...
+    go test -v ./internal/app/lsmux/...
 """
 
 # Tasks(Demo)
