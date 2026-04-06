@@ -26,10 +26,10 @@ jobs:
       - name: Set up mise
         uses: jdx/mise-action@v2
 
-      - name: Set up Go 1.22
+      - name: Set up Go
         uses: actions/setup-go@v6
         with:
-          go-version: "1.22"
+          go-version-file: go.mod
           cache: false
 
       - name: Run full test
