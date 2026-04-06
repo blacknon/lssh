@@ -6,6 +6,7 @@ package mux
 
 import (
 	"github.com/blacknon/tvxterm"
+	"github.com/gdamore/tcell/v2"
 	"github.com/rivo/tview"
 )
 
@@ -22,6 +23,8 @@ type pane struct {
 	exited      bool
 	exitMessage string
 	failed      bool
+	badgeLabel  string
+	badgeColor  tcell.Color
 }
 
 type page struct {
@@ -58,6 +61,9 @@ func (p *pane) widget() tview.Primitive {
 	}
 	if p.primitive != nil {
 		return p.primitive
+	}
+	if p.term != nil && p.badgeLabel != "" {
+		return newBadgeOverlay(p.term, p.badgeLabel, p.badgeColor)
 	}
 	return p.term
 }
@@ -157,4 +163,93 @@ func buildBalancedLayout(panes []*pane, direction int) *layoutNode {
 			buildBalancedLayout(panes[mid:], nextDirection),
 		},
 	}
+}
+
+type badgeOverlay struct {
+	*tview.Box
+	child tview.Primitive
+	label string
+	color tcell.Color
+}
+
+func newBadgeOverlay(child tview.Primitive, label string, color tcell.Color) *badgeOverlay {
+	return &badgeOverlay{
+		Box:   tview.NewBox(),
+		child: child,
+		label: label,
+		color: color,
+	}
+}
+
+func (b *badgeOverlay) Draw(screen tcell.Screen) {
+	if b.child == nil {
+		return
+	}
+	x, y, width, height := b.GetRect()
+	b.child.SetRect(x, y, width, height)
+	b.child.Draw(screen)
+
+	if b.label == "" || width <= 2 || height <= 2 {
+		return
+	}
+
+	labelWidth := tview.TaggedStringWidth(b.label)
+	if labelWidth <= 0 || labelWidth >= width-1 {
+		return
+	}
+
+	drawX := x + width - labelWidth - 1
+	drawY := y + height - 1
+	tview.Print(screen, b.label, drawX, drawY, labelWidth, tview.AlignRight, b.color)
+}
+
+func (b *badgeOverlay) SetRect(x, y, width, height int) {
+	b.Box.SetRect(x, y, width, height)
+	if b.child != nil {
+		b.child.SetRect(x, y, width, height)
+	}
+}
+
+func (b *badgeOverlay) GetRect() (int, int, int, int) {
+	return b.Box.GetRect()
+}
+
+func (b *badgeOverlay) InputHandler() func(event *tcell.EventKey, setFocus func(p tview.Primitive)) {
+	if b.child == nil {
+		return nil
+	}
+	return b.child.InputHandler()
+}
+
+func (b *badgeOverlay) PasteHandler() func(text string, setFocus func(p tview.Primitive)) {
+	if b.child == nil {
+		return nil
+	}
+	return b.child.PasteHandler()
+}
+
+func (b *badgeOverlay) MouseHandler() func(action tview.MouseAction, event *tcell.EventMouse, setFocus func(p tview.Primitive)) (bool, tview.Primitive) {
+	if b.child == nil {
+		return nil
+	}
+	return b.child.MouseHandler()
+}
+
+func (b *badgeOverlay) Focus(delegate func(p tview.Primitive)) {
+	if b.child != nil {
+		b.child.Focus(delegate)
+	}
+}
+
+func (b *badgeOverlay) Blur() {
+	if b.child != nil {
+		b.child.Blur()
+	}
+}
+
+func (b *badgeOverlay) HasFocus() bool {
+	if b.child == nil {
+		return false
+	}
+	return b.child.HasFocus()
 }
