@@ -133,6 +133,23 @@ func (m *Manager) captureMouse(event *tcell.EventMouse, action tview.MouseAction
 	if event == nil || m.currentPage == nil {
 		return event, action
 	}
+	if action == tview.MouseLeftDown {
+		x, y := event.Position()
+		for _, p := range m.currentPage.panes {
+			if p == nil || p.term == nil {
+				continue
+			}
+			if !p.term.InRect(x, y) {
+				continue
+			}
+			if m.currentPage.focus != p {
+				m.currentPage.focus = p
+				m.refreshPaneStyles()
+				m.updateStatus("")
+			}
+			return event, action
+		}
+	}
 	switch action {
 	case tview.MouseScrollUp, tview.MouseScrollDown:
 		x, y := event.Position()
@@ -866,8 +883,12 @@ func (m *Manager) updateStatus(message string) {
 	if m.broadcastAll {
 		broadcast = "on"
 	}
+	state := "running"
+	if m.currentPage.focus.exited {
+		state = "done"
+	}
 	text := fmt.Sprintf(
-		"%s  [green]page[-]: %s  [green]pane[-]: %s  [blue]scrollback[-]: %d/%d  [blue]pages[-]: %d  [blue]panes[-]: %d  [purple]broadcast[-]: %s",
+		"%s  [green]page[-]: %s  [green]pane[-]: %s  [blue]scrollback[-]: %d/%d  [blue]pages[-]: %d  [blue]panes[-]: %d  [purple]broadcast[-]: %s  [yellow]state[-]: %s",
 		m.statusLead(),
 		m.currentPage.name,
 		m.currentPage.focus.server,
@@ -876,6 +897,7 @@ func (m *Manager) updateStatus(message string) {
 		len(m.sessionPages),
 		len(m.currentPage.panes),
 		broadcast,
+		state,
 	)
 	if message != "" {
 		text += "  " + message
@@ -945,6 +967,10 @@ func (m *Manager) applyPaneStyle(p *pane) {
 	borderColor := tcell.ColorDefault
 	titleColor := tcell.ColorDefault
 
+	if p.exited {
+		borderColor = parseMuxColor(m.conf.Mux.DoneBorderColor, borderColor)
+		titleColor = parseMuxColor(m.conf.Mux.DoneTitleColor, titleColor)
+	}
 	if m.broadcastAll && !p.transient {
 		borderColor = parseMuxColor(m.conf.Mux.BroadcastBorderColor, borderColor)
 		titleColor = parseMuxColor(m.conf.Mux.BroadcastTitleColor, titleColor)
