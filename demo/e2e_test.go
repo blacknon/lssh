@@ -128,7 +128,7 @@ func TestDemoDockerComposeE2E(t *testing.T) {
 		})
 
 		startClientForward(t, demoDir, pidFile,
-			"lssh --host OverSshProxyCM -N -R 10082:172.31.0.10:22",
+			"lssh --host OverSshProxyCM -N -R 10082:172.31.0.10:2222",
 			"",
 		)
 
