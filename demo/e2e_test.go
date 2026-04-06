@@ -87,6 +87,57 @@ func TestDemoDockerComposeE2E(t *testing.T) {
 		assertClientCommandContains(t, demoDir, "lssh --host OverSocksProxy hostname", "over-proxy-ssh")
 	})
 
+	t.Run("control master local forward works", func(t *testing.T) {
+		pidFile := "/tmp/lssh-demo-local-forward.pid"
+		t.Cleanup(func() {
+			stopClientForward(t, demoDir, pidFile)
+		})
+
+		startClientForward(t, demoDir, pidFile,
+			"lssh --host OverSshProxyCM -N -L 10081:localhost:22",
+			"127.0.0.1:10081",
+		)
+
+		assertClientCommandContains(t, demoDir,
+			`banner=$(nc -w 5 127.0.0.1 10081 | head -c 8); printf '%s' "$banner"`,
+			"SSH-2.0-",
+		)
+	})
+
+	t.Run("control master dynamic forward works", func(t *testing.T) {
+		pidFile := "/tmp/lssh-demo-dynamic-forward.pid"
+		t.Cleanup(func() {
+			stopClientForward(t, demoDir, pidFile)
+		})
+
+		startClientForward(t, demoDir, pidFile,
+			"lssh --host OverSshProxyCM -N -D 10080",
+			"127.0.0.1:10080",
+		)
+
+		assertClientCommandContains(t, demoDir,
+			`banner=$(nc -X 5 -x 127.0.0.1:10080 -w 5 172.31.1.41 22 | head -c 8); printf '%s' "$banner"`,
+			"SSH-2.0-",
+		)
+	})
+
+	t.Run("control master remote forward works", func(t *testing.T) {
+		pidFile := "/tmp/lssh-demo-remote-forward.pid"
+		t.Cleanup(func() {
+			stopClientForward(t, demoDir, pidFile)
+		})
+
+		startClientForward(t, demoDir, pidFile,
+			"lssh --host OverSshProxyCM -N -R 172.31.0.10:2222:10082",
+			"",
+		)
+
+		waitForComposeExecContains(t, demoDir, "over_proxy_ssh",
+			`banner=$(bash -lc 'exec 3<>/dev/tcp/127.0.0.1/10082; head -c 8 <&3' 2>/dev/null || true); printf '%s' "$banner"`,
+			"SSH-2.0-",
+		)
+	})
+
 	t.Run("local rc is available on remote shell", func(t *testing.T) {
 		assertClientCommandContains(t, demoDir,
 			`lssh --host LocalRcKeyAuth 'type lvim >/dev/null && type ltmux >/dev/null && echo local_rc_ok'`,
@@ -226,4 +277,73 @@ func mustRunComposeCommand(t *testing.T, demoDir string, args ...string) string 
 	}
 
 	return string(output)
+}
+
+func startClientForward(t *testing.T, demoDir, pidFile, forwardCommand, waitAddr string) {
+	t.Helper()
+
+	stopClientForward(t, demoDir, pidFile)
+
+	startCmd := fmt.Sprintf(
+		`rm -f %[1]s; nohup %[2]s >/tmp/$(basename %[1]s).log 2>&1 & echo $! > %[1]s`,
+		pidFile,
+		forwardCommand,
+	)
+
+	if output, err := runClientCommand(demoDir, startCmd); err != nil {
+		t.Fatalf("failed to start forward: %s\nerror: %v\noutput:\n%s", forwardCommand, err, output)
+	}
+
+	if waitAddr == "" {
+		time.Sleep(2 * time.Second)
+		return
+	}
+
+	deadline := time.Now().Add(10 * time.Second)
+	checkCmd := fmt.Sprintf("nc -z -w 2 %s %s", strings.Split(waitAddr, ":")[0], strings.Split(waitAddr, ":")[1])
+	for time.Now().Before(deadline) {
+		if _, err := runClientCommand(demoDir, checkCmd); err == nil {
+			return
+		}
+		time.Sleep(200 * time.Millisecond)
+	}
+
+	logOutput, _ := runClientCommand(demoDir, fmt.Sprintf("cat /tmp/$(basename %s).log || true", pidFile))
+	t.Fatalf("forward did not become ready: %s\nlog:\n%s", forwardCommand, logOutput)
+}
+
+func stopClientForward(t *testing.T, demoDir, pidFile string) {
+	t.Helper()
+
+	_, _ = runClientCommand(demoDir,
+		fmt.Sprintf(`if [ -f %[1]s ]; then kill $(cat %[1]s) >/dev/null 2>&1 || true; rm -f %[1]s; fi`, pidFile),
+	)
+}
+
+func waitForComposeExecContains(t *testing.T, demoDir, service, command, want string) {
+	t.Helper()
+
+	deadline := time.Now().Add(10 * time.Second)
+	var lastOutput string
+
+	for time.Now().Before(deadline) {
+		output, err := runComposeServiceCommand(demoDir, service, command)
+		lastOutput = output
+		if err == nil && strings.Contains(output, want) {
+			return
+		}
+		time.Sleep(200 * time.Millisecond)
+	}
+
+	t.Fatalf("output missing %q for service %s command %s\nlast output:\n%s", want, service, command, lastOutput)
+}
+
+func runComposeServiceCommand(demoDir, service, command string) (string, error) {
+	cmd := exec.Command("docker", "compose", "exec", "-T", service, "bash", "-lc", command)
+	cmd.Dir = demoDir
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		return string(output), fmt.Errorf("%w", err)
+	}
+	return string(output), nil
 }

@@ -178,7 +178,11 @@ func (c *Connect) TCPLocalForward(localAddr, remoteAddr string) (err error) {
 			}
 
 			// remote (type net.Conn)
-			remote, err := c.Client.Dial("tcp", remoteAddr)
+			remote, err := c.Dial("tcp", remoteAddr)
+			if err != nil {
+				_ = local.Close()
+				continue
+			}
 
 			// forward
 			go c.forwarder(local, remote)
@@ -194,7 +198,7 @@ func (c *Connect) TCPLocalForward(localAddr, remoteAddr string) (err error) {
 // example) "127.0.0.1:22", "abc.com:9977"
 func (c *Connect) TCPRemoteForward(localAddr, remoteAddr string) (err error) {
 	// create listener
-	listener, err := c.Client.Listen("tcp", remoteAddr)
+	listener, err := c.Listen("tcp", remoteAddr)
 	if err != nil {
 		return
 	}
@@ -205,12 +209,13 @@ func (c *Connect) TCPRemoteForward(localAddr, remoteAddr string) (err error) {
 			// local (type net.Conn)
 			local, err := net.Dial("tcp", localAddr)
 			if err != nil {
-				return
+				continue
 			}
 
 			// remote (type net.Conn)
 			remote, err := listener.Accept()
 			if err != nil {
+				_ = local.Close()
 				return
 			}
 
@@ -265,7 +270,7 @@ func (c *Connect) TCPDynamicForward(address, port string) (err error) {
 	// Create Socks5 config
 	conf := &socks5.Config{
 		Dial: func(ctx context.Context, n, addr string) (net.Conn, error) {
-			return c.Client.Dial(n, addr)
+			return c.Dial(n, addr)
 		},
 		Resolver: socks5Resolver{},
 		Logger:   c.getDynamicForwardLogger(),
@@ -296,7 +301,7 @@ func (c *Connect) TCPReverseDynamicForward(address, port string) (err error) {
 	}
 
 	// create listener
-	listener, err := c.Client.Listen("tcp", net.JoinHostPort(address, port))
+	listener, err := c.Listen("tcp", net.JoinHostPort(address, port))
 	if err != nil {
 		return
 	}
@@ -316,7 +321,7 @@ func (c *Connect) TCPReverseDynamicForward(address, port string) (err error) {
 // Like Dynamic forward (`ssh -D <port>`). but use http proxy.
 func (c *Connect) HTTPDynamicForward(address, port string) (err error) {
 	// create dial
-	dial := c.Client.Dial
+	dial := c.Dial
 
 	// create listener
 	listener, err := net.Listen("tcp", net.JoinHostPort(address, port))
@@ -349,7 +354,7 @@ func (c *Connect) HTTPReverseDynamicForward(address, port string) (err error) {
 	dial := net.Dial
 
 	// create listener
-	listener, err := c.Client.Listen("tcp", net.JoinHostPort(address, port))
+	listener, err := c.Listen("tcp", net.JoinHostPort(address, port))
 	if err != nil {
 		return
 	}

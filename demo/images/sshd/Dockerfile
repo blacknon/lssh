@@ -5,6 +5,7 @@ RUN apt-get update && \
       bash \
       ca-certificates \
       gzip \
+      netcat-openbsd \
       openssh-server \
       procps \
       tmux \
