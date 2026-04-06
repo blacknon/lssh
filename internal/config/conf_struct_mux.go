@@ -22,6 +22,8 @@ type MuxConfig struct {
 	FocusTitleColor      string `toml:"focus_title_color"`
 	BroadcastBorderColor string `toml:"broadcast_border_color"`
 	BroadcastTitleColor  string `toml:"broadcast_title_color"`
+	DoneBorderColor      string `toml:"done_border_color"`
+	DoneTitleColor       string `toml:"done_title_color"`
 }
 
 // ApplyDefaults fills empty key bindings with tmux-like defaults.
@@ -73,6 +75,12 @@ func (m MuxConfig) ApplyDefaults() MuxConfig {
 	}
 	if m.BroadcastTitleColor == "" {
 		m.BroadcastTitleColor = "yellow"
+	}
+	if m.DoneBorderColor == "" {
+		m.DoneBorderColor = "gray"
+	}
+	if m.DoneTitleColor == "" {
+		m.DoneTitleColor = "gray"
 	}
 	return m
 }
