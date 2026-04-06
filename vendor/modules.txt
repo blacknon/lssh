@@ -24,7 +24,7 @@ github.com/armon/go-socks5
 # github.com/blacknon/crypto11 v1.6.2-0.20260315101107-fd111b1d25ce
 ## explicit; go 1.25.1
 github.com/blacknon/crypto11
-# github.com/blacknon/go-sshlib v0.1.27
+# github.com/blacknon/go-sshlib v0.1.27 => ../go-sshlib
 ## explicit; go 1.25.1
 github.com/blacknon/go-sshlib
 # github.com/blacknon/go-sshproc v0.1.1
@@ -36,6 +36,9 @@ github.com/blacknon/go-x11auth
 # github.com/blacknon/mview v0.1.5
 ## explicit; go 1.12
 github.com/blacknon/mview
+# github.com/blacknon/tvxterm v0.0.0-20260405170026-ba3f8e895759 => ../tvxterm
+## explicit; go 1.25.1
+github.com/blacknon/tvxterm
 # github.com/c-bata/go-prompt v0.2.6 => github.com/blacknon/go-prompt v0.2.7
 ## explicit; go 1.22
 github.com/c-bata/go-prompt
@@ -52,6 +55,9 @@ github.com/clipperhouse/uax29/v2/graphemes
 # github.com/cpuguy83/go-md2man/v2 v2.0.7
 ## explicit; go 1.12
 github.com/cpuguy83/go-md2man/v2/md2man
+# github.com/creack/pty v1.1.24
+## explicit; go 1.18
+github.com/creack/pty
 # github.com/cyphar/filepath-securejoin v0.6.1
 ## explicit; go 1.18
 github.com/cyphar/filepath-securejoin
@@ -68,11 +74,11 @@ github.com/disiqueira/gotree
 # github.com/dustin/go-humanize v1.0.1
 ## explicit; go 1.16
 github.com/dustin/go-humanize
-# github.com/gdamore/encoding v1.0.0
+# github.com/gdamore/encoding v1.0.1
 ## explicit; go 1.9
 github.com/gdamore/encoding
-# github.com/gdamore/tcell/v2 v2.7.1
-## explicit; go 1.12
+# github.com/gdamore/tcell/v2 v2.9.0
+## explicit; go 1.23.0
 github.com/gdamore/tcell/v2
 github.com/gdamore/tcell/v2/terminfo
 github.com/gdamore/tcell/v2/terminfo/a/aixterm
@@ -109,6 +115,7 @@ github.com/gdamore/tcell/v2/terminfo/w/wy60
 github.com/gdamore/tcell/v2/terminfo/w/wy99_ansi
 github.com/gdamore/tcell/v2/terminfo/x/xfce
 github.com/gdamore/tcell/v2/terminfo/x/xterm
+github.com/gdamore/tcell/v2/terminfo/x/xterm_ghostty
 github.com/gdamore/tcell/v2/terminfo/x/xterm_kitty
 # github.com/go-git/go-billy/v5 v5.8.0
 ## explicit; go 1.24.0
@@ -180,6 +187,9 @@ github.com/pmezard/go-difflib/difflib
 # github.com/rasky/go-xdr v0.0.0-20170124162913-1a41d1a06c93
 ## explicit
 github.com/rasky/go-xdr/xdr2
+# github.com/rivo/tview v0.0.0-20241227133733-17b7edb88c57
+## explicit; go 1.18
+github.com/rivo/tview
 # github.com/rivo/uniseg v0.4.7
 ## explicit; go 1.18
 github.com/rivo/uniseg
@@ -250,3 +260,4 @@ gopkg.in/yaml.v3
 # mvdan.cc/sh v2.6.4+incompatible
 ## explicit
 mvdan.cc/sh/syntax
+# github.com/blacknon/tvxterm => ../tvxterm

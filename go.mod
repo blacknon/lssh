@@ -13,6 +13,7 @@ require (
 	github.com/blacknon/crypto11 v1.6.2-0.20260315101107-fd111b1d25ce // indirect
 	github.com/blacknon/go-sshlib v0.1.27
 	github.com/blacknon/go-x11auth v0.1.0 // indirect
+	github.com/blacknon/tvxterm v0.0.0-20260405170026-ba3f8e895759
 	github.com/c-bata/go-prompt v0.2.6
 	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/dchest/bcrypt_pbkdf v0.0.0-20150205184540-83f37f9c154a // indirect
@@ -48,7 +49,8 @@ require (
 	github.com/blacknon/go-sshproc v0.1.1
 	github.com/blacknon/mview v0.1.5
 	github.com/c9s/goprocinfo v0.0.0-20210130143923-c95fcf8c64a8
-	github.com/gdamore/tcell/v2 v2.7.1
+	github.com/gdamore/tcell/v2 v2.9.0
+	github.com/rivo/tview v0.0.0-20241227133733-17b7edb88c57
 	mvdan.cc/sh v2.6.4+incompatible
 )
 
@@ -56,8 +58,9 @@ require (
 	code.rocketnine.space/tslocum/cbind v0.1.5 // indirect
 	github.com/clipperhouse/uax29/v2 v2.7.0 // indirect
 	github.com/cpuguy83/go-md2man/v2 v2.0.7 // indirect
+	github.com/creack/pty v1.1.24 // indirect
 	github.com/cyphar/filepath-securejoin v0.6.1 // indirect
-	github.com/gdamore/encoding v1.0.0 // indirect
+	github.com/gdamore/encoding v1.0.1 // indirect
 	github.com/go-git/go-billy/v5 v5.8.0 // indirect
 	github.com/google/uuid v1.6.0 // indirect
 	github.com/hashicorp/golang-lru/v2 v2.0.7 // indirect
@@ -72,3 +75,7 @@ require (
 
 // replace
 replace github.com/c-bata/go-prompt v0.2.6 => github.com/blacknon/go-prompt v0.2.7
+
+replace github.com/blacknon/tvxterm => ../tvxterm
+
+replace github.com/blacknon/go-sshlib v0.1.27 => ../go-sshlib
