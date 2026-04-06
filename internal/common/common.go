@@ -548,12 +548,15 @@ func StringCompression(mode int, data []byte) (result []byte, err error) {
 	switch mode {
 	case ARCHIVE_GZIP:
 		zw := gzip.NewWriter(buf)
-		defer zw.Close()
-
 		r := bytes.NewReader(data)
 
 		_, err = io.Copy(zw, r)
-		zw.Flush()
+		if err != nil {
+			return nil, err
+		}
+		if err = zw.Close(); err != nil {
+			return nil, err
+		}
 	}
 
 	result = buf.Bytes()

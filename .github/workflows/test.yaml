@@ -21,15 +21,16 @@ jobs:
     runs-on: ${{ matrix.os }}
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: Set up mise
-        uses: jdx/mise-action@v2
+        uses: jdx/mise-action@v4
 
-      - name: Set up Go 1.22
-        uses: actions/setup-go@v5
+      - name: Set up Go
+        uses: actions/setup-go@v6
         with:
-          go-version: "1.22"
+          go-version-file: go.mod
+          cache: false
 
       - name: Run full test
         run: mise run full_test
