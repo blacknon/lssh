@@ -58,7 +58,7 @@ backend: 172.31.1.33"]
 
     client --> password_ssh
     client --> key_ssh
-    client -. via proxy .-> ssh_proxy
+    client --> ssh_proxy
     client -. via proxy .-> http_proxy
     client -. via proxy .-> socks_proxy
 

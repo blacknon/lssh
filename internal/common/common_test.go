@@ -5,7 +5,9 @@
 package common
 
 import (
-	"fmt"
+	"bytes"
+	"compress/gzip"
+	"io"
 	"testing"
 
 	sshlib "github.com/blacknon/go-sshlib"
@@ -142,11 +144,27 @@ func TestStringCompression(t *testing.T) {
 		{desc: "", src: src, mode: ARCHIVE_GZIP},
 	}
 	for _, v := range tds {
-		fmt.Println(v.src)
-		arc, _ := StringCompression(v.mode, []byte(v.src))
-		fmt.Println(arc)
-	}
+		arc, err := StringCompression(v.mode, []byte(v.src))
+		if err != nil {
+			t.Fatalf("StringCompression() error = %v", err)
+		}
 
+		zr, err := gzip.NewReader(bytes.NewReader(arc))
+		if err != nil {
+			t.Fatalf("gzip.NewReader() error = %v", err)
+		}
+
+		got, err := io.ReadAll(zr)
+		if err != nil {
+			t.Fatalf("ReadAll() error = %v", err)
+		}
+		if err := zr.Close(); err != nil {
+			t.Fatalf("gzip reader close error = %v", err)
+		}
+		if string(got) != v.src {
+			t.Fatalf("decompressed data mismatch: got %q want %q", string(got), v.src)
+		}
+	}
 }
 
 func TestParseTunnelSpec_Valid(t *testing.T) {
