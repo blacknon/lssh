@@ -51,6 +51,10 @@ type Manager struct {
 	nextPageID int
 	nextPaneID int
 	stopOnce   sync.Once
+
+	transferMu     sync.Mutex
+	transfers      []*transferJob
+	nextTransferID int
 }
 
 // NewManager creates an lsmux manager.
@@ -71,6 +75,7 @@ func NewManager(cfg conf.Config, names []string, command []string, initialHosts 
 		"page_list":        cfg.Mux.PageList,
 		"close_pane":       cfg.Mux.ClosePane,
 		"broadcast":        cfg.Mux.Broadcast,
+		"transfer":         cfg.Mux.Transfer,
 	}
 
 	parsed := make(map[string]keyBinding, len(bindings))
@@ -182,6 +187,15 @@ func (m *Manager) captureInput(event *tcell.EventKey) *tcell.EventKey {
 	if m.selectorFocus != nil && m.app.GetFocus() == m.selectorFocus {
 		return event
 	}
+	if m.currentPage != nil && m.currentPage.focus != nil {
+		focusTarget := m.currentPage.focus.focusPrimitive()
+		if focusTarget != nil && m.app.GetFocus() == focusTarget && m.currentPage.focus.term != nil && focusTarget != m.currentPage.focus.term {
+			if event.Key() == tcell.KeyCtrlC {
+				return tcell.NewEventKey(tcell.KeyEsc, 0, tcell.ModNone)
+			}
+			return event
+		}
+	}
 
 	if event.Key() == tcell.KeyCtrlC {
 		if m.broadcastAll {
@@ -264,6 +278,9 @@ func (m *Manager) captureInput(event *tcell.EventKey) *tcell.EventKey {
 		m.broadcastAll = !m.broadcastAll
 		m.refreshPaneStyles()
 		m.updateStatus("")
+		return nil
+	case m.bindings["transfer"].match(event):
+		m.showTransfer()
 		return nil
 	default:
 		return event
@@ -926,12 +943,13 @@ func (m *Manager) baseHelp() string {
 
 func (m *Manager) prefixHelp() string {
 	return fmt.Sprintf(
-		"[yellow]Prefix[-]: %s  [yellow]new-page[-]: %s  [yellow]new-pane[-]: %s  [yellow]split-h[-]: %s  [yellow]split-v[-]: %s\n[yellow]next-pane[-]: %s  [yellow]next-page[-]: %s  [yellow]prev-page[-]: %s  [yellow]pages[-]: %s  [yellow]close[-]: %s  [yellow]broadcast[-]: %s  [yellow]quit[-]: %s",
+		"[yellow]Prefix[-]: %s  [yellow]new-page[-]: %s  [yellow]new-pane[-]: %s  [yellow]split-h[-]: %s  [yellow]split-v[-]: %s  [yellow]transfer[-]: %s\n[yellow]next-pane[-]: %s  [yellow]next-page[-]: %s  [yellow]prev-page[-]: %s  [yellow]pages[-]: %s  [yellow]close[-]: %s  [yellow]broadcast[-]: %s  [yellow]quit[-]: %s",
 		m.conf.Mux.Prefix,
 		m.conf.Mux.NewPage,
 		m.conf.Mux.NewPane,
 		m.conf.Mux.SplitHorizontal,
 		m.conf.Mux.SplitVertical,
+		m.conf.Mux.Transfer,
 		m.conf.Mux.NextPane,
 		m.conf.Mux.NextPage,
 		m.conf.Mux.PrevPage,
@@ -940,6 +958,23 @@ func (m *Manager) prefixHelp() string {
 		m.conf.Mux.Broadcast,
 		m.conf.Mux.Quit,
 	)
+}
+
+func (m *Manager) showTransfer() {
+	if m.currentPage == nil || m.currentPage.focus == nil {
+		m.updateStatus("[red]transfer unavailable[-]: no active pane")
+		return
+	}
+	p := m.currentPage.focus
+	if p.term == nil || p.session == nil || p.failed || p.exited || p.transient {
+		m.updateStatus("[red]transfer unavailable[-]: select a connected pane")
+		return
+	}
+
+	wizard := newTransferWizard(m, p)
+	p.primitive = newModalOverlay(p.term, wizard.Primitive())
+	p.focusTarget = wizard.FocusTarget()
+	m.refreshMainPage()
 }
 
 func (m *Manager) broadcastKey(event *tcell.EventKey) {

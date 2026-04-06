@@ -109,6 +109,14 @@ func (s *TviewSelector) FocusTarget() tview.Primitive {
 	return s.table
 }
 
+func (s *TviewSelector) ListInfo() *ListInfo {
+	return s.list
+}
+
+func (s *TviewSelector) Refresh() {
+	s.render()
+}
+
 func (s *TviewSelector) handleInput(event *tcell.EventKey) *tcell.EventKey {
 	headLine := 2
 	height := s.pageHeight()
