@@ -607,6 +607,8 @@ func (m *Manager) activatePane(targetPage *page, p *pane, session *RemoteSession
 	p.failed = false
 	p.exited = false
 	p.exitMessage = ""
+	p.badgeLabel = ""
+	p.badgeColor = tcell.ColorDefault
 	p.title = m.paneTitle(p, "")
 	p.term.SetBorder(true).SetTitle(p.title)
 	p.term.SetTitleHandler(func(_ *tvxterm.View, title string) {
@@ -624,8 +626,10 @@ func (m *Manager) activatePane(targetPage *page, p *pane, session *RemoteSession
 				} else {
 					p.exitMessage = "completed"
 				}
+				p.badgeLabel = "DONE"
 				p.title = m.paneTitle(p, "")
 				p.term.SetTitle(p.title)
+				m.applyPaneStyle(p)
 				m.updateStatus(fmt.Sprintf("[yellow]%s finished[-]: %s", p.server, p.exitMessage))
 				return
 			}
@@ -662,6 +666,7 @@ func (m *Manager) replacePaneWithError(p *pane, err error) {
 	p.failed = true
 	p.exitMessage = err.Error()
 	p.exited = false
+	p.badgeLabel = ""
 	container.SetTitle(p.title)
 }
 
@@ -970,6 +975,9 @@ func (m *Manager) applyPaneStyle(p *pane) {
 	if p.exited {
 		borderColor = parseMuxColor(m.conf.Mux.DoneBorderColor, borderColor)
 		titleColor = parseMuxColor(m.conf.Mux.DoneTitleColor, titleColor)
+		p.badgeColor = titleColor
+	} else {
+		p.badgeColor = tcell.ColorDefault
 	}
 	if m.broadcastAll && !p.transient {
 		borderColor = parseMuxColor(m.conf.Mux.BroadcastBorderColor, borderColor)
