@@ -481,28 +481,17 @@ func (c *Connect) CheckClientAlive() error {
 // RequestTty requests the association of a pty with the session on the remote
 // host. Terminal size is obtained from the currently connected terminal
 func RequestTty(session *ssh.Session) (err error) {
-	modes := ssh.TerminalModes{
-		ssh.ECHO:          1,
-		ssh.TTY_OP_ISPEED: 14400,
-		ssh.TTY_OP_OSPEED: 14400,
-	}
-
 	// Get terminal window size
 	fd := int(os.Stdout.Fd())
-	width, hight, err := terminal.GetSize(fd)
+	width, height, err := terminal.GetSize(fd)
 	if err != nil {
 		return
 	}
 
 	// Get env `TERM`
 	term := os.Getenv("TERM")
-	if len(term) == 0 {
-		term = "xterm"
-	}
-
-	if err = session.RequestPty(term, hight, width, modes); err != nil {
-		session.Close()
-		return
+	if err = RequestTtyWithSize(session, term, width, height, nil); err != nil {
+		return err
 	}
 
 	// Terminal resize goroutine.
@@ -515,11 +504,54 @@ func RequestTty(session *ssh.Session) (err error) {
 			switch s {
 			case winch:
 				fd := int(os.Stdout.Fd())
-				width, hight, _ = terminal.GetSize(fd)
-				session.WindowChange(hight, width)
+				width, height, _ = terminal.GetSize(fd)
+				session.WindowChange(height, width)
 			}
 		}
 	}()
 
 	return
+}
+
+func defaultTerminalModes() ssh.TerminalModes {
+	return ssh.TerminalModes{
+		ssh.ECHO:          1,
+		ssh.TTY_OP_ISPEED: 14400,
+		ssh.TTY_OP_OSPEED: 14400,
+	}
+}
+
+func normalizeTerminalTerm(term string) string {
+	if term == "" {
+		term = os.Getenv("TERM")
+	}
+	if term == "" {
+		return "xterm-256color"
+	}
+	return term
+}
+
+func normalizeTerminalModes(modes ssh.TerminalModes) ssh.TerminalModes {
+	if len(modes) == 0 {
+		return defaultTerminalModes()
+	}
+	return modes
+}
+
+// RequestTtyWithSize requests the association of a pty with the session on the
+// remote host using the caller-provided terminal size.
+func RequestTtyWithSize(session *ssh.Session, term string, cols, rows int, modes ssh.TerminalModes) error {
+	if cols <= 0 {
+		cols = 80
+	}
+	if rows <= 0 {
+		rows = 24
+	}
+
+	if err := session.RequestPty(normalizeTerminalTerm(term), rows, cols, normalizeTerminalModes(modes)); err != nil {
+		session.Close()
+		return err
+	}
+
+	return nil
 }
