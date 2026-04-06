@@ -226,7 +226,7 @@ jobs:
           done
 
       - name: Upload artifacts
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: release-${{ matrix.goos }}-${{ matrix.goarch }}
           path: dist/packages/*
@@ -258,14 +258,15 @@ jobs:
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
 
       - name: Create release
-        uses: actions/create-release@v1
+        shell: bash
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          tag_name: v${{ steps.package_version.outputs.version }}
-          release_name: Version ${{ steps.package_version.outputs.version }}
-          draft: true
-          prerelease: false
+        run: |
+          set -euo pipefail
+          gh release create "v${{ steps.package_version.outputs.version }}" \
+            --repo "${{ github.repository }}" \
+            --title "Version ${{ steps.package_version.outputs.version }}" \
+            --draft
 
   upload-release:
     needs:
@@ -274,7 +275,7 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v7
         with:
           pattern: release-*
           path: dist/packages
