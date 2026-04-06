@@ -21,6 +21,7 @@ import (
 	sshcmd "github.com/blacknon/lssh/internal/ssh"
 	"github.com/blacknon/tvxterm"
 	"github.com/kballard/go-shellquote"
+	"github.com/pkg/sftp"
 )
 
 // RemoteSession owns a mux pane SSH connection.
@@ -32,6 +33,14 @@ type RemoteSession struct {
 	Terminal *sshlib.Terminal
 	Backend  *tvxterm.StreamBackend
 	LogPath  string
+}
+
+// OpenSFTP opens an SFTP client that reuses the pane connection settings.
+func (s *RemoteSession) OpenSFTP() (*sftp.Client, error) {
+	if s == nil || s.Connect == nil {
+		return nil, fmt.Errorf("sftp unavailable")
+	}
+	return s.Connect.OpenSFTP()
 }
 
 // SessionFactory creates remote sessions for panes.

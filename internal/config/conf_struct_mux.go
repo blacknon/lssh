@@ -18,6 +18,7 @@ type MuxConfig struct {
 	PageList             string `toml:"page_list"`
 	ClosePane            string `toml:"close_pane"`
 	Broadcast            string `toml:"broadcast"`
+	Transfer             string `toml:"transfer"`
 	FocusBorderColor     string `toml:"focus_border_color"`
 	FocusTitleColor      string `toml:"focus_title_color"`
 	BroadcastBorderColor string `toml:"broadcast_border_color"`
@@ -63,6 +64,9 @@ func (m MuxConfig) ApplyDefaults() MuxConfig {
 	}
 	if m.Broadcast == "" {
 		m.Broadcast = "b"
+	}
+	if m.Transfer == "" {
+		m.Transfer = "f"
 	}
 	if m.FocusBorderColor == "" {
 		m.FocusBorderColor = "green"
