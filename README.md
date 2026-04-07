@@ -85,7 +85,7 @@ brew install blacknon/lssh/lssh
 ## Usage
 
 This section describes shared configuration features used across the `lssh` suite.
-For command-specific features and CLI usage, see [cmd/README.md](/Users/blacknon/_go/src/github.com/blacknon/lssh/cmd/README.md) and the README in each command directory.
+For command-specific features and CLI usage, see [cmd/README.md](cmd/README.md) and the README in each command directory.
 
 ### TUI navigation and key bindings
 
@@ -431,7 +431,7 @@ note = "reuse ssh session"
 
 ## Licence
 
-A short snippet describing the license [MIT](https://github.com/blacknon/lssh/blob/master/LICENSE.md).
+A short snippet describing the license [MIT](LICENSE.md).
 
 ## Author
 
