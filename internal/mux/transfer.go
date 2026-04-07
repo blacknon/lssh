@@ -14,6 +14,7 @@ import (
 	"strings"
 	"time"
 
+	sshcmd "github.com/blacknon/lssh/internal/ssh"
 	"github.com/gdamore/tcell/v2"
 	"github.com/pkg/sftp"
 	"github.com/rivo/tview"
@@ -110,6 +111,59 @@ type transferTargetPicker struct {
 	all      []string
 	selected map[string]struct{}
 	onChange func([]string)
+}
+
+type transferSFTPConn struct {
+	client  *sftp.Client
+	closeFn func() error
+}
+
+func (c *transferSFTPConn) Close() error {
+	if c == nil {
+		return nil
+	}
+
+	var firstErr error
+	if c.client != nil {
+		if err := c.client.Close(); firstErr == nil && err != nil {
+			firstErr = err
+		}
+	}
+	if c.closeFn != nil {
+		if err := c.closeFn(); firstErr == nil && err != nil {
+			firstErr = err
+		}
+	}
+
+	return firstErr
+}
+
+func (w *transferWizard) openTransferSFTPForPane(p *pane) (*transferSFTPConn, error) {
+	if w == nil || w.manager == nil || p == nil {
+		return nil, fmt.Errorf("sftp unavailable")
+	}
+
+	run := &sshcmd.Run{
+		ServerList: []string{p.server},
+		Conf:       w.manager.conf,
+	}
+	run.CreateAuthMethodMap()
+
+	connect, err := run.CreateSshConnectDirect(p.server)
+	if err != nil {
+		return nil, err
+	}
+
+	client, err := connect.OpenSFTP()
+	if err != nil {
+		_ = connect.Close()
+		return nil, err
+	}
+
+	return &transferSFTPConn{
+		client:  client,
+		closeFn: connect.Close,
+	}, nil
 }
 
 func newTransferWizard(m *Manager, p *pane) *transferWizard {
@@ -813,15 +867,15 @@ func (w *transferWizard) launchTransferJobs() error {
 }
 
 func (w *transferWizard) runGetJob(job *transferJob, source string) {
-	client, err := w.pane.session.OpenSFTP()
+	srcConn, err := w.openTransferSFTPForPane(w.pane)
 	if err != nil {
 		w.finishTransferJob(job, err)
 		return
 	}
-	defer client.Close()
+	defer srcConn.Close()
 
 	if w.getTargetServer == "" {
-		err = copyRemotePathToLocal(client, source, w.getTargetPath)
+		err = copyRemotePathToLocal(srcConn.client, source, w.getTargetPath)
 		w.finishTransferJob(job, err)
 		return
 	}
@@ -831,26 +885,27 @@ func (w *transferWizard) runGetJob(job *transferJob, source string) {
 		w.finishTransferJob(job, fmt.Errorf("target pane %s is not connected", w.getTargetServer))
 		return
 	}
-	dstClient, err := targetPane.session.OpenSFTP()
+
+	dstConn, err := w.openTransferSFTPForPane(targetPane)
 	if err != nil {
 		w.finishTransferJob(job, err)
 		return
 	}
-	defer dstClient.Close()
+	defer dstConn.Close()
 
-	err = copyRemotePathToRemote(client, dstClient, source, w.getTargetPath)
+	err = copyRemotePathToRemote(srcConn.client, dstConn.client, source, w.getTargetPath)
 	w.finishTransferJob(job, err)
 }
 
 func (w *transferWizard) runPutJob(job *transferJob, source string) {
-	client, err := w.pane.session.OpenSFTP()
+	dstConn, err := w.openTransferSFTPForPane(w.pane)
 	if err != nil {
 		w.finishTransferJob(job, err)
 		return
 	}
-	defer client.Close()
+	defer dstConn.Close()
 
-	err = copyLocalPathToRemote(client, source, w.putTargetPath)
+	err = copyLocalPathToRemote(dstConn.client, source, w.putTargetPath)
 	w.finishTransferJob(job, err)
 }
 
@@ -861,21 +916,21 @@ func (w *transferWizard) runCopyJob(job *transferJob, source, server string) {
 		return
 	}
 
-	client, err := target.session.OpenSFTP()
+	srcConn, err := w.openTransferSFTPForPane(w.pane)
 	if err != nil {
 		w.finishTransferJob(job, err)
 		return
 	}
-	defer client.Close()
+	defer srcConn.Close()
 
-	srcClient, err := w.pane.session.OpenSFTP()
+	dstConn, err := w.openTransferSFTPForPane(target)
 	if err != nil {
 		w.finishTransferJob(job, err)
 		return
 	}
-	defer srcClient.Close()
+	defer dstConn.Close()
 
-	err = copyRemotePathToRemote(srcClient, client, source, w.copyTargetPath)
+	err = copyRemotePathToRemote(srcConn.client, dstConn.client, source, w.copyTargetPath)
 	w.finishTransferJob(job, err)
 }
 
