@@ -59,8 +59,17 @@ type Manager struct {
 	nextTransferID int
 }
 
+// SessionOptions stores lsmux per-pane connection overrides.
+type SessionOptions struct {
+	PortForward                   []*conf.PortForward
+	ReverseDynamicPortForward     string
+	HTTPReverseDynamicPortForward string
+	NFSReverseDynamicForwardPort  string
+	NFSReverseDynamicForwardPath  string
+}
+
 // NewManager creates an lsmux manager.
-func NewManager(cfg conf.Config, names []string, command []string, stdinData []byte, initialHosts []string, hold bool, allowLayoutChange bool) (*Manager, error) {
+func NewManager(cfg conf.Config, names []string, command []string, stdinData []byte, initialHosts []string, hold bool, allowLayoutChange bool, options SessionOptions) (*Manager, error) {
 	app := tview.NewApplication()
 	sort.Strings(names)
 
@@ -109,7 +118,7 @@ func NewManager(cfg conf.Config, names []string, command []string, stdinData []b
 		initial:           append([]string(nil), initialHosts...),
 		hold:              hold,
 		allowLayoutChange: allowLayoutChange,
-		factory:           NewSessionFactory(cfg, command),
+		factory:           NewSessionFactory(cfg, command, options),
 		bindings:          parsed,
 		root:              root,
 		pages:             pages,
