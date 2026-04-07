@@ -24,7 +24,7 @@ github.com/armon/go-socks5
 # github.com/blacknon/crypto11 v1.6.2-0.20260315101107-fd111b1d25ce
 ## explicit; go 1.25.1
 github.com/blacknon/crypto11
-# github.com/blacknon/go-sshlib v0.1.27 => ../go-sshlib
+# github.com/blacknon/go-sshlib v0.1.29
 ## explicit; go 1.25.1
 github.com/blacknon/go-sshlib
 # github.com/blacknon/go-sshproc v0.1.1
@@ -36,7 +36,7 @@ github.com/blacknon/go-x11auth
 # github.com/blacknon/mview v0.1.5
 ## explicit; go 1.12
 github.com/blacknon/mview
-# github.com/blacknon/tvxterm v0.0.0-20260405170026-ba3f8e895759 => ../tvxterm
+# github.com/blacknon/tvxterm v0.1.1
 ## explicit; go 1.25.1
 github.com/blacknon/tvxterm
 # github.com/c-bata/go-prompt v0.2.6 => github.com/blacknon/go-prompt v0.2.7
@@ -260,4 +260,3 @@ gopkg.in/yaml.v3
 # mvdan.cc/sh v2.6.4+incompatible
 ## explicit
 mvdan.cc/sh/syntax
-# github.com/blacknon/tvxterm => ../tvxterm

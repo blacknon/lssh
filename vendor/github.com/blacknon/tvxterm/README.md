@@ -1,6 +1,8 @@
 tvxterm
 ===
 
+[![GoDoc](https://godoc.org/github.com/blacknon/tvxterm?status.svg)](https://godoc.org/github.com/blacknon/tvxterm)
+
 <p align="center">
   <img src="./img/tvxterm.gif" width="77%" />
 </p>

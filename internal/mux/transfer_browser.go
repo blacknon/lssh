@@ -321,6 +321,8 @@ func (b *transferFileBrowser) handleInput(event *tcell.EventKey) *tcell.EventKey
 			b.onTabNav(1)
 			return nil
 		}
+		b.enterCurrentDir()
+		return nil
 	case tcell.KeyBackspace, tcell.KeyBackspace2:
 		b.goParent()
 		return nil
@@ -345,6 +347,17 @@ func (b *transferFileBrowser) goParent() {
 		return
 	}
 	b.reload(next)
+}
+
+func (b *transferFileBrowser) enterCurrentDir() {
+	row, _ := b.table.GetSelection()
+	if row < 0 || row >= len(b.entries) {
+		return
+	}
+	entry := b.entries[row]
+	if entry.Name == ".." || entry.IsDir {
+		b.reload(entry.Path)
+	}
 }
 
 func (b *transferFileBrowser) activateCurrent(toggle bool) {
