@@ -6,7 +6,9 @@ package lsmux
 
 import (
 	"fmt"
+	"io"
 	"os"
+	"runtime"
 	"sort"
 
 	"github.com/blacknon/lssh/internal/check"
@@ -15,6 +17,7 @@ import (
 	"github.com/blacknon/lssh/internal/mux"
 	"github.com/blacknon/lssh/internal/version"
 	"github.com/urfave/cli"
+	"golang.org/x/crypto/ssh/terminal"
 )
 
 // Lsmux creates the lsmux CLI app.
@@ -79,7 +82,21 @@ USAGE:
 			return fmt.Errorf("input server not found from list")
 		}
 
-		manager, err := mux.NewManager(data, names, c.Args(), initialHosts, c.Bool("hold"), c.Bool("allow-layout-change"))
+		var (
+			stdinData []byte
+			err       error
+		)
+		if len(c.Args()) > 0 && runtime.GOOS != "windows" {
+			stdin := 0
+			if !terminal.IsTerminal(stdin) {
+				stdinData, err = io.ReadAll(os.Stdin)
+				if err != nil {
+					return err
+				}
+			}
+		}
+
+		manager, err := mux.NewManager(data, names, c.Args(), stdinData, initialHosts, c.Bool("hold"), c.Bool("allow-layout-change"))
 		if err != nil {
 			return err
 		}

@@ -436,7 +436,7 @@ func (w *transferWizard) buildCopyContent() {
 	})
 	if item := controls.GetFormItem(0); item != nil {
 		if input, ok := item.(*tview.InputField); ok {
-			input.SetFieldBackgroundColor(tcell.ColorTeal)
+			input.SetFieldBackgroundColor(tcell.ColorAqua)
 			input.SetFieldTextColor(tcell.ColorBlack)
 			input.SetLabelColor(tcell.ColorYellow)
 			input.SetPlaceholder(".")
@@ -480,12 +480,16 @@ func (w *transferWizard) captureBaseInput(event *tcell.EventKey) *tcell.EventKey
 			return nil
 		}
 		return event
-	case tcell.KeyCtrlN, tcell.KeyTab:
+	case tcell.KeyCtrlN:
 		w.shiftTab(1)
 		return nil
-	case tcell.KeyCtrlP, tcell.KeyBacktab:
+	case tcell.KeyCtrlP:
 		w.shiftTab(-1)
 		return nil
+	case tcell.KeyTab:
+		return event
+	case tcell.KeyBacktab:
+		return event
 	case tcell.KeyLeft:
 		if event.Modifiers()&tcell.ModShift != 0 {
 			w.shiftTab(-1)
