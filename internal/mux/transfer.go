@@ -85,7 +85,7 @@ func newTransferWizard(m *Manager, p *pane) *transferWizard {
 	base := tview.NewFlex().SetDirection(tview.FlexRow)
 	base.AddItem(w.tabs, 1, 0, false)
 	base.AddItem(w.content, 0, 1, true)
-	base.AddItem(w.help, 1, 0, false)
+	base.AddItem(w.help, 2, 0, false)
 	w.dialog.AddItem(base, 0, 1, true)
 
 	w.pages.AddPage("main", w.dialog, true, true)
@@ -120,6 +120,7 @@ func (w *transferWizard) initBrowsers() {
 		func(delta int) { w.shiftTab(delta) },
 	)
 	w.getBrowser.table.SetInputCapture(w.wrapTransferInput(w.getBrowser.handleInput))
+	w.getBrowser.onFocusNav = w.moveFocus
 
 	w.getTargetBrowser = newTransferFileBrowser(
 		loadLocalEntries,
@@ -128,6 +129,7 @@ func (w *transferWizard) initBrowsers() {
 		func(delta int) { w.shiftTab(delta) },
 	)
 	w.getTargetBrowser.table.SetInputCapture(w.wrapTransferInput(w.getTargetBrowser.handleInput))
+	w.getTargetBrowser.onFocusNav = w.moveFocus
 	w.getTargetBrowser.onSelectPath = func(selected string) {
 		w.getTargetPath = selected
 		w.refreshTargetBrowsers()
@@ -140,6 +142,7 @@ func (w *transferWizard) initBrowsers() {
 		func(delta int) { w.shiftTab(delta) },
 	)
 	w.putBrowser.table.SetInputCapture(w.wrapTransferInput(w.putBrowser.handleInput))
+	w.putBrowser.onFocusNav = w.moveFocus
 
 	w.putTargetBrowser = newTransferFileBrowser(
 		func(current string) (string, []transferFileEntry, error) {
@@ -155,6 +158,7 @@ func (w *transferWizard) initBrowsers() {
 		func(delta int) { w.shiftTab(delta) },
 	)
 	w.putTargetBrowser.table.SetInputCapture(w.wrapTransferInput(w.putTargetBrowser.handleInput))
+	w.putTargetBrowser.onFocusNav = w.moveFocus
 	w.putTargetBrowser.onSelectPath = func(selected string) {
 		w.putTargetPath = selected
 	}
@@ -173,6 +177,7 @@ func (w *transferWizard) initBrowsers() {
 		func(delta int) { w.shiftTab(delta) },
 	)
 	w.copyBrowser.table.SetInputCapture(w.wrapTransferInput(w.copyBrowser.handleInput))
+	w.copyBrowser.onFocusNav = w.moveFocus
 	w.copyBrowser.setTitle("source")
 	w.copyBrowser.setHostLabel(w.pane.server)
 	w.copyBrowser.setPathLabel("source path")
@@ -180,6 +185,7 @@ func (w *transferWizard) initBrowsers() {
 	w.copyPicker = newTransferTargetPicker(w.connectedTargetServers(true), w.copyTargets, func(targets []string) {
 		w.copyTargets = append([]string(nil), targets...)
 	})
+	w.copyPicker.onFocusNav = w.moveFocus
 	w.copyPicker.SetInputCapture(w.wrapTransferInput(w.copyPicker.handleInput))
 
 	w.transfersView.SetInputCapture(w.wrapTransferInput(nil))
@@ -202,10 +208,62 @@ func (w *transferWizard) focusTarget() tview.Primitive {
 	return w.focus
 }
 
+func (w *transferWizard) setFocus(target tview.Primitive) {
+	if target == nil {
+		return
+	}
+	w.focus = target
+	w.manager.app.SetFocus(target)
+}
+
+func (w *transferWizard) focusables() []tview.Primitive {
+	switch w.activeMode {
+	case transferModeGet:
+		return []tview.Primitive{w.getBrowser.table, w.getTargetBrowser.table}
+	case transferModePut:
+		return []tview.Primitive{w.putBrowser.table, w.putTargetBrowser.table}
+	case transferModeParallelPut:
+		items := []tview.Primitive{w.copyBrowser.table, w.copyPicker}
+		if w.side.GetItemCount() > 1 {
+			if form, ok := w.side.GetItem(1).(*tview.Form); ok {
+				items = append(items, form)
+			}
+		}
+		return items
+	case transferModeJobs:
+		return []tview.Primitive{w.transfersView}
+	default:
+		return nil
+	}
+}
+
+func (w *transferWizard) moveFocus(delta int) {
+	items := w.focusables()
+	if len(items) == 0 {
+		return
+	}
+	current := 0
+	for i, item := range items {
+		if item == w.focus {
+			current = i
+			break
+		}
+	}
+	next := current + delta
+	if next < 0 {
+		next = len(items) - 1
+	}
+	if next >= len(items) {
+		next = 0
+	}
+	w.setFocus(items[next])
+}
+
 func (w *transferWizard) setMode(mode transferMode) {
 	w.activeMode = mode
 	w.renderTabs()
 	w.rebuildContent()
+	w.setFocus(w.focus)
 }
 
 func (w *transferWizard) shiftTab(delta int) {
@@ -294,8 +352,12 @@ func (w *transferWizard) setContentWithMarker(left, right tview.Primitive, marke
 		w.content.AddItem(left, 0, 1, true)
 	}
 	if left != nil && right != nil && marker != "" {
-		middle := tview.NewTextView().SetDynamicColors(true).SetWrap(false).SetTextAlign(tview.AlignCenter)
-		middle.SetText(marker)
+		middle := tview.NewFlex().SetDirection(tview.FlexRow)
+		markerView := tview.NewTextView().SetDynamicColors(true).SetWrap(false).SetTextAlign(tview.AlignCenter)
+		markerView.SetText(marker)
+		middle.AddItem(nil, 2, 0, false)
+		middle.AddItem(markerView, 1, 0, false)
+		middle.AddItem(nil, 0, 1, false)
 		w.content.AddItem(middle, 3, 0, false)
 	}
 	if right != nil {
@@ -345,8 +407,25 @@ func (w *transferWizard) buildCopyContent() {
 	styleTransferForm(controls)
 	controls.SetBorder(true)
 	controls.SetTitle("copy settings")
+	controls.SetBorderColor(tcell.ColorGreen)
+	controls.SetTitleColor(tcell.ColorYellow)
 	controls.SetButtonsAlign(tview.AlignLeft)
-	controls.SetInputCapture(w.captureBaseInput)
+	controls.SetInputCapture(func(event *tcell.EventKey) *tcell.EventKey {
+		event = w.captureBaseInput(event)
+		if event == nil {
+			return nil
+		}
+		switch event.Key() {
+		case tcell.KeyTab:
+			w.moveFocus(1)
+			return nil
+		case tcell.KeyBacktab:
+			w.moveFocus(-1)
+			return nil
+		default:
+			return event
+		}
+	})
 
 	if w.copyTargetPath == "" {
 		w.copyTargetPath = "."
@@ -362,15 +441,13 @@ func (w *transferWizard) buildCopyContent() {
 		}
 	}
 
-	pickerFrame := tview.NewFlex().SetDirection(tview.FlexRow)
-	pickerTitle := tview.NewTextView().SetDynamicColors(true).SetWrap(false)
-	pickerTitle.SetText("[yellow]target panes[-]")
+	w.copyPicker.SetBorder(true)
+	w.copyPicker.SetTitle("target panes")
+	w.copyPicker.SetBorderColor(tcell.ColorGreen)
+	w.copyPicker.SetTitleColor(tcell.ColorYellow)
 	w.copyPicker.SetSelected(w.copyTargets)
-	pickerFrame.AddItem(pickerTitle, 1, 0, false)
-	pickerFrame.AddItem(w.copyPicker, 0, 1, false)
-
-	w.side.AddItem(pickerFrame, 8, 0, false)
-	w.side.AddItem(controls, 0, 1, false)
+	w.side.AddItem(w.copyPicker, 0, 1, false)
+	w.side.AddItem(controls, 4, 0, false)
 	w.setContent(w.copyBrowser.root, w.side)
 }
 

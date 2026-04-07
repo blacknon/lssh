@@ -5,6 +5,8 @@
 package mux
 
 import (
+	"math"
+
 	"github.com/blacknon/tvxterm"
 	"github.com/gdamore/tcell/v2"
 	"github.com/rivo/tview"
@@ -71,6 +73,11 @@ func (p *pane) widget() tview.Primitive {
 func (p *pane) focusPrimitive() tview.Primitive {
 	if p == nil {
 		return nil
+	}
+	if provider, ok := p.primitive.(interface{ focusPrimitive() tview.Primitive }); ok {
+		if target := provider.focusPrimitive(); target != nil {
+			return target
+		}
 	}
 	if p.focusTarget != nil {
 		return p.focusTarget
@@ -148,21 +155,43 @@ func buildBalancedLayout(panes []*pane, direction int) *layoutNode {
 		return nil
 	case 1:
 		return &layoutNode{pane: panes[0]}
+	case 2, 3:
+		return buildLinearLayout(panes, tview.FlexColumn)
 	}
 
-	mid := len(panes) / 2
-	nextDirection := tview.FlexColumn
-	if direction == tview.FlexColumn {
-		nextDirection = tview.FlexRow
+	cols := int(math.Ceil(math.Sqrt(float64(len(panes)))))
+	rows := (len(panes) + cols - 1) / cols
+	if rows <= 1 {
+		return buildLinearLayout(panes, tview.FlexColumn)
 	}
 
-	return &layoutNode{
-		direction: direction,
-		children: []*layoutNode{
-			buildBalancedLayout(panes[:mid], nextDirection),
-			buildBalancedLayout(panes[mid:], nextDirection),
-		},
+	children := make([]*layoutNode, 0, rows)
+	offset := 0
+	base := len(panes) / rows
+	rest := len(panes) % rows
+	for i := 0; i < rows; i++ {
+		size := base
+		if i < rest {
+			size++
+		}
+		children = append(children, buildLinearLayout(panes[offset:offset+size], tview.FlexColumn))
+		offset += size
 	}
+	return &layoutNode{direction: tview.FlexRow, children: children}
+}
+
+func buildLinearLayout(panes []*pane, direction int) *layoutNode {
+	if len(panes) == 0 {
+		return nil
+	}
+	if len(panes) == 1 {
+		return &layoutNode{pane: panes[0]}
+	}
+	children := make([]*layoutNode, 0, len(panes))
+	for _, p := range panes {
+		children = append(children, &layoutNode{pane: p})
+	}
+	return &layoutNode{direction: direction, children: children}
 }
 
 type badgeOverlay struct {
@@ -174,8 +203,24 @@ type badgeOverlay struct {
 
 type modalOverlay struct {
 	*tview.Box
-	child   tview.Primitive
-	overlay tview.Primitive
+	child         tview.Primitive
+	overlay       tview.Primitive
+	focusResolver func() tview.Primitive
+}
+
+type hitTester interface {
+	hitTest(x, y int) bool
+}
+
+type centeredPrimitive struct {
+	*tview.Box
+	child         tview.Primitive
+	desiredWidth  int
+	desiredHeight int
+	innerX        int
+	innerY        int
+	innerWidth    int
+	innerHeight   int
 }
 
 func newBadgeOverlay(child tview.Primitive, label string, color tcell.Color) *badgeOverlay {
@@ -192,6 +237,19 @@ func newModalOverlay(child, overlay tview.Primitive) *modalOverlay {
 		Box:     tview.NewBox(),
 		child:   child,
 		overlay: overlay,
+	}
+}
+
+func (m *modalOverlay) setFocusResolver(resolve func() tview.Primitive) {
+	m.focusResolver = resolve
+}
+
+func newCenteredPrimitive(child tview.Primitive, width, height int) *centeredPrimitive {
+	return &centeredPrimitive{
+		Box:           tview.NewBox(),
+		child:         child,
+		desiredWidth:  width,
+		desiredHeight: height,
 	}
 }
 
@@ -317,6 +375,10 @@ func (m *modalOverlay) MouseHandler() func(action tview.MouseAction, event *tcel
 		if !m.InRect(x, y) {
 			return false, nil
 		}
+		target := m.focusPrimitive()
+		if action == tview.MouseLeftDown && target != nil {
+			setFocus(target)
+		}
 		if m.overlay != nil {
 			if handler := m.overlay.MouseHandler(); handler != nil {
 				consumed, capture := handler(action, event, setFocus)
@@ -324,13 +386,27 @@ func (m *modalOverlay) MouseHandler() func(action tview.MouseAction, event *tcel
 					return true, capture
 				}
 			}
+			if target != nil {
+				return true, target
+			}
 			return true, m.overlay
 		}
 		return true, m
 	})
 }
 
+func (m *modalOverlay) hitTest(x, y int) bool {
+	if tester, ok := m.overlay.(hitTester); ok {
+		return tester.hitTest(x, y)
+	}
+	return m.InRect(x, y)
+}
+
 func (m *modalOverlay) Focus(delegate func(p tview.Primitive)) {
+	if target := m.focusPrimitive(); target != nil {
+		delegate(target)
+		return
+	}
 	if m.overlay != nil {
 		m.overlay.Focus(delegate)
 	}
@@ -343,8 +419,100 @@ func (m *modalOverlay) Blur() {
 }
 
 func (m *modalOverlay) HasFocus() bool {
+	if target := m.focusPrimitive(); target != nil {
+		return target.HasFocus()
+	}
 	if m.overlay == nil {
 		return false
 	}
 	return m.overlay.HasFocus()
+}
+
+func (m *modalOverlay) focusPrimitive() tview.Primitive {
+	if m.focusResolver != nil {
+		return m.focusResolver()
+	}
+	return m.overlay
+}
+
+func (c *centeredPrimitive) Draw(screen tcell.Screen) {
+	x, y, width, height := c.GetRect()
+	c.updateInnerRect(x, y, width, height)
+	if c.child != nil {
+		c.child.SetRect(c.innerX, c.innerY, c.innerWidth, c.innerHeight)
+		c.child.Draw(screen)
+	}
+}
+
+func (c *centeredPrimitive) SetRect(x, y, width, height int) {
+	c.Box.SetRect(x, y, width, height)
+	c.updateInnerRect(x, y, width, height)
+	if c.child != nil {
+		c.child.SetRect(c.innerX, c.innerY, c.innerWidth, c.innerHeight)
+	}
+}
+
+func (c *centeredPrimitive) InputHandler() func(event *tcell.EventKey, setFocus func(p tview.Primitive)) {
+	if c.child == nil {
+		return nil
+	}
+	return c.child.InputHandler()
+}
+
+func (c *centeredPrimitive) PasteHandler() func(text string, setFocus func(p tview.Primitive)) {
+	if c.child == nil {
+		return nil
+	}
+	return c.child.PasteHandler()
+}
+
+func (c *centeredPrimitive) MouseHandler() func(action tview.MouseAction, event *tcell.EventMouse, setFocus func(p tview.Primitive)) (bool, tview.Primitive) {
+	if c.child == nil {
+		return nil
+	}
+	return c.child.MouseHandler()
+}
+
+func (c *centeredPrimitive) Focus(delegate func(p tview.Primitive)) {
+	if c.child != nil {
+		c.child.Focus(delegate)
+	}
+}
+
+func (c *centeredPrimitive) Blur() {
+	if c.child != nil {
+		c.child.Blur()
+	}
+}
+
+func (c *centeredPrimitive) HasFocus() bool {
+	if c.child == nil {
+		return false
+	}
+	return c.child.HasFocus()
+}
+
+func (c *centeredPrimitive) hitTest(x, y int) bool {
+	return x >= c.innerX && x < c.innerX+c.innerWidth && y >= c.innerY && y < c.innerY+c.innerHeight
+}
+
+func (c *centeredPrimitive) updateInnerRect(x, y, width, height int) {
+	innerWidth := c.desiredWidth
+	innerHeight := c.desiredHeight
+	if innerWidth > width {
+		innerWidth = width
+	}
+	if innerHeight > height {
+		innerHeight = height
+	}
+	if innerWidth < 1 {
+		innerWidth = 1
+	}
+	if innerHeight < 1 {
+		innerHeight = 1
+	}
+	c.innerWidth = innerWidth
+	c.innerHeight = innerHeight
+	c.innerX = x + (width-innerWidth)/2
+	c.innerY = y + (height-innerHeight)/2
 }
