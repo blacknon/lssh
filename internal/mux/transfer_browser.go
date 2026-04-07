@@ -34,6 +34,7 @@ type transferFileBrowser struct {
 	onCancel     func()
 	onChange     func([]string)
 	onTabNav     func(int)
+	onFocusNav   func(int)
 	onSelectPath func(string)
 
 	current   string
@@ -47,9 +48,10 @@ type transferFileBrowser struct {
 
 type transferTargetPicker struct {
 	*tview.List
-	all      []string
-	selected map[string]struct{}
-	onChange func([]string)
+	all        []string
+	selected   map[string]struct{}
+	onChange   func([]string)
+	onFocusNav func(int)
 }
 
 func newTransferFileBrowser(
@@ -100,10 +102,11 @@ func newTransferTargetPicker(all []string, initial []string, onChange func([]str
 		onChange: onChange,
 	}
 	p.SetMainTextColor(tcell.ColorBlack)
+	p.SetMainTextColor(tcell.ColorWhite)
 	p.SetSelectedTextColor(tcell.ColorBlack)
 	p.SetSelectedBackgroundColor(tcell.ColorGreen)
 	p.SetHighlightFullLine(true)
-	p.SetBackgroundColor(tcell.ColorTeal)
+	p.SetBackgroundColor(tcell.ColorDefault)
 	p.SetInputCapture(p.handleInput)
 	p.SetSelectedFunc(func(index int, mainText, secondaryText string, shortcut rune) {
 		p.toggleCurrent()
@@ -147,6 +150,16 @@ func (p *transferTargetPicker) handleInput(event *tcell.EventKey) *tcell.EventKe
 		return nil
 	}
 	switch event.Key() {
+	case tcell.KeyTab:
+		if p.onFocusNav != nil {
+			p.onFocusNav(1)
+			return nil
+		}
+	case tcell.KeyBacktab:
+		if p.onFocusNav != nil {
+			p.onFocusNav(-1)
+			return nil
+		}
 	case tcell.KeyRune:
 		if event.Rune() == ' ' {
 			p.toggleCurrent()
@@ -282,6 +295,16 @@ func (b *transferFileBrowser) handleInput(event *tcell.EventKey) *tcell.EventKey
 		return nil
 	}
 	switch event.Key() {
+	case tcell.KeyTab:
+		if b.onFocusNav != nil {
+			b.onFocusNav(1)
+			return nil
+		}
+	case tcell.KeyBacktab:
+		if b.onFocusNav != nil {
+			b.onFocusNav(-1)
+			return nil
+		}
 	case tcell.KeyEsc, tcell.KeyCtrlC:
 		if b.onCancel != nil {
 			b.onCancel()

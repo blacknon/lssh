@@ -231,8 +231,17 @@ func (m *Manager) showSelector(mode selectorMode) {
 			m.app.Stop()
 			return
 		}
+		if m.currentPage != nil && len(m.currentPage.panes) == 0 {
+			m.app.Stop()
+			return
+		}
+		if m.currentPage != nil {
+			m.refreshMainPage()
+		}
 		if m.currentPage != nil && m.currentPage.focus != nil {
-			m.app.SetFocus(m.currentPage.focus.term)
+			if focus := m.currentPage.focus.focusPrimitive(); focus != nil {
+				m.app.SetFocus(focus)
+			}
 		}
 		m.updateStatus("")
 	})
@@ -376,16 +385,10 @@ func (m *Manager) createPage(hosts []string) error {
 	}
 
 	page.focus = page.panes[0]
-	if len(m.command) > 0 && len(page.panes) > 1 {
+	if len(page.panes) > 1 {
 		page.layout = buildBalancedLayout(page.panes, tview.FlexColumn)
 	} else {
 		page.layout = &layoutNode{pane: page.panes[0]}
-		for _, p := range page.panes[1:] {
-			if !page.layout.split(page.focus, p, tview.FlexColumn) {
-				return fmt.Errorf("failed to split pane layout")
-			}
-			page.focus = p
-		}
 	}
 
 	m.sessionPages = append(m.sessionPages, page)
@@ -396,6 +399,16 @@ func (m *Manager) createPage(hosts []string) error {
 func (m *Manager) addPanesToCurrentPage(hosts []string, direction int) error {
 	if m.currentPage == nil {
 		return m.createPage(hosts)
+	}
+	if len(hosts) > 1 {
+		for _, host := range hosts {
+			p := m.newPendingPane(host)
+			m.currentPage.panes = append(m.currentPage.panes, p)
+			m.currentPage.focus = p
+			m.startPaneConnect(m.currentPage, p)
+		}
+		m.currentPage.layout = buildBalancedLayout(m.currentPage.panes, direction)
+		return nil
 	}
 
 	for _, host := range hosts {
