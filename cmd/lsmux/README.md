@@ -1,6 +1,11 @@
 lsmux
 ===
 
+<p align="center">
+  <img src="./img/lsmux_term.gif" width="77%" />
+</p>
+
+
 ## About
 
 `lsmux` is a pure Go, tmux-like SSH client that lets you select hosts from your `lssh` inventory and manage multiple remote sessions in a pane-based TUI. It is designed for operators who want to view several servers at once, run commands in dedicated panes, and keep the flexibility of `lssh` host selection while working in a terminal multiplexer style workflow.
@@ -17,16 +22,16 @@ USAGE:
     lsmux [options] [command...]
 
 OPTIONS:
-    --host servername, -H servername  connect servername.
-    --file filepath, -F filepath      config filepath. (default: "/Users/blacknon/.lssh.conf")
-    -R [bind_address:]port:remote_address:port  Remote port forward mode. If only one port is specified, it will operate as Reverse Dynamic Forward.
+    --host servername, -H servername            connect servername.
+    --file filepath, -F filepath                config filepath. (default: "/Users/blacknon/.lssh.conf")
+    -R [bind_address:]port:remote_address:port  Remote port forward mode.Specify a [bind_address:]port:remote_address:port. If only one port is specified, it will operate as Reverse Dynamic Forward.
     -r port                                     HTTP Reverse Dynamic port forward mode. Specify a port.
     -m port:/path/to/local                      NFS Reverse Dynamic forward mode. Specify a port:/path/to/local.
-    --hold                            keep command panes after remote command exits.
-    --allow-layout-change             allow opening new pages/panes even in command mode.
-    --list, -l                        print server list from config.
-    --help, -h                        print this help
-    --version, -v                     print the version
+    --hold                                      keep command panes after remote command exits.
+    --allow-layout-change                       allow opening new pages/panes even in command mode.
+    --list, -l                                  print server list from config.
+    --help, -h                                  print this help
+    --version, -v                               print the version
 
 VERSION:
     lssh-suite 0.7.2 (beta/sysadmin)
@@ -34,7 +39,6 @@ VERSION:
 USAGE:
     lsmux
     lsmux command...
-
 ```
 
 ## OverView
@@ -46,6 +50,10 @@ Hosts can be selected from your `lssh` inventory, and each pane keeps its own te
 This makes it easy to monitor several servers side by side without leaving the multiplexer interface.
 
 ### command execution
+
+<p align="center">
+  <img src="./img/lsmux_command.gif" width="77%" />
+</p>
 
 You can start `lsmux` with a command argument to create command panes instead of interactive shells.
 This is useful for running one-shot remote commands such as `hostname`, `tail`, or health-check scripts while keeping the results visible in separate panes.
@@ -81,6 +89,10 @@ lsmux -m 2049:/path/to/local
 ```
 
 ### file transfer
+
+<p align="center">
+  <img src="./img/lsmux_filetransfer.png" width="77%" />
+</p>
 
 Files can be transferred directly to the remote host represented by the active pane.
 This allows you to move scripts, configuration files, or small assets to the target server without leaving `lsmux` or opening a separate transfer tool.
