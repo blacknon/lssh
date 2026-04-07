@@ -130,10 +130,6 @@ func newTransferWizard(m *Manager, p *pane) *transferWizard {
 	w.dialog.SetBorder(true)
 	w.dialog.SetTitle("file transfer")
 	w.help.SetText("[yellow]Ctrl+N/Ctrl+P[-]: switch tab  [yellow]Ctrl+S[-]: run  [yellow]Ctrl+D[-]: change get target  [yellow]Space[-]: select source  [yellow]Enter[-]: select/open  [yellow]Esc[-]: close")
-	// w.summary.SetBorder(true)
-	// w.summary.SetTitle("transfer info")
-	// w.summary.SetBorderColor(tcell.ColorGreen)
-	// w.summary.SetTitleColor(tcell.ColorYellow)
 
 	for _, label := range transferModeLabels {
 		tabLabel := label
@@ -152,16 +148,31 @@ func newTransferWizard(m *Manager, p *pane) *transferWizard {
 			return loadRemoteEntries(client, current)
 		},
 		w.restore,
-		func([]string) { /* w.renderSummary() */ },
+		func([]string) {},
 		func(delta int) { w.shiftTab(delta) },
 	)
-	w.getTargetBrowser = newTransferFileBrowser(loadLocalEntries, nil, func([]string) {}, func(delta int) { w.shiftTab(delta) })
+	w.getBrowser.table.SetInputCapture(w.wrapTransferInput(w.getBrowser.handleInput))
+
+	w.getTargetBrowser = newTransferFileBrowser(
+		loadLocalEntries,
+		nil,
+		func([]string) {},
+		func(delta int) { w.shiftTab(delta) },
+	)
+	w.getTargetBrowser.table.SetInputCapture(w.wrapTransferInput(w.getTargetBrowser.handleInput))
 	w.getTargetBrowser.onSelectPath = func(selected string) {
 		w.getTargetPath = selected
-		// w.renderSummary()
 		w.refreshTargetBrowsers()
 	}
-	w.putBrowser = newTransferFileBrowser(loadLocalEntries, w.restore, func([]string) { /* w.renderSummary() */ }, func(delta int) { w.shiftTab(delta) })
+
+	w.putBrowser = newTransferFileBrowser(
+		loadLocalEntries,
+		w.restore,
+		func([]string) {},
+		func(delta int) { w.shiftTab(delta) },
+	)
+	w.putBrowser.table.SetInputCapture(w.wrapTransferInput(w.putBrowser.handleInput))
+
 	w.putTargetBrowser = newTransferFileBrowser(
 		func(current string) (string, []transferFileEntry, error) {
 			client, err := w.pane.session.OpenSFTP()
@@ -175,10 +186,11 @@ func newTransferWizard(m *Manager, p *pane) *transferWizard {
 		func([]string) {},
 		func(delta int) { w.shiftTab(delta) },
 	)
+	w.putTargetBrowser.table.SetInputCapture(w.wrapTransferInput(w.putTargetBrowser.handleInput))
 	w.putTargetBrowser.onSelectPath = func(selected string) {
 		w.putTargetPath = selected
-		// w.renderSummary()
 	}
+
 	w.copyBrowser = newTransferFileBrowser(
 		func(current string) (string, []transferFileEntry, error) {
 			client, err := w.pane.session.OpenSFTP()
@@ -189,23 +201,27 @@ func newTransferWizard(m *Manager, p *pane) *transferWizard {
 			return loadRemoteEntries(client, current)
 		},
 		w.restore,
-		func([]string) { /* w.renderSummary() */ },
+		func([]string) {},
 		func(delta int) { w.shiftTab(delta) },
 	)
+	w.copyBrowser.table.SetInputCapture(w.wrapTransferInput(w.copyBrowser.handleInput))
 	w.copyBrowser.SetTitle("source")
 	w.copyBrowser.SetHostLabel(w.pane.server)
 	w.copyBrowser.SetPathLabel("source path")
+
 	w.copyPicker = newTransferTargetPicker(w.connectedTargetServers(true), w.copyTargets, func(targets []string) {
 		w.copyTargets = append([]string(nil), targets...)
-		// w.renderSummary()
 	})
+	w.copyPicker.SetInputCapture(w.wrapTransferInput(w.copyPicker.handleInput))
+
+	w.transfersView.SetInputCapture(w.wrapTransferInput(nil))
 
 	w.content.AddItem(w.getBrowser.root, 0, 2, true)
 	w.content.AddItem(w.side, 0, 1, false)
 
 	base := tview.NewFlex().SetDirection(tview.FlexRow)
 	base.AddItem(w.tabs, 1, 0, false)
-	base.AddItem(w.summary, 4, 0, false)
+	base.AddItem(w.summary, 1, 0, false)
 	base.AddItem(w.content, 0, 1, true)
 	base.AddItem(w.help, 1, 0, false)
 
@@ -215,7 +231,8 @@ func newTransferWizard(m *Manager, p *pane) *transferWizard {
 	w.dialog.AddItem(base, 0, 1, true)
 
 	w.pages.AddPage("main", w.dialog, true, true)
-	w.root = centered(w.pages, 78, 20)
+	w.root = centered(w.pages, 78, 28)
+
 	go w.runTransfersTicker()
 	w.setMode(transferModeGet)
 	return w
@@ -242,7 +259,6 @@ func (w *transferWizard) setMode(mode transferMode) {
 	w.activeMode = mode
 	w.renderTabs()
 	w.rebuildSide()
-	// w.renderSummary()
 }
 
 func (w *transferWizard) shiftTab(delta int) {
@@ -254,6 +270,19 @@ func (w *transferWizard) shiftTab(delta int) {
 		next = 0
 	}
 	w.setMode(transferMode(next))
+}
+
+func (w *transferWizard) wrapTransferInput(next func(*tcell.EventKey) *tcell.EventKey) func(*tcell.EventKey) *tcell.EventKey {
+	return func(event *tcell.EventKey) *tcell.EventKey {
+		event = w.captureBaseInput(event)
+		if event == nil {
+			return nil
+		}
+		if next != nil {
+			return next(event)
+		}
+		return event
+	}
 }
 
 func (w *transferWizard) cycleGetTarget() {
@@ -363,6 +392,7 @@ func (w *transferWizard) buildPutSide() {
 
 func (w *transferWizard) buildCopySide() {
 	w.side.Clear()
+
 	controls := tview.NewForm()
 	styleTransferForm(controls)
 	controls.SetBorder(true)
@@ -375,7 +405,6 @@ func (w *transferWizard) buildCopySide() {
 	}
 	controls.AddInputField("Target Path", w.copyTargetPath, 0, nil, func(text string) {
 		w.copyTargetPath = text
-		// w.renderSummary()
 	})
 	if item := controls.GetFormItem(0); item != nil {
 		if input, ok := item.(*tview.InputField); ok {
@@ -384,6 +413,7 @@ func (w *transferWizard) buildCopySide() {
 			input.SetLabelColor(tcell.ColorYellow)
 		}
 	}
+
 	pickerFrame := tview.NewFlex().SetDirection(tview.FlexRow)
 	pickerTitle := tview.NewTextView().SetDynamicColors(true).SetWrap(false)
 	pickerTitle.SetText("[yellow]target panes[-]")
@@ -477,16 +507,6 @@ func (w *transferWizard) runTransfersTicker() {
 	}
 }
 
-// func (w *transferWizard) renderSummary() {
-// 	lines := []string{
-// 		// fmt.Sprintf("[yellow]mode[-]: %s", transferModeLabels[w.activeMode]),
-// 		// fmt.Sprintf("[yellow]source[-]: %s", tview.Escape(strings.Join(w.currentSources(), ", "))),
-// 		// fmt.Sprintf("[yellow]target[-]: %s", tview.Escape(w.currentTargetLabel())),
-// 		// fmt.Sprintf("[yellow]path[-]: %s", tview.Escape(w.currentTargetPath())),
-// 	}
-// 	w.summary.SetText(strings.Join(lines, "\n"))
-// }
-
 func (w *transferWizard) renderTransfers() {
 	if w.transfersView == nil {
 		return
@@ -558,12 +578,11 @@ func (w *transferWizard) refreshTargetBrowsers() {
 	}
 	w.getTargetBrowser.onSelectPath = func(selected string) {
 		w.getTargetPath = selected
-		// w.renderSummary()
 	}
 	w.getTargetBrowser.reload(w.getTargetPath)
+
 	w.putTargetBrowser.onSelectPath = func(selected string) {
 		w.putTargetPath = selected
-		// w.renderSummary()
 	}
 	w.putTargetBrowser.reload(w.putTargetPath)
 }
@@ -635,6 +654,7 @@ func (w *transferWizard) startTransfer() {
 func (m *Manager) newTransferJob(mode, source, target string, total int) *transferJob {
 	m.transferMu.Lock()
 	defer m.transferMu.Unlock()
+
 	m.nextTransferID++
 	if total <= 0 {
 		total = 1
@@ -663,6 +683,7 @@ func (m *Manager) updateTransferJob(job *transferJob, update func(*transferJob))
 func (m *Manager) transferJobs() []*transferJob {
 	m.transferMu.Lock()
 	defer m.transferMu.Unlock()
+
 	out := make([]*transferJob, 0, len(m.transfers))
 	for _, job := range m.transfers {
 		if job == nil {
@@ -763,6 +784,7 @@ func (w *transferWizard) launchTransferJobs() error {
 			go w.runGetJob(job, sourcePath)
 		}
 		return nil
+
 	case transferModePut:
 		for _, source := range sources {
 			sourcePath := source
@@ -770,6 +792,7 @@ func (w *transferWizard) launchTransferJobs() error {
 			go w.runPutJob(job, sourcePath)
 		}
 		return nil
+
 	case transferModeParallelPut:
 		if len(w.copyTargets) == 0 {
 			return fmt.Errorf("target panes are not selected")
@@ -783,6 +806,7 @@ func (w *transferWizard) launchTransferJobs() error {
 			}
 		}
 		return nil
+
 	default:
 		return fmt.Errorf("unknown transfer mode")
 	}
@@ -801,6 +825,7 @@ func (w *transferWizard) runGetJob(job *transferJob, source string) {
 		w.finishTransferJob(job, err)
 		return
 	}
+
 	targetPane := w.paneByServer(w.getTargetServer)
 	if targetPane == nil {
 		w.finishTransferJob(job, fmt.Errorf("target pane %s is not connected", w.getTargetServer))
@@ -812,6 +837,7 @@ func (w *transferWizard) runGetJob(job *transferJob, source string) {
 		return
 	}
 	defer dstClient.Close()
+
 	err = copyRemotePathToRemote(client, dstClient, source, w.getTargetPath)
 	w.finishTransferJob(job, err)
 }
@@ -823,6 +849,7 @@ func (w *transferWizard) runPutJob(job *transferJob, source string) {
 		return
 	}
 	defer client.Close()
+
 	err = copyLocalPathToRemote(client, source, w.putTargetPath)
 	w.finishTransferJob(job, err)
 }
@@ -833,18 +860,21 @@ func (w *transferWizard) runCopyJob(job *transferJob, source, server string) {
 		w.finishTransferJob(job, fmt.Errorf("target pane %s is not connected", server))
 		return
 	}
+
 	client, err := target.session.OpenSFTP()
 	if err != nil {
 		w.finishTransferJob(job, err)
 		return
 	}
 	defer client.Close()
+
 	srcClient, err := w.pane.session.OpenSFTP()
 	if err != nil {
 		w.finishTransferJob(job, err)
 		return
 	}
 	defer srcClient.Close()
+
 	err = copyRemotePathToRemote(srcClient, client, source, w.copyTargetPath)
 	w.finishTransferJob(job, err)
 }
@@ -881,6 +911,7 @@ func newTransferFileBrowser(
 		title:      "browser",
 		pathLabel:  "path",
 	}
+
 	b.root.SetBorder(true)
 	b.root.SetBorderColor(tcell.ColorGreen)
 	b.root.SetTitleColor(tcell.ColorYellow)
@@ -891,10 +922,12 @@ func newTransferFileBrowser(
 		b.activateCurrent(false)
 	})
 	b.reload("")
+
 	b.root.AddItem(b.headerView, 1, 0, false)
 	b.root.AddItem(b.pathView, 1, 0, false)
 	b.root.AddItem(b.table, 0, 1, true)
 	b.root.AddItem(b.helpView, 1, 0, false)
+
 	return b
 }
 
@@ -940,27 +973,29 @@ func newTransferTargetPicker(all []string, initial []string, onChange func([]str
 	p.SetSelectedBackgroundColor(tcell.ColorGreen)
 	p.SetHighlightFullLine(true)
 	p.SetBackgroundColor(tcell.ColorTeal)
-	p.SetInputCapture(func(event *tcell.EventKey) *tcell.EventKey {
-		if event == nil {
-			return nil
-		}
-		switch event.Key() {
-		case tcell.KeyRune:
-			if event.Rune() == ' ' {
-				p.toggleCurrent()
-				return nil
-			}
-		case tcell.KeyEnter:
-			p.toggleCurrent()
-			return nil
-		}
-		return event
-	})
+	p.SetInputCapture(p.handleInput)
 	p.SetSelectedFunc(func(index int, mainText string, secondaryText string, shortcut rune) {
 		p.toggleCurrent()
 	})
 	p.SetSelected(initial)
 	return p
+}
+
+func (p *transferTargetPicker) handleInput(event *tcell.EventKey) *tcell.EventKey {
+	if event == nil {
+		return nil
+	}
+	switch event.Key() {
+	case tcell.KeyRune:
+		if event.Rune() == ' ' {
+			p.toggleCurrent()
+			return nil
+		}
+	case tcell.KeyEnter:
+		p.toggleCurrent()
+		return nil
+	}
+	return event
 }
 
 func (p *transferTargetPicker) SetSelected(targets []string) {
@@ -1030,13 +1065,16 @@ func (b *transferFileBrowser) reload(current string) {
 	b.entries = entries
 	b.updateHeader()
 	b.table.Clear()
+
 	if err != nil {
 		b.table.SetCell(0, 0, tview.NewTableCell(fmt.Sprintf("load error: %v", err)).SetTextColor(tcell.ColorRed))
 		return
 	}
+
 	for i, entry := range entries {
 		b.table.SetCell(i, 0, b.entryCell(entry))
 	}
+
 	if len(entries) > 0 {
 		b.selecting = true
 		b.table.Select(0, 0)
@@ -1051,10 +1089,12 @@ func (b *transferFileBrowser) entryCell(entry transferFileEntry) *tview.TableCel
 		mark = "x "
 		selected = true
 	}
+
 	label := entry.Name
 	if entry.IsDir && label != ".." {
 		label += "/"
 	}
+
 	cell := tview.NewTableCell(mark + label).SetExpansion(1)
 	if selected {
 		cell.SetBackgroundColor(tcell.ColorTeal)
@@ -1129,6 +1169,7 @@ func (b *transferFileBrowser) activateCurrent(toggle bool) {
 	if row < 0 || row >= len(b.entries) {
 		return
 	}
+
 	entry := b.entries[row]
 	if entry.Name == ".." {
 		b.reload(entry.Path)
@@ -1142,6 +1183,7 @@ func (b *transferFileBrowser) activateCurrent(toggle bool) {
 		b.onSelectPath(entry.Path)
 		return
 	}
+
 	if _, ok := b.selected[entry.Path]; ok {
 		delete(b.selected, entry.Path)
 	} else {
@@ -1177,6 +1219,7 @@ func loadLocalEntries(current string) (string, []transferFileEntry, error) {
 			IsDir: entry.IsDir(),
 		})
 	}
+
 	return current, entries, nil
 }
 
@@ -1219,6 +1262,7 @@ func loadRemoteEntries(client *sftp.Client, current string) (string, []transferF
 			IsDir: entry.IsDir(),
 		})
 	}
+
 	return current, entries, nil
 }
 
