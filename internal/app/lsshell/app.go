@@ -68,6 +68,7 @@ USAGE:
 		// port forward option
 		cli.StringSliceFlag{Name: "R", Usage: "Remote port forward mode.Specify a `[bind_address:]port:remote_address:port`. If only one port is specified, it will operate as Reverse Dynamic Forward. Only single connection works."},
 		cli.StringFlag{Name: "r", Usage: "HTTP Reverse Dynamic port forward mode. Specify a `port`. Only single connection works."},
+		cli.StringFlag{Name: "m", Usage: "NFS Reverse Dynamic forward mode. Specify a `port:/path/to/local`. Only single connection works."},
 
 		// Other bool
 		cli.BoolFlag{Name: "term,t", Usage: "run specified command at terminal."},
@@ -163,6 +164,15 @@ USAGE:
 
 		// Local/Remote port forwarding port
 		r.PortForward = forwards
+		r.HTTPReverseDynamicPortForward = c.String("r")
+		if nfsReverseForwarding := c.String("m"); nfsReverseForwarding != "" {
+			port, path, err := common.ParseNFSForwardPortPath(nfsReverseForwarding)
+			if err != nil {
+				return err
+			}
+			r.NFSReverseDynamicForwardPort = port
+			r.NFSReverseDynamicForwardPath = common.GetFullPath(path)
+		}
 
 		// Get stdin data(pipe)
 		if runtime.GOOS != "windows" {

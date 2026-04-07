@@ -46,17 +46,31 @@ func (s *RemoteSession) OpenSFTP() (*sftp.Client, error) {
 // SessionFactory creates remote sessions for panes.
 type SessionFactory func(server string, cols, rows int) (*RemoteSession, error)
 
-func NewSessionFactory(cfg conf.Config, command []string) SessionFactory {
+func NewSessionFactory(cfg conf.Config, command []string, options SessionOptions) SessionFactory {
 	return func(server string, cols, rows int) (*RemoteSession, error) {
 		run := &sshcmd.Run{
 			ServerList: []string{server},
 			Conf:       cfg,
+			PortForward: append([]*conf.PortForward(nil),
+				options.PortForward...,
+			),
+			ReverseDynamicPortForward:     options.ReverseDynamicPortForward,
+			HTTPReverseDynamicPortForward: options.HTTPReverseDynamicPortForward,
+			NFSReverseDynamicForwardPort:  options.NFSReverseDynamicForwardPort,
+			NFSReverseDynamicForwardPath:  options.NFSReverseDynamicForwardPath,
 		}
 		run.CreateAuthMethodMap()
 		serverConf := cfg.Server[server]
+		forwardConf := run.PrepareParallelForwardConfig(server)
 
 		connect, err := run.CreateSshConnect(server)
 		if err != nil {
+			return nil, err
+		}
+		if err := sshcmd.StartParallelForwards(connect, forwardConf); err != nil {
+			if connect.Client != nil {
+				_ = connect.Client.Close()
+			}
 			return nil, err
 		}
 

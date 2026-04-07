@@ -5,6 +5,7 @@
 package ssh
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"os/exec"
@@ -409,6 +410,74 @@ func (r *Run) setPortForwards(server string, config conf.ServerConfig) (c conf.S
 	c.Forwards = append(c.Forwards, r.PortForward...)
 
 	return
+}
+
+// PrepareParallelForwardConfig returns only the forwarding settings that are safe
+// to apply independently to each parallel connection.
+func (r *Run) PrepareParallelForwardConfig(server string) (c conf.ServerConfig) {
+	c = r.Conf.Server[server]
+	c = r.setPortForwards(server, c)
+
+	if r.ReverseDynamicPortForward != "" {
+		c.ReverseDynamicPortForward = r.ReverseDynamicPortForward
+	}
+	if r.HTTPReverseDynamicPortForward != "" {
+		c.HTTPReverseDynamicPortForward = r.HTTPReverseDynamicPortForward
+	}
+	if r.NFSReverseDynamicForwardPort != "" {
+		c.NFSReverseDynamicForwardPort = r.NFSReverseDynamicForwardPort
+	}
+	if r.NFSReverseDynamicForwardPath != "" {
+		c.NFSReverseDynamicForwardPath = r.NFSReverseDynamicForwardPath
+	}
+
+	forwards := make([]*conf.PortForward, 0, len(c.Forwards))
+	for _, fw := range c.Forwards {
+		if fw == nil {
+			continue
+		}
+		if strings.ToUpper(fw.Mode) != "R" {
+			continue
+		}
+		forwards = append(forwards, fw)
+	}
+	c.Forwards = forwards
+
+	c.DynamicPortForward = ""
+	c.HTTPDynamicPortForward = ""
+	c.NFSDynamicForwardPort = ""
+	c.NFSDynamicForwardPath = ""
+
+	return
+}
+
+// StartParallelForwards starts only the reverse-side forwards that can be
+// applied independently per connection in parallel workflows.
+func StartParallelForwards(connect *sshlib.Connect, config conf.ServerConfig) error {
+	var errs []error
+
+	for _, fw := range config.Forwards {
+		if fw == nil {
+			continue
+		}
+		if err := connect.TCPRemoteForward(fw.Local, fw.Remote); err != nil {
+			errs = append(errs, err)
+		}
+	}
+
+	if config.ReverseDynamicPortForward != "" {
+		go connect.TCPReverseDynamicForward("localhost", config.ReverseDynamicPortForward)
+	}
+
+	if config.HTTPReverseDynamicPortForward != "" {
+		go connect.HTTPReverseDynamicForward("localhost", config.HTTPReverseDynamicPortForward)
+	}
+
+	if config.NFSReverseDynamicForwardPort != "" && config.NFSReverseDynamicForwardPath != "" {
+		go connect.NFSReverseForward("localhost", config.NFSReverseDynamicForwardPort, config.NFSReverseDynamicForwardPath)
+	}
+
+	return errors.Join(errs...)
 }
 
 // runCmdLocal exec command local machine.

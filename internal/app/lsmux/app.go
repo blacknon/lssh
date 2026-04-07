@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"regexp"
 	"runtime"
 	"sort"
 
@@ -53,6 +54,9 @@ USAGE:
 	app.Flags = []cli.Flag{
 		cli.StringSliceFlag{Name: "host,H", Usage: "connect `servername`."},
 		cli.StringFlag{Name: "file,F", Value: defConf, Usage: "config `filepath`."},
+		cli.StringSliceFlag{Name: "R", Usage: "Remote port forward mode.Specify a `[bind_address:]port:remote_address:port`. If only one port is specified, it will operate as Reverse Dynamic Forward."},
+		cli.StringFlag{Name: "r", Usage: "HTTP Reverse Dynamic port forward mode. Specify a `port`."},
+		cli.StringFlag{Name: "m", Usage: "NFS Reverse Dynamic forward mode. Specify a `port:/path/to/local`."},
 		cli.BoolFlag{Name: "hold", Usage: "keep command panes after remote command exits."},
 		cli.BoolFlag{Name: "allow-layout-change", Usage: "allow opening new pages/panes even in command mode."},
 		cli.BoolFlag{Name: "list,l", Usage: "print server list from config."},
@@ -81,22 +85,53 @@ USAGE:
 		if len(initialHosts) > 0 && !check.ExistServer(initialHosts, names) {
 			return fmt.Errorf("input server not found from list")
 		}
+		forwardConfig := mux.SessionOptions{}
+
+		var (
+			forwards []*conf.PortForward
+			err      error
+		)
+		for _, forwardargs := range c.StringSlice("R") {
+			f := new(conf.PortForward)
+			f.Mode = "R"
+
+			if regexp.MustCompile(`^[0-9]+$`).Match([]byte(forwardargs)) {
+				forwardConfig.ReverseDynamicPortForward = forwardargs
+				continue
+			}
+
+			f.Local, f.Remote, err = common.ParseForwardPort(forwardargs)
+			if err != nil {
+				return err
+			}
+			forwards = append(forwards, f)
+		}
+		forwardConfig.PortForward = forwards
+		forwardConfig.HTTPReverseDynamicPortForward = c.String("r")
+		if nfsReverseForwarding := c.String("m"); nfsReverseForwarding != "" {
+			port, path, err := common.ParseNFSForwardPortPath(nfsReverseForwarding)
+			if err != nil {
+				return err
+			}
+			forwardConfig.NFSReverseDynamicForwardPort = port
+			forwardConfig.NFSReverseDynamicForwardPath = common.GetFullPath(path)
+		}
 
 		var (
 			stdinData []byte
-			err       error
+			readErr   error
 		)
 		if len(c.Args()) > 0 && runtime.GOOS != "windows" {
 			stdin := 0
 			if !terminal.IsTerminal(stdin) {
-				stdinData, err = io.ReadAll(os.Stdin)
-				if err != nil {
-					return err
+				stdinData, readErr = io.ReadAll(os.Stdin)
+				if readErr != nil {
+					return readErr
 				}
 			}
 		}
 
-		manager, err := mux.NewManager(data, names, c.Args(), stdinData, initialHosts, c.Bool("hold"), c.Bool("allow-layout-change"))
+		manager, err := mux.NewManager(data, names, c.Args(), stdinData, initialHosts, c.Bool("hold"), c.Bool("allow-layout-change"), forwardConfig)
 		if err != nil {
 			return err
 		}

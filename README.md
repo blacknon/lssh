@@ -15,7 +15,6 @@ lssh is a pure Go, list-oriented SSH toolkit that lets you select hosts from a T
 
 ### Features
 
-- Pure Go SSH toolkit with cross-platform support for Linux, macOS, and Windows
 - Host inventory defined in TOML, with interactive filtering and selection
 - SSH, SCP, and SFTP workflows from a single tool suite
 - Parallel operations across multiple hosts, including command execution and interactive shells
@@ -25,7 +24,7 @@ lssh is a pure Go, list-oriented SSH toolkit that lets you select hosts from a T
 - Authentication support for password, public key, certificate, PKCS#11, and `ssh-agent`
 - OpenSSH config import, known_hosts support
 - ControlMaster/ControlPersist session reuse
-
+- Pure Go SSH toolkit with cross-platform support for Linux, macOS, and Windows
 
 ### Commands
 
