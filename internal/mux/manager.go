@@ -6,6 +6,7 @@ package mux
 
 import (
 	"fmt"
+	"io"
 	"sort"
 	"sync"
 
@@ -32,6 +33,7 @@ type Manager struct {
 	conf              conf.Config
 	names             []string
 	command           []string
+	stdinData         []byte
 	initial           []string
 	hold              bool
 	allowLayoutChange bool
@@ -58,7 +60,7 @@ type Manager struct {
 }
 
 // NewManager creates an lsmux manager.
-func NewManager(cfg conf.Config, names []string, command []string, initialHosts []string, hold bool, allowLayoutChange bool) (*Manager, error) {
+func NewManager(cfg conf.Config, names []string, command []string, stdinData []byte, initialHosts []string, hold bool, allowLayoutChange bool) (*Manager, error) {
 	app := tview.NewApplication()
 	sort.Strings(names)
 
@@ -103,6 +105,7 @@ func NewManager(cfg conf.Config, names []string, command []string, initialHosts 
 		conf:              cfg,
 		names:             append([]string(nil), names...),
 		command:           append([]string(nil), command...),
+		stdinData:         append([]byte(nil), stdinData...),
 		initial:           append([]string(nil), initialHosts...),
 		hold:              hold,
 		allowLayoutChange: allowLayoutChange,
@@ -515,6 +518,15 @@ func (m *Manager) activatePane(targetPage *page, p *pane, session *RemoteSession
 		})
 	})
 	p.term.Attach(session.Backend)
+	if len(m.command) > 0 && len(m.stdinData) > 0 && session.Terminal != nil && session.Terminal.Stdin != nil {
+		stdinData := append([]byte(nil), m.stdinData...)
+		go func(term io.WriteCloser, data []byte) {
+			if len(data) > 0 {
+				_, _ = term.Write(data)
+			}
+			_ = term.Close()
+		}(session.Terminal.Stdin, stdinData)
+	}
 	m.applyPaneStyle(p)
 }
 
