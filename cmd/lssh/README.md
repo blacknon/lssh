@@ -173,9 +173,11 @@ lssh -d 18080
 lssh -r 18080
 
 # NFS dynamic forward
+# Note: required mount process after forward.
 lssh -M 2049:/path/to/remote
 
 # NFS reverse dynamic forward
+# Note: required mount process after forward.
 lssh -m 2049:/path/to/local
 
 # tunnel device
@@ -327,9 +329,9 @@ The demo environment under [demo/README.md](../../demo/README.md) includes a wor
 
 ##### If you want peco or fzf on remote machine
 
-<!-- TODO:
-　　以下の文面を翻訳して記載する。
+If the remote machine does not have a fuzzy finder such as [peco](https://github.com/peco/peco) or [fzf](https://github.com/junegunn/fzf), but you still want to use that kind of workflow there, try [boco](https://github.com/blacknon/boco).
 
-　　もしリモートマシーン状にpecoやfzfのような
+Because boco is implemented as a shell function, you can bring it to the remote machine as-is through `local_rc`.
 
- -->
+Also, you can use NFS reverse mounting to transfer Linux binaries to a remote machine.
+Using this method, it should be possible to use peco or fzf even if they are not installed on the remote machine.

@@ -133,6 +133,15 @@ func Shell(r *sshcmd.Run) (err error) {
 		// TTY enable
 		con.TTY = true
 
+		forwardConf := r.PrepareParallelForwardConfig(server)
+		if err := sshcmd.StartParallelForwards(con, forwardConf); err != nil {
+			log.Println(err)
+			if con.Client != nil {
+				_ = con.Client.Close()
+			}
+			continue
+		}
+
 		// Create Output
 		o := &output.Output{
 			Templete:   config.OPrompt,
