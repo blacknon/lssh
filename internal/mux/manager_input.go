@@ -18,6 +18,22 @@ func (m *Manager) captureMouse(event *tcell.EventMouse, action tview.MouseAction
 	if action == tview.MouseLeftDown {
 		x, y := event.Position()
 		for _, p := range m.currentPage.panes {
+			if p == nil || p.primitive == nil {
+				continue
+			}
+			if tester, ok := p.primitive.(hitTester); ok && tester.hitTest(x, y) {
+				if m.currentPage.focus != p {
+					m.currentPage.focus = p
+					m.refreshPaneStyles()
+					m.updateStatus("")
+				}
+				if focus := p.focusPrimitive(); focus != nil {
+					m.app.SetFocus(focus)
+				}
+				return event, action
+			}
+		}
+		for _, p := range m.currentPage.panes {
 			if p == nil || p.term == nil {
 				continue
 			}
@@ -28,6 +44,9 @@ func (m *Manager) captureMouse(event *tcell.EventMouse, action tview.MouseAction
 				m.currentPage.focus = p
 				m.refreshPaneStyles()
 				m.updateStatus("")
+			}
+			if focus := p.focusPrimitive(); focus != nil {
+				m.app.SetFocus(focus)
 			}
 			return event, action
 		}
@@ -61,7 +80,10 @@ func (m *Manager) captureInput(event *tcell.EventKey) *tcell.EventKey {
 		return nil
 	}
 
-	if m.selectorFocus != nil && m.app.GetFocus() == m.selectorFocus {
+	if m.selectorFocus != nil && (m.app.GetFocus() == m.selectorFocus || (m.currentPage != nil && m.currentPage.focus != nil && m.currentPage.focus.transient)) {
+		if event.Key() == tcell.KeyCtrlC {
+			return tcell.NewEventKey(tcell.KeyEsc, 0, tcell.ModNone)
+		}
 		return event
 	}
 	if m.currentPage != nil && m.currentPage.focus != nil {
@@ -281,9 +303,14 @@ func (m *Manager) showTransfer() {
 	}
 
 	wizard := newTransferWizard(m, p)
-	p.primitive = newModalOverlay(p.term, wizard.primitive())
-	p.focusTarget = wizard.focusTarget()
+	overlay := newModalOverlay(p.term, wizard.primitive())
+	overlay.setFocusResolver(wizard.focusTarget)
+	p.primitive = overlay
+	p.focusTarget = nil
 	m.refreshMainPage()
+	if focus := p.focusPrimitive(); focus != nil {
+		m.app.SetFocus(focus)
+	}
 }
 
 func (m *Manager) broadcastKey(event *tcell.EventKey) {
@@ -361,17 +388,7 @@ func (m *Manager) closeAll(panes []*pane) {
 }
 
 func centered(p tview.Primitive, width, height int) tview.Primitive {
-	return tview.NewFlex().
-		AddItem(nil, 0, 1, false).
-		AddItem(
-			tview.NewFlex().
-				SetDirection(tview.FlexRow).
-				AddItem(nil, 0, 1, false).
-				AddItem(p, height, 1, true).
-				AddItem(nil, 0, 1, false),
-			width, 1, true,
-		).
-		AddItem(nil, 0, 1, false)
+	return newCenteredPrimitive(p, width, height)
 }
 
 func minInt(a, b int) int {
