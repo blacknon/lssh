@@ -15,7 +15,6 @@ lssh is a pure Go, list-oriented SSH toolkit that lets you select hosts from a T
 
 ### Features
 
-- Pure Go SSH toolkit with cross-platform support for Linux, macOS, and Windows
 - Host inventory defined in TOML, with interactive filtering and selection
 - SSH, SCP, and SFTP workflows from a single tool suite
 - Parallel operations across multiple hosts, including command execution and interactive shells
@@ -25,7 +24,7 @@ lssh is a pure Go, list-oriented SSH toolkit that lets you select hosts from a T
 - Authentication support for password, public key, certificate, PKCS#11, and `ssh-agent`
 - OpenSSH config import, known_hosts support
 - ControlMaster/ControlPersist session reuse
-
+- Pure Go SSH toolkit with cross-platform support for Linux, macOS, and Windows
 
 ### Commands
 
@@ -50,6 +49,65 @@ If you want to try the main connection patterns locally, see [demo/README.md](./
 
 You can install `lssh` with `go install`, Homebrew, or by building from source.
 
+### Prebuilt binaries
+
+Prebuilt binaries are available on GitHub Releases.
+
+#### Linux (amd64, tar.gz)
+
+<details>
+
+Install to `/usr/local/bin`:
+
+```bash id="1c8m19"
+VERSION=0.7.1
+curl -fL -o /tmp/lssh.tar.gz \
+  "https://github.com/blacknon/lssh/releases/download/v${VERSION}/lssh_${VERSION}_linux_amd64.tar.gz"
+sudo tar -xzf /tmp/lssh.tar.gz -C /tmp
+sudo install -m 0755 /tmp/lssh_${VERSION}_linux_amd64/bin/* /usr/local/bin/
+```
+
+</details>
+
+#### Debian / Ubuntu (.deb)
+
+<details>
+
+```bash
+VERSION=0.7.1
+curl -fL -o /tmp/lssh.deb \
+  "https://github.com/blacknon/lssh/releases/download/v${VERSION}/lssh_${VERSION}_amd64.deb"
+sudo apt install /tmp/lssh.deb
+```
+
+</details>
+
+#### RHEL / Fedora / Rocky / AlmaLinux (.rpm)
+
+<details>
+
+```bash
+VERSION=0.7.1
+curl -fL -o /tmp/lssh.rpm \
+  "https://github.com/blacknon/lssh/releases/download/v${VERSION}/lssh-${VERSION}-1.x86_64.rpm"
+sudo dnf install -y /tmp/lssh.rpm
+```
+
+</details>
+
+#### Package layout
+
+`lssh` provides both a full suite package and smaller split packages.
+
+| Package | Includes | Best for |
+| --- | --- | --- |
+| `lssh_*` | `lssh`, `lscp`, `lsftp`, `lsmon`, `lsshell` | Full installation of the entire tool suite |
+| `lssh-core_*` | `lssh` | SSH access and forwarding only |
+| `lssh-transfer_*` | `lscp`, `lsftp` | File transfer workflows only |
+| `lssh-monitor_*` | `lsmon` | Monitoring multiple remote hosts |
+| `lssh-sysadmin_*` | `lsshell` | Parallel shell / multi-host operations |
+
+
 ### go install
 
 Install the latest version directly with Go.
@@ -58,20 +116,8 @@ Install the latest version directly with Go.
 go install github.com/blacknon/lssh/cmd/lssh@latest
 go install github.com/blacknon/lssh/cmd/lscp@latest
 go install github.com/blacknon/lssh/cmd/lsftp@latest
-go install github.com/blacknon/lssh/cmd/lshell@latest
+go install github.com/blacknon/lssh/cmd/lsshell@latest
 go install github.com/blacknon/lssh/cmd/lsmon@latest
-```
-
-### build from source
-
-Build from the repository when you want to work from the local source tree.
-
-```bash
-GO111MODULE=auto go get -u github.com/blacknon/lssh/cmd/lssh
-GO111MODULE=auto go get -u github.com/blacknon/lssh/cmd/lscp
-GO111MODULE=auto go get -u github.com/blacknon/lssh/cmd/lsftp
-GO111MODULE=auto go get -u github.com/blacknon/lssh/cmd/lsshell
-GO111MODULE=auto go get -u github.com/blacknon/lssh/cmd/lsmon
 ```
 
 ### brew install
@@ -82,10 +128,21 @@ Install with Homebrew on macOS.
 brew install blacknon/lssh/lssh
 ```
 
+### build from source
+
+Build from the repository when you want to work from the local source tree.
+
+```bash
+git clone https://github.com/blacknon/lssh.git
+cd lssh
+make build
+sudo make install
+```
+
 ## Usage
 
 This section describes shared configuration features used across the `lssh` suite.
-For command-specific features and CLI usage, see [cmd/README.md](/Users/blacknon/_go/src/github.com/blacknon/lssh/cmd/README.md) and the README in each command directory.
+For command-specific features and CLI usage, see [cmd/README.md](cmd/README.md) and the README in each command directory.
 
 ### TUI navigation and key bindings
 
@@ -431,7 +488,7 @@ note = "reuse ssh session"
 
 ## Licence
 
-A short snippet describing the license [MIT](https://github.com/blacknon/lssh/blob/master/LICENSE.md).
+A short snippet describing the license [MIT](LICENSE.md).
 
 ## Author
 

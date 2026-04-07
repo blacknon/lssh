@@ -45,6 +45,7 @@ import (
 // Config is Struct that stores the entire configuration file.
 type Config struct {
 	Log      LogConfig
+	Mux      MuxConfig
 	Shell    ShellConfig
 	Include  map[string]IncludeConfig
 	Includes IncludesConfig
@@ -195,6 +196,7 @@ func Read(confPath string) (c Config) {
 		},
 		c.Common,
 	)
+	c.Mux = c.Mux.ApplyDefaults()
 
 	// reduce common setting (in .lssh.conf servers)
 	c.ReduceCommon()
