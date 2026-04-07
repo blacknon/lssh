@@ -10,6 +10,8 @@ Supported on Linux, macOS and Windows.
 
 If use **pkcs11** authentication, cgo must be enabled.
 
+Local and remote forwarding support both TCP and Unix domain sockets.
+
 * This program refactors the processing performed by lssh(https://github.com/blacknon/lssh) so that it can be treated as a library.
 
 ## Usage
