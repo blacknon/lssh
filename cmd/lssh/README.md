@@ -173,9 +173,11 @@ lssh -d 18080
 lssh -r 18080
 
 # NFS dynamic forward
+# Note: required mount process after forward.
 lssh -M 2049:/path/to/remote
 
 # NFS reverse dynamic forward
+# Note: required mount process after forward.
 lssh -m 2049:/path/to/local
 
 # tunnel device
@@ -282,6 +284,8 @@ local_rc_file = [
 
 #### Tips
 
+##### Use local vimrc & tmux.conf
+
 When you want to use your local `vimrc` or `tmux.conf` on the remote side without leaving files behind, the practical approach is to generate wrapper functions and transfer those wrappers with `local_rc_file`. Unlike `bash --rcfile`, these tools need the config every time they start, so it is easier to decode the local config inside a function such as `lvim` or `ltmux` and then replace the command with an alias like `alias vim=lvim`.
 
 This is the same approach used in `blacknon/dotfiles` with `update_lvim` and `update_ltmux`: keep the editable source files locally, then regenerate small shell functions that embed the latest config as `base64`.
@@ -322,3 +326,12 @@ The demo environment under [demo/README.md](../../demo/README.md) includes a wor
 - `~/.demo_localrc/bin/update_ltmux`
 - `~/.demo_localrc/generated/lvim.sh`
 - `~/.demo_localrc/generated/ltmux.sh`
+
+##### If you want peco or fzf on remote machine
+
+If the remote machine does not have a fuzzy finder such as [peco](https://github.com/peco/peco) or [fzf](https://github.com/junegunn/fzf), but you still want to use that kind of workflow there, try [boco](https://github.com/blacknon/boco).
+
+Because boco is implemented as a shell function, you can bring it to the remote machine as-is through `local_rc`.
+
+Also, you can use NFS reverse mounting to transfer Linux binaries to a remote machine.
+Using this method, it should be possible to use peco or fzf even if they are not installed on the remote machine.

@@ -7,6 +7,10 @@ import (
 	"github.com/pkg/sftp"
 )
 
+func (c *Connect) OpenSFTP() (*sftp.Client, error) {
+	return c.newSFTPClient()
+}
+
 func (c *Connect) newSFTPClient() (*sftp.Client, error) {
 	if c.isControlClient() {
 		return c.controlClient.newSFTPClient()

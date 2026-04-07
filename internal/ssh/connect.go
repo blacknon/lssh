@@ -269,11 +269,8 @@ func (r *Run) createSshConnect(server string, forceDirect bool) (connect *sshlib
 		s.ControlPersist = 0
 	}
 
-	// If ControlPersist is enabled for this server, build a Connect that
-	// passes ProxyRoute directly to go-sshlib so ControlMaster/ControlPersist
-	// can manage proxies. Use credential information from config (not
-	// runtime-auth methods) so the detached helper can recreate auth.
-	if s.ControlPersist > 0 {
+	// ControlPersist path is only valid when ControlMaster is enabled.
+	if s.ControlMaster && s.ControlPersist > 0 {
 		connect, err = r.createSshConnectWithControlPersist(server, proxyRoute)
 		if err != nil {
 			return nil, err
@@ -283,9 +280,6 @@ func (r *Run) createSshConnect(server string, forceDirect bool) (connect *sshlib
 			connect.StdoutMutex = &r.stdoutMutex
 		}
 
-		// Now create the underlying client (this will handle ControlMaster/ControlPersist
-		// behavior inside go-sshlib). Use the runtime auth methods for the immediate
-		// connection; ControlPersistAuth is already set on the connect for detached helper.
 		err = connect.CreateClient(s.Addr, s.Port, s.User, r.serverAuthMethodMap[server])
 		if err != nil {
 			if client, ok := dialer.(*ssh.Client); ok {
@@ -340,30 +334,25 @@ func (r *Run) createSshConnect(server string, forceDirect bool) (connect *sshlib
 		OverwriteKnownHosts:   true,
 	}
 
-	// Apply ControlMaster settings (with sensible defaults)
 	if s.ControlMaster {
 		connect.ControlMaster = "auto"
 	} else {
 		connect.ControlMaster = "no"
 	}
 
-	// ControlPath: expand or set default under configured base path.
-	// Precedence: explicit s.ControlPath > s.ControlPathBase > s.Defaults.ControlPathBase > c.Common.Defaults.ControlPathBase > built-in
 	connect.ControlPath = expandControlPath(s.ControlPath, server, s)
 
-	// ControlPersist: precedence for default string is
-	// explicit s.ControlPersistDefault > s.Defaults.ControlPersistDefault > c.Common.Defaults.ControlPersistDefault > built-in "10m"
 	persist, err := time.ParseDuration(fmt.Sprintf("%ds", s.ControlPersist))
 	if err != nil || persist <= 0 {
 		persist = 10 * time.Minute
 	}
+	connect.ControlPersist = persist
 
 	if r.EnableStdoutMutex {
 		connect.StdoutMutex = &r.stdoutMutex
 	}
 
 	err = connect.CreateClient(s.Addr, s.Port, s.User, r.serverAuthMethodMap[server])
-
 	if err != nil {
 		if client, ok := dialer.(*ssh.Client); ok {
 			client.Close()
