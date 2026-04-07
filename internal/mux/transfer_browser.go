@@ -101,12 +101,11 @@ func newTransferTargetPicker(all []string, initial []string, onChange func([]str
 		selected: map[string]struct{}{},
 		onChange: onChange,
 	}
-	p.SetMainTextColor(tcell.ColorBlack)
 	p.SetMainTextColor(tcell.ColorWhite)
 	p.SetSelectedTextColor(tcell.ColorBlack)
 	p.SetSelectedBackgroundColor(tcell.ColorGreen)
 	p.SetHighlightFullLine(true)
-	p.SetBackgroundColor(tcell.ColorDefault)
+	p.SetBackgroundColor(tcell.ColorBlack)
 	p.SetInputCapture(p.handleInput)
 	p.SetSelectedFunc(func(index int, mainText, secondaryText string, shortcut rune) {
 		p.toggleCurrent()
