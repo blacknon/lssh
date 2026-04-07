@@ -409,6 +409,7 @@ func (w *transferWizard) buildCopyContent() {
 	controls.SetTitle("copy settings")
 	controls.SetBorderColor(tcell.ColorGreen)
 	controls.SetTitleColor(tcell.ColorYellow)
+	controls.SetBackgroundColor(tcell.ColorBlack)
 	controls.SetButtonsAlign(tview.AlignLeft)
 	controls.SetInputCapture(func(event *tcell.EventKey) *tcell.EventKey {
 		event = w.captureBaseInput(event)
@@ -438,6 +439,8 @@ func (w *transferWizard) buildCopyContent() {
 			input.SetFieldBackgroundColor(tcell.ColorTeal)
 			input.SetFieldTextColor(tcell.ColorBlack)
 			input.SetLabelColor(tcell.ColorYellow)
+			input.SetPlaceholder(".")
+			input.SetPlaceholderTextColor(tcell.ColorWhite)
 		}
 	}
 
@@ -447,7 +450,7 @@ func (w *transferWizard) buildCopyContent() {
 	w.copyPicker.SetTitleColor(tcell.ColorYellow)
 	w.copyPicker.SetSelected(w.copyTargets)
 	w.side.AddItem(w.copyPicker, 0, 1, false)
-	w.side.AddItem(controls, 4, 0, false)
+	w.side.AddItem(controls, 5, 0, false)
 	w.setContent(w.copyBrowser.root, w.side)
 }
 
