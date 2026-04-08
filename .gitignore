@@ -18,7 +18,7 @@
 /lscp
 /lsftp
 /lsmon
+/lsmux
 /lsshell
-/lsshfs
 /lssync
 *.exe

@@ -7,7 +7,8 @@ RUN GO111MODULE=on go build -mod=vendor -o /out/lssh ./cmd/lssh && \
     GO111MODULE=on go build -mod=vendor -o /out/lscp ./cmd/lscp && \
     GO111MODULE=on go build -mod=vendor -o /out/lsftp ./cmd/lsftp && \
     GO111MODULE=on go build -mod=vendor -o /out/lsshell ./cmd/lsshell && \
-    GO111MODULE=on go build -mod=vendor -o /out/lsmon ./cmd/lsmon
+    GO111MODULE=on go build -mod=vendor -o /out/lsmon ./cmd/lsmon && \
+    GO111MODULE=on go build -mod=vendor -o /out/lsmux ./cmd/lsmux
 
 FROM debian:bookworm-slim
 
@@ -36,6 +37,7 @@ COPY --from=builder /out/lscp /usr/local/bin/lscp
 COPY --from=builder /out/lsftp /usr/local/bin/lsftp
 COPY --from=builder /out/lsshell /usr/local/bin/lsshell
 COPY --from=builder /out/lsmon /usr/local/bin/lsmon
+COPY --from=builder /out/lsmux /usr/local/bin/lsmux
 COPY demo/client/entrypoint.sh /usr/local/bin/demo-client-entrypoint.sh
 COPY demo/client/lssh-bastion.sh /usr/local/bin/demo-lssh-bastion.sh
 COPY demo/client/home/ /home/demo/

@@ -25,6 +25,7 @@ OPTIONS:
     --file filepath, -F filepath                config filepath. (default: "/Users/blacknon/.lssh.conf")
     -R [bind_address:]port:remote_address:port  Remote port forward mode.Specify a [bind_address:]port:remote_address:port. If only one port is specified, it will operate as Reverse Dynamic Forward. Only single connection works.
     -r port                                     HTTP Reverse Dynamic port forward mode. Specify a port. Only single connection works.
+    -m port:/path/to/local                      NFS Reverse Dynamic forward mode. Specify a port:/path/to/local. Only single connection works.
     --term, -t                                  run specified command at terminal.
     --list, -l                                  print server list from config.
     --help, -h                                  print this help
@@ -34,11 +35,12 @@ COPYRIGHT:
     blacknon(blacknon@orebibou.com)
 
 VERSION:
-    lssh-suite 0.7.0 (stable/core)
+    lssh-suite 0.8.0 (beta/sysadmin)
 
 USAGE:
     # connect parallel ssh shell
-    lsshell
+  lsshell
+
 ```
 
 ## OverView
@@ -178,7 +180,11 @@ clear         clear the screen
 %outexec      run a local command with history output in environment variables
 %get          copy from remote to local
 %put          copy from local to remote
+%sync         one-way sync between local and remote paths
 ```
+
+`%sync` uses the same path prefixes as `lssync`, for example `local:./site` or `remote:/srv/app`.
+When you need to pin a remote path to a specific host, use `remote:@host:/path`.
 
 ### forwarding
 
@@ -186,6 +192,7 @@ The following forwarding options are available
 
 - Remote port forward (`-R`)
 - HTTP Reverse Dynamic forward (`-r`)
+- NFS Reverse Dynamic forward (`-m`)
 
 Command line examples.
 
@@ -195,6 +202,9 @@ lsshell -R 80:localhost:8080
 
 # HTTP reverse dynamic forwarding
 lsshell -r 18080
+
+# NFS reverse dynamic forwarding
+lsshell -m 2049:/path/to/local
 ```
 
 ### history and notes

@@ -55,6 +55,7 @@ type controlResponse struct {
 	Error      string
 	StreamPath string
 	Address    string
+	Network    string
 	ListenerID uint64
 	LocalAddr  controlAddr
 	RemoteAddr controlAddr
@@ -410,6 +411,7 @@ func (m *controlMaster) prepareListener(req controlRequest) (controlResponse, er
 	return controlResponse{
 		OK:         true,
 		Address:    listener.Addr().String(),
+		Network:    listener.Addr().Network(),
 		ListenerID: id,
 	}, nil
 }
@@ -927,7 +929,7 @@ func (c *controlClient) Listen(network, addr string) (net.Listener, error) {
 	return &controlListener{
 		client: c,
 		id:     resp.ListenerID,
-		addr:   controlListenerAddr(resp.Address),
+		addr:   decodeControlAddr(controlAddr{Network: resp.Network, Address: resp.Address}),
 	}, nil
 }
 
@@ -964,19 +966,9 @@ func (l *controlListener) Addr() net.Addr {
 	return l.addr
 }
 
-type controlListenerAddr string
-
 type staticAddr struct {
 	network string
 	address string
-}
-
-func (a controlListenerAddr) Network() string {
-	return "tcp"
-}
-
-func (a controlListenerAddr) String() string {
-	return string(a)
 }
 
 func (a staticAddr) Network() string {

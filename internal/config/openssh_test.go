@@ -1,6 +1,10 @@
 package conf
 
-import "testing"
+import (
+	"os"
+	"path/filepath"
+	"testing"
+)
 
 func TestNormalizeOpenSSHIdentityFile(t *testing.T) {
 	t.Parallel()
@@ -13,7 +17,13 @@ func TestNormalizeOpenSSHIdentityFile(t *testing.T) {
 		t.Fatalf("normalizeOpenSSHIdentityFile(default missing identity) = %q, want empty", got)
 	}
 
-	if got := normalizeOpenSSHIdentityFile("~/.ssh/demo_lssh_ed25519"); got != "~/.ssh/demo_lssh_ed25519" {
+	tempDir := t.TempDir()
+	explicitKey := filepath.Join(tempDir, "demo_lssh_ed25519")
+	if err := os.WriteFile(explicitKey, []byte("dummy"), 0o600); err != nil {
+		t.Fatalf("write explicit key: %v", err)
+	}
+
+	if got := normalizeOpenSSHIdentityFile(explicitKey); got != explicitKey {
 		t.Fatalf("normalizeOpenSSHIdentityFile(existing explicit key) = %q, want original path", got)
 	}
 }

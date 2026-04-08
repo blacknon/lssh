@@ -1,0 +1,32 @@
+[server.ConditionalOverProxy]
+addr = "172.31.1.41"
+key = "~/.ssh/demo_lssh_ed25519"
+control_master = false
+note = "conditional route demo: direct on backend, ssh_proxy on frontend"
+
+[server.ConditionalOverProxy.match.frontend_via_ssh_proxy]
+priority = 1
+when.local_ip_in = ["172.31.0.0/24"]
+proxy = "ssh_proxy"
+note = "conditional route demo: frontend clients use ssh_proxy"
+
+[server.ConditionalOverProxy.match.outside_demo]
+priority = 90
+when.local_ip_not_in = ["172.31.0.0/24", "172.31.1.0/24", "172.31.2.0/24", "172.31.3.0/24"]
+ignore = true
+note = "hidden when the local machine is outside the demo networks"
+
+[server.ConditionalNestedProxy]
+addr = "172.31.3.71"
+key = "~/.ssh/demo_lssh_ed25519"
+proxy = "deep_socks_proxy"
+proxy_type = "socks5"
+control_master = false
+note = "conditional nested route demo: frontend uses deep_http_proxy, fallback uses deep_socks_proxy"
+
+[server.ConditionalNestedProxy.match.frontend_via_http]
+priority = 1
+when.local_ip_in = ["172.31.0.0/24"]
+proxy = "deep_http_proxy"
+proxy_type = "http"
+note = "conditional nested route demo: frontend clients use OverSshProxy and deep_http_proxy"
