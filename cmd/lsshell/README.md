@@ -179,7 +179,11 @@ clear         clear the screen
 %outexec      run a local command with history output in environment variables
 %get          copy from remote to local
 %put          copy from local to remote
+%sync         one-way sync between local and remote paths
 ```
+
+`%sync` uses the same path prefixes as `lssync`, for example `local:./site` or `remote:/srv/app`.
+When you need to pin a remote path to a specific host, use `remote:@host:/path`.
 
 ### forwarding
 
