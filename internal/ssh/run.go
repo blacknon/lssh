@@ -415,6 +415,69 @@ func (r *Run) setPortForwards(server string, config conf.ServerConfig) (c conf.S
 	return
 }
 
+func (r *Run) startPortForward(connect *sshlib.Connect, fw *conf.PortForward) error {
+	if fw == nil {
+		return nil
+	}
+
+	localNetwork := fw.LocalNetwork
+	if localNetwork == "" {
+		localNetwork = "tcp"
+	}
+	remoteNetwork := fw.RemoteNetwork
+	if remoteNetwork == "" {
+		remoteNetwork = "tcp"
+	}
+
+	if strings.ToUpper(fw.Mode) == "R" {
+		return connect.RemoteForward(localNetwork, fw.Local, remoteNetwork, fw.Remote)
+	}
+
+	return connect.LocalForward(localNetwork, fw.Local, remoteNetwork, fw.Remote)
+}
+
+// ParallelIgnoredFeatures lists forwarding settings that are intentionally
+// skipped for per-host parallel sessions because they require local listeners.
+func (r *Run) ParallelIgnoredFeatures(server string) []string {
+	config := r.Conf.Server[server]
+	config = r.setPortForwards(server, config)
+
+	if r.DynamicPortForward != "" {
+		config.DynamicPortForward = r.DynamicPortForward
+	}
+	if r.HTTPDynamicPortForward != "" {
+		config.HTTPDynamicPortForward = r.HTTPDynamicPortForward
+	}
+	if r.NFSDynamicForwardPort != "" {
+		config.NFSDynamicForwardPort = r.NFSDynamicForwardPort
+	}
+	if r.NFSDynamicForwardPath != "" {
+		config.NFSDynamicForwardPath = r.NFSDynamicForwardPath
+	}
+
+	notices := []string{}
+	for _, fw := range config.Forwards {
+		if fw == nil || strings.ToUpper(fw.Mode) == "R" {
+			continue
+		}
+		notices = append(notices, fmt.Sprintf("-L %s:%s", fw.Local, fw.Remote))
+	}
+	if config.DynamicPortForward != "" {
+		notices = append(notices, fmt.Sprintf("-D %s", config.DynamicPortForward))
+	}
+	if config.HTTPDynamicPortForward != "" {
+		notices = append(notices, fmt.Sprintf("-d %s", config.HTTPDynamicPortForward))
+	}
+	if config.NFSDynamicForwardPort != "" && config.NFSDynamicForwardPath != "" {
+		notices = append(notices, fmt.Sprintf("-M %s:%s", config.NFSDynamicForwardPort, config.NFSDynamicForwardPath))
+	}
+	if r.TunnelEnabled {
+		notices = append(notices, fmt.Sprintf("--tunnel %d:%d", r.TunnelLocal, r.TunnelRemote))
+	}
+
+	return notices
+}
+
 // PrepareParallelForwardConfig returns only the forwarding settings that are safe
 // to apply independently to each parallel connection.
 func (r *Run) PrepareParallelForwardConfig(server string) (c conf.ServerConfig) {
@@ -463,7 +526,7 @@ func StartParallelForwards(connect *sshlib.Connect, config conf.ServerConfig) er
 		if fw == nil {
 			continue
 		}
-		if err := connect.TCPRemoteForward(fw.Local, fw.Remote); err != nil {
+		if err := (&Run{}).startPortForward(connect, fw); err != nil {
 			errs = append(errs, err)
 		}
 	}

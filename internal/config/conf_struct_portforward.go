@@ -6,7 +6,9 @@ package conf
 
 // PortForward
 type PortForward struct {
-	Mode   string // L or R.
-	Local  string // localhost:8080
-	Remote string // localhost:80
+	Mode          string // L or R.
+	Local         string // localhost:8080 or /tmp/local.sock
+	Remote        string // localhost:80 or /tmp/remote.sock
+	LocalNetwork  string // tcp or unix
+	RemoteNetwork string // tcp or unix
 }

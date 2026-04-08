@@ -33,6 +33,9 @@ OPTIONS:
     -Y                                          Enable trusted x11 forwarding(forward to ${DISPLAY}).
     --term, -t                                  run specified command at terminal.
     --parallel, -p                              run command parallel node(tail -F etc...).
+    -P                                          run shell or command in mux UI (lsmux compatible).
+    --hold                                      keep command panes after remote command exits (with -P).
+    --allow-layout-change                       allow opening new pages/panes even in command mode (with -P).
     --localrc                                   use local bashrc shell.
     --not-localrc                               not use local bashrc shell.
     --list, -l                                  print server list from config.
@@ -92,6 +95,13 @@ If you pipe input before the command, `stdin` is sent to the selected server.
 
 ```sh
 echo "hostname" | lssh hostname
+```
+
+If you want the `lsmux` style pane UI from `lssh`, use `-P`.
+When a command is given, piped `stdin` is copied to each pane, and `--hold` keeps finished panes open.
+
+```sh
+echo "hostname" | lssh -P --hold hostname
 ```
 
 ### pre_cmd / post_cmd
@@ -159,6 +169,9 @@ Command line examples.
 ```bash
 # local port forwarding
 lssh -L 8080:localhost:80
+
+# local unix socket forwarding
+lssh -L /tmp/local.sock:/tmp/remote.sock
 
 # remote port forwarding
 lssh -R 80:localhost:8080

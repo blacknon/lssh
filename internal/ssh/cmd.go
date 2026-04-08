@@ -170,14 +170,7 @@ func (r *Run) cmd() (err error) {
 
 			// Port Forwarding
 			for _, fw := range config.Forwards {
-				// port forwarding
-				switch fw.Mode {
-				case "L", "":
-					err = c.TCPLocalForward(fw.Local, fw.Remote)
-				case "R":
-					err = c.TCPRemoteForward(fw.Local, fw.Remote)
-				}
-
+				err = r.startPortForward(c, fw)
 				if err != nil {
 					fmt.Fprintln(os.Stderr, err)
 				}
