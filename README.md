@@ -102,11 +102,11 @@ sudo dnf install -y /tmp/lssh.rpm
 
 | Package | Includes | Best for |
 | --- | --- | --- |
-| `lssh_*` | `lssh`, `lscp`, `lsftp`, `lsmon`, `lsshell` | Full installation of the entire tool suite |
+| `lssh_*` | `lssh`, `lscp`, `lsftp`, `lsmon`, `lsshell`, `lsmux` | Full installation of the entire tool suite |
 | `lssh-core_*` | `lssh` | SSH access and forwarding only |
 | `lssh-transfer_*` | `lscp`, `lsftp` | File transfer workflows only |
 | `lssh-monitor_*` | `lsmon` | Monitoring multiple remote hosts |
-| `lssh-sysadmin_*` | `lsshell` | Parallel shell / multi-host operations |
+| `lssh-sysadmin_*` | `lsshell`, `lsmux` | Parallel shell / multi-host operations |
 
 
 ### go install
