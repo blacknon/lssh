@@ -5,8 +5,10 @@
 package conf
 
 import (
+	"net/netip"
 	"testing"
 
+	"github.com/BurntSushi/toml"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -142,10 +144,10 @@ func TestGetNameList(t *testing.T) {
 			listConf: Config{
 				Server: map[string]ServerConfig{
 					"a": {},
-					"b": {},
+					"b": {Ignore: true},
 				},
 			},
-			expect: []string{"a", "b"},
+			expect: []string{"a"},
 		},
 		{
 			desc: "",
@@ -159,4 +161,170 @@ func TestGetNameList(t *testing.T) {
 		got := GetNameList(v.listConf)
 		assert.Equal(t, v.expect, got, v.desc)
 	}
+}
+
+func TestResolveConditionalMatchesPriorityAndOrder(t *testing.T) {
+	originalDetector := detectMatchContext
+	t.Cleanup(func() { detectMatchContext = originalDetector })
+	detectMatchContext = func(reqs matchRequirements) matchContext {
+		return matchContext{
+			LocalIPs: []netip.Addr{netip.MustParseAddr("100.64.12.3")},
+		}
+	}
+
+	var cfg Config
+	_, err := toml.Decode(`
+[server.test]
+addr = "172.16.10.51"
+user = "root"
+pass = "secret"
+
+[server.test.match.second]
+priority = 1
+when.local_ip_in = ["100.64.0.0/10"]
+addr = "172.31.0.52"
+
+[server.test.match.first]
+priority = 1
+when.local_ip_in = ["100.64.0.0/10"]
+addr = "172.31.0.51"
+`, &cfg)
+	if !assert.NoError(t, err) {
+		return
+	}
+	applyMatchMetadata(&cfg, mustDecodeMeta(t, `
+[server.test]
+addr = "172.16.10.51"
+user = "root"
+pass = "secret"
+
+[server.test.match.second]
+priority = 1
+when.local_ip_in = ["100.64.0.0/10"]
+addr = "172.31.0.52"
+
+[server.test.match.first]
+priority = 1
+when.local_ip_in = ["100.64.0.0/10"]
+addr = "172.31.0.51"
+`))
+
+	err = cfg.ResolveConditionalMatches()
+	if !assert.NoError(t, err) {
+		return
+	}
+	assert.Equal(t, "172.31.0.52", cfg.Server["test"].Addr)
+}
+
+func TestResolveConditionalMatchesLocalIPFallbackAndIgnore(t *testing.T) {
+	originalDetector := detectMatchContext
+	t.Cleanup(func() { detectMatchContext = originalDetector })
+
+	cfg := Config{
+		Server: map[string]ServerConfig{
+			"sv-pve01": {
+				Addr: "172.16.10.51",
+				User: "root",
+				Pass: "secret",
+				Match: map[string]ServerMatchConfig{
+					"from_vpn1": {
+						When: ServerMatchWhen{
+							LocalIPIn: []string{"100.64.0.0/10"},
+						},
+						Addr: "172.31.0.51",
+					},
+					"from_other_net": {
+						Priority: 2,
+						When: ServerMatchWhen{
+							LocalIPNotIn: []string{"100.64.0.0/10", "172.16.100.0/24"},
+						},
+						Addr:   "172.31.3.51",
+						Ignore: true,
+					},
+				},
+			},
+		},
+	}
+	cfg.Server["sv-pve01"].Match["from_vpn1"] = ServerMatchConfig{
+		Priority: 1,
+		When: ServerMatchWhen{
+			LocalIPIn: []string{"100.64.0.0/10"},
+		},
+		Addr:            "172.31.0.51",
+		priorityDefined: true,
+		order:           1,
+	}
+	cfg.Server["sv-pve01"].Match["from_other_net"] = ServerMatchConfig{
+		Priority: 2,
+		When: ServerMatchWhen{
+			LocalIPNotIn: []string{"100.64.0.0/10", "172.16.100.0/24"},
+		},
+		Addr:            "172.31.3.51",
+		Ignore:          true,
+		priorityDefined: true,
+		order:           2,
+	}
+
+	detectMatchContext = func(reqs matchRequirements) matchContext {
+		return matchContext{LocalIPs: []netip.Addr{netip.MustParseAddr("192.168.1.50")}}
+	}
+	err := cfg.ResolveConditionalMatches()
+	if !assert.NoError(t, err) {
+		return
+	}
+	assert.Equal(t, "172.31.3.51", cfg.Server["sv-pve01"].Addr)
+	assert.True(t, cfg.Server["sv-pve01"].Ignore)
+	assert.Empty(t, GetNameList(cfg))
+
+	cfg.Server["sv-pve01"] = ServerConfig{
+		Addr:  "172.16.10.51",
+		User:  "root",
+		Pass:  "secret",
+		Match: cfg.Server["sv-pve01"].Match,
+	}
+	detectMatchContext = func(reqs matchRequirements) matchContext {
+		return matchContext{LocalIPs: []netip.Addr{netip.MustParseAddr("172.16.100.20")}}
+	}
+	err = cfg.ResolveConditionalMatches()
+	if !assert.NoError(t, err) {
+		return
+	}
+	assert.Equal(t, "172.16.10.51", cfg.Server["sv-pve01"].Addr)
+	assert.False(t, cfg.Server["sv-pve01"].Ignore)
+}
+
+func TestResolveConditionalMatchesInvalidCIDR(t *testing.T) {
+	cfg := Config{
+		Server: map[string]ServerConfig{
+			"example": {
+				Addr: "10.0.0.1",
+				User: "root",
+				Pass: "secret",
+				Match: map[string]ServerMatchConfig{
+					"broken": {
+						When: ServerMatchWhen{
+							LocalIPIn: []string{"bad-cidr"},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	err := cfg.ResolveConditionalMatches()
+	if !assert.Error(t, err) {
+		return
+	}
+	assert.Contains(t, err.Error(), "invalid IP/CIDR")
+}
+
+func mustDecodeMeta(t *testing.T, body string) toml.MetaData {
+	t.Helper()
+
+	var cfg Config
+	md, err := toml.Decode(body, &cfg)
+	if !assert.NoError(t, err) {
+		return toml.MetaData{}
+	}
+	return md
 }

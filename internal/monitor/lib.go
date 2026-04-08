@@ -34,12 +34,14 @@ type Monitor struct {
 	// BaseTab(List)
 	BaseGrid *mview.Grid
 	// BaseTop      map[string]*NodeTop
-	table        *mview.Table // MainTab(List)'s table
-	top          *mview.Grid  // MainTab(List)'s top
-	selectedNode string
-	enableTop    bool // MainTab(List) enable Top
-	topTerminals map[string]*topTerminalPane
-	termFactory  mux.SessionFactory
+	table             *mview.Table // MainTab(List)'s table
+	top               *mview.Grid  // MainTab(List)'s top
+	selectedNode      string
+	enableTop         bool // MainTab(List) enable Top
+	topTerminals      map[string]*topTerminalPane
+	termFactory       mux.SessionFactory
+	sharedTermFactory mux.SessionFactory
+	shareConnect      bool
 
 	sync.Mutex
 }
@@ -51,6 +53,8 @@ func Run(r *sshrun.Run) (err error) {
 	monitor.enableTop = false
 	monitor.topTerminals = map[string]*topTerminalPane{}
 	monitor.termFactory = mux.NewSessionFactory(r.Conf, nil, mux.SessionOptions{})
+	monitor.sharedTermFactory = monitor.createSharedTopTerminalSession
+	monitor.shareConnect = r.ShareConnect
 
 	// Create WaitGroup
 	wg := sync.WaitGroup{}
