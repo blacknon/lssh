@@ -378,9 +378,23 @@ reverse_mount() {
 }
 ```
 
-
 ##### If you use iTerm2 and image view in terminal
 
 If you use iTerm2 and display images in the terminal with the [Inline image Protocol](https://iterm2.com/documentation-images.html), it is useful to use [this function](https://iterm2.com/documentation-images.html).
 
 Because this is not a script, you can bring it to a remote machine as-is.
+
+##### Using lssh as an SSH bastion host
+
+You can use `lssh` on a jump host and connect to final destinations from there.
+
+For example, install `lssh` on the bastion server, prepare a host list that is shared by your team, and then start `lssh` after logging in to the bastion host. This is useful when direct access to target servers is restricted and all SSH access must go through a single entry point.
+
+workflow:
+
+1. SSH to the bastion host.
+2. Start `lssh` on the bastion host.
+3. Select the destination server from the `lssh` list.
+4. Connect to the selected server from the bastion host.
+
+This approach helps centralize access paths while keeping the server selection flow simple for operators.
