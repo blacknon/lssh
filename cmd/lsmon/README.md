@@ -26,6 +26,7 @@ OPTIONS:
     --host servername, -H servername    connect servername.
     --file filepath, -F filepath        config filepath. (default: "/Users/blacknon/.lssh.conf")
     --logfile value, -L value           Set log file path.
+    --share-connect, -s                 reuse the monitor SSH connection for terminals.
     --list, -l                          print server list from config.
     --debug                             debug pprof. use port 6060.
     --help, -h                          print this help
@@ -69,6 +70,9 @@ Press `Ctrl + X` to open a top-screen-style window.
 
 In the htop-like viewer, press `Ctrl + T` to open a terminal for the selected host.
 This lets you move directly from monitoring to interactive shell access without leaving the viewer.
+
+By default, this terminal opens a separate SSH connection so interactive work stays isolated from the monitor.
+If you want the terminal to reuse the monitor connection instead, start `lsmon` with `--share-connect` or `-s`.
 
 ### metrics
 
