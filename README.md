@@ -36,6 +36,7 @@ The `lssh` suite provides multiple commands for different SSH-related workflows.
 | [lsftp](./cmd/lsftp/README.md) | Interactive file operations over SFTP | Interactive SFTP shell for browsing directories, transferring files, and managing one or more hosts together. |
 | [lscp](./cmd/lscp/README.md) | SCP-style file transfer | File transfer command for local-to-remote, remote-to-local, and remote-to-remote copy operations over SSH. |
 | [lsshell](./cmd/lsshell/README.md) | Sending commands to multiple hosts | Parallel interactive shell that can broadcast commands to selected hosts from a single prompt. |
+| [lsmux](./cmd/lsmux/README.md) | Managing multiple SSH sessions in panes | Tmux-like SSH multiplexer that opens selected hosts in a pane-based TUI, supports command panes and file transfer, and keeps multiple remote sessions visible at once. |
 | [lsmon](./cmd/lsmon/README.md) | Monitoring multiple remote hosts | TUI monitor that displays CPU, memory, disk, network, and process information from multiple hosts side by side. |
 
 
