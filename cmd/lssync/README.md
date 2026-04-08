@@ -17,14 +17,30 @@ USAGE:
     lssync [options] (local|remote):from_path... (local|remote):to_path
 
 OPTIONS:
-    --host servername, -H servername  connect servernames
-    --list, -l                        print server list from config
-    --file filepath, -F filepath      config file path
-    --parallel value, -P value        parallel file sync count per host (default: 1)
-    --permission, -p                  copy file permission
-    --delete                          delete destination entries that do not exist in source
-    --help, -h                        print this help
-    --version, -v                     print the version
+    --host value, -H value      connect servernames
+    --list, -l                  print server list from config
+    --file value, -F value      config file path (default: "/Users/blacknon/.lssh.conf")
+    --parallel value, -P value  parallel file sync count per host (default: 1)
+    --permission, -p            copy file permission
+    --delete                    delete destination entries that do not exist in source
+    --help, -h                  print this help
+    --version, -v               print the version
+
+COPYRIGHT:
+    blacknon(blacknon@orebibou.com)
+
+VERSION:
+    lssh-suite 0.8.0 (beta/transfer)
+
+USAGE:
+    # local to remote sync
+    lssync /path/to/local... remote:/path/to/remote
+
+    # remote to local sync
+    lssync remote:/path/to/remote... /path/to/local
+
+    # remote to remote sync
+    lssync remote:/path/to/remote... remote:/path/to/local
 ```
 
 ## Overview

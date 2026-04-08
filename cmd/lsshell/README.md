@@ -35,11 +35,12 @@ COPYRIGHT:
     blacknon(blacknon@orebibou.com)
 
 VERSION:
-    lssh-suite 0.7.0 (stable/core)
+    lssh-suite 0.8.0 (beta/sysadmin)
 
 USAGE:
     # connect parallel ssh shell
-    lsshell
+  lsshell
+
 ```
 
 ## OverView
