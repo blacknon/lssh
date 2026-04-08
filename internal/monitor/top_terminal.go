@@ -40,7 +40,7 @@ func (m *Monitor) openTopTerminal() {
 	m.reDrawBasePanel()
 
 	go func(current *topTerminalPane, server string) {
-		session, err := m.termFactory(server, 80, 24)
+		session, err := m.createTopTerminalSession(server, 80, 24)
 		m.View.QueueUpdateDraw(func() {
 			if m.topTerminals[server] != current {
 				if session != nil && session.Backend != nil {
@@ -143,6 +143,13 @@ func (m *Monitor) startTopTerminalDrawLoop(pane *topTerminalPane) {
 			}
 		}
 	}()
+}
+
+func (m *Monitor) createTopTerminalSession(server string, cols, rows int) (*mux.RemoteSession, error) {
+	if m.shareConnect {
+		return m.sharedTermFactory(server, cols, rows)
+	}
+	return m.termFactory(server, cols, rows)
 }
 
 func (m *Monitor) createTopTerminalMessage(host string, message string) mview.Primitive {
