@@ -113,3 +113,27 @@ func TestPrepareParallelForwardConfigUsesRunOverrides(t *testing.T) {
 		t.Fatalf("config.Forwards[0] = %#v, want CLI remote forward", config.Forwards[0])
 	}
 }
+
+func TestParallelIgnoredFeatures(t *testing.T) {
+	r := &Run{
+		Conf: conf.Config{
+			Server: map[string]conf.ServerConfig{
+				"target": {
+					PortForwards:           []string{"local:18080:localhost:8080", "remote:10080:localhost:80"},
+					DynamicPortForward:     "1080",
+					HTTPDynamicPortForward: "18080",
+					NFSDynamicForwardPort:  "2049",
+					NFSDynamicForwardPath:  "/remote",
+				},
+			},
+		},
+		TunnelEnabled: true,
+		TunnelLocal:   0,
+		TunnelRemote:  1,
+	}
+
+	got := r.ParallelIgnoredFeatures("target")
+	if len(got) != 5 {
+		t.Fatalf("len(ParallelIgnoredFeatures()) = %d, want 5: %#v", len(got), got)
+	}
+}

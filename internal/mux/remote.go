@@ -26,8 +26,9 @@ import (
 
 // RemoteSession owns a mux pane SSH connection.
 type RemoteSession struct {
-	Server string
-	Config conf.ServerConfig
+	Server  string
+	Config  conf.ServerConfig
+	Notices []string
 
 	Connect  *sshlib.Connect
 	Terminal *sshlib.Terminal
@@ -58,10 +59,18 @@ func NewSessionFactory(cfg conf.Config, command []string, options SessionOptions
 			HTTPReverseDynamicPortForward: options.HTTPReverseDynamicPortForward,
 			NFSReverseDynamicForwardPort:  options.NFSReverseDynamicForwardPort,
 			NFSReverseDynamicForwardPath:  options.NFSReverseDynamicForwardPath,
+			X11:                           options.X11,
+			X11Trusted:                    options.X11Trusted,
+			IsBashrc:                      options.IsBashrc,
+			IsNotBashrc:                   options.IsNotBashrc,
 		}
 		run.CreateAuthMethodMap()
 		serverConf := cfg.Server[server]
 		forwardConf := run.PrepareParallelForwardConfig(server)
+		notices := []string{}
+		if options.ParallelInfo != nil {
+			notices = options.ParallelInfo(server)
+		}
 
 		connect, err := run.CreateSshConnect(server)
 		if err != nil {
@@ -159,6 +168,7 @@ func NewSessionFactory(cfg conf.Config, command []string, options SessionOptions
 		return &RemoteSession{
 			Server:   server,
 			Config:   serverConf,
+			Notices:  append([]string(nil), notices...),
 			Connect:  connect,
 			Terminal: terminal,
 			LogPath:  logPath,
