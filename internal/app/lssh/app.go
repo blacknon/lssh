@@ -6,6 +6,7 @@ package lssh
 
 import (
 	"fmt"
+	"io"
 	"os"
 	"os/exec"
 	"regexp"
@@ -16,9 +17,11 @@ import (
 	"github.com/blacknon/lssh/internal/common"
 	conf "github.com/blacknon/lssh/internal/config"
 	"github.com/blacknon/lssh/internal/list"
+	"github.com/blacknon/lssh/internal/mux"
 	sshcmd "github.com/blacknon/lssh/internal/ssh"
 	"github.com/blacknon/lssh/internal/version"
 	"github.com/urfave/cli"
+	"golang.org/x/crypto/ssh/terminal"
 )
 
 func Lssh() (app *cli.App) {
@@ -54,6 +57,9 @@ USAGE:
 
     # run command parallel in selected server over ssh.
     {{.Name}} -p command...
+
+    # run command or shell in mux UI.
+    {{.Name}} -P [command...]
 `
 
 	// Create app
@@ -104,6 +110,9 @@ USAGE:
 		cli.BoolFlag{Name: "Y", Usage: "Enable trusted x11 forwarding(forward to ${DISPLAY})."},
 		cli.BoolFlag{Name: "term,t", Usage: "run specified command at terminal."},
 		cli.BoolFlag{Name: "parallel,p", Usage: "run command parallel node(tail -F etc...)."},
+		cli.BoolFlag{Name: "P", Usage: "run shell or command in mux UI (lsmux compatible)."},
+		cli.BoolFlag{Name: "hold", Usage: "keep command panes after remote command exits (with -P)."},
+		cli.BoolFlag{Name: "allow-layout-change", Usage: "allow opening new pages/panes even in command mode (with -P)."},
 		cli.BoolFlag{Name: "localrc", Usage: "use local bashrc shell."},
 		cli.BoolFlag{Name: "not-localrc", Usage: "not use local bashrc shell."},
 		cli.BoolFlag{Name: "list,l", Usage: "print server list from config."},
@@ -145,6 +154,116 @@ USAGE:
 				fmt.Fprintf(os.Stdout, "  %s\n", names[v])
 			}
 			os.Exit(0)
+		}
+
+		enableX11 := c.Bool("X11")
+		enableTrustedX11 := c.Bool("Y")
+
+		if c.Bool("P") {
+			if len(hosts) > 0 && !check.ExistServer(hosts, names) {
+				fmt.Fprintln(os.Stderr, "Input Server not found from list.")
+				os.Exit(1)
+			}
+
+			var (
+				err       error
+				stdinData []byte
+				forwards  []*conf.PortForward
+			)
+
+			for _, forwardargs := range c.StringSlice("L") {
+				f := new(conf.PortForward)
+				f.Mode = "L"
+				f.LocalNetwork, f.Local, f.RemoteNetwork, f.Remote, err = common.ParseForwardSpec(forwardargs)
+				if err != nil {
+					fmt.Fprintf(os.Stderr, "Error: %s\n", err)
+					os.Exit(1)
+				}
+				forwards = append(forwards, f)
+			}
+
+			forwardConfig := mux.SessionOptions{
+				PortForward: forwards,
+				X11:         enableX11 || enableTrustedX11,
+				X11Trusted:  enableTrustedX11,
+				IsBashrc:    c.Bool("localrc"),
+				IsNotBashrc: c.Bool("not-localrc"),
+			}
+			for _, forwardargs := range c.StringSlice("R") {
+				f := new(conf.PortForward)
+				f.Mode = "R"
+
+				if regexp.MustCompile(`^[0-9]+$`).Match([]byte(forwardargs)) {
+					forwardConfig.ReverseDynamicPortForward = forwardargs
+					continue
+				}
+
+				f.Local, f.Remote, err = common.ParseForwardPort(forwardargs)
+				if err != nil {
+					fmt.Fprintf(os.Stderr, "Error: %s\n", err)
+					os.Exit(1)
+				}
+				forwards = append(forwards, f)
+			}
+			forwardConfig.PortForward = forwards
+			forwardConfig.HTTPReverseDynamicPortForward = c.String("r")
+			if nfsReverseForwarding := c.String("m"); nfsReverseForwarding != "" {
+				port, path, parseErr := common.ParseNFSForwardPortPath(nfsReverseForwarding)
+				if parseErr != nil {
+					fmt.Fprintf(os.Stderr, "Error: %s\n", parseErr)
+					os.Exit(1)
+				}
+				forwardConfig.NFSReverseDynamicForwardPort = port
+				forwardConfig.NFSReverseDynamicForwardPath = common.GetFullPath(path)
+			}
+
+			run := &sshcmd.Run{
+				Conf:                          data,
+				PortForward:                   forwards,
+				DynamicPortForward:            c.String("D"),
+				HTTPDynamicPortForward:        c.String("d"),
+				ReverseDynamicPortForward:     forwardConfig.ReverseDynamicPortForward,
+				HTTPReverseDynamicPortForward: forwardConfig.HTTPReverseDynamicPortForward,
+				NFSReverseDynamicForwardPort:  forwardConfig.NFSReverseDynamicForwardPort,
+				NFSReverseDynamicForwardPath:  forwardConfig.NFSReverseDynamicForwardPath,
+			}
+			if nfsForwarding := c.String("M"); nfsForwarding != "" {
+				port, path, parseErr := common.ParseNFSForwardPortPath(nfsForwarding)
+				if parseErr != nil {
+					fmt.Fprintf(os.Stderr, "Error: %s\n", parseErr)
+					os.Exit(1)
+				}
+				run.NFSDynamicForwardPort = port
+				run.NFSDynamicForwardPath = path
+			}
+			if t := c.String("tunnel"); t != "" {
+				local, remote, parseErr := common.ParseTunnelSpec(t)
+				if parseErr != nil {
+					fmt.Fprintln(os.Stderr, "Invalid --tunnel format:", parseErr)
+					os.Exit(1)
+				}
+				run.TunnelEnabled = true
+				run.TunnelLocal = local
+				run.TunnelRemote = remote
+			}
+			forwardConfig.ParallelInfo = run.ParallelIgnoredFeatures
+
+			if len(c.Args()) > 0 && runtime.GOOS != "windows" {
+				stdin := 0
+				if !terminal.IsTerminal(stdin) {
+					stdinData, err = io.ReadAll(os.Stdin)
+					if err != nil {
+						fmt.Fprintf(os.Stderr, "Error: %s\n", err)
+						os.Exit(1)
+					}
+				}
+			}
+
+			manager, err := mux.NewManager(data, names, c.Args(), stdinData, hosts, c.Bool("hold"), c.Bool("allow-layout-change"), forwardConfig)
+			if err != nil {
+				return err
+			}
+			return manager.Run()
 		}
 
 		selected := []string{}
@@ -200,10 +319,6 @@ USAGE:
 		r.ExecCmd = c.Args()
 		r.IsParallel = c.Bool("parallel")
 
-		// x11 forwarding
-		enableX11 := c.Bool("X11")
-		enableTrustedX11 := c.Bool("Y")
-
 		if enableX11 || enableTrustedX11 {
 			r.X11 = true
 		}
@@ -236,7 +351,7 @@ USAGE:
 		for _, forwardargs := range c.StringSlice("L") {
 			f := new(conf.PortForward)
 			f.Mode = "L"
-			f.Local, f.Remote, err = common.ParseForwardPort(forwardargs)
+			f.LocalNetwork, f.Local, f.RemoteNetwork, f.Remote, err = common.ParseForwardSpec(forwardargs)
 			forwards = append(forwards, f)
 		}
 
@@ -255,7 +370,7 @@ USAGE:
 		}
 
 		// Set NFS Forwarding
-		nfsForwarding := c.String("n")
+		nfsForwarding := c.String("M")
 		if nfsForwarding != "" {
 			port, path, err := common.ParseNFSForwardPortPath(nfsForwarding)
 			if err != nil {

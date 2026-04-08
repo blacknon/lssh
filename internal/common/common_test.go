@@ -198,3 +198,52 @@ func TestParseTunnelSpec_Invalid(t *testing.T) {
 		}
 	}
 }
+
+func TestParseForwardSpec(t *testing.T) {
+	tests := []struct {
+		in            string
+		localNetwork  string
+		local         string
+		remoteNetwork string
+		remote        string
+	}{
+		{
+			in:            "8080:localhost:80",
+			localNetwork:  "tcp",
+			local:         "localhost:8080",
+			remoteNetwork: "tcp",
+			remote:        "localhost:80",
+		},
+		{
+			in:            "/tmp/local.sock:/tmp/remote.sock",
+			localNetwork:  "unix",
+			local:         "/tmp/local.sock",
+			remoteNetwork: "unix",
+			remote:        "/tmp/remote.sock",
+		},
+		{
+			in:            "/tmp/local.sock:localhost:80",
+			localNetwork:  "unix",
+			local:         "/tmp/local.sock",
+			remoteNetwork: "tcp",
+			remote:        "localhost:80",
+		},
+		{
+			in:            "8080:/tmp/remote.sock",
+			localNetwork:  "tcp",
+			local:         "localhost:8080",
+			remoteNetwork: "unix",
+			remote:        "/tmp/remote.sock",
+		},
+	}
+
+	for _, tt := range tests {
+		localNetwork, local, remoteNetwork, remote, err := ParseForwardSpec(tt.in)
+		if err != nil {
+			t.Fatalf("ParseForwardSpec(%q) error = %v", tt.in, err)
+		}
+		if localNetwork != tt.localNetwork || local != tt.local || remoteNetwork != tt.remoteNetwork || remote != tt.remote {
+			t.Fatalf("ParseForwardSpec(%q) = (%q, %q, %q, %q), want (%q, %q, %q, %q)", tt.in, localNetwork, local, remoteNetwork, remote, tt.localNetwork, tt.local, tt.remoteNetwork, tt.remote)
+		}
+	}
+}
