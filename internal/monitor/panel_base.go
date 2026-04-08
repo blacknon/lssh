@@ -49,17 +49,38 @@ func (m *Monitor) createBasePanel() (baseGrid *mview.Grid) {
 	baseGrid.AddItem(m.table, 0, 0, 1, 3, 0, 100, true)
 
 	// Set input capture
+	m.View.SetInputCapture(func(event *tcell.EventKey) *tcell.EventKey {
+		if _, ok := m.View.GetFocus().(*tvxtermPrimitive); ok {
+			if focus := m.View.GetFocus(); focus != nil {
+				if handler := focus.InputHandler(); handler != nil {
+					handler(event, func(p mview.Primitive) {
+						m.View.SetFocus(p)
+					})
+				}
+			}
+			return nil
+		}
+		return event
+	})
 	m.table.SetInputCapture(func(event *tcell.EventKey) *tcell.EventKey {
 		switch event.Key() {
 		case tcell.KeyCtrlX:
 			// toggle top panel
 			m.enableTop = !m.enableTop
+			if !m.enableTop {
+				m.View.SetFocus(m.table)
+			}
 
 			// baseGrid Clear
 			m.reDrawBasePanel()
 
 			// draw
 			m.View.Draw()
+		case tcell.KeyCtrlT:
+			if m.enableTop && m.selectedNode != "" {
+				m.openTopTerminal()
+				return nil
+			}
 		}
 
 		return event
@@ -104,12 +125,17 @@ func (m *Monitor) reDrawBasePanel() {
 	// Set column
 	m.BaseGrid.SetColumns(0)
 
-	if m.enableTop && m.selectedNode != "" {
+	selectedNode := m.selectedNode
+	if m.enableTop && selectedNode != "" {
 		m.BaseGrid.SetRows(6, 0, 1)
 
 		// create top panel
-		top := m.GetNode(m.selectedNode).NodeTop
-		m.BaseGrid.AddItem(top.Grid, 1, 0, 1, 1, 0, 0, false)
+		top := m.GetNode(selectedNode).NodeTop
+		if pane := m.getSelectedTopTerminal(); pane != nil {
+			m.BaseGrid.AddItem(newTopOverlayPrimitive(top.Grid, pane.Primitive, 60), 1, 0, 1, 1, 0, 0, false)
+		} else {
+			m.BaseGrid.AddItem(top.Grid, 1, 0, 1, 1, 0, 0, false)
+		}
 
 		footer := m.createFooter()
 		m.BaseGrid.AddItem(footer, 2, 0, 1, 1, 0, 0, false)
@@ -136,7 +162,7 @@ func (m *Monitor) createFooter() mview.Primitive {
 	footer := mview.NewTextView()
 
 	footer.SetDynamicColors(true)
-	footer.SetText("Ctrl-X[black:#00ffff]ToggleTopPanel[white]  ")
+	footer.SetText("Ctrl-X[black:#00ffff]ToggleTopPanel[white:none]Ctrl-T[white:#ff00ff]OpenTerminal[white]")
 	footer.SetBackgroundColor(mview.ColorUnset)
 	footer.SetTextAlign(mview.AlignLeft)
 
