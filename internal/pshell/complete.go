@@ -165,6 +165,7 @@ func (s *shell) Completer(t prompt.Document) []prompt.Suggest {
 				{Text: "%outexec", Description: "%outexec <-n num> command..., exec local command with output result. result is in env variable."},
 				{Text: "%get", Description: "%get remote local, copy files from remote hosts to localhost."},
 				{Text: "%put", Description: "%put local... remote, copy local files to remote hosts."},
+				{Text: "%sync", Description: "%sync [--delete] [-p] [-P num] (local|remote):source... (local|remote):target"},
 				{Text: "%save", Description: "reserved built-in command."},
 				{Text: "%set", Description: "reserved built-in command."},
 				// outの出力でdiffをするためのローカルコマンド。すべての出力と比較するのはあまりに辛いと思われるため、最初の出力との比較、といった方式で対応するのが良いか？？
@@ -246,6 +247,28 @@ func (s *shell) getBuildInCommandSuggest(command string, t prompt.Document, targ
 			)
 		case num >= 3:
 			return s.GetPathComplete(false, t.GetWordBeforeCursor())
+		}
+
+	case "%sync":
+		switch {
+		case contains([]string{"-"}, char):
+			return []prompt.Suggest{
+				{Text: "--delete", Description: "delete destination entries not present in source"},
+				{Text: "--permission", Description: "copy file permission"},
+				{Text: "-p", Description: "copy file permission"},
+				{Text: "--parallel", Description: "parallel file sync count per host"},
+				{Text: "-P", Description: "parallel file sync count per host"},
+			}
+		default:
+			return appendPathSuggests(
+				[]prompt.Suggest{
+					{Text: "local:", Description: "local path"},
+					{Text: "remote:", Description: "remote path"},
+					{Text: "remote:@", Description: "remote path with host selector"},
+				},
+				s.GetPathComplete(false, t.GetWordBeforeCursor()),
+				s.GetPathCompleteForConnects(targetConns, true, t.GetWordBeforeCursor()),
+			)
 		}
 	}
 

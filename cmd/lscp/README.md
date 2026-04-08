@@ -23,19 +23,19 @@ USAGE:
     lscp [options] (local|remote):from_path... (local|remote):to_path
 
 OPTIONS:
-    --host servername, -H servername  connect servernames
-    --list, -l                        print server list from config
-    --file filepath, -F filepath      config file path (default: "/Users/blacknon/.lssh.conf")
-    --parallel value, -P value        parallel file copy count per host (default: 1)
-    --permission, -p                  copy file permission
-    --help, -h                        print this help
-    --version, -v                     print the version
+    --host value, -H value      connect servernames
+    --list, -l                  print server list from config
+    --file value, -F value      config file path (default: "/Users/blacknon/.lssh.conf")
+    --parallel value, -P value  parallel file copy count per host (default: 1)
+    --permission, -p            copy file permission
+    --help, -h                  print this help
+    --version, -v               print the version
 
 COPYRIGHT:
     blacknon(blacknon@orebibou.com)
 
 VERSION:
-    lssh-suite 0.7.0 (stable/core)
+    lssh-suite 0.8.0 (stable/transfer)
 
 USAGE:
     # local to remote scp
@@ -46,6 +46,7 @@ USAGE:
 
     # remote to remote scp
     lscp remote:/path/to/remote... remote:/path/to/local
+
 ```
 
 ## OverView

@@ -289,7 +289,6 @@ func (r *RunSftp) enqueuePullTasks(ctx context.Context, client *TargetConnectMap
 	if !filepath.IsAbs(rpath) {
 		rpath = filepath.Join(client.Pwd, rpath)
 	}
-	base := filepath.Dir(rpath)
 
 	epath, err := ExpandRemotePath(client, rpath)
 	if err != nil {
@@ -316,6 +315,9 @@ func (r *RunSftp) enqueuePullTasks(ctx context.Context, client *TargetConnectMap
 	}
 
 	for _, ep := range epath {
+		preserveSourceName := isdir || len(epath) > 1
+		base := copySourceBase(ep, checkStat.IsDir(), preserveSourceName)
+
 		select {
 		case <-ctx.Done():
 			return ctx.Err()

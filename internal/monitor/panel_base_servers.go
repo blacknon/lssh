@@ -46,7 +46,7 @@ func (m *Monitor) createBaseGridTable() (table *mview.Table) {
 			if isEmptyStruct(cell) {
 				return
 			}
-			server := cell.GetText()
+			server := strings.TrimSpace(cell.GetText())
 
 			// Get node
 			node := m.GetNode(server)
