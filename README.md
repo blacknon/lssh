@@ -485,6 +485,38 @@ note = "reuse ssh session"
 
 </details>
 
+
+### conditional overrides with `match`
+<details>
+
+Use `[server.<name>.match.<branch>]` when you want to override only part of a host configuration under specific conditions.
+Each match branch can change fields such as `proxy`, `user`, `port`, `note`, or `ignore`.
+
+```toml
+[server.app]
+addr = "192.168.100.50"
+user = "demo"
+key = "~/.ssh/id_rsa"
+note = "direct by default"
+
+[server.app.match.office_network]
+priority = 1
+when.local_ip_in = ["192.168.100.0/24"]
+proxy = "ssh-bastion"
+note = "use bastion from office network"
+
+[server.app.match.outside_office]
+priority = 90
+when.local_ip_not_in = ["192.168.100.0/24"]
+ignore = true
+```
+
+In this example, `app` connects directly by default.
+When the client is inside `192.168.100.0/24`, the `office_network` branch overrides the host and routes the connection through `ssh-bastion`.
+When the client is outside that network, `outside_office` hides the host from selection.
+
+</details>
+
 ## Related projects
 
 - [go-sshlib](https://github.com/blacknon/go-sshlib) ... A Go library for SSH connections, command execution, and interactive shell handling.
