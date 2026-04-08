@@ -69,7 +69,7 @@ func (s *Sync) Start() {
 }
 
 func (s *Sync) localToRemote() {
-	localFS, err := newLocalFS()
+	localFS, err := NewLocalFS()
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Error: %s\n", err)
 		return
@@ -86,7 +86,7 @@ func (s *Sync) localToRemote() {
 			}
 			defer conn.Connect.Close()
 
-			remoteFS := newRemoteFS(conn.Connect, conn.Pwd)
+			remoteFS := NewRemoteFS(conn.Connect, conn.Pwd)
 			plan, err := BuildPlan(localFS, remoteFS, s.From.Path, s.To.Path[0])
 			if err != nil {
 				fmt.Fprintf(os.Stderr, "Error: %s\n", err)
@@ -116,7 +116,7 @@ func (s *Sync) localToRemote() {
 }
 
 func (s *Sync) remoteToLocal() {
-	localFS, err := newLocalFS()
+	localFS, err := NewLocalFS()
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Error: %s\n", err)
 		return
@@ -138,7 +138,7 @@ func (s *Sync) remoteToLocal() {
 				destination = localFS.Join(destination, server)
 			}
 
-			remoteFS := newRemoteFS(conn.Connect, conn.Pwd)
+			remoteFS := NewRemoteFS(conn.Connect, conn.Pwd)
 			plan, err := BuildPlan(remoteFS, localFS, s.From.Path, destination)
 			if err != nil {
 				fmt.Fprintf(os.Stderr, "Error: %s\n", err)
@@ -187,8 +187,8 @@ func (s *Sync) remoteToRemote() {
 			defer srcConn.Connect.Close()
 			defer dstConn.Connect.Close()
 
-			srcFS := newRemoteFS(srcConn.Connect, srcConn.Pwd)
-			dstFS := newRemoteFS(dstConn.Connect, dstConn.Pwd)
+			srcFS := NewRemoteFS(srcConn.Connect, srcConn.Pwd)
+			dstFS := NewRemoteFS(dstConn.Connect, dstConn.Pwd)
 			plan, err := BuildPlan(srcFS, dstFS, s.From.Path, s.To.Path[0])
 			if err != nil {
 				fmt.Fprintf(os.Stderr, "Error: %s\n", err)

@@ -36,7 +36,7 @@ type localFS struct {
 	home string
 }
 
-func newLocalFS() (*localFS, error) {
+func NewLocalFS() (FileSystem, error) {
 	cwd, err := os.Getwd()
 	if err != nil {
 		return nil, err
@@ -144,7 +144,7 @@ type remoteFS struct {
 	home   string
 }
 
-func newRemoteFS(client *sftp.Client, pwd string) *remoteFS {
+func NewRemoteFS(client *sftp.Client, pwd string) FileSystem {
 	return &remoteFS{
 		client: client,
 		pwd:    pwd,
