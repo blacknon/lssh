@@ -35,6 +35,7 @@ The `lssh` suite provides multiple commands for different SSH-related workflows.
 | [lssh](./cmd/lssh/README.md) | Interactive SSH access and port forwarding | TUI-based SSH client for host selection, interactive login, parallel command execution, and forwarding features. |
 | [lsftp](./cmd/lsftp/README.md) | Interactive file operations over SFTP | Interactive SFTP shell for browsing directories, transferring files, and managing one or more hosts together. |
 | [lscp](./cmd/lscp/README.md) | SCP-style file transfer | File transfer command for local-to-remote, remote-to-local, and remote-to-remote copy operations over SSH. |
+| [lssync](./cmd/lssync/README.md) | One-way sync over SSH/SFTP | Sync command for mirroring local or remote trees to a destination, with optional delete behavior. |
 | [lsshell](./cmd/lsshell/README.md) | Sending commands to multiple hosts | Parallel interactive shell that can broadcast commands to selected hosts from a single prompt. |
 | [lsmux](./cmd/lsmux/README.md) | Managing multiple SSH sessions in panes | Tmux-like SSH multiplexer that opens selected hosts in a pane-based TUI, supports command panes and file transfer, and keeps multiple remote sessions visible at once. |
 | [lsmon](./cmd/lsmon/README.md) | Monitoring multiple remote hosts | TUI monitor that displays CPU, memory, disk, network, and process information from multiple hosts side by side. |
@@ -102,9 +103,9 @@ sudo dnf install -y /tmp/lssh.rpm
 
 | Package | Includes | Best for |
 | --- | --- | --- |
-| `lssh_*` | `lssh`, `lscp`, `lsftp`, `lsmon`, `lsshell`, `lsmux` | Full installation of the entire tool suite |
+| `lssh_*` | `lssh`, `lscp`, `lsftp`, `lssync`, `lsmon`, `lsshell`, `lsmux` | Full installation of the entire tool suite |
 | `lssh-core_*` | `lssh` | SSH access and forwarding only |
-| `lssh-transfer_*` | `lscp`, `lsftp` | File transfer workflows only |
+| `lssh-transfer_*` | `lscp`, `lsftp`, `lssync` | File transfer workflows only |
 | `lssh-monitor_*` | `lsmon` | Monitoring multiple remote hosts |
 | `lssh-sysadmin_*` | `lsshell`, `lsmux` | Parallel shell / multi-host operations |
 
@@ -117,6 +118,7 @@ Install the latest version directly with Go.
 go install github.com/blacknon/lssh/cmd/lssh@latest
 go install github.com/blacknon/lssh/cmd/lscp@latest
 go install github.com/blacknon/lssh/cmd/lsftp@latest
+go install github.com/blacknon/lssh/cmd/lssync@latest
 go install github.com/blacknon/lssh/cmd/lsshell@latest
 go install github.com/blacknon/lssh/cmd/lsmon@latest
 ```
