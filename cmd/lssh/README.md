@@ -47,7 +47,7 @@ COPYRIGHT:
     blacknon(blacknon@orebibou.com)
 
 VERSION:
-    lssh-suite 0.7.0 (stable/core)
+    lssh-suite 0.8.0 (stable/core)
 
 USAGE:
     # connect ssh
@@ -58,6 +58,9 @@ USAGE:
 
     # run command parallel in selected server over ssh.
     lssh -p command...
+
+    # run command or shell in mux UI.
+    lssh -P [command...]
 
 ```
 
