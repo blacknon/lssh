@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"io"
 	"sort"
+	"strings"
 	"sync"
 
 	conf "github.com/blacknon/lssh/internal/config"
@@ -66,6 +67,11 @@ type SessionOptions struct {
 	HTTPReverseDynamicPortForward string
 	NFSReverseDynamicForwardPort  string
 	NFSReverseDynamicForwardPath  string
+	X11                           bool
+	X11Trusted                    bool
+	IsBashrc                      bool
+	IsNotBashrc                   bool
+	ParallelInfo                  func(server string) []string
 }
 
 // NewManager creates an lsmux manager.
@@ -478,6 +484,10 @@ func (m *Manager) startPaneConnect(targetPage *page, p *pane) {
 			m.activatePane(targetPage, p, session)
 			if m.currentPage == targetPage {
 				m.refreshMainPage()
+			}
+			if len(session.Notices) > 0 {
+				m.updateStatus(fmt.Sprintf("[yellow]Information[-]: %s ignores %s in parallel mode", host, strings.Join(session.Notices, ", ")))
+				return
 			}
 			m.updateStatus(fmt.Sprintf("[green]%s connected[-]", host))
 		})

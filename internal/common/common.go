@@ -232,7 +232,7 @@ func GetFilesBase64(paths []string, iscompress int) (result string, err error) {
 
 // GetPassPhrase gets the passphrase from virtual terminal input and returns the result. Works only on UNIX-based OS.
 func GetPassPhrase(msg string) (input string, err error) {
-	fmt.Printf(msg)
+	fmt.Print(msg)
 
 	// Open /dev/tty
 	tty, err := os.Open("/dev/tty")
@@ -384,6 +384,89 @@ func ParseForwardPort(value string) (local, remote string, err error) {
 		err = errors.New("Could not parse.")
 	}
 
+	return
+}
+
+// ParseForwardSpec parses OpenSSH-style local forward arguments and supports
+// TCP and Unix domain socket combinations.
+func ParseForwardSpec(value string) (localNetwork, local, remoteNetwork, remote string, err error) {
+	if value == "" {
+		err = errors.New("Could not parse.")
+		return
+	}
+
+	isSocketPath := func(v string) bool {
+		return strings.HasPrefix(v, "/") ||
+			strings.HasPrefix(v, "./") ||
+			strings.HasPrefix(v, "../") ||
+			strings.HasPrefix(v, "~/")
+	}
+	parseTCPBind := func(v string) (string, error) {
+		switch strings.Count(v, ":") {
+		case 0:
+			if _, convErr := strconv.Atoi(v); convErr != nil {
+				return "", errors.New("Could not parse.")
+			}
+			return "localhost:" + v, nil
+		case 1:
+			return v, nil
+		default:
+			return "", errors.New("Could not parse.")
+		}
+	}
+	parseTCPDest := func(v string) (string, error) {
+		switch strings.Count(v, ":") {
+		case 0:
+			if _, convErr := strconv.Atoi(v); convErr != nil {
+				return "", errors.New("Could not parse.")
+			}
+			return "localhost:" + v, nil
+		case 1:
+			return v, nil
+		default:
+			return "", errors.New("Could not parse.")
+		}
+	}
+
+	if !strings.Contains(value, "/") && !strings.Contains(value, "~") {
+		localNetwork, remoteNetwork = "tcp", "tcp"
+		local, remote, err = ParseForwardPort(value)
+		return
+	}
+
+	if parts := strings.SplitN(value, ":", 2); len(parts) == 2 && isSocketPath(parts[0]) {
+		localNetwork = "unix"
+		local = GetFullPath(parts[0])
+		if isSocketPath(parts[1]) {
+			remoteNetwork = "unix"
+			remote = GetFullPath(parts[1])
+			return
+		}
+		remoteNetwork = "tcp"
+		remote, err = parseTCPDest(parts[1])
+		return
+	}
+
+	idx := strings.LastIndex(value, ":")
+	if idx <= 0 || idx >= len(value)-1 {
+		err = errors.New("Could not parse.")
+		return
+	}
+
+	localPart := value[:idx]
+	remotePart := value[idx+1:]
+	if !isSocketPath(remotePart) {
+		err = errors.New("Could not parse.")
+		return
+	}
+
+	localNetwork = "tcp"
+	local, err = parseTCPBind(localPart)
+	if err != nil {
+		return
+	}
+	remoteNetwork = "unix"
+	remote = GetFullPath(remotePart)
 	return
 }
 

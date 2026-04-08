@@ -126,13 +126,7 @@ func (r *Run) shell() (err error) {
 
 	// Local/Remote Port Forwarding
 	for _, fw := range config.Forwards {
-		switch fw.Mode {
-		case "L", "":
-			err = connect.TCPLocalForward(fw.Local, fw.Remote)
-		case "R":
-			err = connect.TCPRemoteForward(fw.Local, fw.Remote)
-		}
-
+		err = r.startPortForward(connect, fw)
 		if err != nil {
 			fmt.Fprintln(os.Stderr, err)
 		}
