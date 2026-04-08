@@ -126,7 +126,8 @@ func (cp *Scp) push() {
 	for _, p := range cp.From.Path {
 		info, err := os.Lstat(p)
 		if err != nil {
-			continue
+			fmt.Fprintf(os.Stderr, "scp: failed to stat source path %q: %v\n", p, err)
+			return
 		}
 
 		data, err := common.WalkDir(p)
