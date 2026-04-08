@@ -62,7 +62,7 @@ Prebuilt binaries are available on GitHub Releases.
 Install to `/usr/local/bin`:
 
 ```bash id="1c8m19"
-VERSION=0.7.1
+VERSION=0.8.0
 curl -fL -o /tmp/lssh.tar.gz \
   "https://github.com/blacknon/lssh/releases/download/v${VERSION}/lssh_${VERSION}_linux_amd64.tar.gz"
 sudo tar -xzf /tmp/lssh.tar.gz -C /tmp
@@ -76,7 +76,7 @@ sudo install -m 0755 /tmp/lssh_${VERSION}_linux_amd64/bin/* /usr/local/bin/
 <details>
 
 ```bash
-VERSION=0.7.1
+VERSION=0.8.0
 curl -fL -o /tmp/lssh.deb \
   "https://github.com/blacknon/lssh/releases/download/v${VERSION}/lssh_${VERSION}_amd64.deb"
 sudo apt install /tmp/lssh.deb
@@ -89,7 +89,7 @@ sudo apt install /tmp/lssh.deb
 <details>
 
 ```bash
-VERSION=0.7.1
+VERSION=0.8.0
 curl -fL -o /tmp/lssh.rpm \
   "https://github.com/blacknon/lssh/releases/download/v${VERSION}/lssh-${VERSION}-1.x86_64.rpm"
 sudo dnf install -y /tmp/lssh.rpm
