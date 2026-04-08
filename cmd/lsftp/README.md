@@ -56,6 +56,7 @@ lsftp -F ~/.lssh.conf
 
 - Download files with `get`
 - Upload files with `put`
+- Sync files with `sync`
 - Copy files between remote hosts with `copy`
 - Browse files with `ls`, `tree`, and `df`
 - Manage files with `mkdir`, `rm`, `rename`, `chmod`, `chown`, and related commands
@@ -76,6 +77,12 @@ put ./dist/app /opt/app/
 
 # upload with parallel workers
 put -P 4 ./dist/*.tar.gz /opt/archive/
+
+# sync local -> remote
+sync --delete local:./site remote:/var/www/site
+
+# sync remote -> local
+sync remote:/var/lib/app local:./backup
 
 # copy between remote hosts
 copy @web01:/var/log/app.log @web02:/tmp/
@@ -104,6 +111,7 @@ ls        list remote directory
 lumask    set local umask
 mkdir     create remote directory
 put       upload from local to remote
+sync      one-way sync between local and remote paths
 pwd       print remote working directory
 rename    rename remote file
 rm        remove remote file
@@ -118,4 +126,5 @@ bye, exit, quit
 ### notes
 
 Remote host notation for `copy` uses the `@host:/path` format.
+For `sync`, use the `lssync` style `(local|remote):path` prefixes. You can target a specific remote host inside `lsftp` with `remote:@host:/path`.
 The default config file path is `~/.lssh.conf`.

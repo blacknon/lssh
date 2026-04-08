@@ -49,6 +49,27 @@ func TestCheckLocalCommand(t *testing.T) {
 	}
 }
 
+func TestCheckBuildInCommand(t *testing.T) {
+	tests := []struct {
+		name string
+		in   string
+		want bool
+	}{
+		{name: "sync", in: "%sync", want: true},
+		{name: "get", in: "%get", want: true},
+		{name: "plain remote", in: "hostname", want: false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := checkBuildInCommand(tt.in)
+			if got != tt.want {
+				t.Fatalf("checkBuildInCommand(%q) = %v, want %v", tt.in, got, tt.want)
+			}
+		})
+	}
+}
+
 func TestNormalizePerHostPipeLine(t *testing.T) {
 	pline := []pipeLine{
 		{Args: []string{"hostname"}, Oprator: "|"},
