@@ -333,5 +333,54 @@ If the remote machine does not have a fuzzy finder such as [peco](https://github
 
 Because boco is implemented as a shell function, you can bring it to the remote machine as-is through `local_rc`.
 
-Also, you can use NFS reverse mounting to transfer Linux binaries to a remote machine.
+Also, you can use `NFS reverse mounting (-m)` to transfer Linux binaries to a remote machine.
 Using this method, it should be possible to use peco or fzf even if they are not installed on the remote machine.
+
+We recommend forwarding the following function:
+
+```bash
+reverse_mount() {
+  usage() {
+    echo "Usage: reverse_mount [-p port] [-s] mount_path"
+    return 1
+  }
+
+  local is_sudo
+  local port=2049
+  local path
+
+  local opt
+  while getopts "p:s" opt; do
+    case $opt in
+    p) port="${OPTARG}" ;;
+    s) is_sudo="1" ;;
+    esac
+  done
+  shift $((OPTIND - 1))
+
+  if [ $# -eq 0 ]; then
+    echo "Error: Arguments are required."
+    usage
+  fi
+
+  path="$(readlink -f $1)"
+
+  local mount_cmd="mount -t nfs -o vers=3,proto=tcp,port=${port},mountport=${port} 127.0.0.1:/ ${path}"
+  local umount_cmd="umount ${path}"
+  if [ "${is_sudo}" -eq "1" ]; then
+    mount_cmd="sudo sh -c '${mount_cmd}'"
+    umount_cmd="sudo sh -c '${umount_cmd}'"
+  fi
+
+  eval ${mount_cmd}
+
+  trap "cd; echo 'umount reverse mount dir';${umount_cmd}" EXIT
+}
+```
+
+
+##### If you use iTerm2 and image view in terminal
+
+If you use iTerm2 and display images in the terminal with the [Inline image Protocol](https://iterm2.com/documentation-images.html), it is useful to use [this function](https://iterm2.com/documentation-images.html).
+
+Because this is not a script, you can bring it to a remote machine as-is.
