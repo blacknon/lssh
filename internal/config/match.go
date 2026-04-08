@@ -9,6 +9,7 @@ import (
 	"os"
 	"os/exec"
 	"os/user"
+	"reflect"
 	"runtime"
 	"sort"
 	"strconv"
@@ -22,6 +23,10 @@ type matchContext struct {
 	Gateways    []netip.Addr
 	Username    string
 	Hostname    string
+	OS          string
+	Terms       []string
+	EnvNames    []string
+	EnvValues   map[string]string
 	LocalIPErr  error
 	GatewayErr  error
 	UsernameErr error
@@ -33,6 +38,9 @@ type matchRequirements struct {
 	needGateway  bool
 	needUsername bool
 	needHostname bool
+	needOS       bool
+	needTerm     bool
+	needEnv      bool
 }
 
 type namedMatch struct {
@@ -79,10 +87,36 @@ func applyMatchMetadata(c *Config, md toml.MetaData) {
 		if md.IsDefined("server", serverName, "match", branchName, "priority") {
 			matchConf.priorityDefined = true
 		}
+		matchConf.definedKeys = collectDefinedMatchKeys(md, serverName, branchName)
 
 		serverConf.Match[branchName] = matchConf
 		c.Server[serverName] = serverConf
 	}
+}
+
+func collectDefinedMatchKeys(md toml.MetaData, serverName, branchName string) map[string]bool {
+	keys := []string{
+		"addr", "port", "user", "pass", "passes", "key", "keycmd", "keycmdpass", "keypass",
+		"keys", "cert", "certs", "certkey", "certkeypass", "certpkcs11", "agentauth",
+		"ssh_agent", "ssh_agent_key", "pkcs11", "pkcs11provider", "pkcs11pin", "pre_cmd",
+		"post_cmd", "proxy_type", "proxy", "proxy_cmd", "local_rc", "local_rc_file",
+		"local_rc_compress", "local_rc_decode_cmd", "local_rc_uncompress_cmd", "port_forward",
+		"port_forward_local", "port_forward_remote", "port_forwards", "dynamic_port_forward",
+		"reverse_dynamic_port_forward", "http_dynamic_port_forward",
+		"http_reverse_dynamic_port_forward", "nfs_dynamic_forward", "nfs_dynamic_forward_path",
+		"nfs_reverse_dynamic_forward", "nfs_reverse_dynamic_forward_path", "x11", "x11_trusted",
+		"connect_timeout", "alive_max", "alive_interval", "check_known_hosts",
+		"known_hosts_files", "control_master", "control_path", "control_persist", "note", "ignore",
+	}
+
+	defined := make(map[string]bool, len(keys))
+	for _, key := range keys {
+		if md.IsDefined("server", serverName, "match", branchName, key) {
+			defined[key] = true
+		}
+	}
+
+	return defined
 }
 
 func (c *Config) ResolveConditionalMatches() error {
@@ -90,7 +124,7 @@ func (c *Config) ResolveConditionalMatches() error {
 	if err != nil {
 		return err
 	}
-	if !reqs.needLocalIP && !reqs.needGateway && !reqs.needUsername && !reqs.needHostname {
+	if !reqs.needLocalIP && !reqs.needGateway && !reqs.needUsername && !reqs.needHostname && !reqs.needOS && !reqs.needTerm && !reqs.needEnv {
 		return nil
 	}
 
@@ -102,17 +136,17 @@ func (c *Config) ResolveConditionalMatches() error {
 		}
 
 		matches := sortedMatches(serverConf.Match)
+		merged := serverConf
 		for _, branch := range matches {
 			ok := branchMatches(serverName, branch.name, branch.config, ctx)
 			if !ok {
 				continue
 			}
 
-			merged := serverConfigReduct(serverConf, branch.config.OverrideConfig())
-			merged.Match = serverConf.Match
-			c.Server[serverName] = merged
-			break
+			merged = mergeServerMatchConfig(merged, branch.config)
 		}
+		merged.Match = serverConf.Match
+		c.Server[serverName] = merged
 	}
 
 	return nil
@@ -144,6 +178,9 @@ func (c *Config) validateMatchConfigs() (matchRequirements, error) {
 			reqs.needGateway = reqs.needGateway || len(branch.When.GatewayIn) > 0 || len(branch.When.GatewayNotIn) > 0
 			reqs.needUsername = reqs.needUsername || len(branch.When.UsernameIn) > 0 || len(branch.When.UsernameNotIn) > 0
 			reqs.needHostname = reqs.needHostname || len(branch.When.HostnameIn) > 0 || len(branch.When.HostnameNotIn) > 0
+			reqs.needOS = reqs.needOS || len(branch.When.OSIn) > 0 || len(branch.When.OSNotIn) > 0
+			reqs.needTerm = reqs.needTerm || len(branch.When.TermIn) > 0 || len(branch.When.TermNotIn) > 0
+			reqs.needEnv = reqs.needEnv || len(branch.When.EnvIn) > 0 || len(branch.When.EnvNotIn) > 0 || len(branch.When.EnvValueIn) > 0 || len(branch.When.EnvValueNotIn) > 0
 		}
 	}
 
@@ -218,6 +255,33 @@ func branchMatches(serverName, branchName string, branch ServerMatchConfig, ctx 
 		return false
 	}
 
+	if len(when.OSIn) > 0 && !matchStringList(ctx.OS, when.OSIn) {
+		return false
+	}
+	if len(when.OSNotIn) > 0 && matchStringList(ctx.OS, when.OSNotIn) {
+		return false
+	}
+
+	if len(when.TermIn) > 0 && !matchAnyStringList(ctx.Terms, when.TermIn) {
+		return false
+	}
+	if len(when.TermNotIn) > 0 && matchAnyStringList(ctx.Terms, when.TermNotIn) {
+		return false
+	}
+
+	if len(when.EnvIn) > 0 && !matchAnyStringList(ctx.EnvNames, when.EnvIn) {
+		return false
+	}
+	if len(when.EnvNotIn) > 0 && matchAnyStringList(ctx.EnvNames, when.EnvNotIn) {
+		return false
+	}
+	if len(when.EnvValueIn) > 0 && !matchEnvValueList(ctx.EnvValues, when.EnvValueIn) {
+		return false
+	}
+	if len(when.EnvValueNotIn) > 0 && matchEnvValueList(ctx.EnvValues, when.EnvValueNotIn) {
+		return false
+	}
+
 	return true
 }
 
@@ -227,6 +291,45 @@ func matchStringList(value string, candidates []string) bool {
 			return true
 		}
 	}
+	return false
+}
+
+func matchAnyStringList(actual []string, expected []string) bool {
+	if len(actual) == 0 {
+		return false
+	}
+
+	set := make(map[string]struct{}, len(actual))
+	for _, value := range actual {
+		set[strings.ToLower(value)] = struct{}{}
+	}
+
+	for _, candidate := range expected {
+		if _, ok := set[strings.ToLower(candidate)]; ok {
+			return true
+		}
+	}
+
+	return false
+}
+
+func matchEnvValueList(actual map[string]string, expected []string) bool {
+	if len(actual) == 0 {
+		return false
+	}
+
+	for _, candidate := range expected {
+		name, value, ok := strings.Cut(candidate, "=")
+		if !ok {
+			continue
+		}
+
+		actualValue, exists := actual[name]
+		if exists && actualValue == value {
+			return true
+		}
+	}
+
 	return false
 }
 
@@ -282,8 +385,79 @@ func buildMatchContext(reqs matchRequirements) matchContext {
 	if reqs.needHostname {
 		ctx.Hostname, ctx.HostnameErr = os.Hostname()
 	}
+	if reqs.needOS {
+		ctx.OS = runtime.GOOS
+	}
+	if reqs.needTerm {
+		ctx.Terms = getTerminalKinds()
+	}
+	if reqs.needEnv {
+		ctx.EnvNames = getEnvNames()
+		ctx.EnvValues = getEnvValues()
+	}
 
 	return ctx
+}
+
+func getTerminalKinds() []string {
+	var values []string
+
+	if termProgram := strings.TrimSpace(os.Getenv("TERM_PROGRAM")); termProgram != "" {
+		normalized := strings.ToLower(termProgram)
+		values = append(values, normalized)
+
+		switch {
+		case strings.Contains(normalized, "iterm"):
+			values = append(values, "iterm2")
+		case strings.Contains(normalized, "apple_terminal"), strings.Contains(normalized, "terminal.app"):
+			values = append(values, "terminal")
+		}
+	}
+
+	if os.Getenv("WT_SESSION") != "" {
+		values = append(values, "windows-terminal")
+	}
+
+	if term := strings.TrimSpace(os.Getenv("TERM")); term != "" {
+		normalized := strings.ToLower(term)
+		values = append(values, normalized)
+
+		if idx := strings.IndexByte(normalized, '-'); idx > 0 {
+			values = append(values, normalized[:idx])
+		}
+	}
+
+	return uniqueStrings(values)
+}
+
+func getEnvNames() []string {
+	envs := os.Environ()
+	result := make([]string, 0, len(envs))
+
+	for _, env := range envs {
+		name, _, ok := strings.Cut(env, "=")
+		if !ok || name == "" {
+			continue
+		}
+		result = append(result, name)
+	}
+
+	return uniqueStrings(result)
+}
+
+func getEnvValues() map[string]string {
+	envs := os.Environ()
+	result := make(map[string]string, len(envs))
+
+	for _, env := range envs {
+		name, value, ok := strings.Cut(env, "=")
+		if !ok || name == "" {
+			continue
+		}
+		result[name] = value
+	}
+
+	return result
 }
 
 func getCurrentUsername() (string, error) {
@@ -449,6 +623,50 @@ func uniqueAddrs(values []netip.Addr) []netip.Addr {
 		}
 		seen[value] = struct{}{}
 		result = append(result, value)
+	}
+
+	return result
+}
+
+func uniqueStrings(values []string) []string {
+	if len(values) == 0 {
+		return nil
+	}
+
+	seen := map[string]struct{}{}
+	result := make([]string, 0, len(values))
+	for _, value := range values {
+		if value == "" {
+			continue
+		}
+
+		normalized := strings.ToLower(value)
+		if _, ok := seen[normalized]; ok {
+			continue
+		}
+		seen[normalized] = struct{}{}
+		result = append(result, normalized)
+	}
+
+	return result
+}
+
+func mergeServerMatchConfig(base ServerConfig, match ServerMatchConfig) ServerConfig {
+	result := base
+	override := match.OverrideConfig()
+
+	baseValue := reflect.ValueOf(&result).Elem()
+	overrideValue := reflect.ValueOf(override)
+	baseType := baseValue.Type()
+
+	for i := 0; i < baseValue.NumField(); i++ {
+		field := baseType.Field(i)
+		tag := field.Tag.Get("toml")
+		if tag == "" || !match.IsDefined(tag) {
+			continue
+		}
+
+		baseValue.Field(i).Set(overrideValue.FieldByName(field.Name))
 	}
 
 	return result

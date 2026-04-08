@@ -491,6 +491,8 @@ note = "reuse ssh session"
 
 Use `[server.<name>.match.<branch>]` when you want to override only part of a host configuration under specific conditions.
 Each match branch can change fields such as `proxy`, `user`, `port`, `note`, or `ignore`.
+All matching branches are evaluated in ascending `priority` order, and later branches overwrite earlier ones.
+This lets you split conditions such as `network`, `os`, and `terminal` into separate layers.
 
 ```toml
 [server.app]
@@ -505,6 +507,15 @@ when.local_ip_in = ["192.168.100.0/24"]
 proxy = "ssh-bastion"
 note = "use bastion from office network"
 
+[server.app.match.macos]
+priority = 50
+when.os_in = ["darwin"]
+when.term_in = ["iterm2"]
+when.env_in = ["SSH_AUTH_SOCK"]
+when.env_value_in = ["TERM_PROGRAM=iTerm.app"]
+user = "demo-mac"
+note = "prefer macOS + iTerm2 settings"
+
 [server.app.match.outside_office]
 priority = 90
 when.local_ip_not_in = ["192.168.100.0/24"]
@@ -512,8 +523,28 @@ ignore = true
 ```
 
 In this example, `app` connects directly by default.
-When the client is inside `192.168.100.0/24`, the `office_network` branch overrides the host and routes the connection through `ssh-bastion`.
+When the client is inside `192.168.100.0/24`, the `office_network` branch first overrides the host and routes the connection through `ssh-bastion`.
+If the client is also running `lssh` on macOS inside iTerm2, `SSH_AUTH_SOCK` exists, and `TERM_PROGRAM=iTerm.app`, the later `macos` branch additionally overrides `user` and `note`.
 When the client is outside that network, `outside_office` hides the host from selection.
+
+Available `when.*` keys:
+
+- `local_ip_in`, `local_ip_not_in`
+- `gateway_in`, `gateway_not_in`
+- `username_in`, `username_not_in`
+- `hostname_in`, `hostname_not_in`
+- `os_in`, `os_not_in`
+- `term_in`, `term_not_in`
+- `env_in`, `env_not_in`
+- `env_value_in`, `env_value_not_in`
+
+Notes:
+
+- Lower `priority` values are applied first. Higher `priority` values win when the same field is set multiple times.
+- `os_*` matches `runtime.GOOS` values such as `darwin`, `linux`, or `windows`.
+- `term_*` mainly matches normalized values from `TERM_PROGRAM` and `TERM` such as `iterm2`, `apple_terminal`, `xterm`, or `tmux`.
+- `env_*` checks whether the named environment variables exist.
+- `env_value_*` matches exact `KEY=value` pairs.
 
 </details>
 

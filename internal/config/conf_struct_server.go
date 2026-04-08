@@ -154,6 +154,14 @@ type ServerMatchWhen struct {
 	UsernameNotIn []string `toml:"username_not_in"`
 	HostnameIn    []string `toml:"hostname_in"`
 	HostnameNotIn []string `toml:"hostname_not_in"`
+	OSIn          []string `toml:"os_in"`
+	OSNotIn       []string `toml:"os_not_in"`
+	TermIn        []string `toml:"term_in"`
+	TermNotIn     []string `toml:"term_not_in"`
+	EnvIn         []string `toml:"env_in"`
+	EnvNotIn      []string `toml:"env_not_in"`
+	EnvValueIn    []string `toml:"env_value_in"`
+	EnvValueNotIn []string `toml:"env_value_not_in"`
 }
 
 // Empty reports whether no match conditions are defined.
@@ -165,7 +173,15 @@ func (w ServerMatchWhen) Empty() bool {
 		len(w.UsernameIn) == 0 &&
 		len(w.UsernameNotIn) == 0 &&
 		len(w.HostnameIn) == 0 &&
-		len(w.HostnameNotIn) == 0
+		len(w.HostnameNotIn) == 0 &&
+		len(w.OSIn) == 0 &&
+		len(w.OSNotIn) == 0 &&
+		len(w.TermIn) == 0 &&
+		len(w.TermNotIn) == 0 &&
+		len(w.EnvIn) == 0 &&
+		len(w.EnvNotIn) == 0 &&
+		len(w.EnvValueIn) == 0 &&
+		len(w.EnvValueNotIn) == 0
 }
 
 // ServerMatchConfig stores a single conditional override branch.
@@ -241,6 +257,7 @@ type ServerMatchConfig struct {
 
 	order           int
 	priorityDefined bool
+	definedKeys     map[string]bool
 }
 
 // EffectivePriority returns the branch priority, defaulting to 100 when omitted.
@@ -311,4 +328,12 @@ func (m ServerMatchConfig) OverrideConfig() ServerConfig {
 		Note:                          m.Note,
 		Ignore:                        m.Ignore,
 	}
+}
+
+// IsDefined reports whether the TOML key was explicitly set in the match branch.
+func (m ServerMatchConfig) IsDefined(key string) bool {
+	if len(m.definedKeys) == 0 {
+		return false
+	}
+	return m.definedKeys[key]
 }
