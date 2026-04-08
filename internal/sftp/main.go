@@ -78,7 +78,8 @@ type TargetConnectMap struct {
 
 // PathSet struct at path data
 type PathSet struct {
-	Base      string
+	Root      string
+	RootIsDir bool
 	PathSlice []string
 }
 

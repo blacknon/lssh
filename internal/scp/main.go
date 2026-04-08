@@ -8,9 +8,9 @@ import (
 	"fmt"
 	"io"
 	"os"
-	"path"
 	"path/filepath"
 	"sort"
+	"strings"
 	"sync"
 	"time"
 
@@ -73,7 +73,8 @@ type ScpConnect struct {
 }
 
 type PathSet struct {
-	Base      string
+	Root      string
+	RootIsDir bool
 	PathSlice []string
 }
 
@@ -123,6 +124,11 @@ func (cp *Scp) push() {
 	// get local host directory walk data
 	pathset := []PathSet{}
 	for _, p := range cp.From.Path {
+		info, err := os.Lstat(p)
+		if err != nil {
+			continue
+		}
+
 		data, err := common.WalkDir(p)
 		if err != nil {
 			continue
@@ -131,7 +137,8 @@ func (cp *Scp) push() {
 		sort.Strings(data)
 
 		dataset := PathSet{
-			Base:      path.Dir(p),
+			Root:      p,
+			RootIsDir: info.IsDir(),
 			PathSlice: data,
 		}
 
@@ -143,8 +150,9 @@ func (cp *Scp) push() {
 		server := target
 		go func() {
 			type pushTask struct {
-				base string
-				path string
+				root      string
+				rootIsDir bool
+				path      string
 			}
 
 			tasks := make(chan pushTask)
@@ -162,7 +170,7 @@ func (cp *Scp) push() {
 					ow := client.Output.NewWriter()
 					defer ow.Close()
 					for task := range tasks {
-						cp.pushPath(client.Connect, ow, client.Output, task.base, task.path)
+						cp.pushPath(client.Connect, ow, client.Output, task.root, task.rootIsDir, task.path)
 					}
 					workerExit <- true
 				}(client)
@@ -174,10 +182,9 @@ func (cp *Scp) push() {
 			}
 
 			for _, p := range pathset {
-				base := p.Base
 				data := p.PathSlice
 				for _, path := range data {
-					tasks <- pushTask{base: base, path: path}
+					tasks <- pushTask{root: p.Root, rootIsDir: p.RootIsDir, path: path}
 				}
 			}
 			close(tasks)
@@ -204,8 +211,7 @@ func (cp *Scp) push() {
 	fmt.Println("all push exit.")
 }
 
-func (cp *Scp) pushPath(ftp *sftp.Client, ow io.Writer, output *output.Output, base, p string) (err error) {
-	relpath, _ := filepath.Rel(base, p)
+func (cp *Scp) pushPath(ftp *sftp.Client, ow io.Writer, output *output.Output, root string, rootIsDir bool, p string) (err error) {
 	fInfo, _ := os.Lstat(p)
 	_, statErr := ftp.Lstat(cp.To.Path[0])
 	targetExistsAsDir := statErr == nil
@@ -213,10 +219,13 @@ func (cp *Scp) pushPath(ftp *sftp.Client, ow io.Writer, output *output.Output, b
 		targetInfo, err := ftp.Lstat(cp.To.Path[0])
 		targetExistsAsDir = err == nil && targetInfo.IsDir()
 	}
+	preserveSourceName := targetExistsAsDir || len(cp.From.Path) > 1 || strings.HasSuffix(cp.To.Path[0], "/")
+	base := copySourceBase(root, rootIsDir, preserveSourceName)
+	relpath, _ := filepath.Rel(base, p)
 	rpath := resolveRemoteDestinationPath(
 		cp.To.Path[0],
 		relpath,
-		shouldTreatRemoteDestinationAsDir(cp.To.Path[0], targetExistsAsDir, fInfo.IsDir(), len(cp.From.Path) > 1),
+		shouldTreatRemoteDestinationAsDir(cp.To.Path[0], targetExistsAsDir, rootIsDir, len(cp.From.Path) > 1),
 	)
 
 	if fInfo.IsDir() { // directory
@@ -570,11 +579,10 @@ func (cp *Scp) pullPath(client *ScpConnect) {
 				continue
 			}
 
+			preserveSourceName := destinationIsDir || len(globpath) > 1
+			remoteBase := copySourceBase(gp, sourceInfo.IsDir(), preserveSourceName)
 			walker := ftp.Walk(gp)
 			for walker.Step() {
-				remoteBase := filepath.Dir(gp)
-				remoteBase = filepath.ToSlash(remoteBase)
-
 				err := walker.Err()
 				if err != nil {
 					fmt.Fprintf(ow, "Error: %s\n", err)
@@ -583,7 +591,7 @@ func (cp *Scp) pullPath(client *ScpConnect) {
 
 				p := walker.Path()
 				rp, _ := filepath.Rel(remoteBase, p)
-				lpath := resolveLocalDestinationPath(destinationRoot, rp, destinationIsDir || len(globpath) > 1 || sourceInfo.IsDir())
+				lpath := resolveLocalDestinationPath(destinationRoot, rp, preserveSourceName || sourceInfo.IsDir())
 
 				stat := walker.Stat()
 				if stat.IsDir() { // create dir
