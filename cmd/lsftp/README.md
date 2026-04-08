@@ -20,19 +20,20 @@ USAGE:
     lsftp [options]
 
 OPTIONS:
-    --file filepath, -F filepath  config file path (default: "/Users/blacknon/.lssh.conf")
-    --help, -h                    print this help
-    --version, -v                 print the version
+    --file value, -F value  config file path (default: "/Users/blacknon/.lssh.conf")
+    --help, -h              print this help
+    --version, -v           print the version
 
 COPYRIGHT:
     blacknon(blacknon@orebibou.com)
 
 VERSION:
-    lssh-suite 0.7.0 (stable/core)
+    lssh-suite 0.8.0 (stable/transfer)
 
 USAGE:
     # start lsftp shell
     lsftp
+
 ```
 
 ## OverView
