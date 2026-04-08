@@ -34,6 +34,15 @@ func (p *tvxtermPrimitive) Draw(screen tcell.Screen) {
 func (p *tvxtermPrimitive) InputHandler() func(event *tcell.EventKey, setFocus func(mview.Primitive)) {
 	handler := p.term.InputHandler()
 	return p.WrapInputHandler(func(event *tcell.EventKey, setFocus func(mview.Primitive)) {
+		switch event.Key() {
+		case tcell.KeyPgUp:
+			p.term.ScrollbackPageUp()
+			return
+		case tcell.KeyPgDn:
+			p.term.ScrollbackPageDown()
+			return
+		}
+
 		if handler == nil {
 			return
 		}
@@ -57,6 +66,15 @@ func (p *tvxtermPrimitive) Blur() {
 func (p *tvxtermPrimitive) MouseHandler() func(action mview.MouseAction, event *tcell.EventMouse, setFocus func(mview.Primitive)) (consumed bool, capture mview.Primitive) {
 	handler := p.term.MouseHandler()
 	return p.WrapMouseHandler(func(action mview.MouseAction, event *tcell.EventMouse, setFocus func(mview.Primitive)) (consumed bool, capture mview.Primitive) {
+		switch action {
+		case mview.MouseScrollUp:
+			p.term.ScrollbackUp(3)
+			return true, p
+		case mview.MouseScrollDown:
+			p.term.ScrollbackDown(3)
+			return true, p
+		}
+
 		if handler == nil {
 			return false, nil
 		}
