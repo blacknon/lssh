@@ -61,6 +61,15 @@ lsmon -H web01 -H web02
 
 Press `Ctrl + X` to open a top-screen-style window.
 
+### Open Terminal
+
+<p align="center">
+  <img src="./img/lsmon_terminal.png" alt="lsmon terminal" width="48%" />
+</p>
+
+In the htop-like viewer, press `Ctrl + T` to open a terminal for the selected host.
+This lets you move directly from monitoring to interactive shell access without leaving the viewer.
+
 ### metrics
 
 The monitor displays the following kinds of information
