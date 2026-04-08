@@ -20,6 +20,16 @@ func shouldTreatLocalDestinationAsDir(destination string, forceDir bool) bool {
 	return err == nil && info.IsDir()
 }
 
+func copySourceBase(sourcePath string, sourceIsDir, preserveSourceName bool) string {
+	sourcePath = filepath.Clean(sourcePath)
+
+	if sourceIsDir && !preserveSourceName {
+		return sourcePath
+	}
+
+	return filepath.Dir(sourcePath)
+}
+
 func shouldTreatRemoteDestinationAsDir(destination string, targetExistsAsDir, sourceIsDir, multipleSources bool) bool {
 	return targetExistsAsDir || sourceIsDir || multipleSources || strings.HasSuffix(destination, "/")
 }
