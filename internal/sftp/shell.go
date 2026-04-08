@@ -145,6 +145,8 @@ func (r *RunSftp) Executor(command string) {
 		r.rmdir(cmdline)
 	case "symlink":
 		r.symlink(cmdline)
+	case "sync":
+		r.sync(cmdline)
 	case "tree":
 		r.tree(cmdline)
 	case "ltree":
@@ -201,6 +203,7 @@ func (r *RunSftp) Completer(t prompt.Document) []prompt.Suggest {
 			{Text: "rm", Description: "Delete remote file"},
 			{Text: "rmdir", Description: "Remove remote directory"},
 			{Text: "symlink", Description: "Create symbolic link"},
+			{Text: "sync", Description: "One-way sync between local and remote paths"},
 			{Text: "tree", Description: "Tree view remote directory"},
 			{Text: "ltree", Description: "Tree view local directory"},
 			// {Text: "!command", Description: "Execute 'command' in local shell"},
@@ -258,6 +261,19 @@ func (r *RunSftp) Completer(t prompt.Document) []prompt.Suggest {
 				return r.PathComplete(true, false, false, t)
 			case strings.Count(t.CurrentLineBeforeCursor(), " ") >= 2: // remote and local
 				return r.PathComplete(true, true, false, t)
+			}
+		case "sync":
+			switch {
+			case strings.Count(t.CurrentLineBeforeCursor(), " ") == 1:
+				return appendPathSuggests(
+					r.CreateSyncPrefixComplete(),
+					r.PathComplete(true, true, false, t),
+				)
+			case strings.Count(t.CurrentLineBeforeCursor(), " ") >= 2:
+				return appendPathSuggests(
+					r.CreateSyncPrefixComplete(),
+					r.PathComplete(true, true, false, t),
+				)
 			}
 		case "lcat":
 			return r.PathComplete(false, true, false, t)
@@ -764,6 +780,31 @@ func (r *RunSftp) CreateModeComplete() (p []prompt.Suggest) {
 	}
 
 	return
+}
+
+func (r *RunSftp) CreateSyncPrefixComplete() []prompt.Suggest {
+	return []prompt.Suggest{
+		{Text: "local:", Description: "local path"},
+		{Text: "remote:", Description: "remote path"},
+		{Text: "remote:@", Description: "remote path with host selector"},
+	}
+}
+
+func appendPathSuggests(groups ...[]prompt.Suggest) []prompt.Suggest {
+	seen := map[string]struct{}{}
+	result := []prompt.Suggest{}
+	for _, group := range groups {
+		for _, suggest := range group {
+			key := suggest.Text + "\x00" + suggest.Description
+			if _, ok := seen[key]; ok {
+				continue
+			}
+			seen[key] = struct{}{}
+			result = append(result, suggest)
+		}
+	}
+
+	return result
 }
 
 // CreatePrompt return prompt string.
