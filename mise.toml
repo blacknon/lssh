@@ -65,38 +65,43 @@ run = """
 
 
 # Tasks(Transfer)
-# Note: Transferは、lscpとlsftpのみを対象とするタスク。lscpとlsftpはcoreに含まれるため、coreのタスクでビルド・インストールされる。
+# Note: Transferは、lscpとlsftpとlssyncを対象とするタスク。これらはcoreに含まれるため、coreのタスクでビルド・インストールされる。
 # ====================
 [tasks.transfer_build]
-description = "Build binary file only lscp and lsftp"
+description = "Build binary file only lscp, lsftp, and lssync"
 depends = ["transfer_clean", "go_mod"]
 run = """
     go build -o lscp ./cmd/lscp
     go build -o lsftp ./cmd/lsftp
+    go build -o lssync ./cmd/lssync
 """
 
 [tasks.transfer_clean]
-description = "Clean binary file only lscp and lsftp"
+description = "Clean binary file only lscp, lsftp, and lssync"
 depends = []
 run = """
     rm -f lscp
     rm -f lsftp
+    rm -f lssync
 """
 
 [tasks.transfer_install]
-description = "Install binary file only lscp and lsftp"
+description = "Install binary file only lscp, lsftp, and lssync"
 depends = ["transfer_build"]
 run = """
     sudo cp lscp /usr/local/bin/lscp
     sudo cp lsftp /usr/local/bin/lsftp
+    sudo cp lssync /usr/local/bin/lssync
 """
 
 [tasks.transfer_test]
-description = "Run go test for lscp and lsftp"
+description = "Run go test for lscp, lsftp, and lssync"
 depends = ["go_mod"]
 run = """
     go test -v ./internal/app/lscp/...
     go test -v ./internal/app/lsftp/...
+    go test -v ./internal/app/lssync/...
+    go test -v ./internal/sync/...
 """
 
 
