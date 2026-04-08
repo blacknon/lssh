@@ -213,7 +213,200 @@ addr = "172.31.0.51"
 	if !assert.NoError(t, err) {
 		return
 	}
-	assert.Equal(t, "172.31.0.52", cfg.Server["test"].Addr)
+	assert.Equal(t, "172.31.0.51", cfg.Server["test"].Addr)
+}
+
+func TestResolveConditionalMatchesMergeByPriority(t *testing.T) {
+	cfg := Config{
+		Server: map[string]ServerConfig{
+			"test": {
+				Addr: "10.0.0.10",
+				User: "root",
+				Pass: "secret",
+				Match: map[string]ServerMatchConfig{
+					"network": {
+						Priority:        10,
+						priorityDefined: true,
+						order:           1,
+						When: ServerMatchWhen{
+							LocalIPIn: []string{"100.64.0.0/10"},
+						},
+						Proxy: "bastion",
+						Note:  "network matched",
+						definedKeys: map[string]bool{
+							"proxy": true,
+							"note":  true,
+						},
+					},
+					"os": {
+						Priority:        50,
+						priorityDefined: true,
+						order:           2,
+						When: ServerMatchWhen{
+							OSIn: []string{"darwin"},
+						},
+						User: "mac-user",
+						definedKeys: map[string]bool{
+							"user": true,
+						},
+					},
+				},
+			},
+		},
+	}
+
+	originalDetector := detectMatchContext
+	t.Cleanup(func() { detectMatchContext = originalDetector })
+	detectMatchContext = func(reqs matchRequirements) matchContext {
+		return matchContext{
+			LocalIPs: []netip.Addr{netip.MustParseAddr("100.64.1.10")},
+			OS:       "darwin",
+		}
+	}
+
+	err := cfg.ResolveConditionalMatches()
+	if !assert.NoError(t, err) {
+		return
+	}
+
+	assert.Equal(t, "bastion", cfg.Server["test"].Proxy)
+	assert.Equal(t, "network matched", cfg.Server["test"].Note)
+	assert.Equal(t, "mac-user", cfg.Server["test"].User)
+}
+
+func TestResolveConditionalMatchesExplicitFalseOverrides(t *testing.T) {
+	cfg := Config{
+		Server: map[string]ServerConfig{
+			"test": {
+				Addr:   "10.0.0.10",
+				User:   "root",
+				Pass:   "secret",
+				Ignore: true,
+				Match: map[string]ServerMatchConfig{
+					"visible_on_mac": {
+						Priority:        10,
+						priorityDefined: true,
+						order:           1,
+						When: ServerMatchWhen{
+							OSIn: []string{"darwin"},
+						},
+						Ignore: false,
+						definedKeys: map[string]bool{
+							"ignore": true,
+						},
+					},
+				},
+			},
+		},
+	}
+
+	originalDetector := detectMatchContext
+	t.Cleanup(func() { detectMatchContext = originalDetector })
+	detectMatchContext = func(reqs matchRequirements) matchContext {
+		return matchContext{OS: "darwin"}
+	}
+
+	err := cfg.ResolveConditionalMatches()
+	if !assert.NoError(t, err) {
+		return
+	}
+
+	assert.False(t, cfg.Server["test"].Ignore)
+}
+
+func TestResolveConditionalMatchesOSTermEnv(t *testing.T) {
+	cfg := Config{
+		Server: map[string]ServerConfig{
+			"test": {
+				Addr: "10.0.0.10",
+				User: "root",
+				Pass: "secret",
+				Match: map[string]ServerMatchConfig{
+					"mac_iterm": {
+						Priority:        10,
+						priorityDefined: true,
+						order:           1,
+						When: ServerMatchWhen{
+							OSIn:   []string{"darwin"},
+							TermIn: []string{"iterm2"},
+							EnvIn:  []string{"SSH_AUTH_SOCK"},
+							EnvValueIn: []string{
+								"TERM_PROGRAM=iTerm.app",
+							},
+						},
+						Note: "matched",
+						definedKeys: map[string]bool{
+							"note": true,
+						},
+					},
+				},
+			},
+		},
+	}
+
+	originalDetector := detectMatchContext
+	t.Cleanup(func() { detectMatchContext = originalDetector })
+	detectMatchContext = func(reqs matchRequirements) matchContext {
+		return matchContext{
+			OS:       "darwin",
+			Terms:    []string{"iterm2", "xterm-256color"},
+			EnvNames: []string{"SSH_AUTH_SOCK", "HOME"},
+			EnvValues: map[string]string{
+				"TERM_PROGRAM":  "iTerm.app",
+				"SSH_AUTH_SOCK": "/tmp/agent.sock",
+			},
+		}
+	}
+
+	err := cfg.ResolveConditionalMatches()
+	if !assert.NoError(t, err) {
+		return
+	}
+
+	assert.Equal(t, "matched", cfg.Server["test"].Note)
+}
+
+func TestResolveConditionalMatchesEnvValueNotIn(t *testing.T) {
+	cfg := Config{
+		Server: map[string]ServerConfig{
+			"test": {
+				Addr: "10.0.0.10",
+				User: "root",
+				Pass: "secret",
+				Match: map[string]ServerMatchConfig{
+					"block_terminal_app": {
+						Priority:        10,
+						priorityDefined: true,
+						order:           1,
+						When: ServerMatchWhen{
+							EnvValueNotIn: []string{"TERM_PROGRAM=Apple_Terminal"},
+						},
+						Note: "allowed",
+						definedKeys: map[string]bool{
+							"note": true,
+						},
+					},
+				},
+			},
+		},
+	}
+
+	originalDetector := detectMatchContext
+	t.Cleanup(func() { detectMatchContext = originalDetector })
+	detectMatchContext = func(reqs matchRequirements) matchContext {
+		return matchContext{
+			EnvValues: map[string]string{
+				"TERM_PROGRAM": "iTerm.app",
+			},
+		}
+	}
+
+	err := cfg.ResolveConditionalMatches()
+	if !assert.NoError(t, err) {
+		return
+	}
+
+	assert.Equal(t, "allowed", cfg.Server["test"].Note)
 }
 
 func TestResolveConditionalMatchesLocalIPFallbackAndIgnore(t *testing.T) {
@@ -251,6 +444,7 @@ func TestResolveConditionalMatchesLocalIPFallbackAndIgnore(t *testing.T) {
 			LocalIPIn: []string{"100.64.0.0/10"},
 		},
 		Addr:            "172.31.0.51",
+		definedKeys:     map[string]bool{"addr": true},
 		priorityDefined: true,
 		order:           1,
 	}
@@ -261,6 +455,7 @@ func TestResolveConditionalMatchesLocalIPFallbackAndIgnore(t *testing.T) {
 		},
 		Addr:            "172.31.3.51",
 		Ignore:          true,
+		definedKeys:     map[string]bool{"addr": true, "ignore": true},
 		priorityDefined: true,
 		order:           2,
 	}
