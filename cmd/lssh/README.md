@@ -94,14 +94,14 @@ lssh -p hostname
 If you pipe input before the command, `stdin` is sent to the selected server.
 
 ```sh
-echo "hostname" | lssh hostname
+echo "hostname" | lssh cat
 ```
 
 If you want the `lsmux` style pane UI from `lssh`, use `-P`.
 When a command is given, piped `stdin` is copied to each pane, and `--hold` keeps finished panes open.
 
 ```sh
-echo "hostname" | lssh -P --hold hostname
+lssh -P --hold hostname
 ```
 
 ### pre_cmd / post_cmd
