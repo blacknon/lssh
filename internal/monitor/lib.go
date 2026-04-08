@@ -9,6 +9,7 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/blacknon/lssh/internal/mux"
 	sshrun "github.com/blacknon/lssh/internal/ssh"
 	mview "github.com/blacknon/mview"
 )
@@ -37,6 +38,8 @@ type Monitor struct {
 	top          *mview.Grid  // MainTab(List)'s top
 	selectedNode string
 	enableTop    bool // MainTab(List) enable Top
+	topTerminals map[string]*topTerminalPane
+	termFactory  mux.SessionFactory
 
 	sync.Mutex
 }
@@ -46,6 +49,8 @@ func Run(r *sshrun.Run) (err error) {
 	monitor.r = r
 
 	monitor.enableTop = false
+	monitor.topTerminals = map[string]*topTerminalPane{}
+	monitor.termFactory = mux.NewSessionFactory(r.Conf, nil, mux.SessionOptions{})
 
 	// Create WaitGroup
 	wg := sync.WaitGroup{}
