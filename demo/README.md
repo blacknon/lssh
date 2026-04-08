@@ -130,7 +130,8 @@ This configuration also serves as an example of the include feature, and the act
 [includes]
 path = [
     "~/.lssh.d/servers_proxy.toml",
-    "~/.lssh.d/servers_direct.toml"
+    "~/.lssh.d/servers_direct.toml",
+    "~/.lssh.d/servers_match.toml"
 ]
 ```
 
@@ -148,6 +149,9 @@ The split files are:
   - `OverNestedSshProxy`
   - `OverNestedHttpProxy`
   - `OverNestedSocksProxy`
+- `~/.lssh.d/servers_match.toml`
+  - `ConditionalOverProxy`
+  - `ConditionalNestedProxy`
 
 `~/.lssh.conf` also defines shared settings in `[common]` and the proxy entries `http_proxy`, `socks_proxy`, `deep_http_proxy`, and `deep_socks_proxy`.
 
@@ -173,6 +177,36 @@ The split files are:
   - Private server reached through `OverSshProxy` and then a SOCKS5 proxy
 - `LocalRcKeyAuth`
   - Private key-authenticated server with `local_rc = "yes"` enabled
+- `ConditionalOverProxy`
+  - Demo target that switches between direct access and `ssh_proxy` based on the local IP
+- `ConditionalNestedProxy`
+  - Demo target that switches between deep HTTP and SOCKS5 proxy routes based on the local IP
+
+## Conditional Match Example
+
+The demo client is attached to `frontend` as `172.31.0.10`, so the conditional match examples are written to match that network first.
+They show how `server.<name>.match.<branch>` can override only the fields that need to change.
+
+```toml
+[server.ConditionalOverProxy]
+addr = "172.31.1.41"
+key = "~/.ssh/demo_lssh_ed25519"
+note = "direct on backend, ssh_proxy on frontend"
+
+[server.ConditionalOverProxy.match.frontend_via_ssh_proxy]
+priority = 1
+when.local_ip_in = ["172.31.0.0/24"]
+proxy = "ssh_proxy"
+note = "frontend clients use ssh_proxy"
+
+[server.ConditionalOverProxy.match.outside_demo]
+priority = 90
+when.local_ip_not_in = ["172.31.0.0/24", "172.31.1.0/24", "172.31.2.0/24", "172.31.3.0/24"]
+ignore = true
+```
+
+Inside the `client` container, `frontend_via_ssh_proxy` is selected because the local IP is `172.31.0.10`.
+That makes `ConditionalOverProxy` behave like a normal host entry that transparently goes through `ssh_proxy`.
 
 ## Try It
 
@@ -208,6 +242,12 @@ lssh --host OverNestedSocksProxy
 
 # Connect with local_rc applied
 lssh --host LocalRcKeyAuth
+
+# Conditional routing example: on the demo client this uses ssh_proxy
+lssh --host ConditionalOverProxy
+
+# Conditional nested route example: on the demo client this uses deep_http_proxy
+lssh --host ConditionalNestedProxy
 ```
 
 From the host, you can also treat `client` as a jump entrypoint that always launches `lssh`:

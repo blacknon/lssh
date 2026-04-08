@@ -6,6 +6,7 @@ package pshell
 
 import (
 	"bufio"
+	"context"
 	"fmt"
 	"io"
 	"os"
@@ -21,6 +22,7 @@ import (
 
 	"github.com/blacknon/go-sshlib"
 	"github.com/blacknon/lssh/internal/output"
+	lsync "github.com/blacknon/lssh/internal/sync"
 	pkgsftp "github.com/pkg/sftp"
 	"github.com/vbauerster/mpb"
 	"golang.org/x/crypto/ssh"
@@ -57,7 +59,7 @@ func checkBuildInCommand(cmd string) (isBuildInCmd bool) {
 	case
 		"%history",
 		"%out", "%outlist", "%outexec",
-		"%get", "%put",
+		"%get", "%put", "%sync",
 		"%save",
 		"%set": // parsent build-in command.
 		isBuildInCmd = true
@@ -155,6 +157,11 @@ func (s *shell) run(pline pipeLine, in *io.PipeReader, out *io.PipeWriter, ch ch
 	// %put local remote
 	case "%put":
 		s.buildin_put(pline.Args, out, ch)
+		return
+
+	// %sync local:/path... remote:/path
+	case "%sync":
+		s.buildin_sync(pline.Args, out, ch)
 		return
 	}
 
@@ -612,6 +619,297 @@ func (s *shell) buildin_put(args []string, out *io.PipeWriter, ch chan<- bool) {
 			}
 		}()
 	}
+}
+
+func (s *shell) buildin_sync(args []string, out *io.PipeWriter, ch chan<- bool) {
+	stdout := setOutput(out)
+	progressWG := new(sync.WaitGroup)
+	progress := mpb.New(mpb.WithWaitGroup(progressWG))
+	defer func() {
+		progress.Wait()
+		switch stdout.(type) {
+		case *io.PipeWriter:
+			out.CloseWithError(io.ErrClosedPipe)
+		}
+		ch <- true
+	}()
+
+	connects, args, err := s.resolveTargetedConnects(args)
+	if err != nil {
+		fmt.Fprintf(stdout, "Error: %s\n", err)
+		return
+	}
+
+	parsed, err := lsync.ParseCommandArgs(args)
+	if err != nil {
+		fmt.Fprintf(stdout, "Error: %s\n", err)
+		_, _ = io.WriteString(stdout, "%sync [--delete] [-p] [-P num] (local|remote):source... (local|remote):target\n")
+		return
+	}
+
+	sourceSpecs := make([]lsync.PathSpec, 0, len(parsed.Sources))
+	isSourceRemote := false
+	isSourceLocal := false
+	for _, raw := range parsed.Sources {
+		spec, err := lsync.ParsePathSpec(raw)
+		if err != nil {
+			fmt.Fprintf(stdout, "Error: %s\n", err)
+			return
+		}
+		if spec.IsRemote {
+			isSourceRemote = true
+		} else {
+			isSourceLocal = true
+		}
+		sourceSpecs = append(sourceSpecs, spec)
+	}
+
+	targetSpec, err := lsync.ParsePathSpec(parsed.Destination)
+	if err != nil {
+		fmt.Fprintf(stdout, "Error: %s\n", err)
+		return
+	}
+
+	if isSourceRemote && isSourceLocal {
+		fmt.Fprintf(stdout, "Error: can not mix LOCAL and REMOTE in source paths.\n")
+		return
+	}
+	if !isSourceRemote && !targetSpec.IsRemote {
+		fmt.Fprintf(stdout, "Error: LOCAL to LOCAL sync is not supported.\n")
+		return
+	}
+
+	parallelNum := parsed.ParallelNum
+	if parallelNum < 1 {
+		parallelNum = 1
+	}
+
+	switch {
+	case !isSourceRemote && targetSpec.IsRemote:
+		if err := s.syncLocalToRemote(connects, sourceSpecs, targetSpec, parallelNum, parsed.Delete, parsed.Permission, progress, progressWG); err != nil {
+			fmt.Fprintf(stdout, "Error: %s\n", err)
+		}
+	case isSourceRemote && !targetSpec.IsRemote:
+		if err := s.syncRemoteToLocal(connects, sourceSpecs, targetSpec, parallelNum, parsed.Delete, parsed.Permission, progress, progressWG); err != nil {
+			fmt.Fprintf(stdout, "Error: %s\n", err)
+		}
+	case isSourceRemote && targetSpec.IsRemote:
+		if err := s.syncRemoteToRemote(connects, sourceSpecs, targetSpec, parallelNum, parsed.Delete, parsed.Permission, progress, progressWG); err != nil {
+			fmt.Fprintf(stdout, "Error: %s\n", err)
+		}
+	}
+}
+
+func (s *shell) syncSelectConnects(base []*sConnect, hosts []string) ([]*sConnect, error) {
+	if len(hosts) == 0 {
+		return base, nil
+	}
+
+	selected := make([]*sConnect, 0, len(hosts))
+	for _, host := range hosts {
+		found := false
+		for _, conn := range base {
+			if conn != nil && conn.Name == strings.TrimSpace(host) {
+				selected = append(selected, conn)
+				found = true
+			}
+		}
+		if !found {
+			return nil, fmt.Errorf("target server not found: %s", host)
+		}
+	}
+
+	return selected, nil
+}
+
+func (s *shell) syncRemoteSourceGroups(base []*sConnect, specs []lsync.PathSpec) (map[string][]string, map[string]*sConnect, error) {
+	pathsByServer := map[string][]string{}
+	connByServer := map[string]*sConnect{}
+
+	for _, spec := range specs {
+		selected, err := s.syncSelectConnects(base, spec.Hosts)
+		if err != nil {
+			return nil, nil, err
+		}
+		for _, conn := range selected {
+			pathsByServer[conn.Name] = append(pathsByServer[conn.Name], spec.Path)
+			connByServer[conn.Name] = conn
+		}
+	}
+
+	return pathsByServer, connByServer, nil
+}
+
+func (s *shell) syncLocalToRemote(base []*sConnect, sourceSpecs []lsync.PathSpec, targetSpec lsync.PathSpec, parallelNum int, deleteExtra, permission bool, progress *mpb.Progress, progressWG *sync.WaitGroup) error {
+	localFS, err := lsync.NewLocalFS()
+	if err != nil {
+		return err
+	}
+
+	targets, err := s.syncSelectConnects(base, targetSpec.Hosts)
+	if err != nil {
+		return err
+	}
+
+	sourcePaths := make([]string, 0, len(sourceSpecs))
+	for _, spec := range sourceSpecs {
+		sourcePaths = append(sourcePaths, spec.Path)
+	}
+
+	for _, conn := range targets {
+		conn.Output.Progress = progress
+		conn.Output.ProgressWG = progressWG
+		client, closeClient, err := s.openSFTPClient(conn)
+		if err != nil {
+			return err
+		}
+
+		func() {
+			defer closeClient()
+			pwd, pwdErr := client.Getwd()
+			if pwdErr != nil {
+				pwd = "."
+			}
+			remoteFS := lsync.NewRemoteFS(client, pwd)
+			plan, planErr := lsync.BuildPlan(localFS, remoteFS, sourcePaths, targetSpec.Path)
+			if planErr != nil {
+				err = planErr
+				return
+			}
+			err = lsync.ApplyPlan(context.Background(), localFS, remoteFS, plan, lsync.ApplyOptions{
+				Delete:      deleteExtra,
+				Permission:  permission,
+				ParallelNum: parallelNum,
+				Output:      conn.Output,
+			})
+		}()
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func (s *shell) syncRemoteToLocal(base []*sConnect, sourceSpecs []lsync.PathSpec, targetSpec lsync.PathSpec, parallelNum int, deleteExtra, permission bool, progress *mpb.Progress, progressWG *sync.WaitGroup) error {
+	localFS, err := lsync.NewLocalFS()
+	if err != nil {
+		return err
+	}
+
+	pathsByServer, connByServer, err := s.syncRemoteSourceGroups(base, sourceSpecs)
+	if err != nil {
+		return err
+	}
+
+	for server, paths := range pathsByServer {
+		conn := connByServer[server]
+		conn.Output.Progress = progress
+		conn.Output.ProgressWG = progressWG
+		client, closeClient, err := s.openSFTPClient(conn)
+		if err != nil {
+			return err
+		}
+
+		func() {
+			defer closeClient()
+			destination := targetSpec.Path
+			if len(pathsByServer) > 1 {
+				destination = localFS.Join(destination, server)
+			}
+			pwd, pwdErr := client.Getwd()
+			if pwdErr != nil {
+				pwd = "."
+			}
+			remoteFS := lsync.NewRemoteFS(client, pwd)
+			plan, planErr := lsync.BuildPlan(remoteFS, localFS, paths, destination)
+			if planErr != nil {
+				err = planErr
+				return
+			}
+			err = lsync.ApplyPlan(context.Background(), remoteFS, localFS, plan, lsync.ApplyOptions{
+				Delete:      deleteExtra,
+				Permission:  permission,
+				ParallelNum: parallelNum,
+				Output:      conn.Output,
+			})
+		}()
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func (s *shell) syncRemoteToRemote(base []*sConnect, sourceSpecs []lsync.PathSpec, targetSpec lsync.PathSpec, parallelNum int, deleteExtra, permission bool, progress *mpb.Progress, progressWG *sync.WaitGroup) error {
+	pathsByServer, connByServer, err := s.syncRemoteSourceGroups(base, sourceSpecs)
+	if err != nil {
+		return err
+	}
+	if len(pathsByServer) != 1 {
+		return fmt.Errorf("remote to remote sync requires source paths from a single host; use remote:@host:/path")
+	}
+
+	targets, err := s.syncSelectConnects(base, targetSpec.Hosts)
+	if err != nil {
+		return err
+	}
+
+	var sourceConn *sConnect
+	var sourcePaths []string
+	for server, paths := range pathsByServer {
+		sourceConn = connByServer[server]
+		sourcePaths = paths
+		break
+	}
+
+	sourceConn.Output.Progress = progress
+	sourceConn.Output.ProgressWG = progressWG
+	sourceClient, closeSource, err := s.openSFTPClient(sourceConn)
+	if err != nil {
+		return err
+	}
+	defer closeSource()
+
+	sourcePwd, pwdErr := sourceClient.Getwd()
+	if pwdErr != nil {
+		sourcePwd = "."
+	}
+	sourceFS := lsync.NewRemoteFS(sourceClient, sourcePwd)
+	for _, conn := range targets {
+		conn.Output.Progress = progress
+		conn.Output.ProgressWG = progressWG
+		targetClient, closeTarget, err := s.openSFTPClient(conn)
+		if err != nil {
+			return err
+		}
+
+		func() {
+			defer closeTarget()
+			targetPwd, targetPwdErr := targetClient.Getwd()
+			if targetPwdErr != nil {
+				targetPwd = "."
+			}
+			targetFS := lsync.NewRemoteFS(targetClient, targetPwd)
+			plan, planErr := lsync.BuildPlan(sourceFS, targetFS, sourcePaths, targetSpec.Path)
+			if planErr != nil {
+				err = planErr
+				return
+			}
+			err = lsync.ApplyPlan(context.Background(), sourceFS, targetFS, plan, lsync.ApplyOptions{
+				Delete:      deleteExtra,
+				Permission:  permission,
+				ParallelNum: parallelNum,
+				Output:      conn.Output,
+			})
+		}()
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
 }
 
 // localCmd_history is printout history (shell history)

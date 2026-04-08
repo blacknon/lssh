@@ -33,18 +33,17 @@ import (
 	"crypto/md5"
 	"encoding/hex"
 	"fmt"
+	"github.com/blacknon/lssh/internal/common"
 	"log"
 	"os"
 	"strings"
 	"time"
-
-	"github.com/BurntSushi/toml"
-	"github.com/blacknon/lssh/internal/common"
 )
 
 // Config is Struct that stores the entire configuration file.
 type Config struct {
 	Log      LogConfig
+	Mux      MuxConfig
 	Shell    ShellConfig
 	Include  map[string]IncludeConfig
 	Includes IncludesConfig
@@ -122,7 +121,7 @@ func (c *Config) ReadIncludeFiles() {
 			path := common.GetFullPath(v.Path)
 
 			// Read include config file
-			_, err := toml.DecodeFile(path, &includeConf)
+			err := decodeConfigFile(path, &includeConf)
 			if err != nil {
 				fmt.Fprintf(os.Stderr, "err: Read config file error: %s", err)
 				os.Exit(1)
@@ -150,6 +149,10 @@ func (c *Config) ReadIncludeFiles() {
 func (c *Config) checkFormatServerConf() (ok bool) {
 	ok = true
 	for k, v := range c.Server {
+		if v.Ignore {
+			continue
+		}
+
 		// Address Set Check
 		if v.Addr == "" {
 			log.Printf("%s: 'addr' is not set.\n", k)
@@ -179,7 +182,7 @@ func Read(confPath string) (c Config) {
 	// TODO(blacknon): ~/.lssh.confがなくても、openssh用のファイルがアレばそれをみるように処理
 	if common.IsExist(confPath) {
 		// Read config file
-		_, err := toml.DecodeFile(confPath, &c)
+		err := decodeConfigFile(confPath, &c)
 		if err != nil {
 			log.Println(err)
 			os.Exit(1)
@@ -195,6 +198,7 @@ func Read(confPath string) (c Config) {
 		},
 		c.Common,
 	)
+	c.Mux = c.Mux.ApplyDefaults()
 
 	// reduce common setting (in .lssh.conf servers)
 	c.ReduceCommon()
@@ -204,6 +208,12 @@ func Read(confPath string) (c Config) {
 
 	// for append includes to include.path
 	c.ReadIncludeFiles()
+
+	// resolve conditional server overrides after all sources have been merged
+	if err := c.ResolveConditionalMatches(); err != nil {
+		log.Println(err)
+		os.Exit(1)
+	}
 
 	// Check Config Parameter
 	ok := c.checkFormatServerConf()
@@ -259,7 +269,10 @@ func serverConfigReduct(perConfig, childConfig ServerConfig) ServerConfig {
 
 // GetNameList return a list of server names from the Config structure.
 func GetNameList(listConf Config) (nameList []string) {
-	for k := range listConf.Server {
+	for k, v := range listConf.Server {
+		if v.Ignore {
+			continue
+		}
 		nameList = append(nameList, k)
 	}
 	return

@@ -33,6 +33,9 @@ OPTIONS:
     -Y                                          Enable trusted x11 forwarding(forward to ${DISPLAY}).
     --term, -t                                  run specified command at terminal.
     --parallel, -p                              run command parallel node(tail -F etc...).
+    -P                                          run shell or command in mux UI (lsmux compatible).
+    --hold                                      keep command panes after remote command exits (with -P).
+    --allow-layout-change                       allow opening new pages/panes even in command mode (with -P).
     --localrc                                   use local bashrc shell.
     --not-localrc                               not use local bashrc shell.
     --list, -l                                  print server list from config.
@@ -44,7 +47,7 @@ COPYRIGHT:
     blacknon(blacknon@orebibou.com)
 
 VERSION:
-    lssh-suite 0.7.0 (stable/core)
+    lssh-suite 0.8.0 (stable/core)
 
 USAGE:
     # connect ssh
@@ -55,6 +58,9 @@ USAGE:
 
     # run command parallel in selected server over ssh.
     lssh -p command...
+
+    # run command or shell in mux UI.
+    lssh -P [command...]
 
 ```
 
@@ -91,7 +97,14 @@ lssh -p hostname
 If you pipe input before the command, `stdin` is sent to the selected server.
 
 ```sh
-echo "hostname" | lssh hostname
+echo "hostname" | lssh cat
+```
+
+If you want the `lsmux` style pane UI from `lssh`, use `-P`.
+When a command is given, piped `stdin` is copied to each pane, and `--hold` keeps finished panes open.
+
+```sh
+lssh -P --hold hostname
 ```
 
 ### pre_cmd / post_cmd
@@ -160,6 +173,9 @@ Command line examples.
 # local port forwarding
 lssh -L 8080:localhost:80
 
+# local unix socket forwarding
+lssh -L /tmp/local.sock:/tmp/remote.sock
+
 # remote port forwarding
 lssh -R 80:localhost:8080
 
@@ -173,9 +189,11 @@ lssh -d 18080
 lssh -r 18080
 
 # NFS dynamic forward
+# Note: required mount process after forward.
 lssh -M 2049:/path/to/remote
 
 # NFS reverse dynamic forward
+# Note: required mount process after forward.
 lssh -m 2049:/path/to/local
 
 # tunnel device
@@ -282,6 +300,8 @@ local_rc_file = [
 
 #### Tips
 
+##### Use local vimrc & tmux.conf
+
 When you want to use your local `vimrc` or `tmux.conf` on the remote side without leaving files behind, the practical approach is to generate wrapper functions and transfer those wrappers with `local_rc_file`. Unlike `bash --rcfile`, these tools need the config every time they start, so it is easier to decode the local config inside a function such as `lvim` or `ltmux` and then replace the command with an alias like `alias vim=lvim`.
 
 This is the same approach used in `blacknon/dotfiles` with `update_lvim` and `update_ltmux`: keep the editable source files locally, then regenerate small shell functions that embed the latest config as `base64`.
@@ -322,3 +342,75 @@ The demo environment under [demo/README.md](../../demo/README.md) includes a wor
 - `~/.demo_localrc/bin/update_ltmux`
 - `~/.demo_localrc/generated/lvim.sh`
 - `~/.demo_localrc/generated/ltmux.sh`
+
+##### If you want peco or fzf on remote machine
+
+If the remote machine does not have a fuzzy finder such as [peco](https://github.com/peco/peco) or [fzf](https://github.com/junegunn/fzf), but you still want to use that kind of workflow there, try [boco](https://github.com/blacknon/boco).
+
+Because boco is implemented as a shell function, you can bring it to the remote machine as-is through `local_rc`.
+
+Also, you can use `NFS reverse mounting (-m)` to transfer Linux binaries to a remote machine.
+Using this method, it should be possible to use peco or fzf even if they are not installed on the remote machine.
+
+We recommend forwarding the following function:
+
+```bash
+reverse_mount() {
+  usage() {
+    echo "Usage: reverse_mount [-p port] [-s] mount_path"
+    return 1
+  }
+
+  local is_sudo
+  local port=2049
+  local path
+
+  local opt
+  while getopts "p:s" opt; do
+    case $opt in
+    p) port="${OPTARG}" ;;
+    s) is_sudo="1" ;;
+    esac
+  done
+  shift $((OPTIND - 1))
+
+  if [ $# -eq 0 ]; then
+    echo "Error: Arguments are required."
+    usage
+  fi
+
+  path="$(readlink -f $1)"
+
+  local mount_cmd="mount -t nfs -o vers=3,proto=tcp,port=${port},mountport=${port} 127.0.0.1:/ ${path}"
+  local umount_cmd="umount ${path}"
+  if [ "${is_sudo}" -eq "1" ]; then
+    mount_cmd="sudo sh -c '${mount_cmd}'"
+    umount_cmd="sudo sh -c '${umount_cmd}'"
+  fi
+
+  eval ${mount_cmd}
+
+  trap "cd; echo 'umount reverse mount dir';${umount_cmd}" EXIT
+}
+```
+
+##### If you use iTerm2 and image view in terminal
+
+If you use iTerm2 and display images in the terminal with the [Inline image Protocol](https://iterm2.com/documentation-images.html), it is useful to use [this function](https://iterm2.com/documentation-images.html).
+
+Because this is not a script, you can bring it to a remote machine as-is.
+
+##### Using lssh as an SSH bastion host
+
+You can use `lssh` on a jump host and connect to final destinations from there.
+
+For example, install `lssh` on the bastion server, prepare a host list that is shared by your team, and then start `lssh` after logging in to the bastion host. This is useful when direct access to target servers is restricted and all SSH access must go through a single entry point.
+
+workflow:
+
+1. SSH to the bastion host.
+2. Start `lssh` on the bastion host.
+3. Select the destination server from the `lssh` list.
+4. Connect to the selected server from the bastion host.
+
+This approach helps centralize access paths while keeping the server selection flow simple for operators.

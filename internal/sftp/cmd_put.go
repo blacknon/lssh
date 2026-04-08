@@ -72,6 +72,12 @@ func (r *RunSftp) put(args []string) {
 			}
 
 			for _, p := range epath {
+				info, err := os.Lstat(p)
+				if err != nil {
+					fmt.Fprintf(os.Stderr, "%s\n", err)
+					return nil
+				}
+
 				// get local host directory walk data
 				data, err := common.WalkDir(p)
 				if err != nil {
@@ -81,7 +87,8 @@ func (r *RunSftp) put(args []string) {
 
 				sort.Strings(data)
 				dataset := PathSet{
-					Base:      filepath.Dir(p),
+					Root:      p,
+					RootIsDir: info.IsDir(),
 					PathSlice: data,
 				}
 				pathset = append(pathset, dataset)
@@ -152,8 +159,9 @@ func (r *RunSftp) put(args []string) {
 			client := c
 			go func() {
 				type pushTask struct {
-					base string
-					path string
+					root      string
+					rootIsDir bool
+					path      string
 				}
 
 				tasks := make(chan pushTask)
@@ -200,14 +208,13 @@ func (r *RunSftp) put(args []string) {
 									return
 								}
 
-								r.pushData(workerClient, len(pathset) > 1, task.base, task.path)
+								r.pushData(workerClient, len(pathset) > 1, task.root, task.rootIsDir, task.path)
 							}
 						}
 					}(workerClient)
 				}
 
 				for _, p := range pathset {
-					base := p.Base
 					data := p.PathSlice
 					for _, path := range data {
 						select {
@@ -219,7 +226,7 @@ func (r *RunSftp) put(args []string) {
 
 							exit <- true
 							return
-						case tasks <- pushTask{base: base, path: path}:
+						case tasks <- pushTask{root: p.Root, rootIsDir: p.RootIsDir, path: path}:
 						}
 					}
 				}
@@ -256,10 +263,7 @@ func (r *RunSftp) put(args []string) {
 	return
 }
 
-func (r *RunSftp) pushData(client *TargetConnectMap, isMultiple bool, base, path string) (err error) {
-	// set arg relpath
-	relpath, _ := filepath.Rel(base, path)
-
+func (r *RunSftp) pushData(client *TargetConnectMap, isMultiple bool, root string, rootIsDir bool, path string) (err error) {
 	for _, target := range client.Path {
 		target = strings.TrimSpace(target)
 		targetList := []string{}
@@ -297,10 +301,13 @@ func (r *RunSftp) pushData(client *TargetConnectMap, isMultiple bool, base, path
 			fInfo, _ := os.Lstat(path)
 			lstat, err := client.Connect.Lstat(t)
 			targetExistsAsDir := err == nil && lstat.IsDir()
+			preserveSourceName := targetExistsAsDir || isMultiple || strings.HasSuffix(t, "/")
+			base := copySourceBase(root, rootIsDir, preserveSourceName)
+			relpath, _ := filepath.Rel(base, path)
 			rpath := resolveRemotePutDestinationPath(
 				t,
 				relpath,
-				shouldTreatRemotePutDestinationAsDir(t, targetExistsAsDir, fInfo.IsDir(), isMultiple),
+				shouldTreatRemotePutDestinationAsDir(t, targetExistsAsDir, rootIsDir, isMultiple),
 			)
 			if fInfo.IsDir() { // directory
 				client.Connect.Mkdir(rpath)

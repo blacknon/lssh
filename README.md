@@ -15,7 +15,6 @@ lssh is a pure Go, list-oriented SSH toolkit that lets you select hosts from a T
 
 ### Features
 
-- Pure Go SSH toolkit with cross-platform support for Linux, macOS, and Windows
 - Host inventory defined in TOML, with interactive filtering and selection
 - SSH, SCP, and SFTP workflows from a single tool suite
 - Parallel operations across multiple hosts, including command execution and interactive shells
@@ -25,7 +24,7 @@ lssh is a pure Go, list-oriented SSH toolkit that lets you select hosts from a T
 - Authentication support for password, public key, certificate, PKCS#11, and `ssh-agent`
 - OpenSSH config import, known_hosts support
 - ControlMaster/ControlPersist session reuse
-
+- Pure Go SSH toolkit with cross-platform support for Linux, macOS, and Windows
 
 ### Commands
 
@@ -36,7 +35,9 @@ The `lssh` suite provides multiple commands for different SSH-related workflows.
 | [lssh](./cmd/lssh/README.md) | Interactive SSH access and port forwarding | TUI-based SSH client for host selection, interactive login, parallel command execution, and forwarding features. |
 | [lsftp](./cmd/lsftp/README.md) | Interactive file operations over SFTP | Interactive SFTP shell for browsing directories, transferring files, and managing one or more hosts together. |
 | [lscp](./cmd/lscp/README.md) | SCP-style file transfer | File transfer command for local-to-remote, remote-to-local, and remote-to-remote copy operations over SSH. |
+| [lssync](./cmd/lssync/README.md) | One-way sync over SSH/SFTP | Sync command for mirroring local or remote trees to a destination, with optional delete behavior. |
 | [lsshell](./cmd/lsshell/README.md) | Sending commands to multiple hosts | Parallel interactive shell that can broadcast commands to selected hosts from a single prompt. |
+| [lsmux](./cmd/lsmux/README.md) | Managing multiple SSH sessions in panes | Tmux-like SSH multiplexer that opens selected hosts in a pane-based TUI, supports command panes and file transfer, and keeps multiple remote sessions visible at once. |
 | [lsmon](./cmd/lsmon/README.md) | Monitoring multiple remote hosts | TUI monitor that displays CPU, memory, disk, network, and process information from multiple hosts side by side. |
 
 
@@ -50,6 +51,65 @@ If you want to try the main connection patterns locally, see [demo/README.md](./
 
 You can install `lssh` with `go install`, Homebrew, or by building from source.
 
+### Prebuilt binaries
+
+Prebuilt binaries are available on GitHub Releases.
+
+#### Linux (amd64, tar.gz)
+
+<details>
+
+Install to `/usr/local/bin`:
+
+```bash id="1c8m19"
+VERSION=0.7.1
+curl -fL -o /tmp/lssh.tar.gz \
+  "https://github.com/blacknon/lssh/releases/download/v${VERSION}/lssh_${VERSION}_linux_amd64.tar.gz"
+sudo tar -xzf /tmp/lssh.tar.gz -C /tmp
+sudo install -m 0755 /tmp/lssh_${VERSION}_linux_amd64/bin/* /usr/local/bin/
+```
+
+</details>
+
+#### Debian / Ubuntu (.deb)
+
+<details>
+
+```bash
+VERSION=0.7.1
+curl -fL -o /tmp/lssh.deb \
+  "https://github.com/blacknon/lssh/releases/download/v${VERSION}/lssh_${VERSION}_amd64.deb"
+sudo apt install /tmp/lssh.deb
+```
+
+</details>
+
+#### RHEL / Fedora / Rocky / AlmaLinux (.rpm)
+
+<details>
+
+```bash
+VERSION=0.7.1
+curl -fL -o /tmp/lssh.rpm \
+  "https://github.com/blacknon/lssh/releases/download/v${VERSION}/lssh-${VERSION}-1.x86_64.rpm"
+sudo dnf install -y /tmp/lssh.rpm
+```
+
+</details>
+
+#### Package layout
+
+`lssh` provides both a full suite package and smaller split packages.
+
+| Package | Includes | Best for |
+| --- | --- | --- |
+| `lssh_*` | `lssh`, `lscp`, `lsftp`, `lssync`, `lsmon`, `lsshell`, `lsmux` | Full installation of the entire tool suite |
+| `lssh-core_*` | `lssh` | SSH access and forwarding only |
+| `lssh-transfer_*` | `lscp`, `lsftp`, `lssync` | File transfer workflows only |
+| `lssh-monitor_*` | `lsmon` | Monitoring multiple remote hosts |
+| `lssh-sysadmin_*` | `lsshell`, `lsmux` | Parallel shell / multi-host operations |
+
+
 ### go install
 
 Install the latest version directly with Go.
@@ -58,20 +118,9 @@ Install the latest version directly with Go.
 go install github.com/blacknon/lssh/cmd/lssh@latest
 go install github.com/blacknon/lssh/cmd/lscp@latest
 go install github.com/blacknon/lssh/cmd/lsftp@latest
-go install github.com/blacknon/lssh/cmd/lshell@latest
+go install github.com/blacknon/lssh/cmd/lssync@latest
+go install github.com/blacknon/lssh/cmd/lsshell@latest
 go install github.com/blacknon/lssh/cmd/lsmon@latest
-```
-
-### build from source
-
-Build from the repository when you want to work from the local source tree.
-
-```bash
-GO111MODULE=auto go get -u github.com/blacknon/lssh/cmd/lssh
-GO111MODULE=auto go get -u github.com/blacknon/lssh/cmd/lscp
-GO111MODULE=auto go get -u github.com/blacknon/lssh/cmd/lsftp
-GO111MODULE=auto go get -u github.com/blacknon/lssh/cmd/lsshell
-GO111MODULE=auto go get -u github.com/blacknon/lssh/cmd/lsmon
 ```
 
 ### brew install
@@ -82,10 +131,21 @@ Install with Homebrew on macOS.
 brew install blacknon/lssh/lssh
 ```
 
+### build from source
+
+Build from the repository when you want to work from the local source tree.
+
+```bash
+git clone https://github.com/blacknon/lssh.git
+cd lssh
+make build
+sudo make install
+```
+
 ## Usage
 
 This section describes shared configuration features used across the `lssh` suite.
-For command-specific features and CLI usage, see [cmd/README.md](/Users/blacknon/_go/src/github.com/blacknon/lssh/cmd/README.md) and the README in each command directory.
+For command-specific features and CLI usage, see [cmd/README.md](cmd/README.md) and the README in each command directory.
 
 ### TUI navigation and key bindings
 
@@ -425,13 +485,76 @@ note = "reuse ssh session"
 
 </details>
 
+
+### conditional overrides with `match`
+<details>
+
+Use `[server.<name>.match.<branch>]` when you want to override only part of a host configuration under specific conditions.
+Each match branch can change fields such as `proxy`, `user`, `port`, `note`, or `ignore`.
+All matching branches are evaluated in ascending `priority` order, and later branches overwrite earlier ones.
+This lets you split conditions such as `network`, `os`, and `terminal` into separate layers.
+
+```toml
+[server.app]
+addr = "192.168.100.50"
+user = "demo"
+key = "~/.ssh/id_rsa"
+note = "direct by default"
+
+[server.app.match.office_network]
+priority = 1
+when.local_ip_in = ["192.168.100.0/24"]
+proxy = "ssh-bastion"
+note = "use bastion from office network"
+
+[server.app.match.macos]
+priority = 50
+when.os_in = ["darwin"]
+when.term_in = ["iterm2"]
+when.env_in = ["SSH_AUTH_SOCK"]
+when.env_value_in = ["TERM_PROGRAM=iTerm.app"]
+user = "demo-mac"
+note = "prefer macOS + iTerm2 settings"
+
+[server.app.match.outside_office]
+priority = 90
+when.local_ip_not_in = ["192.168.100.0/24"]
+ignore = true
+```
+
+In this example, `app` connects directly by default.
+When the client is inside `192.168.100.0/24`, the `office_network` branch first overrides the host and routes the connection through `ssh-bastion`.
+If the client is also running `lssh` on macOS inside iTerm2, `SSH_AUTH_SOCK` exists, and `TERM_PROGRAM=iTerm.app`, the later `macos` branch additionally overrides `user` and `note`.
+When the client is outside that network, `outside_office` hides the host from selection.
+
+Available `when.*` keys:
+
+- `local_ip_in`, `local_ip_not_in`
+- `gateway_in`, `gateway_not_in`
+- `username_in`, `username_not_in`
+- `hostname_in`, `hostname_not_in`
+- `os_in`, `os_not_in`
+- `term_in`, `term_not_in`
+- `env_in`, `env_not_in`
+- `env_value_in`, `env_value_not_in`
+
+Notes:
+
+- Lower `priority` values are applied first. Higher `priority` values win when the same field is set multiple times.
+- `os_*` matches `runtime.GOOS` values such as `darwin`, `linux`, or `windows`.
+- `term_*` mainly matches normalized values from `TERM_PROGRAM` and `TERM` such as `iterm2`, `apple_terminal`, `xterm`, or `tmux`.
+- `env_*` checks whether the named environment variables exist.
+- `env_value_*` matches exact `KEY=value` pairs.
+
+</details>
+
 ## Related projects
 
 - [go-sshlib](https://github.com/blacknon/go-sshlib) ... A Go library for SSH connections, command execution, and interactive shell handling.
 
 ## Licence
 
-A short snippet describing the license [MIT](https://github.com/blacknon/lssh/blob/master/LICENSE.md).
+A short snippet describing the license [MIT](LICENSE.md).
 
 ## Author
 
