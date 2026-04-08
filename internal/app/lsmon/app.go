@@ -73,6 +73,7 @@ USAGE:
 		cli.StringSliceFlag{Name: "host,H", Usage: "connect `servername`."},
 		cli.StringFlag{Name: "file,F", Value: defConf, Usage: "config `filepath`."},
 		cli.StringFlag{Name: "logfile,L", Usage: "Set log file path."},
+		cli.BoolFlag{Name: "share-connect,s", Usage: "reuse the monitor SSH connection for terminals."},
 
 		// Other bool
 		cli.BoolFlag{Name: "list,l", Usage: "print server list from config."},
@@ -156,6 +157,7 @@ USAGE:
 		r.ServerList = selected
 		r.Conf = data
 		r.Conf.Common.ConnectTimeout = 5
+		r.ShareConnect = c.Bool("share-connect")
 
 		// Get stdin data(pipe)
 		if runtime.GOOS != "windows" {

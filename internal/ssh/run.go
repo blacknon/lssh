@@ -124,6 +124,9 @@ type Run struct {
 	// StdinData from pipe flag
 	IsStdinPipe bool
 
+	// ShareConnect reuses the monitor SSH connection for interactive terminals.
+	ShareConnect bool
+
 	// AuthMethodMap is
 	// map of AuthMethod summarized in Run overall
 	authMethodMap map[AuthKey][]ssh.AuthMethod
