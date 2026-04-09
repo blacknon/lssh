@@ -270,9 +270,7 @@ Tunnel device forwarding is available from the command line with `--tunnel`.
 
 ### local bashrc
 
-<!-- TODO: 対象サーバにはキャッシュファイルなどは残さないため、ゴミ担ってしまわなない旨を既存文章に違和感がない形で盛り込む -->
-
-You can connect using a local bashrc file (if the ssh login shell is bash).
+You can connect using a local bashrc file (if the ssh login shell is bash), without leaving cache or other temporary files behind on the target server.
 
 <p align="center">
 <img src="./img/use_bashrc.gif" width="720" />
