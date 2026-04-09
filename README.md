@@ -9,552 +9,136 @@ lssh
   <img src="./images/lssh_windows.gif" width="33%" />
 </p>
 
-lssh is a pure Go, list-oriented SSH toolkit that lets you select hosts from a TOML-defined inventory and connect with SSH, SCP, or SFTP. It is designed for interactive and parallel operations across multiple servers, with support for multi-stage proxies, port forwarding, ssh-agent, OpenSSH config import, and cross-platform use on Linux, macOS, and Windows.
+`lssh` is a pure Go SSH toolkit built around one idea: choose the right servers quickly, then work on them without bending your environment to each remote machine.
 
-## Description
+The first tool to start with is [`lssh`](./cmd/lssh/README.md). It gives you a host-selection TUI, parallel execution, local environment injection, rich forwarding, and proxy support from a single command on Linux, macOS, and Windows.
 
-### Features
+## Why start with `lssh`
 
-- Host inventory defined in TOML, with interactive filtering and selection
-- SSH, SCP, and SFTP workflows from a single tool suite
-- Parallel operations across multiple hosts, including command execution and interactive shells
-- Support for multi-stage proxy chains over SSH, HTTP, and SOCKS5
-- Port forwarding features including local, remote, dynamic, reverse dynamic, and X11 forwarding
-- NFS forwarding features for exporting remote paths locally and reverse-mounting local paths to remote hosts
-- Authentication support for password, public key, certificate, PKCS#11, and `ssh-agent`
-- OpenSSH config import, known_hosts support
-- ControlMaster/ControlPersist session reuse
-- Pure Go SSH toolkit with cross-platform support for Linux, macOS, and Windows
+### Pick servers from a TUI, then connect or run in parallel
 
-### Commands
+`lssh` reads your server inventory from TOML and opens a TUI selector when you do not specify `-H`.
+You can filter by typing, select one or more hosts, and then either open an interactive SSH session or run the same command on all selected hosts.
 
-The `lssh` suite provides multiple commands for different SSH-related workflows. Use the table below to choose the right command for your task and jump to its dedicated README.
+It is especially useful when your visible target list should change depending on where you are running from.
+With conditional `match` rules, you can show, hide, or override hosts by local network, OS, terminal, environment variables, and more.
 
-| Command | Best for | Overview |
-| --- | --- | --- |
-| [lssh](./cmd/lssh/README.md) | Interactive SSH access and port forwarding | TUI-based SSH client for host selection, interactive login, parallel command execution, and forwarding features. |
-| [lsftp](./cmd/lsftp/README.md) | Interactive file operations over SFTP | Interactive SFTP shell for browsing directories, transferring files, and managing one or more hosts together. |
-| [lscp](./cmd/lscp/README.md) | SCP-style file transfer | File transfer command for local-to-remote, remote-to-local, and remote-to-remote copy operations over SSH. |
-| [lssync](./cmd/lssync/README.md) | One-way sync over SSH/SFTP | Sync command for mirroring local or remote trees to a destination, with optional delete behavior. |
-| [lsshell](./cmd/lsshell/README.md) | Sending commands to multiple hosts | Parallel interactive shell that can broadcast commands to selected hosts from a single prompt. |
-| [lsmux](./cmd/lsmux/README.md) | Managing multiple SSH sessions in panes | Tmux-like SSH multiplexer that opens selected hosts in a pane-based TUI, supports command panes and file transfer, and keeps multiple remote sessions visible at once. |
-| [lsmon](./cmd/lsmon/README.md) | Monitoring multiple remote hosts | TUI monitor that displays CPU, memory, disk, network, and process information from multiple hosts side by side. |
-
-
-## Demo
-
-The animations at the top of this README show `lssh` running on macOS, Linux, and Windows.
-
-If you want to try the main connection patterns locally, see [demo/README.md](./demo/README.md). It provides a Docker Compose based demo environment with ready-to-use sample hosts, proxy routes, and client configuration.
-
-## Install
-
-You can install `lssh` with `go install`, Homebrew, or by building from source.
-
-### Prebuilt binaries
-
-Prebuilt binaries are available on GitHub Releases.
-
-#### Linux (amd64, tar.gz)
-
-<details>
-
-Install to `/usr/local/bin`:
-
-```bash id="1c8m19"
-VERSION=0.8.0
-curl -fL -o /tmp/lssh.tar.gz \
-  "https://github.com/blacknon/lssh/releases/download/v${VERSION}/lssh_${VERSION}_linux_amd64.tar.gz"
-sudo tar -xzf /tmp/lssh.tar.gz -C /tmp
-sudo install -m 0755 /tmp/lssh_${VERSION}_linux_amd64/bin/* /usr/local/bin/
-```
-
-</details>
-
-#### Debian / Ubuntu (.deb)
-
-<details>
+Examples:
 
 ```bash
-VERSION=0.8.0
-curl -fL -o /tmp/lssh.deb \
-  "https://github.com/blacknon/lssh/releases/download/v${VERSION}/lssh_${VERSION}_amd64.deb"
-sudo apt install /tmp/lssh.deb
+# open the selector, then connect to one host
+lssh
+
+# open the selector, then run a command on the selected host
+lssh hostname
+
+# select multiple hosts and run the same command in parallel
+lssh -p uname -a
 ```
 
-</details>
+### Use your local shell environment without leaving files on the remote host
 
-#### RHEL / Fedora / Rocky / AlmaLinux (.rpm)
+`lssh` can send your local shell startup files such as `.bashrc`, aliases, helper functions, or generated wrappers into the remote shell session without permanently placing those files on the server.
 
-<details>
+That means you can keep using your local workflow on SSH targets while avoiding configuration drift on the remote side.
+This is handy when you want your prompt, aliases, helper commands, or even wrappers for tools like `vim` and `tmux`, but you do not want to "pollute" each server with personal dotfiles.
 
-```bash
-VERSION=0.8.0
-curl -fL -o /tmp/lssh.rpm \
-  "https://github.com/blacknon/lssh/releases/download/v${VERSION}/lssh-${VERSION}-1.x86_64.rpm"
-sudo dnf install -y /tmp/lssh.rpm
-```
+For the detailed setup, see [`local bashrc`](./cmd/lssh/README.md#local-bashrc).
 
-</details>
+### Forwarding, proxies, and reverse-mounting local directories
 
-#### Package layout
+`lssh` supports more than a normal interactive login:
 
-`lssh` provides both a full suite package and smaller split packages.
+- SSH local / remote port forwarding
+- SOCKS5 and HTTP dynamic forwarding
+- X11 forwarding
+- Multi-stage proxy routes over SSH, HTTP, SOCKS5, and `ProxyCommand`
+- NFS forwarding so a remote server can mount a directory from your local machine
 
-| Package | Includes | Best for |
-| --- | --- | --- |
-| `lssh_*` | `lssh`, `lscp`, `lsftp`, `lssync`, `lsmon`, `lsshell`, `lsmux` | Full installation of the entire tool suite |
-| `lssh-core_*` | `lssh` | SSH access and forwarding only |
-| `lssh-transfer_*` | `lscp`, `lsftp`, `lssync` | File transfer workflows only |
-| `lssh-monitor_*` | `lsmon` | Monitoring multiple remote hosts |
-| `lssh-sysadmin_*` | `lsshell`, `lsmux` | Parallel shell / multi-host operations |
+That last point is particularly powerful when you want to bring local files or tools into a remote workflow without copying them onto the server first.
 
+For examples, see [`forwarding`](./cmd/lssh/README.md#forwarding) and the shared configuration docs in [`docs/`](./docs/README.md).
 
-### go install
+## Try it quickly
 
-Install the latest version directly with Go.
+### 1. Install
 
-```bash
-go install github.com/blacknon/lssh/cmd/lssh@latest
-go install github.com/blacknon/lssh/cmd/lscp@latest
-go install github.com/blacknon/lssh/cmd/lsftp@latest
-go install github.com/blacknon/lssh/cmd/lssync@latest
-go install github.com/blacknon/lssh/cmd/lsshell@latest
-go install github.com/blacknon/lssh/cmd/lsmon@latest
-```
-
-### brew install
-
-Install with Homebrew on macOS.
+Use whichever path is easiest for you:
 
 ```bash
 brew install blacknon/lssh/lssh
 ```
 
-### build from source
-
-Build from the repository when you want to work from the local source tree.
-
 ```bash
-git clone https://github.com/blacknon/lssh.git
-cd lssh
-make build
-sudo make install
+go install github.com/blacknon/lssh/cmd/lssh@latest
 ```
 
-## Usage
+Prebuilt packages and the full suite are also available on GitHub Releases.
+See the install details in [`docs/install.md`](./docs/install.md).
 
-This section describes shared configuration features used across the `lssh` suite.
-For command-specific features and CLI usage, see [cmd/README.md](cmd/README.md) and the README in each command directory.
+### 2. Create a minimal config
 
-### TUI navigation and key bindings
-
-<details>
-
-Most `lssh` commands open the same host selection TUI when you do not pass hosts with `-H`.
-You can filter the list by typing, then move and confirm the selection from the keyboard.
-
-- <kbd>Up</kbd> / <kbd>Down</kbd>: move the cursor one line
-- <kbd>Left</kbd> / <kbd>Right</kbd>: move between pages
-- <kbd>Tab</kbd>: toggle the current host and move to the next line in multi-select screens
-- <kbd>Ctrl</kbd> + <kbd>A</kbd>: select or unselect all visible hosts in multi-select screens
-- <kbd>Backspace</kbd>: delete one character from the current filter
-- <kbd>Space</kbd>: insert a space into the filter text
-- <kbd>Enter</kbd>: confirm the current selection
-- <kbd>Esc</kbd> or `Ctrl + C`: quit immediately
-
-Mouse left click also moves the cursor to the clicked line.
-
-`lsmon` adds one extra key binding after startup:
-
-- `Ctrl + X`: toggle the top-panel view for the currently selected host
-
-</details>
-
-### shared host inventory
-<details>
-
-`lssh` reads `~/.lssh.conf` by default.
-You can define shared settings in `[common]` and host entries in `[server.<name>]`.
-Values in `[server.<name>]` override values from `[common]`.
-
-Minimal example.
+Create `~/.lssh.conf`:
 
 ```toml
 [common]
 user = "demo"
-port = "22"
 key = "~/.ssh/id_rsa"
 
 [server.dev]
 addr = "192.168.100.10"
-note = "development server"
+note = "development"
+
+[server.stg]
+addr = "192.168.100.20"
+note = "staging"
 ```
 
-At minimum, a server entry needs `addr`, `user`, and authentication settings such as `pass`, `key`, `cert`, `pkcs11`, or `agentauth`.
+### 3. Start with these commands
 
-</details>
+```bash
+# choose from the TUI and open a shell
+lssh
 
-### keepalive settings
-<details>
+# choose from the TUI and run a command
+lssh hostname
 
-You can configure SSH keepalive probes with `alive_interval` and `alive_max`.
-These behave like OpenSSH `ServerAliveInterval` and `ServerAliveCountMax`.
-
-```toml
-[common]
-alive_interval = 10
-alive_max = 3
+# choose multiple hosts and run in parallel
+lssh -p 'uptime'
 ```
 
-With the example above, `lssh` sends a keepalive request every 10 seconds and closes the connection after 3 consecutive failures.
+If you want a ready-to-run local playground, see [`demo/README.md`](./demo/README.md).
 
-</details>
+## What else is in the suite
 
-### OpenSSH config import
-<details>
+You can stay on `lssh` for most SSH access workflows, but the repository also includes other tools when the job is more specialized.
 
-Load and use `~/.ssh/config` by default.\
-`ProxyCommand` can also be used.
+| Command | Best for | README |
+| --- | --- | --- |
+| `lssh` | Interactive SSH, selection TUI, parallel commands, forwarding | [cmd/lssh/README.md](./cmd/lssh/README.md) |
+| `lscp` | SCP-style file copy | [cmd/lscp/README.md](./cmd/lscp/README.md) |
+| `lsftp` | Interactive file transfer and remote file operations | [cmd/lsftp/README.md](./cmd/lsftp/README.md) |
+| `lssync` | One-way sync over SSH/SFTP | [cmd/lssync/README.md](./cmd/lssync/README.md) |
+| `lsshell` | Broadcast-style multi-host shell | [cmd/lsshell/README.md](./cmd/lsshell/README.md) |
+| `lsmux` | Pane-based multi-host SSH workspace | [cmd/lsmux/README.md](./cmd/lsmux/README.md) |
+| `lsmon` | Multi-host monitoring UI | [cmd/lsmon/README.md](./cmd/lsmon/README.md) |
 
-Alternatively, you can specify and read the path as follows: In addition to the path, ServerConfig items can be specified and applied collectively.
+If all you need is SSH access, start with `lssh`.
+When you later need file transfer, sync, monitoring, or a pane UI, the rest of the suite is there.
 
-```toml
-[sshconfig.default]
-path = "~/.ssh/config"
-pre_cmd = 'printf "\033]50;SetProfile=local\a"'
-post_cmd = 'printf "\033]50;SetProfile=Default\a"'
-```
+## Docs
 
-</details>
-
-### split config into multiple files
-<details>
-
-You can include server settings in another file.\
-`common` settings can be specified for each file that you went out.
-
-`~/.lssh.conf` example.
-
-```toml
-[includes]
-path = [
-	 "~/.lssh.d/home.conf"
-	,"~/.lssh.d/cloud.conf"
-]
-```
-
-`~/.lssh.d/home.conf` example.
-
-```toml
-[common]
-pre_cmd = 'printf "\033]50;SetProfile=dq\a"'       # iterm2 ssh theme
-post_cmd = 'printf "\033]50;SetProfile=Default\a"' # iterm2 local theme
-ssh_agent_key = ["~/.ssh/id_rsa"]
-ssh_agent = false
-user = "user"
-key = "~/.ssh/id_rsa"
-pkcs11provider = "/usr/local/lib/opensc-pkcs11.so"
-
-[server.Server1]
-addr = "172.16.200.1"
-note = "TEST Server1"
-local_rc = "yes"
-
-[server.Server2]
-addr = "172.16.200.2"
-note = "TEST Server2"
-local_rc = "yes"
-```
-
-The priority of setting values ​​is as follows.
-
-`[server.hogehoge]` > `[common] at Include file` > `[common] at ~/.lssh.conf`
-
-
-</details>
-
-### multi-stage proxy
-<details>
-
-Supports multiple proxy.
-
-* http
-* socks5
-* ssh
-
-Besides this, you can also specify ProxyCommand like OpenSSH.
-
-`http` proxy example.
-
-```toml
-[proxy.HttpProxy]
-addr = "example.com"
-port = "8080"
-
-[server.overHttpProxy]
-addr = "over-http-proxy.com"
-key  = "/path/to/private_key"
-note = "connect use http proxy"
-proxy = "HttpProxy"
-proxy_type = "http"
-```
-
-
-`socks5` proxy example.
-
-```toml
-[proxy.Socks5Proxy]
-addr = "example.com"
-port = "54321"
-
-[server.overSocks5Proxy]
-addr = "192.168.10.101"
-key  = "/path/to/private_key"
-note = "connect use socks5 proxy"
-proxy = "Socks5Proxy"
-proxy_type = "socks5"
-```
-
-`ssh` proxy example.
-
-```toml
-[server.sshProxyServer]
-addr = "192.168.100.200"
-key  = "/path/to/private_key"
-note = "proxy server"
-
-[server.overProxyServer]
-addr = "192.168.10.10"
-key  = "/path/to/private_key"
-note = "connect use ssh proxy"
-proxy = "sshProxyServer"
-
-[server.overProxyServer2]
-addr = "192.168.10.100"
-key  = "/path/to/private_key"
-note = "connect use ssh proxy(multiple)"
-proxy = "overProxyServer"
-```
-
-`ProxyCommand` proxy example.
-
-```toml
-[server.ProxyCommand]
-addr = "192.168.10.20"
-key  = "/path/to/private_key"
-note = "connect use ssh proxy(multiple)"
-proxy_cmd = "ssh -W %h:%p proxy"
-```
-
-</details>
-
-
-### available authentication methods
-<details>
-
-* Password auth
-* Publickey auth
-* Certificate auth
-* PKCS11 auth
-* Ssh-Agent auth
-
-`password` auth example.
-
-```toml
-[server.PasswordAuth]
-addr = "password_auth.local"
-user = "user"
-pass = "Password"
-note = "password auth server"
-```
-
-`publickey` auth example.
-
-```toml
-[server.PublicKeyAuth]
-addr = "pubkey_auth.local"
-user = "user"
-key = "~/path/to/key"
-note = "Public key auth server"
-
-[server.PublicKeyAuth_with_passwd]
-addr = "password_auth.local"
-user = "user"
-key = "~/path/to/key"
-keypass = "passphrase"
-note = "Public key auth server with passphrase"
-```
-
-`cert` auth example.\
-(pkcs11 key is not supported in the current version.)
-
-```toml
-[server.CertAuth]
-addr = "cert_auth.local"
-user = "user"
-cert = "~/path/to/cert"
-certkey = "~/path/to/certkey"
-note = "Certificate auth server"
-
-[server.CertAuth_with_passwd]
-addr = "cert_auth.local"
-user = "user"
-cert = "~/path/to/cert"
-certkey = "~/path/to/certkey"
-certkeypass = "passphrase"
-note = "Certificate auth server with passphrase"
-```
-
-`pkcs11` auth example.
-
-```toml
-[server.PKCS11Auth]
-addr = "pkcs11_auth.local"
-user = "user"
-pkcs11provider = "/usr/local/lib/opensc-pkcs11.so"
-pkcs11 = true
-note = "PKCS11 auth server"
-
-[server.PKCS11Auth_with_PIN]
-addr = "pkcs11_auth.local"
-user = "user"
-pkcs11provider = "/usr/local/lib/opensc-pkcs11.so"
-pkcs11 = true
-pkcs11pin = "123456"
-note = "PKCS11 auth server"
-```
-
-`ssh-agent` auth example.
-
-```toml
-[server.SshAgentAuth]
-addr = "agent_auth.local"
-user = "user"
-agentauth = true # auth ssh-agent
-note = "ssh-agent auth server"
-```
-
-</details>
-
-### check KnownHosts
-<details>
-
-Supported check KnownHosts.
-If you want to enable check KnownHost, set `check_known_hosts` to `true` in Server Config.
-
-If you want to specify a file to record KnownHosts, add file path to `known_hosts_files`.
-
-```toml
-[server.CheckKnownHosts]
-addr = "check_knwon_hosts.local"
-user = "user"
-check_known_hosts = true
-note = "check known hosts example"
-
-[server.CheckKnownHostsToOriginalFile]
-addr = "check_knwon_hosts.local"
-user = "user"
-check_known_hosts = true
-known_hosts_files = ["/path/to/known_hosts"]
-note = "check known hosts example"
-```
-
-</details>
-
-### ControlMaster / ControlPersist
-<details>
-
-You can reuse SSH sessions with OpenSSH-style ControlMaster settings.
-This is useful when multiple operations connect to the same host repeatedly.
-
-`~/.lssh.conf` example.
-
-```toml
-[common]
-control_master = true
-control_path = "/tmp/lssh-control-%h-%p-%r"
-control_persist = "10m"
-
-[server.controlmaster]
-addr = "192.168.100.110"
-user = "demo"
-key = "~/.ssh/id_rsa"
-note = "reuse ssh session"
-```
-
-</details>
-
-
-### conditional overrides with `match`
-<details>
-
-Use `[server.<name>.match.<branch>]` when you want to override only part of a host configuration under specific conditions.
-Each match branch can change fields such as `proxy`, `user`, `port`, `note`, or `ignore`.
-All matching branches are evaluated in ascending `priority` order, and later branches overwrite earlier ones.
-This lets you split conditions such as `network`, `os`, and `terminal` into separate layers.
-
-```toml
-[server.app]
-addr = "192.168.100.50"
-user = "demo"
-key = "~/.ssh/id_rsa"
-note = "direct by default"
-
-[server.app.match.office_network]
-priority = 1
-when.local_ip_in = ["192.168.100.0/24"]
-proxy = "ssh-bastion"
-note = "use bastion from office network"
-
-[server.app.match.macos]
-priority = 50
-when.os_in = ["darwin"]
-when.term_in = ["iterm2"]
-when.env_in = ["SSH_AUTH_SOCK"]
-when.env_value_in = ["TERM_PROGRAM=iTerm.app"]
-user = "demo-mac"
-note = "prefer macOS + iTerm2 settings"
-
-[server.app.match.outside_office]
-priority = 90
-when.local_ip_not_in = ["192.168.100.0/24"]
-ignore = true
-```
-
-In this example, `app` connects directly by default.
-When the client is inside `192.168.100.0/24`, the `office_network` branch first overrides the host and routes the connection through `ssh-bastion`.
-If the client is also running `lssh` on macOS inside iTerm2, `SSH_AUTH_SOCK` exists, and `TERM_PROGRAM=iTerm.app`, the later `macos` branch additionally overrides `user` and `note`.
-When the client is outside that network, `outside_office` hides the host from selection.
-
-Available `when.*` keys:
-
-- `local_ip_in`, `local_ip_not_in`
-- `gateway_in`, `gateway_not_in`
-- `username_in`, `username_not_in`
-- `hostname_in`, `hostname_not_in`
-- `os_in`, `os_not_in`
-- `term_in`, `term_not_in`
-- `env_in`, `env_not_in`
-- `env_value_in`, `env_value_not_in`
-
-Notes:
-
-- Lower `priority` values are applied first. Higher `priority` values win when the same field is set multiple times.
-- `os_*` matches `runtime.GOOS` values such as `darwin`, `linux`, or `windows`.
-- `term_*` mainly matches normalized values from `TERM_PROGRAM` and `TERM` such as `iterm2`, `apple_terminal`, `xterm`, or `tmux`.
-- `env_*` checks whether the named environment variables exist.
-- `env_value_*` matches exact `KEY=value` pairs.
-
-</details>
+- [docs/README.md](./docs/README.md): documentation index
+- [cmd/lssh/README.md](./cmd/lssh/README.md): `lssh` command details, forwarding, and local rc usage
+- [cmd/README.md](./cmd/README.md): command overview
 
 ## Related projects
 
-- [go-sshlib](https://github.com/blacknon/go-sshlib) ... A Go library for SSH connections, command execution, and interactive shell handling.
+- [go-sshlib](https://github.com/blacknon/go-sshlib): Go library for SSH connections, command execution, and interactive shells
 
 ## Licence
 
-A short snippet describing the license [MIT](LICENSE.md).
+[MIT](LICENSE.md)
 
 ## Author
 
