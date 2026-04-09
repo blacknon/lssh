@@ -9,9 +9,9 @@ lssh
   <img src="./images/lssh_windows.gif" width="33%" />
 </p>
 
-`lssh` is a pure Go SSH toolkit built around one idea: choose the right servers quickly, then work on them without bending your environment to each remote machine.
+`lssh` is a TUI-first SSH client for operators who work across multiple servers.
 
-The first tool to start with is [`lssh`](./cmd/lssh/README.md). It gives you a host-selection TUI, parallel execution, local environment injection, rich forwarding, and proxy support from a single command on Linux, macOS, and Windows.
+Choose hosts from an interactive selector, connect immediately, run commands in parallel, reuse your local bashrc on remote shells without leaving files behind, and use advanced forwarding including NFS-based mounts.
 
 ## Why start with `lssh`
 
@@ -36,7 +36,7 @@ lssh hostname
 lssh -p uname -a
 ```
 
-### Use your local shell environment without leaving files on the remote host
+### Use your local bashrc without leaving files on the remote host
 
 `lssh` can send your local shell startup files such as `.bashrc`, aliases, helper functions, or generated wrappers into the remote shell session without permanently placing those files on the server.
 
@@ -45,17 +45,17 @@ This is handy when you want your prompt, aliases, helper commands, or even wrapp
 
 For the detailed setup, see [`local bashrc`](./cmd/lssh/README.md#local-bashrc).
 
-### Forwarding, proxies, and reverse-mounting local directories
+### Mount your local directory on a remote server
 
-`lssh` supports more than a normal interactive login:
+`lssh` can expose a local directory to a remote server over NFS reverse forwarding, so you can use local files and tools in remote workflows without copying them onto the host.
 
+Beyond interactive SSH login, `lssh` also supports:
+
+- NFS reverse forwarding for mounting a local directory on a remote server
 - SSH local / remote port forwarding
 - SOCKS5 and HTTP dynamic forwarding
 - X11 forwarding
 - Multi-stage proxy routes over SSH, HTTP, SOCKS5, and `ProxyCommand`
-- NFS forwarding so a remote server can mount a directory from your local machine
-
-That last point is particularly powerful when you want to bring local files or tools into a remote workflow without copying them onto the server first.
 
 For examples, see [`forwarding`](./cmd/lssh/README.md#forwarding) and the shared configuration docs in [`docs/`](./docs/README.md).
 
