@@ -6,6 +6,8 @@ package conf
 
 import (
 	"net/netip"
+	"os"
+	"path/filepath"
 	"testing"
 
 	"github.com/BurntSushi/toml"
@@ -214,6 +216,68 @@ addr = "172.31.0.51"
 		return
 	}
 	assert.Equal(t, "172.31.0.51", cfg.Server["test"].Addr)
+}
+
+func TestDecodeConfigFileYAML(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "lssh.yaml")
+
+	err := os.WriteFile(path, []byte(`
+common:
+  user: common-user
+  pass: common-pass
+server:
+  demo:
+    addr: 192.168.10.20
+    user: demo-user
+    pass: secret
+    control_persist: 15s
+    match:
+      office:
+        priority: 10
+        when:
+          os_in:
+            - darwin
+        proxy: bastion
+      local:
+        when:
+          hostname_in:
+            - mbp
+        addr: 127.0.0.1
+sshconfig:
+  extra:
+    path: ~/.ssh/config
+    when:
+      os_in:
+        - darwin
+`), 0o600)
+	if !assert.NoError(t, err) {
+		return
+	}
+
+	var cfg Config
+	err = decodeConfigFile(path, &cfg)
+	if !assert.NoError(t, err) {
+		return
+	}
+
+	assert.Equal(t, "common-user", cfg.Common.User)
+	assert.Equal(t, "demo-user", cfg.Server["demo"].User)
+	assert.Equal(t, ControlPersistDuration(15), cfg.Server["demo"].ControlPersist)
+
+	office := cfg.Server["demo"].Match["office"]
+	assert.Equal(t, 10, office.EffectivePriority())
+	assert.True(t, office.priorityDefined)
+	assert.True(t, office.IsDefined("proxy"))
+	assert.Equal(t, "bastion", office.Proxy)
+
+	local := cfg.Server["demo"].Match["local"]
+	assert.False(t, local.priorityDefined)
+	assert.Equal(t, 100, local.EffectivePriority())
+	assert.True(t, local.IsDefined("addr"))
+
+	assert.Equal(t, "~/.ssh/config", cfg.SSHConfig["extra"].Path)
+	assert.Equal(t, []string{"darwin"}, cfg.SSHConfig["extra"].When.OSIn)
 }
 
 func TestResolveConditionalMatchesMergeByPriority(t *testing.T) {

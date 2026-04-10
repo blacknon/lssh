@@ -657,17 +657,36 @@ func GetDefaultConfigPath() (path string) {
 	// get home dir
 	home := usr.HomeDir
 
-	// get config path
-	homeConfigPath := filepath.Join(home, ".lssh.conf")
-	xdgConfigPath := filepath.Join(xdgConfigHome, "lssh", "lssh.conf")
-
-	if _, err := os.Stat(homeConfigPath); os.IsExist(err) {
-		return homeConfigPath
+	candidates := GetDefaultConfigCandidates(home, xdgConfigHome)
+	for _, candidate := range candidates {
+		if candidate != "" && IsExist(candidate) {
+			return candidate
+		}
 	}
 
-	if _, err := os.Stat(xdgConfigPath); os.IsExist(err) {
-		return xdgConfigPath
+	if len(candidates) > 0 {
+		return candidates[0]
 	}
 
-	return homeConfigPath
+	return filepath.Join(home, ".lssh.toml")
+}
+
+func GetDefaultConfigCandidates(home, xdgConfigHome string) []string {
+	candidates := []string{
+		filepath.Join(home, ".lssh.toml"),
+		filepath.Join(home, ".lssh.yaml"),
+		filepath.Join(home, ".lssh.yml"),
+		filepath.Join(home, ".lssh.conf"),
+	}
+
+	if xdgConfigHome != "" {
+		candidates = append(candidates,
+			filepath.Join(xdgConfigHome, "lssh", "lssh.toml"),
+			filepath.Join(xdgConfigHome, "lssh", "lssh.yaml"),
+			filepath.Join(xdgConfigHome, "lssh", "lssh.yml"),
+			filepath.Join(xdgConfigHome, "lssh", "lssh.conf"),
+		)
+	}
+
+	return candidates
 }
