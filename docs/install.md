@@ -72,27 +72,28 @@ brew install blacknon/lssh/lssh
 Install completion files for `bash`, `zsh`, and `fish`:
 
 ```bash
-./scripts/install-completions.sh all --user
+make install-completions-user
 ```
 
 To install under `/usr/local` instead:
 
 ```bash
-sudo ./scripts/install-completions.sh all --system
+sudo make install-completions
 ```
 
 You can also install just one shell:
 
 ```bash
-./scripts/install-completions.sh zsh --user
-./scripts/install-completions.sh bash --user
-./scripts/install-completions.sh fish --user
+make install-completions-user COMPLETION_SHELL=zsh
+make install-completions-user COMPLETION_SHELL=bash
+make install-completions-user COMPLETION_SHELL=fish
 ```
 
 If you use `mise`, the same flow is available as:
 
 ```bash
 mise run completion_install
+mise run completion_install_system
 ```
 
 For user-level `zsh` installs, add this to `~/.zshrc` if needed:
