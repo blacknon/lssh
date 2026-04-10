@@ -93,6 +93,19 @@ type NetworkIO struct {
 	sync.RWMutex
 }
 
+type nodeSnapshot struct {
+	CPUCore       int
+	MemInfo       *linux.MemInfo
+	KernelVersion string
+	Uptime        *linux.Uptime
+	TaskCount     uint64
+	LoadAvg       *linux.LoadAvg
+	DiskUsages    []*DiskUsage
+	NetworkUsages []*NetworkUsage
+	IPv4          []sshproc.IPv4
+	IPv6          []sshproc.IPv6
+}
+
 // Node is monitoring node struct
 type Node struct {
 	ServerName string
@@ -131,6 +144,8 @@ type Node struct {
 
 	// Top
 	NodeTop *NodeTop
+
+	snapshot nodeSnapshot
 
 	sync.RWMutex
 }
@@ -217,12 +232,9 @@ func (n *Node) GetCPUCore() (cn int, err error) {
 		return
 	}
 
-	cpuinfo, err := n.con.ReadCPUInfo(n.PathProcCpuinfo)
-	if err != nil {
-		return
-	}
-
-	cn = cpuinfo.NumCPU()
+	n.RLock()
+	cn = n.snapshot.CPUCore
+	n.RUnlock()
 	return
 }
 
@@ -491,8 +503,8 @@ func (n *Node) GetMemoryUsage() (memUsed, memTotal, swapUsed, swapTotal uint64, 
 		return
 	}
 
-	meminfo, err := n.con.ReadMemInfo(n.PathProcMeminfo)
-	if err != nil {
+	meminfo, err := n.GetMemInfo()
+	if err != nil || meminfo == nil {
 		return
 	}
 
@@ -513,7 +525,13 @@ func (n *Node) GetMemInfo() (memInfo *linux.MemInfo, err error) {
 		return
 	}
 
-	memInfo, err = n.con.ReadMemInfo(n.PathProcMeminfo)
+	n.RLock()
+	defer n.RUnlock()
+	if n.snapshot.MemInfo == nil {
+		return nil, fmt.Errorf("meminfo cache is not found")
+	}
+	mem := *n.snapshot.MemInfo
+	memInfo = &mem
 	return
 }
 
@@ -523,19 +541,12 @@ func (n *Node) GetKernelVersion() (version string, err error) {
 		return
 	}
 
-	data, err := n.con.ReadData("/proc/version")
-	if err != nil {
-		return
+	n.RLock()
+	version = n.snapshot.KernelVersion
+	n.RUnlock()
+	if version == "" {
+		err = fmt.Errorf("kernel version cache is not found")
 	}
-
-	versionSlice := strings.Split(data, " ")
-	if len(versionSlice) < 3 {
-		err = fmt.Errorf("Kernel Version is not found")
-		return
-	}
-
-	version = strings.Join(versionSlice[:3], " ")
-
 	return
 }
 
@@ -545,7 +556,13 @@ func (n *Node) GetUptime() (uptime *linux.Uptime, err error) {
 		return
 	}
 
-	uptime, err = n.con.ReadUptime(n.PathProcUptime)
+	n.RLock()
+	defer n.RUnlock()
+	if n.snapshot.Uptime == nil {
+		return nil, fmt.Errorf("uptime cache is not found")
+	}
+	up := *n.snapshot.Uptime
+	uptime = &up
 	return
 }
 
@@ -555,13 +572,9 @@ func (n *Node) GetTaskCounts() (tasks uint64, err error) {
 		return
 	}
 
-	processList, err := n.con.ListInPID("/proc")
-	if err != nil {
-		return
-	}
-
-	tasks = uint64(len(processList))
-
+	n.RLock()
+	tasks = n.snapshot.TaskCount
+	n.RUnlock()
 	return
 }
 
@@ -571,8 +584,13 @@ func (n *Node) GetLoadAvg() (loadavg *linux.LoadAvg, err error) {
 		return
 	}
 
-	loadavg, err = n.con.ReadLoadAvg(n.PathProcLoadavg)
-
+	n.RLock()
+	defer n.RUnlock()
+	if n.snapshot.LoadAvg == nil {
+		return nil, fmt.Errorf("loadavg cache is not found")
+	}
+	avg := *n.snapshot.LoadAvg
+	loadavg = &avg
 	return
 }
 
@@ -585,35 +603,9 @@ func (n *Node) GetDiskUsage() (diskUsages []*DiskUsage, err error) {
 		return
 	}
 
-	mounts, err := n.con.ReadMounts(n.PathProcMounts)
-	if err != nil {
-		return
-	}
-
-	for _, m := range mounts.Mounts {
-		disk, err := n.con.ReadDisk(m.MountPoint)
-		if err != nil {
-			continue
-		}
-
-		if fstype[m.FSType] {
-			n.getDiskIOBytes(m.Device)
-
-			diskUsage := &DiskUsage{
-				MountPoint:   m.MountPoint,
-				FSType:       m.FSType,
-				Device:       m.Device,
-				All:          disk.All,
-				Used:         disk.Used,
-				Free:         disk.Free,
-				ReadIOBytes:  n.DiskReadIOBytes,
-				WriteIOBytes: n.DiskWriteIOBytes,
-			}
-
-			diskUsages = append(diskUsages, diskUsage)
-		}
-	}
-
+	n.RLock()
+	diskUsages = cloneDiskUsages(n.snapshot.DiskUsages)
+	n.RUnlock()
 	return
 }
 
@@ -623,68 +615,9 @@ func (n *Node) GetNetworkUsage() (networkUsages []*NetworkUsage, err error) {
 		return
 	}
 
-	if n.con.Connect == nil {
-		return
-	}
-
-	// Get Network stats
-	if len(n.NetworkIOs) == 0 {
-		err = fmt.Errorf("NetworkIOs is not found")
-		return
-	}
-
-	networkIOs := make(map[string][]*NetworkIO)
-	n.Lock()
-	for device, networkIO := range n.NetworkIOs {
-		networkIOs[device] = networkIO
-	}
-	n.Unlock()
-	for device, networkIO := range networkIOs {
-		if len(networkIO) > 1 {
-			n.getNetworkIO(device)
-
-			networkUsage := &NetworkUsage{
-				Device:    device,
-				RXBytes:   n.NetworkRXBytes,
-				TXBytes:   n.NetworkTXBytes,
-				RXPackets: n.NetworkRXPackets,
-				TXPackets: n.NetworkTXPackets,
-			}
-
-			networkUsages = append(networkUsages, networkUsage)
-		}
-	}
-
-	for _, networkUsage := range networkUsages {
-		ipv4, err := n.GetIPv4()
-		if err != nil {
-			continue
-		}
-
-		ipv6, err := n.GetIPV6()
-		if err != nil {
-			continue
-		}
-
-		for _, ip := range ipv4 {
-			if ip.Interface == networkUsage.Device {
-				ipAddress := ip.IPAddress
-				netMask, _ := ip.Netmask.Size()
-				networkUsage.IPv4Address = fmt.Sprintf("%s/%d", ipAddress, netMask)
-				break
-			}
-		}
-
-		for _, ip := range ipv6 {
-			if ip.Interface == networkUsage.Device {
-				ipAddress := ip.IPAddress
-				prefix := ip.Prefix
-				networkUsage.IPv6Address = fmt.Sprintf("%s/%s", ipAddress.String(), prefix)
-				break
-			}
-		}
-	}
-
+	n.RLock()
+	networkUsages = cloneNetworkUsages(n.snapshot.NetworkUsages)
+	n.RUnlock()
 	return
 }
 
@@ -694,11 +627,9 @@ func (n *Node) GetIPv4() (ipv4 []sshproc.IPv4, err error) {
 		return
 	}
 
-	ipv4, err = n.con.ReadFibTrie("/proc/net/fib_trie", "/proc/net/route")
-	if err != nil {
-		return
-	}
-
+	n.RLock()
+	ipv4 = append([]sshproc.IPv4(nil), n.snapshot.IPv4...)
+	n.RUnlock()
 	return
 }
 
@@ -708,11 +639,9 @@ func (n *Node) GetIPV6() (ipv6 []sshproc.IPv6, err error) {
 		return
 	}
 
-	ipv6, err = n.con.ReadIfInet6("/proc/net/if_inet6")
-	if err != nil {
-		return
-	}
-
+	n.RLock()
+	ipv6 = append([]sshproc.IPv6(nil), n.snapshot.IPv6...)
+	n.RUnlock()
 	return
 }
 
@@ -841,12 +770,249 @@ func (n *Node) MonitoringNetworkIO() (err error) {
 func (n *Node) StartMonitoring() {
 	ticker := time.NewTicker(2 * time.Second)
 	defer ticker.Stop()
+	tickCount := 0
 
 	for range ticker.C {
+		if !n.CheckClientAlive() {
+			n.Lock()
+			n.cpuUsage = []CPUUsage{}
+			n.DiskIOs = map[string][]*DiskIO{}
+			n.NetworkIOs = map[string][]*NetworkIO{}
+			n.DiskReadIOBytes = nil
+			n.DiskWriteIOBytes = nil
+			n.NetworkRXBytes = nil
+			n.NetworkRXPackets = nil
+			n.NetworkTXBytes = nil
+			n.NetworkTXPackets = nil
+			n.snapshot.MemInfo = nil
+			n.snapshot.Uptime = nil
+			n.snapshot.LoadAvg = nil
+			n.snapshot.DiskUsages = nil
+			n.snapshot.NetworkUsages = nil
+			n.Unlock()
+			continue
+		}
+
 		n.MonitoringCPUUsage()
 		n.MonitoringDiskIO()
 		n.MonitoringNetworkIO()
+		n.refreshFastSnapshot()
+
+		if tickCount%5 == 0 {
+			n.refreshMediumSnapshot()
+		}
+		if tickCount%15 == 0 {
+			n.refreshSlowSnapshot()
+		}
+		tickCount++
 	}
+}
+
+func (n *Node) refreshFastSnapshot() {
+	meminfo, err := n.con.ReadMemInfo(n.PathProcMeminfo)
+	if err == nil {
+		n.Lock()
+		n.snapshot.MemInfo = meminfo
+		n.Unlock()
+	}
+
+	uptime, err := n.con.ReadUptime(n.PathProcUptime)
+	if err == nil {
+		n.Lock()
+		n.snapshot.Uptime = uptime
+		n.Unlock()
+	}
+
+	loadavg, err := n.con.ReadLoadAvg(n.PathProcLoadavg)
+	if err == nil {
+		n.Lock()
+		n.snapshot.LoadAvg = loadavg
+		n.Unlock()
+	}
+
+	if diskUsages, err := n.buildDiskUsageSnapshot(); err == nil {
+		n.Lock()
+		n.snapshot.DiskUsages = diskUsages
+		n.Unlock()
+	}
+
+	if networkUsages, err := n.buildNetworkUsageSnapshot(); err == nil {
+		n.Lock()
+		n.snapshot.NetworkUsages = networkUsages
+		n.Unlock()
+	}
+}
+
+func (n *Node) refreshMediumSnapshot() {
+	processList, err := n.con.ListInPID("/proc")
+	if err == nil {
+		n.Lock()
+		n.snapshot.TaskCount = uint64(len(processList))
+		n.Unlock()
+	}
+}
+
+func (n *Node) refreshSlowSnapshot() {
+	cpuinfo, err := n.con.ReadCPUInfo(n.PathProcCpuinfo)
+	if err == nil {
+		n.Lock()
+		n.snapshot.CPUCore = cpuinfo.NumCPU()
+		n.Unlock()
+	}
+
+	data, err := n.con.ReadData("/proc/version")
+	if err == nil {
+		versionSlice := strings.Split(data, " ")
+		if len(versionSlice) >= 3 {
+			n.Lock()
+			n.snapshot.KernelVersion = strings.Join(versionSlice[:3], " ")
+			n.Unlock()
+		}
+	}
+
+	ipv4, err := n.con.ReadFibTrie("/proc/net/fib_trie", "/proc/net/route")
+	if err == nil {
+		n.Lock()
+		n.snapshot.IPv4 = append([]sshproc.IPv4(nil), ipv4...)
+		n.Unlock()
+	}
+
+	ipv6, err := n.con.ReadIfInet6("/proc/net/if_inet6")
+	if err == nil {
+		n.Lock()
+		n.snapshot.IPv6 = append([]sshproc.IPv6(nil), ipv6...)
+		n.Unlock()
+	}
+}
+
+func (n *Node) buildDiskUsageSnapshot() ([]*DiskUsage, error) {
+	mounts, err := n.con.ReadMounts(n.PathProcMounts)
+	if err != nil {
+		return nil, err
+	}
+
+	result := []*DiskUsage{}
+	for _, m := range mounts.Mounts {
+		disk, err := n.con.ReadDisk(m.MountPoint)
+		if err != nil {
+			continue
+		}
+		if !fstype[m.FSType] {
+			continue
+		}
+
+		n.getDiskIOBytes(m.Device)
+
+		n.RLock()
+		readIO := append([]int64(nil), n.DiskReadIOBytes...)
+		writeIO := append([]int64(nil), n.DiskWriteIOBytes...)
+		n.RUnlock()
+
+		result = append(result, &DiskUsage{
+			MountPoint:   m.MountPoint,
+			FSType:       m.FSType,
+			Device:       m.Device,
+			All:          disk.All,
+			Used:         disk.Used,
+			Free:         disk.Free,
+			ReadIOBytes:  readIO,
+			WriteIOBytes: writeIO,
+		})
+	}
+
+	return result, nil
+}
+
+func (n *Node) buildNetworkUsageSnapshot() ([]*NetworkUsage, error) {
+	if len(n.NetworkIOs) == 0 {
+		return nil, fmt.Errorf("NetworkIOs is not found")
+	}
+
+	networkIOs := make(map[string][]*NetworkIO)
+	n.RLock()
+	for device, networkIO := range n.NetworkIOs {
+		networkIOs[device] = append([]*NetworkIO(nil), networkIO...)
+	}
+	ipv4 := append([]sshproc.IPv4(nil), n.snapshot.IPv4...)
+	ipv6 := append([]sshproc.IPv6(nil), n.snapshot.IPv6...)
+	n.RUnlock()
+
+	result := []*NetworkUsage{}
+	for device, networkIO := range networkIOs {
+		if len(networkIO) <= 1 {
+			continue
+		}
+
+		n.getNetworkIO(device)
+
+		n.RLock()
+		usage := &NetworkUsage{
+			Device:    device,
+			RXBytes:   append([]uint64(nil), n.NetworkRXBytes...),
+			TXBytes:   append([]uint64(nil), n.NetworkTXBytes...),
+			RXPackets: append([]uint64(nil), n.NetworkRXPackets...),
+			TXPackets: append([]uint64(nil), n.NetworkTXPackets...),
+		}
+		n.RUnlock()
+
+		for _, ip := range ipv4 {
+			if ip.Interface == usage.Device {
+				ipAddress := ip.IPAddress
+				netMask, _ := ip.Netmask.Size()
+				usage.IPv4Address = fmt.Sprintf("%s/%d", ipAddress, netMask)
+				break
+			}
+		}
+
+		for _, ip := range ipv6 {
+			if ip.Interface == usage.Device {
+				ipAddress := ip.IPAddress
+				prefix := ip.Prefix
+				usage.IPv6Address = fmt.Sprintf("%s/%s", ipAddress.String(), prefix)
+				break
+			}
+		}
+
+		result = append(result, usage)
+	}
+
+	return result, nil
+}
+
+func cloneDiskUsages(src []*DiskUsage) []*DiskUsage {
+	if len(src) == 0 {
+		return nil
+	}
+	result := make([]*DiskUsage, 0, len(src))
+	for _, disk := range src {
+		if disk == nil {
+			continue
+		}
+		cp := *disk
+		cp.ReadIOBytes = append([]int64(nil), disk.ReadIOBytes...)
+		cp.WriteIOBytes = append([]int64(nil), disk.WriteIOBytes...)
+		result = append(result, &cp)
+	}
+	return result
+}
+
+func cloneNetworkUsages(src []*NetworkUsage) []*NetworkUsage {
+	if len(src) == 0 {
+		return nil
+	}
+	result := make([]*NetworkUsage, 0, len(src))
+	for _, usage := range src {
+		if usage == nil {
+			continue
+		}
+		cp := *usage
+		cp.RXBytes = append([]uint64(nil), usage.RXBytes...)
+		cp.TXBytes = append([]uint64(nil), usage.TXBytes...)
+		cp.RXPackets = append([]uint64(nil), usage.RXPackets...)
+		cp.TXPackets = append([]uint64(nil), usage.TXPackets...)
+		result = append(result, &cp)
+	}
+	return result
 }
 
 func (n *Node) getDiskIOBytes(device string) {

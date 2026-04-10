@@ -8,12 +8,13 @@ import (
 )
 
 type snapshotEntry struct {
-	Key     string
-	Path    string
-	Mode    fs.FileMode
-	Size    int64
-	ModTime time.Time
-	IsDir   bool
+	Key      string
+	Path     string
+	Mode     fs.FileMode
+	Size     int64
+	Checksum string
+	ModTime  time.Time
+	IsDir    bool
 }
 
 type snapshot struct {
@@ -94,13 +95,18 @@ func buildSnapshot(filesystem FileSystem, root string) (*snapshot, error) {
 	}
 
 	if !info.IsDir() {
+		checksum, err := fileChecksum(filesystem, resolvedRoot)
+		if err != nil {
+			return nil, err
+		}
 		result.Entries["."] = snapshotEntry{
-			Key:     ".",
-			Path:    resolvedRoot,
-			Mode:    info.Mode(),
-			Size:    info.Size(),
-			ModTime: info.ModTime(),
-			IsDir:   false,
+			Key:      ".",
+			Path:     resolvedRoot,
+			Mode:     info.Mode(),
+			Size:     info.Size(),
+			Checksum: checksum,
+			ModTime:  info.ModTime(),
+			IsDir:    false,
 		}
 		return result, nil
 	}
@@ -111,7 +117,7 @@ func buildSnapshot(filesystem FileSystem, root string) (*snapshot, error) {
 			return err
 		}
 
-		result.Entries[toSnapshotKey(relpath)] = snapshotEntry{
+		entry := snapshotEntry{
 			Key:     toSnapshotKey(relpath),
 			Path:    current,
 			Mode:    currentInfo.Mode(),
@@ -119,6 +125,14 @@ func buildSnapshot(filesystem FileSystem, root string) (*snapshot, error) {
 			ModTime: currentInfo.ModTime(),
 			IsDir:   currentInfo.IsDir(),
 		}
+		if !currentInfo.IsDir() {
+			checksum, err := fileChecksum(filesystem, current)
+			if err != nil {
+				return err
+			}
+			entry.Checksum = checksum
+		}
+		result.Entries[toSnapshotKey(relpath)] = entry
 		return nil
 	}); err != nil {
 		return nil, err
@@ -157,7 +171,7 @@ func compareSnapshotEntries(left, right snapshotEntry) int {
 		}
 	}
 
-	if left.Size == right.Size && left.ModTime == right.ModTime {
+	if left.Size == right.Size && left.Checksum == right.Checksum {
 		return 0
 	}
 

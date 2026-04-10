@@ -16,9 +16,12 @@ import (
 
 type ApplyOptions struct {
 	Delete      bool
+	DryRun      bool
 	Permission  bool
 	ParallelNum int
 	Output      *output.Output
+	SourceLabel string
+	TargetLabel string
 }
 
 func ApplyPlan(ctx context.Context, srcFS FileSystem, dstFS FileSystem, plan *Plan, options ApplyOptions) error {
@@ -27,14 +30,14 @@ func ApplyPlan(ctx context.Context, srcFS FileSystem, dstFS FileSystem, plan *Pl
 	}
 
 	for _, directory := range sortedDesiredDirectories(plan) {
-		if err := ensureDirectory(dstFS, directory, options.Permission); err != nil {
+		if err := ensureDirectory(dstFS, directory, options); err != nil {
 			return err
 		}
 	}
 
 	copyTargets := []DesiredEntry{}
 	for _, file := range sortedDesiredFiles(plan) {
-		needsCopy, err := fileNeedsCopy(dstFS, file)
+		needsCopy, err := fileNeedsCopy(srcFS, dstFS, file)
 		if err != nil {
 			return err
 		}
@@ -43,8 +46,10 @@ func ApplyPlan(ctx context.Context, srcFS FileSystem, dstFS FileSystem, plan *Pl
 			continue
 		}
 
-		if options.Permission {
+		if options.Permission && !options.DryRun {
 			_ = dstFS.Chmod(file.DestinationPath, file.Mode)
+		} else if options.Permission {
+			printAction(options.Output, "chmod", labeledPath(options.TargetLabel, file.DestinationPath), true)
 		}
 	}
 
@@ -53,12 +58,12 @@ func ApplyPlan(ctx context.Context, srcFS FileSystem, dstFS FileSystem, plan *Pl
 	}
 
 	if options.Delete {
-		if err := deleteExtraPaths(dstFS, plan, options.Output); err != nil {
+		if err := deleteExtraPaths(dstFS, plan, options.Output, options.DryRun, options.TargetLabel); err != nil {
 			return err
 		}
 	}
 
-	if options.Permission {
+	if options.Permission && !options.DryRun {
 		for _, directory := range sortedDesiredDirectories(plan) {
 			_ = dstFS.Chmod(directory.DestinationPath, directory.Mode)
 		}
@@ -67,35 +72,58 @@ func ApplyPlan(ctx context.Context, srcFS FileSystem, dstFS FileSystem, plan *Pl
 	return nil
 }
 
-func ensureDirectory(dstFS FileSystem, directory DesiredEntry, permission bool) error {
+func ensureDirectory(dstFS FileSystem, directory DesiredEntry, options ApplyOptions) error {
 	info, err := dstFS.Stat(directory.DestinationPath)
 	if err == nil && !info.IsDir() {
-		if err := removePathRecursive(dstFS, directory.DestinationPath); err != nil {
-			return err
+		if options.DryRun {
+			printAction(options.Output, "remove", labeledPath(options.TargetLabel, directory.DestinationPath), true)
+		} else {
+			if err := removePathRecursive(dstFS, directory.DestinationPath); err != nil {
+				return err
+			}
 		}
 	}
 	if err != nil && !isNotExistErr(err) {
 		return err
 	}
 
-	if err := dstFS.MkdirAll(directory.DestinationPath); err != nil {
-		return err
+	if options.DryRun {
+		printAction(options.Output, "mkdir", labeledPath(options.TargetLabel, directory.DestinationPath), true)
+	} else {
+		if err := dstFS.MkdirAll(directory.DestinationPath); err != nil {
+			return err
+		}
 	}
 
-	if permission {
-		_ = dstFS.Chmod(directory.DestinationPath, directory.Mode)
+	if options.Permission {
+		if options.DryRun {
+			printAction(options.Output, "chmod", labeledPath(options.TargetLabel, directory.DestinationPath), true)
+		} else {
+			_ = dstFS.Chmod(directory.DestinationPath, directory.Mode)
+		}
 	}
 
 	return nil
 }
 
-func fileNeedsCopy(dstFS FileSystem, file DesiredEntry) (bool, error) {
+func fileNeedsCopy(srcFS FileSystem, dstFS FileSystem, file DesiredEntry) (bool, error) {
 	info, err := dstFS.Stat(file.DestinationPath)
 	switch {
 	case err == nil && info.IsDir():
 		return true, nil
 	case err == nil:
-		return info.Size() != file.Size || !sameTimestamp(info.ModTime(), file.ModTime), nil
+		if info.Size() != file.Size {
+			return true, nil
+		}
+		srcChecksum, err := fileChecksum(srcFS, file.SourcePath)
+		if err != nil {
+			return false, err
+		}
+		dstChecksum, err := fileChecksum(dstFS, file.DestinationPath)
+		if err != nil {
+			return false, err
+		}
+		return srcChecksum != dstChecksum, nil
 	case isNotExistErr(err):
 		return true, nil
 	default:
@@ -166,11 +194,23 @@ func copyFiles(ctx context.Context, srcFS FileSystem, dstFS FileSystem, files []
 func copySingleFile(srcFS FileSystem, dstFS FileSystem, file DesiredEntry, options ApplyOptions) error {
 	info, err := dstFS.Stat(file.DestinationPath)
 	if err == nil && info.IsDir() {
-		if err := removePathRecursive(dstFS, file.DestinationPath); err != nil {
-			return err
+		if options.DryRun {
+			printAction(options.Output, "remove", labeledPath(options.TargetLabel, file.DestinationPath), true)
+		} else {
+			if err := removePathRecursive(dstFS, file.DestinationPath); err != nil {
+				return err
+			}
 		}
 	} else if err != nil && !isNotExistErr(err) {
 		return err
+	}
+
+	if options.DryRun {
+		printAction(options.Output, "copy", formatTransferLabel(file.SourcePath, file.DestinationPath, options.SourceLabel, options.TargetLabel), true)
+		if options.Permission {
+			printAction(options.Output, "chmod", labeledPath(options.TargetLabel, file.DestinationPath), true)
+		}
+		return nil
 	}
 
 	if err := dstFS.MkdirAll(dstFS.Dir(file.DestinationPath)); err != nil {
@@ -189,7 +229,7 @@ func copySingleFile(srcFS FileSystem, dstFS FileSystem, file DesiredEntry, optio
 	}
 	defer dstFile.Close()
 
-	transferLabel := formatTransferLabel(file.SourcePath, file.DestinationPath)
+	transferLabel := formatTransferLabel(file.SourcePath, file.DestinationPath, options.SourceLabel, options.TargetLabel)
 	if options.Output != nil {
 		ow := options.Output.NewWriter()
 		fmt.Fprintf(ow, "copy: %s\n", transferLabel)
@@ -212,11 +252,41 @@ func copySingleFile(srcFS FileSystem, dstFS FileSystem, file DesiredEntry, optio
 	return nil
 }
 
-func formatTransferLabel(sourcePath, destinationPath string) string {
-	return fmt.Sprintf("%s -> %s", sourcePath, destinationPath)
+func formatTransferLabel(sourcePath, destinationPath, sourceLabel, targetLabel string) string {
+	source := sourcePath
+	destination := destinationPath
+	if sourceLabel != "" {
+		source = fmt.Sprintf("%s:%s", sourceLabel, sourcePath)
+	}
+	if targetLabel != "" {
+		destination = fmt.Sprintf("%s:%s", targetLabel, destinationPath)
+	}
+	return fmt.Sprintf("%s -> %s", source, destination)
 }
 
-func deleteExtraPaths(dstFS FileSystem, plan *Plan, printer *output.Output) error {
+func labeledPath(label, path string) string {
+	if label == "" {
+		return path
+	}
+	return fmt.Sprintf("%s:%s", label, path)
+}
+
+func printAction(printer *output.Output, action, target string, dryRun bool) {
+	prefix := ""
+	if dryRun {
+		prefix = "[DRY-RUN] "
+	}
+	if printer != nil {
+		ow := printer.NewWriter()
+		fmt.Fprintf(ow, "%s%s: %s\n", prefix, action, target)
+		ow.Close()
+		return
+	}
+
+	fmt.Fprintf(os.Stderr, "%s%s: %s\n", prefix, action, target)
+}
+
+func deleteExtraPaths(dstFS FileSystem, plan *Plan, printer *output.Output, dryRun bool, targetLabel string) error {
 	for _, scope := range plan.DeleteScopes {
 		if !scope.IsDir {
 			continue
@@ -245,13 +315,12 @@ func deleteExtraPaths(dstFS FileSystem, plan *Plan, printer *output.Output) erro
 		}
 
 		for _, path := range pathsToDelete(scope, existing, plan.Desired, dstFS.Clean, dstFS.Dir, dstFS.Separator()) {
+			printAction(printer, "delete", labeledPath(targetLabel, path), dryRun)
+			if dryRun {
+				continue
+			}
 			if err := removePathRecursive(dstFS, path); err != nil {
 				return err
-			}
-			if printer != nil {
-				ow := printer.NewWriter()
-				fmt.Fprintf(ow, "delete: %s\n", path)
-				ow.Close()
 			}
 		}
 	}

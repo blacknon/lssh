@@ -35,6 +35,40 @@ import (
 
 var characterRunes = []rune("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789")
 
+func ControlMasterOverrideFlags() []cli.Flag {
+	return []cli.Flag{
+		cli.BoolFlag{
+			Name:  "enable-control-master",
+			Usage: "temporarily enable ControlMaster for this command execution",
+		},
+		cli.BoolFlag{
+			Name:  "disable-control-master",
+			Usage: "temporarily disable ControlMaster for this command execution",
+		},
+	}
+}
+
+func GetControlMasterOverride(c *cli.Context) (*bool, error) {
+	enable := c.Bool("enable-control-master")
+	disable := c.Bool("disable-control-master")
+
+	if enable && disable {
+		return nil, errors.New("cannot use --enable-control-master and --disable-control-master together")
+	}
+
+	if enable {
+		value := true
+		return &value, nil
+	}
+
+	if disable {
+		value := false
+		return &value, nil
+	}
+
+	return nil, nil
+}
+
 // enum
 const (
 	ARCHIVE_NONE = iota

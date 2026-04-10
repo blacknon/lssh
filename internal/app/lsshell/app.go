@@ -76,6 +76,7 @@ USAGE:
 		cli.BoolFlag{Name: "list,l", Usage: "print server list from config."},
 		cli.BoolFlag{Name: "help,h", Usage: "print this help"},
 	}
+	app.Flags = append(app.Flags, common.ControlMasterOverrideFlags()...)
 	app.EnableBashCompletion = true
 	app.HideHelp = true
 
@@ -89,6 +90,10 @@ USAGE:
 
 		hosts := c.StringSlice("host")
 		confpath := c.String("file")
+		controlMasterOverride, controlMasterErr := common.GetControlMasterOverride(c)
+		if controlMasterErr != nil {
+			return controlMasterErr
+		}
 
 		if handled, err := conf.HandleGenerateConfigMode(c.String("generate-lssh-conf"), os.Stdout); handled {
 			return err
@@ -143,6 +148,7 @@ USAGE:
 		r := new(sshcmd.Run)
 		r.ServerList = selected
 		r.Conf = data
+		r.ControlMasterOverride = controlMasterOverride
 
 		// is tty
 		r.IsTerm = c.Bool("term")

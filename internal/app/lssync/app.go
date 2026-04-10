@@ -64,9 +64,11 @@ USAGE:
 		cli.BoolFlag{Name: "bidirectional,B", Usage: "sync both sides and copy newer changes in either direction"},
 		cli.IntFlag{Name: "parallel,P", Value: 1, Usage: "parallel file sync count per host"},
 		cli.BoolFlag{Name: "permission,p", Usage: "copy file permission"},
+		cli.BoolFlag{Name: "dry-run", Usage: "show sync actions without modifying files"},
 		cli.BoolFlag{Name: "delete", Usage: "delete destination entries that do not exist in source"},
 		cli.BoolFlag{Name: "help,h", Usage: "print this help"},
 	}
+	app.Flags = append(app.Flags, common.ControlMasterOverrideFlags()...)
 	app.EnableBashCompletion = true
 	app.HideHelp = true
 
@@ -78,6 +80,10 @@ USAGE:
 
 		hosts := c.StringSlice("host")
 		confpath := c.String("file")
+		controlMasterOverride, controlMasterErr := common.GetControlMasterOverride(c)
+		if controlMasterErr != nil {
+			return controlMasterErr
+		}
 		if handled, err := conf.HandleGenerateConfigMode(c.String("generate-lssh-conf"), os.Stdout); handled {
 			return err
 		}
@@ -221,9 +227,11 @@ USAGE:
 		s.DaemonInterval = c.Duration("daemon-interval")
 		s.Bidirectional = c.Bool("bidirectional")
 		s.Permission = c.Bool("permission")
+		s.DryRun = c.Bool("dry-run")
 		s.Delete = c.Bool("delete")
 		s.ParallelNum = c.Int("parallel")
 		s.Config = data
+		s.ControlMasterOverride = controlMasterOverride
 
 		if !isFromInRemote {
 			fmt.Fprintf(os.Stderr, "From local:%s\n", s.From.Path)

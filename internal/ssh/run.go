@@ -29,6 +29,10 @@ type Run struct {
 	ServerList []string
 	Conf       conf.Config
 
+	// ControlMasterOverride temporarily overrides the config setting for
+	// this run. nil means use the config value as-is.
+	ControlMasterOverride *bool
+
 	// Mode value in
 	//     - shell
 	//     - cmd

@@ -63,6 +63,7 @@ USAGE:
 		cli.BoolFlag{Name: "list,l", Usage: "print server list from config."},
 		cli.BoolFlag{Name: "help,h", Usage: "print this help"},
 	}
+	app.Flags = append(app.Flags, common.ControlMasterOverrideFlags()...)
 
 	app.Action = func(c *cli.Context) error {
 		if c.Bool("help") {
@@ -72,6 +73,10 @@ USAGE:
 
 		if handled, err := conf.HandleGenerateConfigMode(c.String("generate-lssh-conf"), os.Stdout); handled {
 			return err
+		}
+		controlMasterOverride, controlMasterErr := common.GetControlMasterOverride(c)
+		if controlMasterErr != nil {
+			return controlMasterErr
 		}
 
 		data, err := conf.ReadWithFallback(c.String("file"), os.Stderr)
@@ -93,7 +98,9 @@ USAGE:
 		if len(initialHosts) > 0 && !check.ExistServer(initialHosts, names) {
 			return fmt.Errorf("input server not found from list")
 		}
-		forwardConfig := mux.SessionOptions{}
+		forwardConfig := mux.SessionOptions{
+			ControlMasterOverride: controlMasterOverride,
+		}
 
 		var forwards []*conf.PortForward
 		for _, forwardargs := range c.StringSlice("R") {

@@ -30,16 +30,17 @@ const (
 
 // Manager runs the lsmux TUI.
 type Manager struct {
-	app               *tview.Application
-	conf              conf.Config
-	names             []string
-	command           []string
-	stdinData         []byte
-	initial           []string
-	hold              bool
-	allowLayoutChange bool
-	factory           SessionFactory
-	bindings          map[string]keyBinding
+	app                   *tview.Application
+	conf                  conf.Config
+	names                 []string
+	command               []string
+	stdinData             []byte
+	initial               []string
+	hold                  bool
+	allowLayoutChange     bool
+	controlMasterOverride *bool
+	factory               SessionFactory
+	bindings              map[string]keyBinding
 
 	root   *tview.Flex
 	pages  *tview.Pages
@@ -71,6 +72,7 @@ type SessionOptions struct {
 	X11Trusted                    bool
 	IsBashrc                      bool
 	IsNotBashrc                   bool
+	ControlMasterOverride         *bool
 	ParallelInfo                  func(server string) []string
 }
 
@@ -116,21 +118,22 @@ func NewManager(cfg conf.Config, names []string, command []string, stdinData []b
 		AddItem(status, 3, 0, false)
 
 	m := &Manager{
-		app:               app,
-		conf:              cfg,
-		names:             append([]string(nil), names...),
-		command:           append([]string(nil), command...),
-		stdinData:         append([]byte(nil), stdinData...),
-		initial:           append([]string(nil), initialHosts...),
-		hold:              hold,
-		allowLayoutChange: allowLayoutChange,
-		factory:           NewSessionFactory(cfg, command, options),
-		bindings:          parsed,
-		root:              root,
-		pages:             pages,
-		status:            status,
-		nextPageID:        1,
-		nextPaneID:        1,
+		app:                   app,
+		conf:                  cfg,
+		names:                 append([]string(nil), names...),
+		command:               append([]string(nil), command...),
+		stdinData:             append([]byte(nil), stdinData...),
+		initial:               append([]string(nil), initialHosts...),
+		hold:                  hold,
+		allowLayoutChange:     allowLayoutChange,
+		controlMasterOverride: options.ControlMasterOverride,
+		factory:               NewSessionFactory(cfg, command, options),
+		bindings:              parsed,
+		root:                  root,
+		pages:                 pages,
+		status:                status,
+		nextPageID:            1,
+		nextPaneID:            1,
 	}
 
 	m.app.SetInputCapture(m.captureInput)

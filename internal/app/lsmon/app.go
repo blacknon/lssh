@@ -81,6 +81,7 @@ USAGE:
 		cli.BoolFlag{Name: "debug", Usage: "debug pprof. use port 6060."},
 		cli.BoolFlag{Name: "help,h", Usage: "print this help"},
 	}
+	app.Flags = append(app.Flags, common.ControlMasterOverrideFlags()...)
 	app.EnableBashCompletion = true
 	app.HideHelp = true
 
@@ -108,6 +109,10 @@ USAGE:
 
 		hosts := c.StringSlice("host")
 		confpath := c.String("file")
+		controlMasterOverride, controlMasterErr := common.GetControlMasterOverride(c)
+		if controlMasterErr != nil {
+			return controlMasterErr
+		}
 
 		if handled, err := conf.HandleGenerateConfigMode(c.String("generate-lssh-conf"), os.Stdout); handled {
 			return err
@@ -164,6 +169,7 @@ USAGE:
 		r := new(sshcmd.Run)
 		r.ServerList = selected
 		r.Conf = data
+		r.ControlMasterOverride = controlMasterOverride
 		r.Conf.Common.ConnectTimeout = 5
 		r.ShareConnect = c.Bool("share-connect")
 

@@ -80,6 +80,38 @@ func TestBuildBidirectionalPlansPrefersNewerFile(t *testing.T) {
 	assertFileContent(t, filepath.Join(rightRoot, "shared.txt"), "new-right")
 }
 
+func TestBuildBidirectionalPlansUsesChecksumWhenTimestampsMatch(t *testing.T) {
+	t.Parallel()
+
+	leftRoot := t.TempDir()
+	rightRoot := t.TempDir()
+	sameTime := time.Unix(1_000, 0)
+
+	mustWriteFile(t, filepath.Join(leftRoot, "shared.txt"), "left-content", sameTime)
+	mustWriteFile(t, filepath.Join(rightRoot, "shared.txt"), "right-data!!", sameTime)
+
+	leftFS, err := NewLocalFS()
+	if err != nil {
+		t.Fatalf("NewLocalFS returned error: %v", err)
+	}
+	rightFS, err := NewLocalFS()
+	if err != nil {
+		t.Fatalf("NewLocalFS returned error: %v", err)
+	}
+
+	leftToRight, rightToLeft, err := BuildBidirectionalPlans(leftFS, rightFS, leftRoot, rightRoot)
+	if err != nil {
+		t.Fatalf("BuildBidirectionalPlans returned error: %v", err)
+	}
+
+	if len(leftToRight.Desired) == 0 && len(rightToLeft.Desired) == 0 {
+		t.Fatal("expected checksum difference to produce a sync plan")
+	}
+	if _, ok := leftToRight.Desired[filepath.Join(rightRoot, "shared.txt")]; !ok {
+		t.Fatalf("expected checksum difference to schedule shared.txt copy, got leftToRight=%#v", leftToRight.Desired)
+	}
+}
+
 func mustWriteFile(t *testing.T, path string, body string, modTime time.Time) {
 	t.Helper()
 
