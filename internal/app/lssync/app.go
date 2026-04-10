@@ -5,6 +5,7 @@ import (
 	"os"
 	"sort"
 	"strings"
+	"time"
 
 	"github.com/blacknon/lssh/internal/check"
 	"github.com/blacknon/lssh/internal/common"
@@ -50,13 +51,16 @@ USAGE:
 
 	app = cli.NewApp()
 	app.Name = "lssync"
-	app.Usage = "TUI list select and parallel one-way sync command over SSH/SFTP."
+	app.Usage = "TUI list select and parallel sync command over SSH/SFTP."
 	app.Copyright = "blacknon(blacknon@orebibou.com)"
 	app.Version = version.AppVersion(app.Name)
 	app.Flags = []cli.Flag{
 		cli.StringSliceFlag{Name: "host,H", Usage: "connect servernames"},
 		cli.BoolFlag{Name: "list,l", Usage: "print server list from config"},
 		cli.StringFlag{Name: "file,F", Value: defConf, Usage: "config file path"},
+		cli.BoolFlag{Name: "daemon,D", Usage: "run as a daemon and repeat sync at each interval"},
+		cli.DurationFlag{Name: "daemon-interval", Value: 5 * time.Second, Usage: "daemon sync interval"},
+		cli.BoolFlag{Name: "bidirectional,B", Usage: "sync both sides and copy newer changes in either direction"},
 		cli.IntFlag{Name: "parallel,P", Value: 1, Usage: "parallel file sync count per host"},
 		cli.BoolFlag{Name: "permission,p", Usage: "copy file permission"},
 		cli.BoolFlag{Name: "delete", Usage: "delete destination entries that do not exist in source"},
@@ -82,17 +86,31 @@ USAGE:
 		fromArgs := c.Args()[:c.NArg()-1]
 		toArg := c.Args()[c.NArg()-1]
 
+		sourceSpecs := make([]lsync.PathSpec, 0, len(fromArgs))
 		isFromInRemote := false
 		isFromInLocal := false
+		explicitSourceHosts := []string{}
 		for _, from := range fromArgs {
-			isFromRemote, _ := check.ParseScpPath(from)
-			if isFromRemote {
+			spec, err := lsync.ParsePathSpec(from)
+			if err != nil {
+				fmt.Fprintf(os.Stderr, "Error: %s\n", err)
+				os.Exit(1)
+			}
+			if spec.IsRemote {
 				isFromInRemote = true
+				explicitSourceHosts = appendUniqueStrings(explicitSourceHosts, spec.Hosts...)
 			} else {
 				isFromInLocal = true
 			}
+			sourceSpecs = append(sourceSpecs, spec)
 		}
-		isToRemote, _ := check.ParseScpPath(toArg)
+
+		targetSpec, err := lsync.ParsePathSpec(toArg)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Error: %s\n", err)
+			os.Exit(1)
+		}
+		isToRemote := targetSpec.IsRemote
 		check.CheckTypeError(isFromInRemote, isFromInLocal, isToRemote, len(hosts))
 
 		data := conf.Read(confpath)
@@ -116,7 +134,14 @@ USAGE:
 				fmt.Fprintln(os.Stderr, "Input Server not found from list.")
 				os.Exit(1)
 			}
-			toServer = hosts
+			if isFromInRemote {
+				fromServer = append(fromServer, hosts...)
+			} else {
+				toServer = append(toServer, hosts...)
+			}
+		case len(explicitSourceHosts) > 0 || (targetSpec.IsRemote && len(targetSpec.Hosts) > 0):
+			fromServer = append(fromServer, explicitSourceHosts...)
+			toServer = append(toServer, targetSpec.Hosts...)
 		case isFromInRemote && isToRemote:
 			fromList := new(list.ListInfo)
 			fromList.Prompt = "lssync(from)>>"
@@ -162,9 +187,9 @@ USAGE:
 		}
 
 		s := new(lsync.Sync)
-		for _, from := range fromArgs {
-			isFromRemote, fromPath := check.ParseScpPath(from)
-			if !isFromRemote {
+		for _, spec := range sourceSpecs {
+			fromPath := spec.Path
+			if !spec.IsRemote {
 				if _, err := os.Stat(common.GetFullPath(fromPath)); err != nil {
 					fmt.Fprintf(os.Stderr, "not found path %s \n", fromPath)
 					os.Exit(1)
@@ -174,18 +199,20 @@ USAGE:
 				fromPath = check.EscapePath(fromPath)
 			}
 
-			s.From.IsRemote = isFromRemote
+			s.From.IsRemote = spec.IsRemote
 			s.From.Path = append(s.From.Path, fromPath)
 		}
 		s.From.Server = fromServer
 
-		isToRemote, toPath := check.ParseScpPath(toArg)
 		if isToRemote {
-			toPath = check.EscapePath(toPath)
+			targetSpec.Path = check.EscapePath(targetSpec.Path)
 		}
 		s.To.IsRemote = isToRemote
-		s.To.Path = []string{toPath}
+		s.To.Path = []string{targetSpec.Path}
 		s.To.Server = toServer
+		s.Daemon = c.Bool("daemon")
+		s.DaemonInterval = c.Duration("daemon-interval")
+		s.Bidirectional = c.Bool("bidirectional")
 		s.Permission = c.Bool("permission")
 		s.Delete = c.Bool("delete")
 		s.ParallelNum = c.Int("parallel")
@@ -207,4 +234,21 @@ USAGE:
 	}
 
 	return app
+}
+
+func appendUniqueStrings(dst []string, values ...string) []string {
+	for _, value := range values {
+		exists := false
+		for _, current := range dst {
+			if current == value {
+				exists = true
+				break
+			}
+		}
+		if !exists {
+			dst = append(dst, value)
+		}
+	}
+
+	return dst
 }

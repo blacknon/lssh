@@ -189,10 +189,15 @@ func copySingleFile(srcFS FileSystem, dstFS FileSystem, file DesiredEntry, optio
 	}
 	defer dstFile.Close()
 
+	transferLabel := formatTransferLabel(file.SourcePath, file.DestinationPath)
 	if options.Output != nil {
+		ow := options.Output.NewWriter()
+		fmt.Fprintf(ow, "copy: %s\n", transferLabel)
+		ow.Close()
+
 		reader := io.TeeReader(srcFile, dstFile)
 		options.Output.ProgressWG.Add(1)
-		options.Output.ProgressPrinter(file.Size, reader, file.SourcePath)
+		options.Output.ProgressPrinter(file.Size, reader, transferLabel)
 	} else {
 		if _, err := io.Copy(dstFile, srcFile); err != nil {
 			return err
@@ -205,6 +210,10 @@ func copySingleFile(srcFS FileSystem, dstFS FileSystem, file DesiredEntry, optio
 	_ = dstFS.Chtimes(file.DestinationPath, file.ModTime, file.ModTime)
 
 	return nil
+}
+
+func formatTransferLabel(sourcePath, destinationPath string) string {
+	return fmt.Sprintf("%s -> %s", sourcePath, destinationPath)
 }
 
 func deleteExtraPaths(dstFS FileSystem, plan *Plan, printer *output.Output) error {
