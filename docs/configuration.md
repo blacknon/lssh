@@ -2,12 +2,13 @@ Configuration
 =============
 
 This document collects the shared configuration features used across the `lssh` suite.
+The same schema can be written in either TOML or YAML.
 For command-specific behavior such as forwarding examples or local rc usage, see [`cmd/lssh/README.md`](../cmd/lssh/README.md).
 
 ## Configuration snippets
 
 The snippets below collect the configuration patterns currently covered in this document.
-Copy only the blocks you need into your `~/.lssh.conf`.
+Copy only the blocks you need into your `~/.lssh.toml` or `~/.lssh.yaml`.
 
 Base inventory:
 
@@ -482,7 +483,8 @@ In `dirpath`, `~` expands to your home directory, `<Date>` becomes the current d
 
 ## Shared host inventory
 
-`lssh` reads `~/.lssh.conf` by default.
+`lssh` reads config files in this order by default:
+`~/.lssh.toml` > `~/.lssh.yaml` > `~/.lssh.yml` > `~/.lssh.conf`.
 You can define shared settings in `[common]` and host entries in `[server.<name>]`.
 Values in `[server.<name>]` override values from `[common]`.
 
@@ -519,9 +521,9 @@ With the example above, `lssh` sends a keepalive request every 10 seconds and cl
 Load and use `~/.ssh/config` by default.
 `ProxyCommand` can also be used.
 
-If `~/.lssh.conf` does not exist, the `lssh` suite commands show an information
+If no lssh config file exists, the `lssh` suite commands show an information
 message and fall back to OpenSSH config import mode automatically. In an
-interactive terminal, they can also offer to create `~/.lssh.conf` from
+interactive terminal, they can also offer to create `~/.lssh.toml` from
 `~/.ssh/config` on the spot.
 
 You can also specify and read another path.
@@ -544,12 +546,12 @@ path = "~/.ssh/config.frontend"
 local_ip_in = ["172.31.0.0/24"]
 ```
 
-You can also generate a starter `~/.lssh.conf` from any suite command and write
+You can also generate a starter `~/.lssh.toml` from any suite command and write
 it with shell redirection:
 
 ```bash
-lssh --generate-lssh-conf > ~/.lssh.conf
-lssh --generate-lssh-conf=~/.ssh/config.work > ~/.lssh.conf
+lssh --generate-lssh-conf > ~/.lssh.toml
+lssh --generate-lssh-conf=~/.ssh/config.work > ~/.lssh.toml
 ```
 
 ## Split config into multiple files
@@ -557,7 +559,7 @@ lssh --generate-lssh-conf=~/.ssh/config.work > ~/.lssh.conf
 You can include server settings in other files.
 Each included file can also define its own `[common]` settings.
 
-`~/.lssh.conf`:
+`~/.lssh.toml`:
 
 ```toml
 [includes]
@@ -592,7 +594,7 @@ local_rc = "yes"
 
 Priority order:
 
-`[server.<name>]` > `[common]` in included file > `[common]` in `~/.lssh.conf`
+`[server.<name>]` > `[common]` in included file > `[common]` in the main config file
 
 ## Multi-stage proxy
 

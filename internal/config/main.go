@@ -42,16 +42,16 @@ import (
 
 // Config is Struct that stores the entire configuration file.
 type Config struct {
-	Log      LogConfig
-	Mux      MuxConfig
-	Shell    ShellConfig
-	Include  map[string]IncludeConfig
-	Includes IncludesConfig
-	Common   ServerConfig
-	Server   map[string]ServerConfig
-	Proxy    map[string]ProxyConfig
+	Log      LogConfig                `toml:"log" yaml:"log"`
+	Mux      MuxConfig                `toml:"mux" yaml:"mux"`
+	Shell    ShellConfig              `toml:"shell" yaml:"shell"`
+	Include  map[string]IncludeConfig `toml:"include" yaml:"include"`
+	Includes IncludesConfig           `toml:"includes" yaml:"includes"`
+	Common   ServerConfig             `toml:"common" yaml:"common"`
+	Server   map[string]ServerConfig  `toml:"server" yaml:"server"`
+	Proxy    map[string]ProxyConfig   `toml:"proxy" yaml:"proxy"`
 
-	SSHConfig map[string]OpenSSHConfig
+	SSHConfig map[string]OpenSSHConfig `toml:"sshconfig" yaml:"sshconfig"`
 }
 
 // ReduceCommon reduce common setting (in .lssh.conf servers)

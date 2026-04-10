@@ -8,6 +8,7 @@ import (
 	"bytes"
 	"compress/gzip"
 	"io"
+	"path/filepath"
 	"testing"
 
 	sshlib "github.com/blacknon/go-sshlib"
@@ -165,6 +166,25 @@ func TestStringCompression(t *testing.T) {
 			t.Fatalf("decompressed data mismatch: got %q want %q", string(got), v.src)
 		}
 	}
+}
+
+func TestGetDefaultConfigCandidates(t *testing.T) {
+	home := "/tmp/home"
+	xdg := "/tmp/xdg"
+
+	got := GetDefaultConfigCandidates(home, xdg)
+	expect := []string{
+		filepath.Join(home, ".lssh.toml"),
+		filepath.Join(home, ".lssh.yaml"),
+		filepath.Join(home, ".lssh.yml"),
+		filepath.Join(home, ".lssh.conf"),
+		filepath.Join(xdg, "lssh", "lssh.toml"),
+		filepath.Join(xdg, "lssh", "lssh.yaml"),
+		filepath.Join(xdg, "lssh", "lssh.yml"),
+		filepath.Join(xdg, "lssh", "lssh.conf"),
+	}
+
+	assert.Equal(t, expect, got)
 }
 
 func TestParseTunnelSpec_Valid(t *testing.T) {

@@ -77,7 +77,7 @@ func loadOpenSSHConfigEntries(path, command string) ([]openSSHConfigEntry, error
 
 	hostList := []string{}
 	for _, h := range cfg.Hosts {
-		if h.IsMatchBlock() {
+		if isOpenSSHMatchBlock(h) {
 			continue
 		}
 
@@ -262,6 +262,16 @@ func expandOpenSSHPath(path string) string {
 	}
 
 	return fullPath
+}
+
+func isOpenSSHMatchBlock(h *ssh_config.Host) bool {
+	if h == nil {
+		return false
+	}
+
+	line, _, _ := strings.Cut(h.String(), "\n")
+	line = strings.TrimSpace(line)
+	return strings.HasPrefix(strings.ToLower(line), "match ")
 }
 
 func getOpenSSHValue(cfg *ssh_config.Config, host, key string) string {
