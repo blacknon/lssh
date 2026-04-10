@@ -18,6 +18,11 @@ import (
 	"github.com/kevinburke/ssh_config"
 )
 
+type openSSHConfigEntry struct {
+	Host   string
+	Config ServerConfig
+}
+
 // readOpenSSHConfig open the OpenSSH configuration file, return *ssh_config.Config.
 func readOpenSSHConfig(path, command string) (cfg *ssh_config.Config, err error) {
 	var rd io.Reader
@@ -46,22 +51,35 @@ func readOpenSSHConfig(path, command string) (cfg *ssh_config.Config, err error)
 func getOpenSSHConfig(path, command string) (config map[string]ServerConfig, err error) {
 	config = map[string]ServerConfig{}
 
-	// open openSSH config
-	cfg, err := readOpenSSHConfig(path, command)
+	entries, err := loadOpenSSHConfigEntries(path, command)
 	if err != nil {
-		return
+		return config, err
 	}
 
-	// set name element
+	// open openSSH config
 	ele := path
 	if ele == "" {
 		ele = "generate_sshconfig"
 	}
 
-	// Get Node names
+	for _, entry := range entries {
+		serverConfig := entry.Config
+		serverConfig.Note = "from:" + ele
+		serverName := ele + ":" + entry.Host
+		config[serverName] = serverConfig
+	}
+
+	return config, err
+}
+
+func loadOpenSSHConfigEntries(path, command string) ([]openSSHConfigEntry, error) {
+	cfg, err := readOpenSSHConfig(path, command)
+	if err != nil {
+		return nil, err
+	}
+
 	hostList := []string{}
 	for _, h := range cfg.Hosts {
-		// not supported wildcard host
 		re := regexp.MustCompile(`\*`)
 		for _, pattern := range h.Patterns {
 			if !re.MatchString(pattern.String()) {
@@ -70,15 +88,14 @@ func getOpenSSHConfig(path, command string) (config map[string]ServerConfig, err
 		}
 	}
 
-	// append ServerConfig
+	entries := make([]openSSHConfigEntry, 0, len(hostList))
 	for _, host := range hostList {
 		serverConfig := ServerConfig{
-			Addr:         ssh_config.Get(host, "HostName"),
-			Port:         ssh_config.Get(host, "Port"),
-			User:         ssh_config.Get(host, "User"),
-			ProxyCommand: ssh_config.Get(host, "ProxyCommand"),
-			PreCmd:       ssh_config.Get(host, "LocalCommand"),
-			Note:         "from:" + ele,
+			Addr:         getOpenSSHValue(cfg, host, "HostName"),
+			Port:         getOpenSSHValue(cfg, host, "Port"),
+			User:         getOpenSSHValue(cfg, host, "User"),
+			ProxyCommand: getOpenSSHValue(cfg, host, "ProxyCommand"),
+			PreCmd:       getOpenSSHValue(cfg, host, "LocalCommand"),
 		}
 
 		if serverConfig.Addr == "" {
@@ -119,96 +136,90 @@ func getOpenSSHConfig(path, command string) (config map[string]ServerConfig, err
 			serverConfig.Keys = append(serverConfig.Keys, keys[1:]...)
 		}
 
-		// PKCS11 provider
-		pkcs11Provider := ssh_config.Get(host, "PKCS11Provider")
+		pkcs11Provider := getOpenSSHValue(cfg, host, "PKCS11Provider")
 		if pkcs11Provider != "" {
 			serverConfig.PKCS11Use = true
 			serverConfig.PKCS11Provider = pkcs11Provider
 		}
 
-		// x11 forwarding
-		x11 := ssh_config.Get(host, "ForwardX11")
+		x11 := getOpenSSHValue(cfg, host, "ForwardX11")
 		if x11 == "yes" {
 			serverConfig.X11 = true
 		}
 
-		// ControlMaster
-		cm := ssh_config.Get(host, "ControlMaster")
+		cm := getOpenSSHValue(cfg, host, "ControlMaster")
 		if cm != "" {
 			serverConfig.ControlMaster = true
 		}
 
-		// ControlPath
-		cp := ssh_config.Get(host, "ControlPath")
+		cp := getOpenSSHValue(cfg, host, "ControlPath")
 		if cp != "" {
 			serverConfig.ControlPath = cp
 		}
 
-		// ControlPersist
-		cper := ssh_config.Get(host, "ControlPersist")
+		cper := getOpenSSHValue(cfg, host, "ControlPersist")
 		if cper != "" {
-			if cperValue, err := parseControlPersist(cper); err == nil {
+			if cperValue, parseErr := parseControlPersist(cper); parseErr == nil {
 				serverConfig.ControlPersist = cperValue
 			}
 		}
 
-		// Port forwarding (Local forward)
-		localForward := ssh_config.Get(host, "LocalForward")
+		localForward := getOpenSSHValue(cfg, host, "LocalForward")
 		if localForward != "" {
 			array := strings.SplitN(localForward, " ", 2)
 			if len(array) > 1 {
 				var e error
 
 				_, e = strconv.Atoi(array[0])
-				if e != nil { // localhost:8080
+				if e != nil {
 					serverConfig.PortForwardLocal = array[0]
-				} else { // 8080
+				} else {
 					serverConfig.PortForwardLocal = "localhost:" + array[0]
 				}
 
 				_, e = strconv.Atoi(array[1])
-				if e != nil { // localhost:8080
+				if e != nil {
 					serverConfig.PortForwardRemote = array[1]
-				} else { // 8080
+				} else {
 					serverConfig.PortForwardRemote = "localhost:" + array[1]
 				}
 			}
 		}
 
-		// Port forwarding (Remote forward)
-		remoteForward := ssh_config.Get(host, "RemoteForward")
+		remoteForward := getOpenSSHValue(cfg, host, "RemoteForward")
 		if remoteForward != "" {
 			array := strings.SplitN(remoteForward, " ", 2)
 			if len(array) > 1 {
 				var e error
 
 				_, e = strconv.Atoi(array[0])
-				if e != nil { // localhost:8080
+				if e != nil {
 					serverConfig.PortForwardLocal = array[0]
-				} else { // 8080
+				} else {
 					serverConfig.PortForwardLocal = "localhost:" + array[0]
 				}
 
 				_, e = strconv.Atoi(array[1])
-				if e != nil { // localhost:8080
+				if e != nil {
 					serverConfig.PortForwardRemote = array[1]
-				} else { // 8080
+				} else {
 					serverConfig.PortForwardRemote = "localhost:" + array[1]
 				}
 			}
 		}
 
-		// Port forwarding (Dynamic forward)
-		dynamicForward := ssh_config.Get(host, "DynamicForward")
+		dynamicForward := getOpenSSHValue(cfg, host, "DynamicForward")
 		if dynamicForward != "" {
 			serverConfig.DynamicPortForward = dynamicForward
 		}
 
-		serverName := ele + ":" + host
-		config[serverName] = serverConfig
+		entries = append(entries, openSSHConfigEntry{
+			Host:   host,
+			Config: serverConfig,
+		})
 	}
 
-	return config, err
+	return entries, nil
 }
 
 func normalizeOpenSSHIdentityFile(path string) string {
@@ -217,7 +228,7 @@ func normalizeOpenSSHIdentityFile(path string) string {
 		return ""
 	}
 
-	fullPath := common.GetFullPath(path)
+	fullPath := expandOpenSSHPath(path)
 	if fullPath == "" {
 		return path
 	}
@@ -232,6 +243,28 @@ func normalizeOpenSSHIdentityFile(path string) string {
 	default:
 		return path
 	}
+}
+
+func expandOpenSSHPath(path string) string {
+	home, err := os.UserHomeDir()
+	if err == nil && strings.HasPrefix(path, "~") {
+		path = strings.Replace(path, "~", home, 1)
+	}
+
+	fullPath, err := filepath.Abs(path)
+	if err != nil {
+		return path
+	}
+
+	return fullPath
+}
+
+func getOpenSSHValue(cfg *ssh_config.Config, host, key string) string {
+	value, err := cfg.Get(host, key)
+	if err != nil {
+		return ""
+	}
+	return strings.TrimSpace(value)
 }
 
 func getOpenSSHValues(cfg *ssh_config.Config, host, key string) []string {

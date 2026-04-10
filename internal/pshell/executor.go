@@ -32,6 +32,7 @@ func (s *shell) Executor(command string) {
 	if len(pslice) == 0 {
 		return
 	}
+	pslice = s.expandAliases(pslice)
 
 	// set latest command
 	s.latestCommand = command

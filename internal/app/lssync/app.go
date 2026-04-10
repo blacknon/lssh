@@ -58,6 +58,7 @@ USAGE:
 		cli.StringSliceFlag{Name: "host,H", Usage: "connect servernames"},
 		cli.BoolFlag{Name: "list,l", Usage: "print server list from config"},
 		cli.StringFlag{Name: "file,F", Value: defConf, Usage: "config file path"},
+		cli.StringFlag{Name: "generate-lssh-conf", Usage: "print generated lssh config from OpenSSH config to stdout (`~/.ssh/config` by default)."},
 		cli.BoolFlag{Name: "daemon,D", Usage: "run as a daemon and repeat sync at each interval"},
 		cli.DurationFlag{Name: "daemon-interval", Value: 5 * time.Second, Usage: "daemon sync interval"},
 		cli.BoolFlag{Name: "bidirectional,B", Usage: "sync both sides and copy newer changes in either direction"},
@@ -77,6 +78,9 @@ USAGE:
 
 		hosts := c.StringSlice("host")
 		confpath := c.String("file")
+		if handled, err := conf.HandleGenerateConfigMode(c.String("generate-lssh-conf"), os.Stdout); handled {
+			return err
+		}
 		if len(c.Args()) < 2 {
 			fmt.Fprintln(os.Stderr, "Too few arguments.")
 			cli.ShowAppHelp(c)
@@ -113,7 +117,10 @@ USAGE:
 		isToRemote := targetSpec.IsRemote
 		check.CheckTypeError(isFromInRemote, isFromInLocal, isToRemote, len(hosts))
 
-		data := conf.Read(confpath)
+		data, err := conf.ReadWithFallback(confpath, os.Stderr)
+		if err != nil {
+			return err
+		}
 		names := conf.GetNameList(data)
 		sort.Strings(names)
 

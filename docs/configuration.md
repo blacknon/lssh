@@ -519,6 +519,11 @@ With the example above, `lssh` sends a keepalive request every 10 seconds and cl
 Load and use `~/.ssh/config` by default.
 `ProxyCommand` can also be used.
 
+If `~/.lssh.conf` does not exist, the `lssh` suite commands show an information
+message and fall back to OpenSSH config import mode automatically. In an
+interactive terminal, they can also offer to create `~/.lssh.conf` from
+`~/.ssh/config` on the spot.
+
 You can also specify and read another path.
 In addition to the path, server config items can be specified and applied collectively.
 
@@ -527,6 +532,14 @@ In addition to the path, server config items can be specified and applied collec
 path = "~/.ssh/config"
 pre_cmd = 'printf "\033]50;SetProfile=local\a"'
 post_cmd = 'printf "\033]50;SetProfile=Default\a"'
+```
+
+You can also generate a starter `~/.lssh.conf` from any suite command and write
+it with shell redirection:
+
+```bash
+lssh --generate-lssh-conf > ~/.lssh.conf
+lssh --generate-lssh-conf=~/.ssh/config.work > ~/.lssh.conf
 ```
 
 ## Split config into multiple files
@@ -827,7 +840,7 @@ Notes:
 - `env_*` checks whether the named environment variables exist
 - `env_value_*` matches exact `KEY=value` pairs
 
-## Interactive shell settings with `[shell]`
+## Parallel Interactive shell settings with `[shell]`
 
 Use `[shell]` to customize the interactive behavior of `lsshell`.
 These settings control the prompt text, shell title, history file, startup and shutdown hooks, command aliases, and local helper commands started by `%outexec`.

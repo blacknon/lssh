@@ -3,6 +3,7 @@ _lssh() {
     _arguments -C -s \
         '(-H --host)'{-H,--host}'[Connect to server by name]:server:_hosts' \
         '(-f --file)'{-f,--file}'+[Specify config file path]:config file:_files' \
+        '--generate-lssh-conf[Print generated lssh config from OpenSSH config]:OpenSSH config:_files' \
         '*-L[Local port forward mode. Specify bind_address]:local port forwarding:->forward' \
         '*-R[Remote port forward mode. Specify bind_address]:remote port forwarding:->forward' \
         '-D+[Dynamic port forward mode (Socks5). Specify a port]:dynamic port forwarding:->dynforward' \
