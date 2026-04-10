@@ -48,6 +48,11 @@ type namedMatch struct {
 	config ServerMatchConfig
 }
 
+type namedOpenSSHConfig struct {
+	name   string
+	config OpenSSHConfig
+}
+
 var detectMatchContext = buildMatchContext
 
 func decodeConfigFile(path string, c *Config) error {
@@ -215,7 +220,10 @@ func sortedMatches(matches map[string]ServerMatchConfig) []namedMatch {
 }
 
 func branchMatches(serverName, branchName string, branch ServerMatchConfig, ctx matchContext) bool {
-	when := branch.When
+	return whenMatches(branch.When, serverName, branchName, ctx)
+}
+
+func whenMatches(when ServerMatchWhen, serverName, branchName string, ctx matchContext) bool {
 
 	if len(when.LocalIPIn) > 0 && !matchIPList(ctx.LocalIPs, when.LocalIPIn) {
 		return false
@@ -283,6 +291,79 @@ func branchMatches(serverName, branchName string, branch ServerMatchConfig, ctx 
 	}
 
 	return true
+}
+
+func (c *Config) activeOpenSSHConfigs() []OpenSSHConfig {
+	if len(c.SSHConfig) == 0 {
+		return nil
+	}
+
+	reqs, err := c.validateOpenSSHConfigWhens()
+	if err != nil {
+		log.Println(err)
+		os.Exit(1)
+	}
+
+	ctx := matchContext{}
+	if reqs.needLocalIP || reqs.needGateway || reqs.needUsername || reqs.needHostname || reqs.needOS || reqs.needTerm || reqs.needEnv {
+		ctx = detectMatchContext(reqs)
+	}
+
+	configs := sortedOpenSSHConfigs(c.SSHConfig)
+	result := make([]OpenSSHConfig, 0, len(configs))
+	for _, item := range configs {
+		if item.config.When.Empty() || whenMatches(item.config.When, "sshconfig", item.name, ctx) {
+			result = append(result, item.config)
+		}
+	}
+
+	return result
+}
+
+func sortedOpenSSHConfigs(configs map[string]OpenSSHConfig) []namedOpenSSHConfig {
+	result := make([]namedOpenSSHConfig, 0, len(configs))
+	for name, config := range configs {
+		result = append(result, namedOpenSSHConfig{name: name, config: config})
+	}
+
+	sort.SliceStable(result, func(i, j int) bool {
+		return result[i].name < result[j].name
+	})
+
+	return result
+}
+
+func (c *Config) validateOpenSSHConfigWhens() (matchRequirements, error) {
+	reqs := matchRequirements{}
+
+	for name, sc := range c.SSHConfig {
+		if sc.When.Empty() {
+			continue
+		}
+
+		if err := validateMatchNetworkList(sc.When.LocalIPIn, "local_ip_in", "sshconfig", name); err != nil {
+			return reqs, err
+		}
+		if err := validateMatchNetworkList(sc.When.LocalIPNotIn, "local_ip_not_in", "sshconfig", name); err != nil {
+			return reqs, err
+		}
+		if err := validateMatchNetworkList(sc.When.GatewayIn, "gateway_in", "sshconfig", name); err != nil {
+			return reqs, err
+		}
+		if err := validateMatchNetworkList(sc.When.GatewayNotIn, "gateway_not_in", "sshconfig", name); err != nil {
+			return reqs, err
+		}
+
+		reqs.needLocalIP = reqs.needLocalIP || len(sc.When.LocalIPIn) > 0 || len(sc.When.LocalIPNotIn) > 0
+		reqs.needGateway = reqs.needGateway || len(sc.When.GatewayIn) > 0 || len(sc.When.GatewayNotIn) > 0
+		reqs.needUsername = reqs.needUsername || len(sc.When.UsernameIn) > 0 || len(sc.When.UsernameNotIn) > 0
+		reqs.needHostname = reqs.needHostname || len(sc.When.HostnameIn) > 0 || len(sc.When.HostnameNotIn) > 0
+		reqs.needOS = reqs.needOS || len(sc.When.OSIn) > 0 || len(sc.When.OSNotIn) > 0
+		reqs.needTerm = reqs.needTerm || len(sc.When.TermIn) > 0 || len(sc.When.TermNotIn) > 0
+		reqs.needEnv = reqs.needEnv || len(sc.When.EnvIn) > 0 || len(sc.When.EnvNotIn) > 0 || len(sc.When.EnvValueIn) > 0 || len(sc.When.EnvValueNotIn) > 0
+	}
+
+	return reqs, nil
 }
 
 func matchStringList(value string, candidates []string) bool {
