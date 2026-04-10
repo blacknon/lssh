@@ -22,14 +22,34 @@ depends = [
 description = "Install shell completion files for bash, zsh, and fish to the user profile"
 depends = []
 run = """
-    ./scripts/install-completions.sh all --user
+    mkdir -p "$HOME/.local/share/bash-completion/completions"
+    cp completion/bash/* "$HOME/.local/share/bash-completion/completions/"
+
+    mkdir -p "$HOME/.zfunc"
+    cp completion/zsh/* "$HOME/.zfunc/"
+
+    mkdir -p "$HOME/.config/fish/completions"
+    cp completion/fish/* "$HOME/.config/fish/completions/"
+
+    printf '%s\n' \
+      'zsh note:' \
+      '  Add this to ~/.zshrc if ~/.zfunc is not already in fpath:' \
+      '    fpath=($HOME/.zfunc $fpath)' \
+      '    autoload -Uz compinit && compinit'
 """
 
 [tasks.completion_install_system]
 description = "Install shell completion files for bash, zsh, and fish under /usr/local"
 depends = []
 run = """
-    sudo ./scripts/install-completions.sh all --system
+    sudo mkdir -p /usr/local/share/bash-completion/completions
+    sudo cp completion/bash/* /usr/local/share/bash-completion/completions/
+
+    sudo mkdir -p /usr/local/share/zsh/site-functions
+    sudo cp completion/zsh/* /usr/local/share/zsh/site-functions/
+
+    sudo mkdir -p /usr/local/share/fish/vendor_completions.d
+    sudo cp completion/fish/* /usr/local/share/fish/vendor_completions.d/
 """
 
 [tasks.full_test]
