@@ -124,7 +124,7 @@ These options are useful for changing the local terminal state only while the SS
 
 For example, if your terminal supports OSC escape sequences, you can switch the terminal theme or colors when connecting to a host and restore them after disconnecting.
 
-`~/.lssh.conf` example.
+`~/.lssh.toml` example.
 
 ```toml
 [server.theme]
@@ -140,11 +140,27 @@ pre_cmd = 'printf "\e]10;#ffffff\a\e]11;#503000\a"'  # change foreground/backgro
 post_cmd = 'printf "\e]10;#ffffff\a\e]11;#000000\a"' # restore local colors
 ```
 
+YAML version:
+
+```yaml
+server:
+  theme:
+    addr: "192.168.100.10"
+    user: "demo"
+    pre_cmd: 'printf "\033]50;SetProfile=Remote\a"'
+    post_cmd: 'printf "\033]50;SetProfile=Default\a"'
+  color:
+    addr: "192.168.100.11"
+    user: "demo"
+    pre_cmd: 'printf "\e]10;#ffffff\a\e]11;#503000\a"'
+    post_cmd: 'printf "\e]10;#ffffff\a\e]11;#000000\a"'
+```
+
 ### ssh-agent
 
 `lssh` supports `ssh-agent`, so you can use keys already loaded into your agent without specifying a private key file for each host.
 
-`~/.lssh.conf` example.
+`~/.lssh.toml` example.
 
 ```toml
 [server.agent]
@@ -152,6 +168,17 @@ addr = "192.168.100.20"
 user = "demo"
 ssh_agent = true
 note = "use keys from ssh-agent"
+```
+
+YAML version:
+
+```yaml
+server:
+  agent:
+    addr: "192.168.100.20"
+    user: "demo"
+    ssh_agent: true
+    note: "use keys from ssh-agent"
 ```
 
 ### forwarding
@@ -217,7 +244,7 @@ lssh -Y
 
 #### if use config file
 
-`~/.lssh.conf` examples.
+`~/.lssh.toml` examples.
 
 ```toml
 # local port forwarding
@@ -270,6 +297,40 @@ x11 = true
 x11_trusted = true
 ```
 
+YAML version:
+
+```yaml
+server:
+  forward-local:
+    port_forward: "local"
+    port_forward_local: "8080"
+    port_forward_remote: "localhost:80"
+  forward-remote:
+    port_forward: "remote"
+    port_forward_local: "80"
+    port_forward_remote: "localhost:8080"
+  forwards:
+    port_forwards:
+      - "L:8080:localhost:80"
+      - "R:80:localhost:8080"
+  dynamic:
+    dynamic_port_forward: "10080"
+  http-dynamic:
+    http_dynamic_port_forward: "18080"
+  http-reverse-dynamic:
+    http_reverse_dynamic_port_forward: "18080"
+  nfs-dynamic:
+    nfs_dynamic_forward: "2049"
+    nfs_dynamic_forward_path: "/path/to/remote"
+  nfs-reverse-dynamic:
+    nfs_reverse_dynamic_forward: "2049"
+    nfs_reverse_dynamic_forward_path: "/path/to/local"
+  x11:
+    x11: true
+  x11-trusted:
+    x11_trusted: true
+```
+
 Tunnel device forwarding is available from the command line with `--tunnel`.
 
 
@@ -283,7 +344,7 @@ You can connect using a local bashrc file (if the ssh login shell is bash), with
 
 If you need to transfer a large bashrc, you can enable compression during transfer by setting `local_rc_compress = true`.
 
-`~/.lssh.conf` example.
+`~/.lssh.toml` example.
 
 ```toml
 [server.localrc]
@@ -299,6 +360,24 @@ local_rc_file = [
     ,"~/dotfiles/sh_export"
     ,"~/dotfiles/sh_function"
 ]
+```
+
+YAML version:
+
+```yaml
+server:
+  localrc:
+    addr: "192.168.100.104"
+    key: "/path/to/private_key"
+    note: "Use local bashrc files."
+    local_rc: "yes"
+    local_rc_compress: true
+    local_rc_file:
+      - "~/dotfiles/.bashrc"
+      - "~/dotfiles/bash_prompt"
+      - "~/dotfiles/sh_alias"
+      - "~/dotfiles/sh_export"
+      - "~/dotfiles/sh_function"
 ```
 
 #### Tips

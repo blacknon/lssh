@@ -102,7 +102,7 @@ lsmon --debug
 
 ### notes
 
-The default config file path is `~/.lssh.conf`.
+The default config search order is `~/.lssh.toml`, `~/.lssh.yaml`, `~/.lssh.yml`, then `~/.lssh.conf`.
 If no log file is specified, logs are written to `/dev/null`.
 
 Most data collection assumes Linux-style `/proc` information on the remote side, so in practice `lsmon` is aimed at Linux hosts.
