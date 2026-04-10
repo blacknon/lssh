@@ -11,6 +11,7 @@ import (
 
 type CommandArgs struct {
 	Delete         bool
+	DryRun         bool
 	Permission     bool
 	Daemon         bool
 	DaemonInterval time.Duration
@@ -42,6 +43,8 @@ func ParseCommandArgs(args []string) (CommandArgs, error) {
 		switch args[i] {
 		case "--delete":
 			result.Delete = true
+		case "--dry-run":
+			result.DryRun = true
 		case "--daemon", "-D":
 			result.Daemon = true
 		case "--bidirectional", "-B":

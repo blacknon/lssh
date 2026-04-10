@@ -97,126 +97,22 @@ func (t *TopNetworkInfomation) Update(wg *sync.WaitGroup) {
 		t.SetCell(row, 2, tableCell)
 
 		// RXBytes
-		rxBytesLength := len(networkUsage.RXBytes)
-		var networkRXBytesCell *mview.TableCell
-		var rxBytes []float64
-		if rxBytesLength > 0 {
-			for i := 1; i < IOCount+1; i++ {
-				var rxByte float64
-				if i >= rxBytesLength {
-					rxByte = float64(0)
-				} else {
-					rxByte = float64(networkUsage.RXBytes[rxBytesLength-i])
-				}
-				rxBytes = append(rxBytes, rxByte)
-			}
-			rxByte := humanize.Bytes(uint64(networkUsage.RXBytes[rxBytesLength-1]))
-			maxBytes := scaleMaxValue(maxFloat64(rxBytes))
-			readGraph := Graph{
-				Data: rxBytes,
-				Max:  maxBytes,
-			}
-			brailleLine := strings.Join(readGraph.BrailleLine(), "")
-
-			networkRXBytes := fmt.Sprintf("[gray]%8s[none] [gray]%s[none]", rxByte, brailleLine)
-			networkRXBytesCell = mview.NewTableCell(networkRXBytes)
-		} else {
-			networkRXBytes := fmt.Sprintf("[gray]%s[none]", "-")
-			networkRXBytesCell = mview.NewTableCell(networkRXBytes)
-		}
+		networkRXBytesCell := formatNetworkBytesCell(networkUsage.RXBytes)
 		networkRXBytesCell.SetTextColor(tcell.NewRGBColor(0, 255, 255))
 		t.Table.SetCell(row, 3, networkRXBytesCell)
 
 		// TXBytes
-		txBytesLength := len(networkUsage.TXBytes)
-		var networkTXBytesCell *mview.TableCell
-		var txBytes []float64
-		if txBytesLength > 0 {
-			for i := 1; i < IOCount+1; i++ {
-				var txByte float64
-				if i >= txBytesLength {
-					txByte = float64(0)
-				} else {
-					txByte = float64(networkUsage.TXBytes[txBytesLength-i])
-				}
-				txBytes = append(txBytes, txByte)
-			}
-			txByte := humanize.Bytes(uint64(networkUsage.TXBytes[txBytesLength-1]))
-			maxBytes := scaleMaxValue(maxFloat64(txBytes))
-			readGraph := Graph{
-				Data: rxBytes,
-				Max:  maxBytes,
-			}
-			brailleLine := strings.Join(readGraph.BrailleLine(), "")
-
-			networkTXBytes := fmt.Sprintf("[gray]%8s[none] [gray]%s[none]", txByte, brailleLine)
-			networkTXBytesCell = mview.NewTableCell(networkTXBytes)
-		} else {
-			networkTXBytes := fmt.Sprintf("[gray]%s[none]", "-")
-			networkTXBytesCell = mview.NewTableCell(networkTXBytes)
-		}
+		networkTXBytesCell := formatNetworkBytesCell(networkUsage.TXBytes)
 		networkTXBytesCell.SetTextColor(tcell.NewRGBColor(0, 255, 255))
 		t.Table.SetCell(row, 4, networkTXBytesCell)
 
 		// ReadPackets
-		rxPacketLength := len(networkUsage.RXPackets)
-		var networkRXPacketsCell *mview.TableCell
-		var rxPackets []float64
-		if rxPacketLength > 0 {
-			for i := 1; i < IOCount+1; i++ {
-				var rxPacket float64
-				if i >= rxPacketLength {
-					rxPacket = float64(0)
-				} else {
-					rxPacket = float64(networkUsage.RXPackets[rxPacketLength-i])
-				}
-				rxPackets = append(rxPackets, rxPacket)
-			}
-			rxPacket := networkUsage.RXPackets[rxPacketLength-1]
-			maxPacket := scaleMaxValue(maxFloat64(rxPackets))
-			readGraph := Graph{
-				Data: rxPackets,
-				Max:  maxPacket,
-			}
-			brailleLine := strings.Join(readGraph.BrailleLine(), "")
-
-			networkRXPackets := fmt.Sprintf("[gray]%8d[none] [gray]%s[none]", rxPacket, brailleLine)
-			networkRXPacketsCell = mview.NewTableCell(networkRXPackets)
-		} else {
-			networkRXPackets := fmt.Sprintf("[gray]%s[none]", "-")
-			networkRXPacketsCell = mview.NewTableCell(networkRXPackets)
-		}
+		networkRXPacketsCell := formatNetworkPacketsCell(networkUsage.RXPackets)
 		networkRXPacketsCell.SetTextColor(tcell.NewRGBColor(0, 255, 255))
 		t.Table.SetCell(row, 5, networkRXPacketsCell)
 
 		// writePackets
-		txPacketLength := len(networkUsage.TXPackets)
-		var networkTXPacketsCell *mview.TableCell
-		var txPackets []float64
-		if txPacketLength > 0 {
-			for i := 1; i < IOCount+1; i++ {
-				var txPacket float64
-				if i >= txPacketLength {
-					txPacket = float64(0)
-				} else {
-					txPacket = float64(networkUsage.TXPackets[txPacketLength-i])
-				}
-				txPackets = append(txPackets, txPacket)
-			}
-			txPacket := networkUsage.TXPackets[txPacketLength-1]
-			maxPacket := scaleMaxValue(maxFloat64(txPackets))
-			readGraph := Graph{
-				Data: txPackets,
-				Max:  maxPacket,
-			}
-			brailleLine := strings.Join(readGraph.BrailleLine(), "")
-
-			networkTXPackets := fmt.Sprintf("[gray]%8d[none] [gray]%s[none]", txPacket, brailleLine)
-			networkTXPacketsCell = mview.NewTableCell(networkTXPackets)
-		} else {
-			networkTXPackets := fmt.Sprintf("[gray]%s[none]", "-")
-			networkTXPacketsCell = mview.NewTableCell(networkTXPackets)
-		}
+		networkTXPacketsCell := formatNetworkPacketsCell(networkUsage.TXPackets)
 		networkTXPacketsCell.SetTextColor(tcell.NewRGBColor(0, 255, 255))
 		t.Table.SetCell(row, 6, networkTXPacketsCell)
 	}
@@ -236,4 +132,45 @@ func getTopNetworkHeader() []string {
 		" RXPackets",
 		" TXPackets",
 	}
+}
+
+func formatNetworkBytesCell(history []uint64) *mview.TableCell {
+	if len(history) == 0 {
+		return mview.NewTableCell("[gray]-[none]")
+	}
+
+	values := networkHistorySeries(history)
+	last := humanize.Bytes(history[len(history)-1])
+	maxValue := scaleMaxValue(maxFloat64(values))
+	graph := Graph{Data: values, Max: maxValue}
+	brailleLine := strings.Join(graph.BrailleLine(), "")
+
+	return mview.NewTableCell(fmt.Sprintf("[gray]%8s[none] [gray]%s[none]", last, brailleLine))
+}
+
+func formatNetworkPacketsCell(history []uint64) *mview.TableCell {
+	if len(history) == 0 {
+		return mview.NewTableCell("[gray]-[none]")
+	}
+
+	values := networkHistorySeries(history)
+	last := history[len(history)-1]
+	maxValue := scaleMaxValue(maxFloat64(values))
+	graph := Graph{Data: values, Max: maxValue}
+	brailleLine := strings.Join(graph.BrailleLine(), "")
+
+	return mview.NewTableCell(fmt.Sprintf("[gray]%8d[none] [gray]%s[none]", last, brailleLine))
+}
+
+func networkHistorySeries(history []uint64) []float64 {
+	length := len(history)
+	result := make([]float64, 0, IOCount)
+	for i := 1; i < IOCount+1; i++ {
+		if i >= length {
+			result = append(result, 0)
+			continue
+		}
+		result = append(result, float64(history[length-i]))
+	}
+	return result
 }

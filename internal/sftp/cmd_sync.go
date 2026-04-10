@@ -30,6 +30,7 @@ func (r *RunSftp) sync(args []string) {
 		cli.BoolFlag{Name: "bidirectional,B", Usage: "sync both sides and copy newer changes in either direction"},
 		cli.IntFlag{Name: "parallel,P", Value: 1, Usage: "parallel file sync count per host"},
 		cli.BoolFlag{Name: "permission,p", Usage: "copy file permission"},
+		cli.BoolFlag{Name: "dry-run", Usage: "show sync actions without modifying files"},
 		cli.BoolFlag{Name: "delete", Usage: "delete destination entries that do not exist in source"},
 	}
 
@@ -82,6 +83,7 @@ func (r *RunSftp) sync(args []string) {
 			parallelNum = 1
 		}
 		deleteExtra := c.Bool("delete") || parsed.Delete
+		r.DryRun = c.Bool("dry-run") || parsed.DryRun
 		bidirectional := c.Bool("bidirectional") || parsed.Bidirectional
 		daemon := c.Bool("daemon") || parsed.Daemon
 		daemonInterval := c.Duration("daemon-interval")
@@ -166,9 +168,12 @@ func (r *RunSftp) syncLocalToRemote(sourceSpecs []lsync.PathSpec, targetSpec lsy
 
 			return lsync.ApplyPlan(ctx, localFS, remoteFS, plan, lsync.ApplyOptions{
 				Delete:      deleteExtra,
+				DryRun:      r.DryRun,
 				Permission:  permission,
 				ParallelNum: parallelNum,
 				Output:      target.Output,
+				SourceLabel: "local",
+				TargetLabel: server,
 			})
 		}); err != nil {
 			return err
@@ -212,9 +217,12 @@ func (r *RunSftp) syncRemoteToLocal(sourceSpecs []lsync.PathSpec, targetSpec lsy
 
 			return lsync.ApplyPlan(ctx, remoteFS, localFS, plan, lsync.ApplyOptions{
 				Delete:      deleteExtra,
+				DryRun:      r.DryRun,
 				Permission:  permission,
 				ParallelNum: parallelNum,
 				Output:      source.Output,
+				SourceLabel: server,
+				TargetLabel: "local",
 			})
 		}); err != nil {
 			return err
@@ -270,9 +278,12 @@ func (r *RunSftp) syncRemoteToRemote(sourceSpecs []lsync.PathSpec, targetSpec ls
 
 			return lsync.ApplyPlan(ctx, sourceFS, targetFS, plan, lsync.ApplyOptions{
 				Delete:      deleteExtra,
+				DryRun:      r.DryRun,
 				Permission:  permission,
 				ParallelNum: parallelNum,
 				Output:      target.Output,
+				SourceLabel: source.Output.Server,
+				TargetLabel: server,
 			})
 		}); err != nil {
 			return err
@@ -307,17 +318,23 @@ func (r *RunSftp) syncBidirectionalLocalToRemote(sourceSpec lsync.PathSpec, targ
 			}
 
 			if err := lsync.ApplyPlan(ctx, localFS, remoteFS, leftToRight, lsync.ApplyOptions{
+				DryRun:      r.DryRun,
 				Permission:  permission,
 				ParallelNum: parallelNum,
 				Output:      target.Output,
+				SourceLabel: "local",
+				TargetLabel: server,
 			}); err != nil {
 				return err
 			}
 
 			return lsync.ApplyPlan(ctx, remoteFS, localFS, rightToLeft, lsync.ApplyOptions{
+				DryRun:      r.DryRun,
 				Permission:  permission,
 				ParallelNum: parallelNum,
 				Output:      target.Output,
+				SourceLabel: server,
+				TargetLabel: "local",
 			})
 		}); err != nil {
 			return err
@@ -357,17 +374,23 @@ func (r *RunSftp) syncBidirectionalRemoteToLocal(sourceSpec lsync.PathSpec, targ
 			}
 
 			if err := lsync.ApplyPlan(ctx, remoteFS, localFS, leftToRight, lsync.ApplyOptions{
+				DryRun:      r.DryRun,
 				Permission:  permission,
 				ParallelNum: parallelNum,
 				Output:      source.Output,
+				SourceLabel: server,
+				TargetLabel: "local",
 			}); err != nil {
 				return err
 			}
 
 			return lsync.ApplyPlan(ctx, localFS, remoteFS, rightToLeft, lsync.ApplyOptions{
+				DryRun:      r.DryRun,
 				Permission:  permission,
 				ParallelNum: parallelNum,
 				Output:      source.Output,
+				SourceLabel: "local",
+				TargetLabel: server,
 			})
 		}); err != nil {
 			return err
@@ -421,17 +444,23 @@ func (r *RunSftp) syncBidirectionalRemoteToRemote(sourceSpec lsync.PathSpec, tar
 			}
 
 			if err := lsync.ApplyPlan(ctx, sourceFS, targetFS, leftToRight, lsync.ApplyOptions{
+				DryRun:      r.DryRun,
 				Permission:  permission,
 				ParallelNum: parallelNum,
 				Output:      target.Output,
+				SourceLabel: sourceServer,
+				TargetLabel: server,
 			}); err != nil {
 				return err
 			}
 
 			return lsync.ApplyPlan(ctx, targetFS, sourceFS, rightToLeft, lsync.ApplyOptions{
+				DryRun:      r.DryRun,
 				Permission:  permission,
 				ParallelNum: parallelNum,
 				Output:      source.Output,
+				SourceLabel: server,
+				TargetLabel: sourceServer,
 			})
 		}); err != nil {
 			return err

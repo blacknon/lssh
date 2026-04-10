@@ -46,8 +46,9 @@ func (w *transferWizard) openTransferSFTPForPane(p *pane) (*transferSFTPConn, er
 	}
 
 	run := &sshcmd.Run{
-		ServerList: []string{p.server},
-		Conf:       w.manager.conf,
+		ServerList:            []string{p.server},
+		Conf:                  w.manager.conf,
+		ControlMasterOverride: w.manager.controlMasterOverride,
 	}
 	run.CreateAuthMethodMap()
 

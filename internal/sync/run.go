@@ -23,6 +23,11 @@ var (
 type Sync struct {
 	Run *sshl.Run
 
+	// ControlMasterOverride temporarily overrides the config value for this
+	// command execution.
+	ControlMasterOverride *bool
+	DryRun                bool
+
 	From SyncInfo
 	To   SyncInfo
 
@@ -58,6 +63,7 @@ func (s *Sync) Start() {
 	s.Run = new(sshl.Run)
 	s.Run.ServerList = slist
 	s.Run.Conf = s.Config
+	s.Run.ControlMasterOverride = s.ControlMasterOverride
 	s.Run.CreateAuthMethodMap()
 
 	s.ProgressWG = new(syncpkg.WaitGroup)
@@ -272,9 +278,12 @@ func (s *Sync) localToRemoteOnce(ctx context.Context, localFS FileSystem, server
 
 	return ApplyPlan(ctx, localFS, remoteFS, plan, ApplyOptions{
 		Delete:      s.Delete,
+		DryRun:      s.DryRun,
 		Permission:  s.Permission,
 		ParallelNum: s.ParallelNum,
 		Output:      conn.Output,
+		SourceLabel: "local",
+		TargetLabel: server,
 	})
 }
 
@@ -298,9 +307,12 @@ func (s *Sync) remoteToLocalOnce(ctx context.Context, localFS FileSystem, server
 
 	return ApplyPlan(ctx, remoteFS, localFS, plan, ApplyOptions{
 		Delete:      s.Delete,
+		DryRun:      s.DryRun,
 		Permission:  s.Permission,
 		ParallelNum: s.ParallelNum,
 		Output:      conn.Output,
+		SourceLabel: server,
+		TargetLabel: "local",
 	})
 }
 
@@ -322,9 +334,12 @@ func (s *Sync) remoteToRemoteOnce(ctx context.Context, sourceServer string, targ
 
 	return ApplyPlan(ctx, srcFS, dstFS, plan, ApplyOptions{
 		Delete:      s.Delete,
+		DryRun:      s.DryRun,
 		Permission:  s.Permission,
 		ParallelNum: s.ParallelNum,
 		Output:      dstConn.Output,
+		SourceLabel: sourceServer,
+		TargetLabel: targetServer,
 	})
 }
 
@@ -342,17 +357,23 @@ func (s *Sync) bidirectionalLocalRemoteOnce(ctx context.Context, localFS FileSys
 	}
 
 	if err := ApplyPlan(ctx, localFS, remoteFS, leftToRight, ApplyOptions{
+		DryRun:      s.DryRun,
 		Permission:  s.Permission,
 		ParallelNum: s.ParallelNum,
 		Output:      conn.Output,
+		SourceLabel: "local",
+		TargetLabel: server,
 	}); err != nil {
 		return err
 	}
 
 	return ApplyPlan(ctx, remoteFS, localFS, rightToLeft, ApplyOptions{
+		DryRun:      s.DryRun,
 		Permission:  s.Permission,
 		ParallelNum: s.ParallelNum,
 		Output:      conn.Output,
+		SourceLabel: server,
+		TargetLabel: "local",
 	})
 }
 
@@ -375,17 +396,23 @@ func (s *Sync) bidirectionalRemoteLocalOnce(ctx context.Context, localFS FileSys
 	}
 
 	if err := ApplyPlan(ctx, remoteFS, localFS, leftToRight, ApplyOptions{
+		DryRun:      s.DryRun,
 		Permission:  s.Permission,
 		ParallelNum: s.ParallelNum,
 		Output:      conn.Output,
+		SourceLabel: server,
+		TargetLabel: "local",
 	}); err != nil {
 		return err
 	}
 
 	return ApplyPlan(ctx, localFS, remoteFS, rightToLeft, ApplyOptions{
+		DryRun:      s.DryRun,
 		Permission:  s.Permission,
 		ParallelNum: s.ParallelNum,
 		Output:      conn.Output,
+		SourceLabel: "local",
+		TargetLabel: server,
 	})
 }
 
@@ -406,17 +433,23 @@ func (s *Sync) bidirectionalRemoteRemoteOnce(ctx context.Context, sourceServer s
 	}
 
 	if err := ApplyPlan(ctx, srcFS, dstFS, leftToRight, ApplyOptions{
+		DryRun:      s.DryRun,
 		Permission:  s.Permission,
 		ParallelNum: s.ParallelNum,
 		Output:      dstConn.Output,
+		SourceLabel: sourceServer,
+		TargetLabel: targetServer,
 	}); err != nil {
 		return err
 	}
 
 	return ApplyPlan(ctx, dstFS, srcFS, rightToLeft, ApplyOptions{
+		DryRun:      s.DryRun,
 		Permission:  s.Permission,
 		ParallelNum: s.ParallelNum,
 		Output:      srcConn.Output,
+		SourceLabel: targetServer,
+		TargetLabel: sourceServer,
 	})
 }
 
