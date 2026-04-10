@@ -94,6 +94,22 @@ addr = "192.168.100.20"
 note = "staging"
 ```
 
+Or write the same config as YAML in `~/.lssh.yaml`:
+
+```yaml
+common:
+  user: "demo"
+  key: "~/.ssh/id_rsa"
+
+server:
+  dev:
+    addr: "192.168.100.10"
+    note: "development"
+  stg:
+    addr: "192.168.100.20"
+    note: "staging"
+```
+
 If you already keep hosts in `~/.ssh/config`, you can generate a starter file:
 
 ```bash
@@ -114,6 +130,66 @@ lssh -p 'uptime'
 ```
 
 If you want a ready-to-run local playground, see [`demo/README.md`](./demo/README.md).
+
+## Demo
+
+```mermaid
+flowchart LR
+    client["client
+frontend
+172.31.0.10"]
+    password_ssh["password_ssh
+frontend
+172.31.0.21"]
+    key_ssh["key_ssh
+frontend
+172.31.0.22"]
+    over_proxy_ssh["over_proxy_ssh
+backend
+172.31.1.41"]
+    deep_proxy_ssh["deep_proxy_ssh
+deepback
+172.31.2.51"]
+    deep_http_proxy["deep_http_proxy
+deepback: 172.31.2.61
+finalback: 172.31.3.61"]
+    deep_socks_proxy["deep_socks_proxy
+deepback: 172.31.2.62
+finalback: 172.31.3.62"]
+    over_deep_http_ssh["over_deep_http_ssh
+finalback
+172.31.3.71"]
+
+    ssh_proxy["ssh_proxy
+frontend: 172.31.0.31
+backend: 172.31.1.31"]
+    http_proxy["http_proxy
+frontend: 172.31.0.32
+backend: 172.31.1.32"]
+    socks_proxy["socks_proxy
+frontend: 172.31.0.33
+backend: 172.31.1.33"]
+
+    client --> password_ssh
+    client --> key_ssh
+    client --> ssh_proxy
+    client -. via proxy .-> http_proxy
+    client -. via proxy .-> socks_proxy
+
+    ssh_proxy --> over_proxy_ssh
+    http_proxy -. via proxy .->  over_proxy_ssh
+    socks_proxy -. via proxy .->  over_proxy_ssh
+    over_proxy_ssh --> deep_proxy_ssh
+    over_proxy_ssh -. via proxy .->  deep_http_proxy
+    over_proxy_ssh -. via proxy .->  deep_socks_proxy
+    deep_http_proxy -. via proxy .->  over_deep_http_ssh
+    deep_socks_proxy -. via proxy .->  over_deep_http_ssh
+```
+
+
+Want to try `lssh` quickly with a ready-to-run local playground?
+Start with [`demo/README.md`](./demo/README.md).
+
 
 ## What else is in the suite
 

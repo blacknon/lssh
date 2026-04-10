@@ -48,7 +48,7 @@ When multiple hosts are selected, many operations run in parallel against the se
 lsftp
 
 # specify the config file
-lsftp -F ~/.lssh.conf
+lsftp -F ~/.lssh.toml
 ```
 
 ### file operations
@@ -128,4 +128,4 @@ bye, exit, quit
 
 Remote host notation for `copy` uses the `@host:/path` format.
 For `sync`, use the `lssync` style `(local|remote):path` prefixes. You can target a specific remote host inside `lsftp` with `remote:@host:/path`.
-The default config file path is `~/.lssh.conf`.
+The default config search order is `~/.lssh.toml`, `~/.lssh.yaml`, `~/.lssh.yml`, then `~/.lssh.conf`.
