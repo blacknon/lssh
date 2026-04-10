@@ -165,7 +165,7 @@ func (s *shell) Completer(t prompt.Document) []prompt.Suggest {
 				{Text: "%outexec", Description: "%outexec <-n num> command..., exec local command with output result. result is in env variable."},
 				{Text: "%get", Description: "%get remote local, copy files from remote hosts to localhost."},
 				{Text: "%put", Description: "%put local... remote, copy local files to remote hosts."},
-				{Text: "%sync", Description: "%sync [--delete] [-p] [-P num] (local|remote):source... (local|remote):target"},
+				{Text: "%sync", Description: "%sync [--delete] [--dry-run] [-p] [-P num] (local|remote):source... (local|remote):target"},
 				{Text: "%save", Description: "reserved built-in command."},
 				{Text: "%set", Description: "reserved built-in command."},
 				// outの出力でdiffをするためのローカルコマンド。すべての出力と比較するのはあまりに辛いと思われるため、最初の出力との比較、といった方式で対応するのが良いか？？
@@ -231,6 +231,10 @@ func (s *shell) getBuildInCommandSuggest(command string, t prompt.Document, targ
 
 	case "%get":
 		switch {
+		case contains([]string{"-"}, char):
+			return []prompt.Suggest{
+				{Text: "--dry-run", Description: "show get actions without modifying files"},
+			}
 		case (num == 1 && char == " ") || (num == 2 && char != " "):
 			return s.GetPathCompleteForConnects(targetConns, true, t.GetWordBeforeCursor())
 		case (num == 2 && char == " ") || num >= 3:
@@ -239,6 +243,10 @@ func (s *shell) getBuildInCommandSuggest(command string, t prompt.Document, targ
 
 	case "%put":
 		switch {
+		case contains([]string{"-"}, char):
+			return []prompt.Suggest{
+				{Text: "--dry-run", Description: "show put actions without modifying files"},
+			}
 		case num == 1 || (num == 2 && char != " "):
 			return s.GetPathComplete(false, t.GetWordBeforeCursor())
 		case num >= 2 && char == " ":
@@ -255,6 +263,7 @@ func (s *shell) getBuildInCommandSuggest(command string, t prompt.Document, targ
 		case contains([]string{"-"}, char):
 			return []prompt.Suggest{
 				{Text: "--delete", Description: "delete destination entries not present in source"},
+				{Text: "--dry-run", Description: "show sync actions without modifying files"},
 				{Text: "--permission", Description: "copy file permission"},
 				{Text: "-p", Description: "copy file permission"},
 				{Text: "--parallel", Description: "parallel file sync count per host"},

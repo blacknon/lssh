@@ -62,7 +62,7 @@ func (r *Run) createSshConnectWithControlPersist(server string, proxyRoute []*pr
 	}
 
 	// target server config
-	s := r.Conf.Server[server]
+	s := r.effectiveServerConfig(server, false)
 
 	// build top-level control-persist auth methods from config
 	topMethods, err := r.buildControlPersistAuthMethodsFromConfig(server, s)
@@ -207,6 +207,24 @@ func (r *Run) CreateSshConnectDirect(server string) (connect *sshlib.Connect, er
 	return r.createSshConnect(server, true)
 }
 
+func (r *Run) effectiveServerConfig(server string, forceDirect bool) conf.ServerConfig {
+	s := r.Conf.Server[server]
+
+	if r.ControlMasterOverride != nil {
+		s.ControlMaster = *r.ControlMasterOverride
+		if !s.ControlMaster {
+			s.ControlPersist = 0
+		}
+	}
+
+	if forceDirect {
+		s.ControlMaster = false
+		s.ControlPersist = 0
+	}
+
+	return s
+}
+
 // createSshConnect is the main function for creating sshlib.Connect objects.
 // If forceDirect is true, it disables ControlMaster/ControlPersist for the connection (used for features like SFTP that require a concrete *ssh.Client).
 func (r *Run) createSshConnect(server string, forceDirect bool) (connect *sshlib.Connect, err error) {
@@ -263,11 +281,7 @@ func (r *Run) createSshConnect(server string, forceDirect bool) (connect *sshlib
 	}
 
 	// server conf
-	s := r.Conf.Server[server]
-	if forceDirect {
-		s.ControlMaster = false
-		s.ControlPersist = 0
-	}
+	s := r.effectiveServerConfig(server, forceDirect)
 
 	// ControlPersist path is only valid when ControlMaster is enabled.
 	if s.ControlMaster && s.ControlPersist > 0 {

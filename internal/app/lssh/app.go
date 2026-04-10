@@ -121,6 +121,7 @@ USAGE:
 		// Background (like ssh -f)
 		cli.BoolFlag{Name: "f", Usage: "Run in background after forwarding/connection (ssh -f like)."},
 	}
+	app.Flags = append(app.Flags, common.ControlMasterOverrideFlags()...)
 	app.EnableBashCompletion = true
 	app.HideHelp = true
 
@@ -134,6 +135,10 @@ USAGE:
 
 		hosts := c.StringSlice("host")
 		confpath := c.String("file")
+		controlMasterOverride, controlMasterErr := common.GetControlMasterOverride(c)
+		if controlMasterErr != nil {
+			return controlMasterErr
+		}
 
 		if handled, err := conf.HandleGenerateConfigMode(c.String("generate-lssh-conf"), os.Stdout); handled {
 			return err
@@ -227,6 +232,7 @@ USAGE:
 
 			run := &sshcmd.Run{
 				Conf:                          data,
+				ControlMasterOverride:         controlMasterOverride,
 				PortForward:                   forwards,
 				DynamicPortForward:            c.String("D"),
 				HTTPDynamicPortForward:        c.String("d"),
@@ -235,6 +241,7 @@ USAGE:
 				NFSReverseDynamicForwardPort:  forwardConfig.NFSReverseDynamicForwardPort,
 				NFSReverseDynamicForwardPath:  forwardConfig.NFSReverseDynamicForwardPath,
 			}
+			forwardConfig.ControlMasterOverride = controlMasterOverride
 			if nfsForwarding := c.String("M"); nfsForwarding != "" {
 				port, path, parseErr := common.ParseNFSForwardPortPath(nfsForwarding)
 				if parseErr != nil {
@@ -313,6 +320,7 @@ USAGE:
 		r := new(sshcmd.Run)
 		r.ServerList = selected
 		r.Conf = data
+		r.ControlMasterOverride = controlMasterOverride
 		switch {
 		case c.Bool("pshell") == true && !c.Bool("not-execute"):
 			r.Mode = "pshell"

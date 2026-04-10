@@ -39,6 +39,11 @@ type RunSftp struct {
 	// ssh Run
 	Run *sshl.Run
 
+	// ControlMasterOverride temporarily overrides the config value for this
+	// command execution.
+	ControlMasterOverride *bool
+	DryRun                bool
+
 	//
 	Permission bool
 
@@ -83,6 +88,17 @@ type PathSet struct {
 	PathSlice []string
 }
 
+func (r *RunSftp) printAction(printer *output.Output, action, target string) {
+	if printer != nil {
+		ow := printer.NewWriter()
+		fmt.Fprintf(ow, "[DRY-RUN] %s: %s\n", action, target)
+		ow.Close()
+		return
+	}
+
+	fmt.Fprintf(os.Stderr, "[DRY-RUN] %s: %s\n", action, target)
+}
+
 var (
 	oprompt = "${SERVER} :: "
 )
@@ -93,6 +109,7 @@ func (r *RunSftp) Start() {
 	r.Run = new(sshl.Run)
 	r.Run.ServerList = r.SelectServer
 	r.Run.Conf = r.Config
+	r.Run.ControlMasterOverride = r.ControlMasterOverride
 	r.Run.CreateAuthMethodMap()
 
 	// Default local umask(022).
