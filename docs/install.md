@@ -67,6 +67,41 @@ go install github.com/blacknon/lssh/cmd/lsmux@latest
 brew install blacknon/lssh/lssh
 ```
 
+## Shell completion
+
+Install completion files for `bash`, `zsh`, and `fish`:
+
+```bash
+./scripts/install-completions.sh all --user
+```
+
+To install under `/usr/local` instead:
+
+```bash
+sudo ./scripts/install-completions.sh all --system
+```
+
+You can also install just one shell:
+
+```bash
+./scripts/install-completions.sh zsh --user
+./scripts/install-completions.sh bash --user
+./scripts/install-completions.sh fish --user
+```
+
+If you use `mise`, the same flow is available as:
+
+```bash
+mise run completion_install
+```
+
+For user-level `zsh` installs, add this to `~/.zshrc` if needed:
+
+```bash
+fpath=($HOME/.zfunc $fpath)
+autoload -Uz compinit && compinit
+```
+
 ## Build from source
 
 ```bash

@@ -1,0 +1,26 @@
+_lsmux_completion() {
+    local cur prev
+    COMPREPLY=()
+    cur="${COMP_WORDS[COMP_CWORD]}"
+    prev="${COMP_WORDS[COMP_CWORD-1]}"
+
+    local opts="--host -H --file -F --generate-lssh-conf -R -r -m --hold --allow-layout-change --list -l --help -h --version -v"
+
+    case "${prev}" in
+        --file|-F|--generate-lssh-conf|-m)
+            COMPREPLY=($(compgen -f -- "${cur}"))
+            return
+            ;;
+        -R|-r|--host|-H)
+            return
+            ;;
+    esac
+
+    if [[ "${cur}" == -* ]]; then
+        COMPREPLY=($(compgen -W "${opts}" -- "${cur}"))
+    else
+        COMPREPLY=($(compgen -c -- "${cur}"))
+    fi
+}
+
+complete -F _lsmux_completion lsmux

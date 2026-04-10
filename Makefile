@@ -24,6 +24,7 @@ INSTALL_PATH_LSFTP=/usr/local/bin/lsftp
 INSTALL_PATH_LSSYNC=/usr/local/bin/lssync
 INSTALL_PATH_LSSHELL=/usr/local/bin/lsshell
 INSTALL_PATH_LSMON=/usr/local/bin/lsmon
+
 build:
 	# Remove unnecessary dependent libraries
 	$(GOMOD) tidy
@@ -71,6 +72,12 @@ install:
 
 	# copy template config file
 	cp -n example/config.tml ~/.lssh.conf || true
+
+install-completions:
+	./scripts/install-completions.sh all --system
+
+install-completions-user:
+	./scripts/install-completions.sh all --user
 
 test:
 	$(GOTEST) ./...

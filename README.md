@@ -75,6 +75,7 @@ go install github.com/blacknon/lssh/cmd/lssh@latest
 
 Prebuilt packages and the full suite are also available on GitHub Releases.
 See the install details in [`docs/install.md`](./docs/install.md).
+Shell completion installers for `bash`, `zsh`, and `fish` are also included.
 
 ### 2. Create a minimal config
 
