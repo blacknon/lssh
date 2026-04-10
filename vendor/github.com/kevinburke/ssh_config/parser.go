@@ -169,8 +169,6 @@ func (p *sshParser) parseKV() sshParserStateFn {
 }
 
 func (p *sshParser) parseMatch(val *token, hasEquals bool, comment string) sshParserStateFn {
-	// val.val contains everything after "Match ", e.g. "Host *.example.com"
-	// or "all".
 	trimmed := strings.TrimRightFunc(val.val, unicode.IsSpace)
 	spaceBeforeComment := val.val[len(trimmed):]
 	fields := strings.Fields(trimmed)
@@ -178,60 +176,59 @@ func (p *sshParser) parseMatch(val *token, hasEquals bool, comment string) sshPa
 		p.raiseErrorf(val, "ssh_config: Match directive requires at least one criterion")
 		return nil
 	}
-	criterion := strings.ToLower(fields[0])
-
-	switch criterion {
-	case "all":
-		// "Match all" is equivalent to "Host *" — matches everything.
-		p.config.Hosts = append(p.config.Hosts, &Host{
-			Patterns:           []*Pattern{matchAll},
-			Nodes:              make([]Node, 0),
-			EOLComment:         comment,
-			spaceBeforeComment: spaceBeforeComment,
-			hasEquals:          hasEquals,
-			isMatch:            true,
-			matchKeyword:       fields[0], // preserve original case
-		})
-		return p.parseStart
-
-	case "host":
-		patterns := make([]*Pattern, 0)
-		for _, s := range fields[1:] {
-			if s == "" {
-				continue
+	specs := make([]matchCriterion, 0)
+	for i := 0; i < len(fields); {
+		criterion := strings.ToLower(fields[i])
+		switch criterion {
+		case "all", "canonical", "final":
+			specs = append(specs, matchCriterion{keyword: criterion})
+			i++
+		case "host", "originalhost", "user", "localuser":
+			i++
+			patterns := make([]*Pattern, 0)
+			for i < len(fields) && !isMatchKeyword(fields[i]) {
+				pat, err := NewPattern(fields[i])
+				if err != nil {
+					p.raiseErrorf(val, fmt.Sprintf("Invalid %s pattern: %v", criterion, err))
+					return nil
+				}
+				patterns = append(patterns, pat)
+				i++
 			}
-			pat, err := NewPattern(s)
-			if err != nil {
-				p.raiseErrorf(val, fmt.Sprintf("Invalid host pattern: %v", err))
+			if len(patterns) == 0 {
+				p.raiseErrorf(val, fmt.Sprintf("ssh_config: Match %s requires at least one pattern", fields[i-1]))
 				return nil
 			}
-			patterns = append(patterns, pat)
-		}
-		if len(patterns) == 0 {
-			p.raiseErrorf(val, "ssh_config: Match Host requires at least one pattern")
+			specs = append(specs, matchCriterion{keyword: criterion, patterns: patterns})
+		case "exec":
+			p.raiseErrorf(val, "ssh_config: Match Exec is not supported")
+			return nil
+		default:
+			p.raiseErrorf(val, fmt.Sprintf("ssh_config: unsupported Match criterion %q", criterion))
 			return nil
 		}
-		p.config.Hosts = append(p.config.Hosts, &Host{
-			Patterns:           patterns,
-			Nodes:              make([]Node, 0),
-			EOLComment:         comment,
-			spaceBeforeComment: spaceBeforeComment,
-			hasEquals:          hasEquals,
-			isMatch:            true,
-			matchKeyword:       fields[0], // preserve original case
-		})
-		return p.parseStart
+	}
 
-	case "exec":
-		// Match Exec runs arbitrary commands. Supporting it would allow
-		// untrusted SSH config files to execute code on the parsing
-		// machine. Reject it explicitly.
-		p.raiseErrorf(val, "ssh_config: Match Exec is not supported")
-		return nil
+	p.config.Hosts = append(p.config.Hosts, &Host{
+		Patterns:           []*Pattern{matchAll},
+		Nodes:              make([]Node, 0),
+		EOLComment:         comment,
+		spaceBeforeComment: spaceBeforeComment,
+		hasEquals:          hasEquals,
+		isMatch:            true,
+		matchKeyword:       fields[0],
+		matchRaw:           trimmed,
+		matchSpecs:         specs,
+	})
+	return p.parseStart
+}
 
+func isMatchKeyword(value string) bool {
+	switch strings.ToLower(value) {
+	case "all", "canonical", "final", "host", "originalhost", "user", "localuser", "exec":
+		return true
 	default:
-		p.raiseErrorf(val, fmt.Sprintf("ssh_config: unsupported Match criterion %q", criterion))
-		return nil
+		return false
 	}
 }
 

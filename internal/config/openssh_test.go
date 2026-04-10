@@ -2,6 +2,7 @@ package conf
 
 import (
 	"os"
+	"os/user"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -81,5 +82,51 @@ func TestGenerateLSSHConfigFromOpenSSH(t *testing.T) {
 	}
 	if !strings.Contains(output, `dynamic_port_forward = "11080"`) {
 		t.Fatalf("generated config missing dynamic forward: %s", output)
+	}
+}
+
+func TestLoadOpenSSHConfigEntriesAppliesMatchUser(t *testing.T) {
+	t.Parallel()
+
+	currentUser, err := user.Current()
+	if err != nil {
+		t.Fatalf("current user: %v", err)
+	}
+
+	tmpDir := t.TempDir()
+	sshConfigPath := filepath.Join(tmpDir, "config")
+	sshConfig := strings.Join([]string{
+		"Host app",
+		"    HostName 192.0.2.10",
+		"    User demo",
+		"",
+		"Match user demo originalhost app",
+		"    Port 2200",
+		"",
+		"Match localuser " + currentUser.Username + " host 192.0.2.10",
+		"    ForwardX11 yes",
+		"",
+	}, "\n")
+	if err := os.WriteFile(sshConfigPath, []byte(sshConfig), 0o600); err != nil {
+		t.Fatalf("write ssh config: %v", err)
+	}
+
+	entries, err := loadOpenSSHConfigEntries(sshConfigPath, "")
+	if err != nil {
+		t.Fatalf("loadOpenSSHConfigEntries: %v", err)
+	}
+	if len(entries) != 1 {
+		t.Fatalf("len(entries) = %d, want 1", len(entries))
+	}
+
+	entry := entries[0]
+	if entry.Host != "app" {
+		t.Fatalf("entry.Host = %q, want app", entry.Host)
+	}
+	if entry.Config.Port != "2200" {
+		t.Fatalf("entry.Config.Port = %q, want 2200", entry.Config.Port)
+	}
+	if !entry.Config.X11 {
+		t.Fatalf("entry.Config.X11 = false, want true")
 	}
 }

@@ -367,15 +367,37 @@ type Config struct {
 	position Position
 }
 
+type matchCriterion struct {
+	keyword  string
+	patterns []*Pattern
+}
+
+type matchContext struct {
+	OriginalHost string
+	Host         string
+	User         string
+	LocalUser    string
+	Final        bool
+	Canonical    bool
+
+	hostSet bool
+	userSet bool
+}
+
 // Get finds the first value in the configuration that matches the alias and
 // contains key. Get returns the empty string if no value was found, or if the
 // Config contains an invalid conditional Include value.
 //
 // The match for key is case insensitive.
 func (c *Config) Get(alias, key string) (string, error) {
+	ctx := newMatchContext(alias)
+	return c.get(alias, key, &ctx)
+}
+
+func (c *Config) get(alias, key string, ctx *matchContext) (string, error) {
 	lowerKey := strings.ToLower(key)
 	for _, host := range c.Hosts {
-		if !host.Matches(alias) {
+		if !host.matchesContext(*ctx) {
 			continue
 		}
 		for _, node := range host.Nodes {
@@ -385,11 +407,15 @@ func (c *Config) Get(alias, key string) (string, error) {
 			case *KV:
 				// "keys are case insensitive" per the spec
 				lkey := strings.ToLower(t.Key)
+				ctx.observeKV(lkey, t.Value)
 				if lkey == lowerKey {
 					return t.Value, nil
 				}
 			case *Include:
-				val := t.Get(alias, key)
+				val, err := t.get(alias, key, ctx)
+				if err != nil {
+					return "", err
+				}
 				if val != "" {
 					return val, nil
 				}
@@ -404,10 +430,15 @@ func (c *Config) Get(alias, key string) (string, error) {
 // GetAll returns all values in the configuration that match the alias and
 // contains key, or nil if none are present.
 func (c *Config) GetAll(alias, key string) ([]string, error) {
+	ctx := newMatchContext(alias)
+	return c.getAll(alias, key, &ctx)
+}
+
+func (c *Config) getAll(alias, key string, ctx *matchContext) ([]string, error) {
 	lowerKey := strings.ToLower(key)
 	all := []string(nil)
 	for _, host := range c.Hosts {
-		if !host.Matches(alias) {
+		if !host.matchesContext(*ctx) {
 			continue
 		}
 		for _, node := range host.Nodes {
@@ -417,11 +448,15 @@ func (c *Config) GetAll(alias, key string) ([]string, error) {
 			case *KV:
 				// "keys are case insensitive" per the spec
 				lkey := strings.ToLower(t.Key)
+				ctx.observeKV(lkey, t.Value)
 				if lkey == lowerKey {
 					all = append(all, t.Value)
 				}
 			case *Include:
-				val, _ := t.GetAll(alias, key)
+				val, err := t.getAll(alias, key, ctx)
+				if err != nil {
+					return nil, err
+				}
 				if len(val) > 0 {
 					all = append(all, val...)
 				}
@@ -432,6 +467,41 @@ func (c *Config) GetAll(alias, key string) ([]string, error) {
 	}
 
 	return all, nil
+}
+
+func newMatchContext(alias string) matchContext {
+	localUser := currentUsername()
+	return matchContext{
+		OriginalHost: alias,
+		Host:         alias,
+		User:         localUser,
+		LocalUser:    localUser,
+		Final:        false,
+		Canonical:    false,
+	}
+}
+
+func currentUsername() string {
+	user, err := osuser.Current()
+	if err == nil {
+		return user.Username
+	}
+	return os.Getenv("USER")
+}
+
+func (ctx *matchContext) observeKV(key, value string) {
+	switch key {
+	case "hostname":
+		if !ctx.hostSet {
+			ctx.Host = value
+			ctx.hostSet = true
+		}
+	case "user":
+		if !ctx.userSet {
+			ctx.User = value
+			ctx.userSet = true
+		}
+	}
 }
 
 // String returns a string representation of the Config file.
@@ -542,16 +612,22 @@ type Host struct {
 	// matchKeyword stores the original text after "Match" (e.g. "Host" or
 	// "all") so we can round-trip correctly.
 	matchKeyword string
+	matchRaw     string
+	matchSpecs   []matchCriterion
 }
 
 // Matches returns true if the Host matches for the given alias. For
 // a description of the rules that provide a match, see the manpage for
 // ssh_config.
 func (h *Host) Matches(alias string) bool {
+	return matchPatterns(h.Patterns, alias)
+}
+
+func matchPatterns(patterns []*Pattern, value string) bool {
 	found := false
-	for i := range h.Patterns {
-		if h.Patterns[i].regex.MatchString(alias) {
-			if h.Patterns[i].not {
+	for i := range patterns {
+		if patterns[i].regex.MatchString(value) {
+			if patterns[i].not {
 				// Negated match. "A pattern entry may be negated by prefixing
 				// it with an exclamation mark (`!'). If a negated entry is
 				// matched, then the Host entry is ignored, regardless of
@@ -564,6 +640,51 @@ func (h *Host) Matches(alias string) bool {
 		}
 	}
 	return found
+}
+
+func (h *Host) matchesContext(ctx matchContext) bool {
+	if !h.isMatch {
+		return h.Matches(ctx.OriginalHost)
+	}
+
+	for _, spec := range h.matchSpecs {
+		switch spec.keyword {
+		case "all":
+			continue
+		case "host":
+			if !matchPatterns(spec.patterns, ctx.Host) {
+				return false
+			}
+		case "originalhost":
+			if !matchPatterns(spec.patterns, ctx.OriginalHost) {
+				return false
+			}
+		case "user":
+			if !matchPatterns(spec.patterns, ctx.User) {
+				return false
+			}
+		case "localuser":
+			if !matchPatterns(spec.patterns, ctx.LocalUser) {
+				return false
+			}
+		case "canonical":
+			if !ctx.Canonical {
+				return false
+			}
+		case "final":
+			if !ctx.Final {
+				return false
+			}
+		default:
+			return false
+		}
+	}
+
+	return true
+}
+
+func (h *Host) IsMatchBlock() bool {
+	return h.isMatch
 }
 
 // String prints h as it would appear in a config file. Minor tweaks may be
@@ -580,15 +701,10 @@ func (h *Host) String() string {
 			} else {
 				buf.WriteString(" ")
 			}
-			buf.WriteString(h.matchKeyword)
-			if !strings.EqualFold(h.matchKeyword, "all") {
-				buf.WriteString(" ")
-				for i, pat := range h.Patterns {
-					buf.WriteString(pat.String())
-					if i < len(h.Patterns)-1 {
-						buf.WriteString(" ")
-					}
-				}
+			if h.matchRaw != "" {
+				buf.WriteString(h.matchRaw)
+			} else {
+				buf.WriteString(h.matchKeyword)
 			}
 		} else {
 			buf.WriteString("Host")
@@ -799,6 +915,12 @@ func (i *Include) Pos() Position {
 // Get finds the first value in the Include statement matching the alias and the
 // given key.
 func (inc *Include) Get(alias, key string) string {
+	ctx := newMatchContext(alias)
+	val, _ := inc.get(alias, key, &ctx)
+	return val
+}
+
+func (inc *Include) get(alias, key string, ctx *matchContext) (string, error) {
 	inc.mu.Lock()
 	defer inc.mu.Unlock()
 	// TODO: we search files in any order which is not correct
@@ -807,17 +929,22 @@ func (inc *Include) Get(alias, key string) string {
 		if cfg == nil {
 			panic("nil cfg")
 		}
-		val, err := cfg.Get(alias, key)
+		val, err := cfg.get(alias, key, ctx)
 		if err == nil && val != "" {
-			return val
+			return val, nil
 		}
 	}
-	return ""
+	return "", nil
 }
 
 // GetAll finds all values in the Include statement matching the alias and the
 // given key.
 func (inc *Include) GetAll(alias, key string) ([]string, error) {
+	ctx := newMatchContext(alias)
+	return inc.getAll(alias, key, &ctx)
+}
+
+func (inc *Include) getAll(alias, key string, ctx *matchContext) ([]string, error) {
 	inc.mu.Lock()
 	defer inc.mu.Unlock()
 	var vals []string
@@ -828,7 +955,7 @@ func (inc *Include) GetAll(alias, key string) ([]string, error) {
 		if cfg == nil {
 			panic("nil cfg")
 		}
-		val, err := cfg.GetAll(alias, key)
+		val, err := cfg.getAll(alias, key, ctx)
 		if err == nil && len(val) != 0 {
 			// In theory if SupportsMultiple was false for this key we could
 			// stop looking here. But the caller has asked us to find all
