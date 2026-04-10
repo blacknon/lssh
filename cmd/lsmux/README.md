@@ -105,7 +105,7 @@ It fits well with the pane-oriented workflow when you want to upload a file and 
 Connection settings such as address, user, authentication method, and related SSH options are loaded from the configured file.
 If you already manage hosts with `lssh`, you can usually start using `lsmux` with the same inventory right away.
 
-You can customize `lsmux` key bindings and pane colors with settings under `mux` in `~/.lssh.conf`.
+You can customize `lsmux` key bindings and pane colors with settings under `mux` in `~/.lssh.toml` or `~/.lssh.yaml`.
 
 ```toml
 [mux]
@@ -128,6 +128,29 @@ broadcast_border_color = "yellow"
 broadcast_title_color = "yellow"
 done_border_color = "gray"
 done_title_color = "gray"
+```
+
+```yaml
+mux:
+  prefix: "Ctrl+A"
+  quit: "&"
+  new_page: "c"
+  new_pane: "s"
+  split_horizontal: "\""
+  split_vertical: "%"
+  next_pane: "o"
+  next_page: "n"
+  prev_page: "p"
+  page_list: "w"
+  close_pane: "x"
+  broadcast: "b"
+  transfer: "f"
+  focus_border_color: "green"
+  focus_title_color: "green"
+  broadcast_border_color: "yellow"
+  broadcast_title_color: "yellow"
+  done_border_color: "gray"
+  done_title_color: "gray"
 ```
 
 Available `mux` settings:

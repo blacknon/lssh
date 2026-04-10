@@ -97,3 +97,4 @@ lssync -D -B --daemon-interval 30s ./notes remote:/srv/notes
 - Bidirectional sync currently requires exactly one source path and one destination path.
 - `--delete` is not supported together with bidirectional sync.
 - When multiple hosts are selected in bidirectional mode, hosts are processed sequentially for safer conflict handling.
+- The default config search order is `~/.lssh.toml`, `~/.lssh.yaml`, `~/.lssh.yml`, then `~/.lssh.conf`.

@@ -103,7 +103,9 @@ lscp -P 4 ./dist/* remote:/srv/releases/
 ### path rules
 
 Remote paths use the `name:/path/to/file` format.
-The host name part must match a server name defined in `~/.lssh.conf`.
+The host name part must match a server name defined in your lssh config file.
 
 You cannot mix local and remote paths in the source arguments.
 For example, all source paths must be local paths or all source paths must be remote paths.
+
+The default config search order is `~/.lssh.toml`, `~/.lssh.yaml`, `~/.lssh.yml`, then `~/.lssh.conf`.

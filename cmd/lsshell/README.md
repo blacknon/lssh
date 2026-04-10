@@ -51,7 +51,7 @@ You can customize prompt display and other interactive shell behavior with setti
 
 ### config example
 
-`~/.lssh.conf` example.
+`~/.lssh.toml` example.
 
 ```toml
 [shell]
@@ -61,6 +61,18 @@ title = "lsshell"
 histfile = "~/.lssh_history"
 pre_cmd = "printf 'start lsshell\n'"
 post_cmd = "printf 'finish lsshell\n'"
+```
+
+YAML version:
+
+```yaml
+shell:
+  PROMPT: "[${COUNT}] <<< "
+  OPROMPT: "[${SERVER}][${COUNT}] > "
+  title: "lsshell"
+  histfile: "~/.lssh_history"
+  pre_cmd: "printf 'start lsshell\n'"
+  post_cmd: "printf 'finish lsshell\n'"
 ```
 
 ### interactive shell
@@ -212,4 +224,4 @@ lsshell -m 2049:/path/to/local
 The command history file is stored in `~/.lssh_history` by default.
 Completion supports remote commands, local commands, paths, and built-in commands.
 
-The default config file path is `~/.lssh.conf`.
+The default config search order is `~/.lssh.toml`, `~/.lssh.yaml`, `~/.lssh.yml`, then `~/.lssh.conf`.

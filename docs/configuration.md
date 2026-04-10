@@ -23,6 +23,18 @@ addr = "192.168.100.10"
 note = "development server"
 ```
 
+```yaml
+common:
+  user: "demo"
+  port: "22"
+  key: "~/.ssh/id_rsa"
+
+server:
+  dev:
+    addr: "192.168.100.10"
+    note: "development server"
+```
+
 Logging:
 
 ```toml
@@ -53,6 +65,14 @@ pre_cmd = 'printf "\033]50;SetProfile=local\a"'
 post_cmd = 'printf "\033]50;SetProfile=Default\a"'
 ```
 
+```yaml
+sshconfig:
+  default:
+    path: "~/.ssh/config"
+    pre_cmd: 'printf "\033]50;SetProfile=local\a"'
+    post_cmd: 'printf "\033]50;SetProfile=Default\a"'
+```
+
 Split config files:
 
 ```toml
@@ -61,6 +81,13 @@ path = [
      "~/.lssh.d/home.conf"
     ,"~/.lssh.d/cloud.conf"
 ]
+```
+
+```yaml
+includes:
+  path:
+    - "~/.lssh.d/home.conf"
+    - "~/.lssh.d/cloud.conf"
 ```
 
 Local bashrc:
@@ -137,6 +164,22 @@ command = "ls -lh"
 
 [shell.outexecs.vimdiff]
 path = "/usr/bin/vimdiff"
+```
+
+```yaml
+shell:
+  PROMPT: "[${COUNT}] <<< "
+  OPROMPT: "[${SERVER}][${COUNT}] > "
+  title: "lsshell"
+  histfile: "~/.lssh_history"
+  pre_cmd: "printf 'start lsshell\n'"
+  post_cmd: "printf 'finish lsshell\n'"
+  alias:
+    ll:
+      command: "ls -lh"
+  outexecs:
+    vimdiff:
+      path: "/usr/bin/vimdiff"
 ```
 
 HTTP / SOCKS5 / SSH proxy and `ProxyCommand`:
@@ -501,6 +544,18 @@ addr = "192.168.100.10"
 note = "development server"
 ```
 
+```yaml
+common:
+  user: "demo"
+  port: "22"
+  key: "~/.ssh/id_rsa"
+
+server:
+  dev:
+    addr: "192.168.100.10"
+    note: "development server"
+```
+
 At minimum, a server entry needs `addr`, `user`, and authentication settings such as `pass`, `key`, `cert`, `pkcs11`, or `agentauth`.
 
 ## Keepalive settings
@@ -538,12 +593,29 @@ pre_cmd = 'printf "\033]50;SetProfile=local\a"'
 post_cmd = 'printf "\033]50;SetProfile=Default\a"'
 ```
 
+```yaml
+sshconfig:
+  default:
+    path: "~/.ssh/config"
+    pre_cmd: 'printf "\033]50;SetProfile=local\a"'
+    post_cmd: 'printf "\033]50;SetProfile=Default\a"'
+```
+
 ```toml
 [sshconfig.frontend_only]
 path = "~/.ssh/config.frontend"
 
 [sshconfig.frontend_only.when]
 local_ip_in = ["172.31.0.0/24"]
+```
+
+```yaml
+sshconfig:
+  frontend_only:
+    path: "~/.ssh/config.frontend"
+    when:
+      local_ip_in:
+        - "172.31.0.0/24"
 ```
 
 You can also generate a starter `~/.lssh.toml` from any suite command and write
