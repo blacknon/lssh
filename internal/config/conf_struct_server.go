@@ -7,161 +7,161 @@ package conf
 // ServerConfig Structure for holding SSH connection information
 type ServerConfig struct {
 	// Connect basic Setting
-	Addr string `toml:"addr"`
-	Port string `toml:"port"`
-	User string `toml:"user"`
+	Addr string `toml:"addr" yaml:"addr"`
+	Port string `toml:"port" yaml:"port"`
+	User string `toml:"user" yaml:"user"`
 
 	// Connect auth Setting
-	Pass            string   `toml:"pass"`
-	Passes          []string `toml:"passes"`
-	Key             string   `toml:"key"`
-	KeyCommand      string   `toml:"keycmd"`
-	KeyCommandPass  string   `toml:"keycmdpass"`
-	KeyPass         string   `toml:"keypass"`
-	Keys            []string `toml:"keys"` // "keypath::passphrase"
-	Cert            string   `toml:"cert"`
-	Certs           []string `toml:"certs"` // "certpath::keypath::passphrase"
-	CertKey         string   `toml:"certkey"`
-	CertKeyPass     string   `toml:"certkeypass"`
-	CertPKCS11      bool     `toml:"certpkcs11"`
-	AgentAuth       bool     `toml:"agentauth"`
-	SSHAgentUse     bool     `toml:"ssh_agent"`
-	SSHAgentKeyPath []string `toml:"ssh_agent_key"` // "keypath::passphrase"
-	PKCS11Use       bool     `toml:"pkcs11"`
-	PKCS11Provider  string   `toml:"pkcs11provider"` // PKCS11 Provider PATH
-	PKCS11PIN       string   `toml:"pkcs11pin"`      // PKCS11 PIN code
+	Pass            string   `toml:"pass" yaml:"pass"`
+	Passes          []string `toml:"passes" yaml:"passes"`
+	Key             string   `toml:"key" yaml:"key"`
+	KeyCommand      string   `toml:"keycmd" yaml:"keycmd"`
+	KeyCommandPass  string   `toml:"keycmdpass" yaml:"keycmdpass"`
+	KeyPass         string   `toml:"keypass" yaml:"keypass"`
+	Keys            []string `toml:"keys" yaml:"keys"` // "keypath::passphrase"
+	Cert            string   `toml:"cert" yaml:"cert"`
+	Certs           []string `toml:"certs" yaml:"certs"` // "certpath::keypath::passphrase"
+	CertKey         string   `toml:"certkey" yaml:"certkey"`
+	CertKeyPass     string   `toml:"certkeypass" yaml:"certkeypass"`
+	CertPKCS11      bool     `toml:"certpkcs11" yaml:"certpkcs11"`
+	AgentAuth       bool     `toml:"agentauth" yaml:"agentauth"`
+	SSHAgentUse     bool     `toml:"ssh_agent" yaml:"ssh_agent"`
+	SSHAgentKeyPath []string `toml:"ssh_agent_key" yaml:"ssh_agent_key"` // "keypath::passphrase"
+	PKCS11Use       bool     `toml:"pkcs11" yaml:"pkcs11"`
+	PKCS11Provider  string   `toml:"pkcs11provider" yaml:"pkcs11provider"` // PKCS11 Provider PATH
+	PKCS11PIN       string   `toml:"pkcs11pin" yaml:"pkcs11pin"`           // PKCS11 PIN code
 
 	// pre execute command
-	PreCmd string `toml:"pre_cmd"`
+	PreCmd string `toml:"pre_cmd" yaml:"pre_cmd"`
 
 	// post execute command
-	PostCmd string `toml:"post_cmd"`
+	PostCmd string `toml:"post_cmd" yaml:"post_cmd"`
 
 	// proxy setting
-	ProxyType string `toml:"proxy_type"`
+	ProxyType string `toml:"proxy_type" yaml:"proxy_type"`
 
-	Proxy string `toml:"proxy"`
+	Proxy string `toml:"proxy" yaml:"proxy"`
 
 	// OpenSSH type proxy setting
-	ProxyCommand string `toml:"proxy_cmd"`
+	ProxyCommand string `toml:"proxy_cmd" yaml:"proxy_cmd"`
 
 	// local rcfile setting
 	// yes|no (default: yes)
-	LocalRcUse string `toml:"local_rc"`
+	LocalRcUse string `toml:"local_rc" yaml:"local_rc"`
 
 	// LocalRcPath
-	LocalRcPath []string `toml:"local_rc_file"`
+	LocalRcPath []string `toml:"local_rc_file" yaml:"local_rc_file"`
 
 	// If LocalRcCompress is true, gzip the localrc file to base64
-	LocalRcCompress bool `toml:"local_rc_compress"`
+	LocalRcCompress bool `toml:"local_rc_compress" yaml:"local_rc_compress"`
 
 	// LocalRcDecodeCmd is localrc decode command. run remote machine.
-	LocalRcDecodeCmd string `toml:"local_rc_decode_cmd"`
+	LocalRcDecodeCmd string `toml:"local_rc_decode_cmd" yaml:"local_rc_decode_cmd"`
 
 	// LocalRcUncompressCmd is localrc un compress command. run remote machine.
-	LocalRcUncompressCmd string `toml:"local_rc_uncompress_cmd"`
+	LocalRcUncompressCmd string `toml:"local_rc_uncompress_cmd" yaml:"local_rc_uncompress_cmd"`
 
 	// local/remote port forwarding setting.
 	// ex. [`L`,`l`,`LOCAL`,`local`]|[`R`,`r`,`REMOTE`,`remote`]
-	PortForwardMode string `toml:"port_forward"`
+	PortForwardMode string `toml:"port_forward" yaml:"port_forward"`
 
 	// port forward (local). "host:port"
-	PortForwardLocal string `toml:"port_forward_local"`
+	PortForwardLocal string `toml:"port_forward_local" yaml:"port_forward_local"`
 
 	// port forward (remote). "host:port"
-	PortForwardRemote string `toml:"port_forward_remote"`
+	PortForwardRemote string `toml:"port_forward_remote" yaml:"port_forward_remote"`
 
 	// local/remote port forwarding settings
 	// ex. {[`L`,`l`,`LOCAL`,`local`]|[`R`,`r`,`REMOTE`,`remote`]}:[localaddress]:[localport]:[remoteaddress]:[remoteport]
-	PortForwards []string `toml:"port_forwards"`
+	PortForwards []string `toml:"port_forwards" yaml:"port_forwards"`
 
 	// local/remote Port Forwarding slice.
 	Forwards []*PortForward
 
 	// Dynamic Port Forward setting
 	// ex.) "11080"
-	DynamicPortForward string `toml:"dynamic_port_forward"`
+	DynamicPortForward string `toml:"dynamic_port_forward" yaml:"dynamic_port_forward"`
 
 	// Reverse Dynamic Port Forward setting
 	// ex.) "11080"
-	ReverseDynamicPortForward string `toml:"reverse_dynamic_port_forward"`
+	ReverseDynamicPortForward string `toml:"reverse_dynamic_port_forward" yaml:"reverse_dynamic_port_forward"`
 
 	// HTTP Dynamic Port Forward setting
 	// ex.) "11080"
-	HTTPDynamicPortForward string `toml:"http_dynamic_port_forward"`
+	HTTPDynamicPortForward string `toml:"http_dynamic_port_forward" yaml:"http_dynamic_port_forward"`
 
 	// HTTP Reverse Dynamic Port Forward setting
 	// ex.) "11080"
-	HTTPReverseDynamicPortForward string `toml:"http_reverse_dynamic_port_forward"`
+	HTTPReverseDynamicPortForward string `toml:"http_reverse_dynamic_port_forward" yaml:"http_reverse_dynamic_port_forward"`
 
 	// NFS Dynamic Forward port setting
 	// ex.) "12049"
-	NFSDynamicForwardPort string `toml:"nfs_dynamic_forward"`
+	NFSDynamicForwardPort string `toml:"nfs_dynamic_forward" yaml:"nfs_dynamic_forward"`
 
 	// NFS Dynamic Forward path setting
 	// ex.) "/path/to/remote"
-	NFSDynamicForwardPath string `toml:"nfs_dynamic_forward_path"`
+	NFSDynamicForwardPath string `toml:"nfs_dynamic_forward_path" yaml:"nfs_dynamic_forward_path"`
 
 	// NFS Reverse Dynamic Forward port setting
 	// ex.) "12049"
-	NFSReverseDynamicForwardPort string `toml:"nfs_reverse_dynamic_forward"`
+	NFSReverseDynamicForwardPort string `toml:"nfs_reverse_dynamic_forward" yaml:"nfs_reverse_dynamic_forward"`
 
 	// NFS Reverse Dynamic Forward path setting
 	// ex.) "/path/to/local"
-	NFSReverseDynamicForwardPath string `toml:"nfs_reverse_dynamic_forward_path"`
+	NFSReverseDynamicForwardPath string `toml:"nfs_reverse_dynamic_forward_path" yaml:"nfs_reverse_dynamic_forward_path"`
 
 	// x11 forwarding setting
-	X11 bool `toml:"x11"`
+	X11 bool `toml:"x11" yaml:"x11"`
 
 	// x11 trusted forwarding setting
-	X11Trusted bool `toml:"x11_trusted"`
+	X11Trusted bool `toml:"x11_trusted" yaml:"x11_trusted"`
 
 	// Connection Timeout second
-	ConnectTimeout int `toml:"connect_timeout"`
+	ConnectTimeout int `toml:"connect_timeout" yaml:"connect_timeout"`
 
 	// Server Alive
-	ServerAliveCountMax      int `toml:"alive_max"`
-	ServerAliveCountInterval int `toml:"alive_interval"`
+	ServerAliveCountMax      int `toml:"alive_max" yaml:"alive_max"`
+	ServerAliveCountInterval int `toml:"alive_interval" yaml:"alive_interval"`
 
 	// Check KnownHosts
-	CheckKnownHosts bool `toml:"check_known_hosts"`
+	CheckKnownHosts bool `toml:"check_known_hosts" yaml:"check_known_hosts"`
 
 	// Check KnownHosts File
-	KnownHostsFiles []string `toml:"known_hosts_files"`
+	KnownHostsFiles []string `toml:"known_hosts_files" yaml:"known_hosts_files"`
 
 	// OpenSSH ControlMaster settings
-	ControlMaster  bool                   `toml:"control_master"`
-	ControlPath    string                 `toml:"control_path"`
-	ControlPersist ControlPersistDuration `toml:"control_persist"`
+	ControlMaster  bool                   `toml:"control_master" yaml:"control_master"`
+	ControlPath    string                 `toml:"control_path" yaml:"control_path"`
+	ControlPersist ControlPersistDuration `toml:"control_persist" yaml:"control_persist"`
 
 	// note
-	Note string `toml:"note"`
+	Note string `toml:"note" yaml:"note"`
 
 	// ignore this server from selection / execution targets
-	Ignore bool `toml:"ignore"`
+	Ignore bool `toml:"ignore" yaml:"ignore"`
 
 	// Conditional overrides under [server.<name>.match.<branch>]
-	Match map[string]ServerMatchConfig `toml:"match"`
+	Match map[string]ServerMatchConfig `toml:"match" yaml:"match"`
 }
 
 // ServerMatchWhen stores match conditions for conditional server overrides.
 type ServerMatchWhen struct {
-	LocalIPIn     []string `toml:"local_ip_in"`
-	LocalIPNotIn  []string `toml:"local_ip_not_in"`
-	GatewayIn     []string `toml:"gateway_in"`
-	GatewayNotIn  []string `toml:"gateway_not_in"`
-	UsernameIn    []string `toml:"username_in"`
-	UsernameNotIn []string `toml:"username_not_in"`
-	HostnameIn    []string `toml:"hostname_in"`
-	HostnameNotIn []string `toml:"hostname_not_in"`
-	OSIn          []string `toml:"os_in"`
-	OSNotIn       []string `toml:"os_not_in"`
-	TermIn        []string `toml:"term_in"`
-	TermNotIn     []string `toml:"term_not_in"`
-	EnvIn         []string `toml:"env_in"`
-	EnvNotIn      []string `toml:"env_not_in"`
-	EnvValueIn    []string `toml:"env_value_in"`
-	EnvValueNotIn []string `toml:"env_value_not_in"`
+	LocalIPIn     []string `toml:"local_ip_in" yaml:"local_ip_in"`
+	LocalIPNotIn  []string `toml:"local_ip_not_in" yaml:"local_ip_not_in"`
+	GatewayIn     []string `toml:"gateway_in" yaml:"gateway_in"`
+	GatewayNotIn  []string `toml:"gateway_not_in" yaml:"gateway_not_in"`
+	UsernameIn    []string `toml:"username_in" yaml:"username_in"`
+	UsernameNotIn []string `toml:"username_not_in" yaml:"username_not_in"`
+	HostnameIn    []string `toml:"hostname_in" yaml:"hostname_in"`
+	HostnameNotIn []string `toml:"hostname_not_in" yaml:"hostname_not_in"`
+	OSIn          []string `toml:"os_in" yaml:"os_in"`
+	OSNotIn       []string `toml:"os_not_in" yaml:"os_not_in"`
+	TermIn        []string `toml:"term_in" yaml:"term_in"`
+	TermNotIn     []string `toml:"term_not_in" yaml:"term_not_in"`
+	EnvIn         []string `toml:"env_in" yaml:"env_in"`
+	EnvNotIn      []string `toml:"env_not_in" yaml:"env_not_in"`
+	EnvValueIn    []string `toml:"env_value_in" yaml:"env_value_in"`
+	EnvValueNotIn []string `toml:"env_value_not_in" yaml:"env_value_not_in"`
 }
 
 // Empty reports whether no match conditions are defined.
@@ -189,71 +189,71 @@ func (w ServerMatchWhen) Empty() bool {
 // Keep override fields aligned with ServerConfig so branch tables can override
 // the same keys as normal server definitions.
 type ServerMatchConfig struct {
-	Addr string `toml:"addr"`
-	Port string `toml:"port"`
-	User string `toml:"user"`
+	Addr string `toml:"addr" yaml:"addr"`
+	Port string `toml:"port" yaml:"port"`
+	User string `toml:"user" yaml:"user"`
 
-	Pass            string   `toml:"pass"`
-	Passes          []string `toml:"passes"`
-	Key             string   `toml:"key"`
-	KeyCommand      string   `toml:"keycmd"`
-	KeyCommandPass  string   `toml:"keycmdpass"`
-	KeyPass         string   `toml:"keypass"`
-	Keys            []string `toml:"keys"`
-	Cert            string   `toml:"cert"`
-	Certs           []string `toml:"certs"`
-	CertKey         string   `toml:"certkey"`
-	CertKeyPass     string   `toml:"certkeypass"`
-	CertPKCS11      bool     `toml:"certpkcs11"`
-	AgentAuth       bool     `toml:"agentauth"`
-	SSHAgentUse     bool     `toml:"ssh_agent"`
-	SSHAgentKeyPath []string `toml:"ssh_agent_key"`
-	PKCS11Use       bool     `toml:"pkcs11"`
-	PKCS11Provider  string   `toml:"pkcs11provider"`
-	PKCS11PIN       string   `toml:"pkcs11pin"`
+	Pass            string   `toml:"pass" yaml:"pass"`
+	Passes          []string `toml:"passes" yaml:"passes"`
+	Key             string   `toml:"key" yaml:"key"`
+	KeyCommand      string   `toml:"keycmd" yaml:"keycmd"`
+	KeyCommandPass  string   `toml:"keycmdpass" yaml:"keycmdpass"`
+	KeyPass         string   `toml:"keypass" yaml:"keypass"`
+	Keys            []string `toml:"keys" yaml:"keys"`
+	Cert            string   `toml:"cert" yaml:"cert"`
+	Certs           []string `toml:"certs" yaml:"certs"`
+	CertKey         string   `toml:"certkey" yaml:"certkey"`
+	CertKeyPass     string   `toml:"certkeypass" yaml:"certkeypass"`
+	CertPKCS11      bool     `toml:"certpkcs11" yaml:"certpkcs11"`
+	AgentAuth       bool     `toml:"agentauth" yaml:"agentauth"`
+	SSHAgentUse     bool     `toml:"ssh_agent" yaml:"ssh_agent"`
+	SSHAgentKeyPath []string `toml:"ssh_agent_key" yaml:"ssh_agent_key"`
+	PKCS11Use       bool     `toml:"pkcs11" yaml:"pkcs11"`
+	PKCS11Provider  string   `toml:"pkcs11provider" yaml:"pkcs11provider"`
+	PKCS11PIN       string   `toml:"pkcs11pin" yaml:"pkcs11pin"`
 
-	PreCmd       string `toml:"pre_cmd"`
-	PostCmd      string `toml:"post_cmd"`
-	ProxyType    string `toml:"proxy_type"`
-	Proxy        string `toml:"proxy"`
-	ProxyCommand string `toml:"proxy_cmd"`
+	PreCmd       string `toml:"pre_cmd" yaml:"pre_cmd"`
+	PostCmd      string `toml:"post_cmd" yaml:"post_cmd"`
+	ProxyType    string `toml:"proxy_type" yaml:"proxy_type"`
+	Proxy        string `toml:"proxy" yaml:"proxy"`
+	ProxyCommand string `toml:"proxy_cmd" yaml:"proxy_cmd"`
 
-	LocalRcUse           string   `toml:"local_rc"`
-	LocalRcPath          []string `toml:"local_rc_file"`
-	LocalRcCompress      bool     `toml:"local_rc_compress"`
-	LocalRcDecodeCmd     string   `toml:"local_rc_decode_cmd"`
-	LocalRcUncompressCmd string   `toml:"local_rc_uncompress_cmd"`
+	LocalRcUse           string   `toml:"local_rc" yaml:"local_rc"`
+	LocalRcPath          []string `toml:"local_rc_file" yaml:"local_rc_file"`
+	LocalRcCompress      bool     `toml:"local_rc_compress" yaml:"local_rc_compress"`
+	LocalRcDecodeCmd     string   `toml:"local_rc_decode_cmd" yaml:"local_rc_decode_cmd"`
+	LocalRcUncompressCmd string   `toml:"local_rc_uncompress_cmd" yaml:"local_rc_uncompress_cmd"`
 
-	PortForwardMode               string   `toml:"port_forward"`
-	PortForwardLocal              string   `toml:"port_forward_local"`
-	PortForwardRemote             string   `toml:"port_forward_remote"`
-	PortForwards                  []string `toml:"port_forwards"`
+	PortForwardMode               string   `toml:"port_forward" yaml:"port_forward"`
+	PortForwardLocal              string   `toml:"port_forward_local" yaml:"port_forward_local"`
+	PortForwardRemote             string   `toml:"port_forward_remote" yaml:"port_forward_remote"`
+	PortForwards                  []string `toml:"port_forwards" yaml:"port_forwards"`
 	Forwards                      []*PortForward
-	DynamicPortForward            string `toml:"dynamic_port_forward"`
-	ReverseDynamicPortForward     string `toml:"reverse_dynamic_port_forward"`
-	HTTPDynamicPortForward        string `toml:"http_dynamic_port_forward"`
-	HTTPReverseDynamicPortForward string `toml:"http_reverse_dynamic_port_forward"`
-	NFSDynamicForwardPort         string `toml:"nfs_dynamic_forward"`
-	NFSDynamicForwardPath         string `toml:"nfs_dynamic_forward_path"`
-	NFSReverseDynamicForwardPort  string `toml:"nfs_reverse_dynamic_forward"`
-	NFSReverseDynamicForwardPath  string `toml:"nfs_reverse_dynamic_forward_path"`
+	DynamicPortForward            string `toml:"dynamic_port_forward" yaml:"dynamic_port_forward"`
+	ReverseDynamicPortForward     string `toml:"reverse_dynamic_port_forward" yaml:"reverse_dynamic_port_forward"`
+	HTTPDynamicPortForward        string `toml:"http_dynamic_port_forward" yaml:"http_dynamic_port_forward"`
+	HTTPReverseDynamicPortForward string `toml:"http_reverse_dynamic_port_forward" yaml:"http_reverse_dynamic_port_forward"`
+	NFSDynamicForwardPort         string `toml:"nfs_dynamic_forward" yaml:"nfs_dynamic_forward"`
+	NFSDynamicForwardPath         string `toml:"nfs_dynamic_forward_path" yaml:"nfs_dynamic_forward_path"`
+	NFSReverseDynamicForwardPort  string `toml:"nfs_reverse_dynamic_forward" yaml:"nfs_reverse_dynamic_forward"`
+	NFSReverseDynamicForwardPath  string `toml:"nfs_reverse_dynamic_forward_path" yaml:"nfs_reverse_dynamic_forward_path"`
 
-	X11        bool `toml:"x11"`
-	X11Trusted bool `toml:"x11_trusted"`
+	X11        bool `toml:"x11" yaml:"x11"`
+	X11Trusted bool `toml:"x11_trusted" yaml:"x11_trusted"`
 
-	ConnectTimeout           int                    `toml:"connect_timeout"`
-	ServerAliveCountMax      int                    `toml:"alive_max"`
-	ServerAliveCountInterval int                    `toml:"alive_interval"`
-	CheckKnownHosts          bool                   `toml:"check_known_hosts"`
-	KnownHostsFiles          []string               `toml:"known_hosts_files"`
-	ControlMaster            bool                   `toml:"control_master"`
-	ControlPath              string                 `toml:"control_path"`
-	ControlPersist           ControlPersistDuration `toml:"control_persist"`
-	Note                     string                 `toml:"note"`
-	Ignore                   bool                   `toml:"ignore"`
+	ConnectTimeout           int                    `toml:"connect_timeout" yaml:"connect_timeout"`
+	ServerAliveCountMax      int                    `toml:"alive_max" yaml:"alive_max"`
+	ServerAliveCountInterval int                    `toml:"alive_interval" yaml:"alive_interval"`
+	CheckKnownHosts          bool                   `toml:"check_known_hosts" yaml:"check_known_hosts"`
+	KnownHostsFiles          []string               `toml:"known_hosts_files" yaml:"known_hosts_files"`
+	ControlMaster            bool                   `toml:"control_master" yaml:"control_master"`
+	ControlPath              string                 `toml:"control_path" yaml:"control_path"`
+	ControlPersist           ControlPersistDuration `toml:"control_persist" yaml:"control_persist"`
+	Note                     string                 `toml:"note" yaml:"note"`
+	Ignore                   bool                   `toml:"ignore" yaml:"ignore"`
 
-	Priority int             `toml:"priority"`
-	When     ServerMatchWhen `toml:"when"`
+	Priority int             `toml:"priority" yaml:"priority"`
+	When     ServerMatchWhen `toml:"when" yaml:"when"`
 
 	order           int
 	priorityDefined bool

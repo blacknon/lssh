@@ -6,25 +6,25 @@ package conf
 
 // MuxConfig stores lsmux key bindings.
 type MuxConfig struct {
-	Prefix               string `toml:"prefix"`
-	Quit                 string `toml:"quit"`
-	NewPage              string `toml:"new_page"`
-	NewPane              string `toml:"new_pane"`
-	SplitHorizontal      string `toml:"split_horizontal"`
-	SplitVertical        string `toml:"split_vertical"`
-	NextPane             string `toml:"next_pane"`
-	NextPage             string `toml:"next_page"`
-	PrevPage             string `toml:"prev_page"`
-	PageList             string `toml:"page_list"`
-	ClosePane            string `toml:"close_pane"`
-	Broadcast            string `toml:"broadcast"`
-	Transfer             string `toml:"transfer"`
-	FocusBorderColor     string `toml:"focus_border_color"`
-	FocusTitleColor      string `toml:"focus_title_color"`
-	BroadcastBorderColor string `toml:"broadcast_border_color"`
-	BroadcastTitleColor  string `toml:"broadcast_title_color"`
-	DoneBorderColor      string `toml:"done_border_color"`
-	DoneTitleColor       string `toml:"done_title_color"`
+	Prefix               string `toml:"prefix" yaml:"prefix"`
+	Quit                 string `toml:"quit" yaml:"quit"`
+	NewPage              string `toml:"new_page" yaml:"new_page"`
+	NewPane              string `toml:"new_pane" yaml:"new_pane"`
+	SplitHorizontal      string `toml:"split_horizontal" yaml:"split_horizontal"`
+	SplitVertical        string `toml:"split_vertical" yaml:"split_vertical"`
+	NextPane             string `toml:"next_pane" yaml:"next_pane"`
+	NextPage             string `toml:"next_page" yaml:"next_page"`
+	PrevPage             string `toml:"prev_page" yaml:"prev_page"`
+	PageList             string `toml:"page_list" yaml:"page_list"`
+	ClosePane            string `toml:"close_pane" yaml:"close_pane"`
+	Broadcast            string `toml:"broadcast" yaml:"broadcast"`
+	Transfer             string `toml:"transfer" yaml:"transfer"`
+	FocusBorderColor     string `toml:"focus_border_color" yaml:"focus_border_color"`
+	FocusTitleColor      string `toml:"focus_title_color" yaml:"focus_title_color"`
+	BroadcastBorderColor string `toml:"broadcast_border_color" yaml:"broadcast_border_color"`
+	BroadcastTitleColor  string `toml:"broadcast_title_color" yaml:"broadcast_title_color"`
+	DoneBorderColor      string `toml:"done_border_color" yaml:"done_border_color"`
+	DoneTitleColor       string `toml:"done_title_color" yaml:"done_title_color"`
 }
 
 // ApplyDefaults fills empty key bindings with tmux-like defaults.

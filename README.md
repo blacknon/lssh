@@ -78,7 +78,7 @@ See the install details in [`docs/install.md`](./docs/install.md).
 
 ### 2. Create a minimal config
 
-Create `~/.lssh.conf`:
+Create `~/.lssh.toml`:
 
 ```toml
 [common]
@@ -97,7 +97,7 @@ note = "staging"
 If you already keep hosts in `~/.ssh/config`, you can generate a starter file:
 
 ```bash
-lssh --generate-lssh-conf > ~/.lssh.conf
+lssh --generate-lssh-conf > ~/.lssh.toml
 ```
 
 ### 3. Start with these commands

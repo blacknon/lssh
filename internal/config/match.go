@@ -9,6 +9,7 @@ import (
 	"os"
 	"os/exec"
 	"os/user"
+	"path/filepath"
 	"reflect"
 	"runtime"
 	"sort"
@@ -16,6 +17,7 @@ import (
 	"strings"
 
 	"github.com/BurntSushi/toml"
+	"gopkg.in/yaml.v3"
 )
 
 type matchContext struct {
@@ -56,6 +58,11 @@ type namedOpenSSHConfig struct {
 var detectMatchContext = buildMatchContext
 
 func decodeConfigFile(path string, c *Config) error {
+	switch strings.ToLower(filepath.Ext(path)) {
+	case ".yaml", ".yml":
+		return decodeYAMLConfigFile(path, c)
+	}
+
 	md, err := toml.DecodeFile(path, c)
 	if err != nil {
 		return err
@@ -63,6 +70,19 @@ func decodeConfigFile(path string, c *Config) error {
 
 	applyMatchMetadata(c, md)
 	return nil
+}
+
+func decodeYAMLConfigFile(path string, c *Config) error {
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return err
+	}
+
+	if err := yaml.Unmarshal(data, c); err != nil {
+		return err
+	}
+
+	return applyYAMLMatchMetadata(data, c)
 }
 
 func applyMatchMetadata(c *Config, md toml.MetaData) {
@@ -122,6 +142,112 @@ func collectDefinedMatchKeys(md toml.MetaData, serverName, branchName string) ma
 	}
 
 	return defined
+}
+
+func applyYAMLMatchMetadata(data []byte, c *Config) error {
+	var node yaml.Node
+	if err := yaml.Unmarshal(data, &node); err != nil {
+		return err
+	}
+
+	if len(node.Content) == 0 {
+		return nil
+	}
+
+	root := node.Content[0]
+	if root.Kind != yaml.MappingNode {
+		return nil
+	}
+
+	serversNode := yamlMapValue(root, "server")
+	if serversNode == nil || serversNode.Kind != yaml.MappingNode {
+		return nil
+	}
+
+	order := 0
+	for i := 0; i+1 < len(serversNode.Content); i += 2 {
+		serverName := serversNode.Content[i].Value
+		serverNode := serversNode.Content[i+1]
+		if serverNode.Kind != yaml.MappingNode {
+			continue
+		}
+
+		matchesNode := yamlMapValue(serverNode, "match")
+		if matchesNode == nil || matchesNode.Kind != yaml.MappingNode {
+			continue
+		}
+
+		serverConf, ok := c.Server[serverName]
+		if !ok || serverConf.Match == nil {
+			continue
+		}
+
+		for j := 0; j+1 < len(matchesNode.Content); j += 2 {
+			branchName := matchesNode.Content[j].Value
+			branchNode := matchesNode.Content[j+1]
+
+			matchConf, ok := serverConf.Match[branchName]
+			if !ok {
+				continue
+			}
+
+			if matchConf.order == 0 {
+				order++
+				matchConf.order = order
+			}
+			matchConf.priorityDefined = yamlMapHasKey(branchNode, "priority")
+			matchConf.definedKeys = collectDefinedYAMLMatchKeys(branchNode)
+
+			serverConf.Match[branchName] = matchConf
+		}
+
+		c.Server[serverName] = serverConf
+	}
+
+	return nil
+}
+
+func collectDefinedYAMLMatchKeys(branchNode *yaml.Node) map[string]bool {
+	keys := []string{
+		"addr", "port", "user", "pass", "passes", "key", "keycmd", "keycmdpass", "keypass",
+		"keys", "cert", "certs", "certkey", "certkeypass", "certpkcs11", "agentauth",
+		"ssh_agent", "ssh_agent_key", "pkcs11", "pkcs11provider", "pkcs11pin", "pre_cmd",
+		"post_cmd", "proxy_type", "proxy", "proxy_cmd", "local_rc", "local_rc_file",
+		"local_rc_compress", "local_rc_decode_cmd", "local_rc_uncompress_cmd", "port_forward",
+		"port_forward_local", "port_forward_remote", "port_forwards", "dynamic_port_forward",
+		"reverse_dynamic_port_forward", "http_dynamic_port_forward",
+		"http_reverse_dynamic_port_forward", "nfs_dynamic_forward", "nfs_dynamic_forward_path",
+		"nfs_reverse_dynamic_forward", "nfs_reverse_dynamic_forward_path", "x11", "x11_trusted",
+		"connect_timeout", "alive_max", "alive_interval", "check_known_hosts",
+		"known_hosts_files", "control_master", "control_path", "control_persist", "note", "ignore",
+	}
+
+	defined := make(map[string]bool, len(keys))
+	for _, key := range keys {
+		if yamlMapHasKey(branchNode, key) {
+			defined[key] = true
+		}
+	}
+
+	return defined
+}
+
+func yamlMapValue(node *yaml.Node, key string) *yaml.Node {
+	if node == nil || node.Kind != yaml.MappingNode {
+		return nil
+	}
+
+	for i := 0; i+1 < len(node.Content); i += 2 {
+		if node.Content[i].Value == key {
+			return node.Content[i+1]
+		}
+	}
+
+	return nil
+}
+
+func yamlMapHasKey(node *yaml.Node, key string) bool {
+	return yamlMapValue(node, key) != nil
 }
 
 func (c *Config) ResolveConditionalMatches() error {
