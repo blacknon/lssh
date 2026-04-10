@@ -151,6 +151,48 @@ func TestDemoDockerComposeE2E(t *testing.T) {
 			"lvim_wrapper_ok",
 		)
 	})
+
+	t.Run("lssync one-way sync updates remote fixture", func(t *testing.T) {
+		runClientCommandOrFail(t, demoDir,
+			"lssync --host KeyAuth --delete /home/demo/.demo_sync/local-one-way remote:/home/demo/demo-sync/local-one-way",
+		)
+
+		waitForComposeExecContains(t, demoDir, "key_ssh",
+			`test -f /home/demo/demo-sync/local-one-way/root.txt && \
+			 grep -Fxq 'local one-way root' /home/demo/demo-sync/local-one-way/root.txt && \
+			 test -f /home/demo/demo-sync/local-one-way/nested/child.txt && \
+			 grep -Fxq 'local nested child' /home/demo/demo-sync/local-one-way/nested/child.txt && \
+			 test ! -e /home/demo/demo-sync/local-one-way/extra/remove-me.txt && \
+			 echo lssync_one_way_ok`,
+			"lssync_one_way_ok",
+		)
+	})
+
+	t.Run("lssync bidirectional sync merges local and remote fixtures", func(t *testing.T) {
+		runClientCommandOrFail(t, demoDir,
+			"lssync --host KeyAuth -B /home/demo/.demo_sync/bidirectional-local remote:/home/demo/demo-sync/bidirectional-remote",
+		)
+
+		assertClientCommandContains(t, demoDir,
+			`test -f /home/demo/.demo_sync/bidirectional-local/remote-only.txt && \
+			 grep -Fxq 'remote only file' /home/demo/.demo_sync/bidirectional-local/remote-only.txt && \
+			 grep -Fxq 'remote newer shared' /home/demo/.demo_sync/bidirectional-local/shared.txt && \
+			 test -f /home/demo/.demo_sync/bidirectional-local/nested/remote-nested.txt && \
+			 grep -Fxq 'remote nested only' /home/demo/.demo_sync/bidirectional-local/nested/remote-nested.txt && \
+			 echo lssync_bidirectional_local_ok`,
+			"lssync_bidirectional_local_ok",
+		)
+
+		waitForComposeExecContains(t, demoDir, "key_ssh",
+			`test -f /home/demo/demo-sync/bidirectional-remote/local-only.txt && \
+			 grep -Fxq 'local only file' /home/demo/demo-sync/bidirectional-remote/local-only.txt && \
+			 grep -Fxq 'remote newer shared' /home/demo/demo-sync/bidirectional-remote/shared.txt && \
+			 test -f /home/demo/demo-sync/bidirectional-remote/nested/local-nested.txt && \
+			 grep -Fxq 'local nested only' /home/demo/demo-sync/bidirectional-remote/nested/local-nested.txt && \
+			 echo lssync_bidirectional_remote_ok`,
+			"lssync_bidirectional_remote_ok",
+		)
+	})
 }
 
 func mustDemoDir(t *testing.T) string {
@@ -254,6 +296,17 @@ func assertClientCommandContains(t *testing.T, demoDir, command, want string) {
 	if !strings.Contains(output, want) {
 		t.Fatalf("output missing %q for command %s\noutput:\n%s", want, command, output)
 	}
+}
+
+func runClientCommandOrFail(t *testing.T, demoDir, command string) string {
+	t.Helper()
+
+	output, err := runClientCommand(demoDir, command)
+	if err != nil {
+		t.Fatalf("command failed: %s\nerror: %v\noutput:\n%s", command, err, output)
+	}
+
+	return output
 }
 
 func runClientCommand(demoDir, command string) (string, error) {

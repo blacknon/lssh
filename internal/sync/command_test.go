@@ -1,16 +1,19 @@
 package sync
 
-import "testing"
+import (
+	"testing"
+	"time"
+)
 
 func TestParseCommandArgs(t *testing.T) {
 	t.Parallel()
 
-	got, err := ParseCommandArgs([]string{"sync", "--delete", "-p", "-P", "4", "local:/src", "remote:/dst"})
+	got, err := ParseCommandArgs([]string{"sync", "--delete", "-p", "-P", "4", "-D", "--daemon-interval", "2s", "-B", "local:/src", "remote:/dst"})
 	if err != nil {
 		t.Fatalf("ParseCommandArgs returned error: %v", err)
 	}
 
-	if !got.Delete || !got.Permission || got.ParallelNum != 4 {
+	if !got.Delete || !got.Permission || !got.Daemon || !got.Bidirectional || got.ParallelNum != 4 || got.DaemonInterval != 2*time.Second {
 		t.Fatalf("unexpected parsed flags: %#v", got)
 	}
 	if len(got.Sources) != 1 || got.Sources[0] != "local:/src" || got.Destination != "remote:/dst" {
