@@ -179,6 +179,7 @@ func (s *shell) Completer(t prompt.Document) []prompt.Suggest {
 				filtered = s.TargetCmdComp
 			}
 			c = append(c, filtered...)
+			c = append(c, s.aliasSuggests()...)
 
 			// return
 			return prompt.FilterHasPrefix(c, wordBeforeCursor, false)
@@ -389,6 +390,8 @@ func (s *shell) GetCommandComplete() {
 		// append s.Complete
 		s.CmdComplete = append(s.CmdComplete, suggest)
 	}
+
+	s.CmdComplete = append(s.CmdComplete, s.aliasSuggests()...)
 
 	sort.SliceStable(s.CmdComplete, func(i, j int) bool { return s.CmdComplete[i].Text < s.CmdComplete[j].Text })
 }

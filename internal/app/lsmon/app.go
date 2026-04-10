@@ -72,6 +72,7 @@ USAGE:
 		// common option
 		cli.StringSliceFlag{Name: "host,H", Usage: "connect `servername`."},
 		cli.StringFlag{Name: "file,F", Value: defConf, Usage: "config `filepath`."},
+		cli.StringFlag{Name: "generate-lssh-conf", Usage: "print generated lssh config from OpenSSH config to stdout (`~/.ssh/config` by default)."},
 		cli.StringFlag{Name: "logfile,L", Usage: "Set log file path."},
 		cli.BoolFlag{Name: "share-connect,s", Usage: "reuse the monitor SSH connection for terminals."},
 
@@ -108,10 +109,17 @@ USAGE:
 		hosts := c.StringSlice("host")
 		confpath := c.String("file")
 
+		if handled, err := conf.HandleGenerateConfigMode(c.String("generate-lssh-conf"), os.Stdout); handled {
+			return err
+		}
+
 		debug := c.Bool("debug")
 
 		// Get config data
-		data := conf.Read(confpath)
+		data, err := conf.ReadWithFallback(confpath, os.Stderr)
+		if err != nil {
+			return err
+		}
 
 		// Set `exec command` or `shell` flag
 		isMulti := true

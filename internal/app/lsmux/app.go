@@ -54,6 +54,7 @@ USAGE:
 	app.Flags = []cli.Flag{
 		cli.StringSliceFlag{Name: "host,H", Usage: "connect `servername`."},
 		cli.StringFlag{Name: "file,F", Value: defConf, Usage: "config `filepath`."},
+		cli.StringFlag{Name: "generate-lssh-conf", Usage: "print generated lssh config from OpenSSH config to stdout (`~/.ssh/config` by default)."},
 		cli.StringSliceFlag{Name: "R", Usage: "Remote port forward mode.Specify a `[bind_address:]port:remote_address:port`. If only one port is specified, it will operate as Reverse Dynamic Forward."},
 		cli.StringFlag{Name: "r", Usage: "HTTP Reverse Dynamic port forward mode. Specify a `port`."},
 		cli.StringFlag{Name: "m", Usage: "NFS Reverse Dynamic forward mode. Specify a `port:/path/to/local`."},
@@ -69,7 +70,14 @@ USAGE:
 			os.Exit(0)
 		}
 
-		data := conf.Read(c.String("file"))
+		if handled, err := conf.HandleGenerateConfigMode(c.String("generate-lssh-conf"), os.Stdout); handled {
+			return err
+		}
+
+		data, err := conf.ReadWithFallback(c.String("file"), os.Stderr)
+		if err != nil {
+			return err
+		}
 		names := conf.GetNameList(data)
 		sort.Strings(names)
 
@@ -87,10 +95,7 @@ USAGE:
 		}
 		forwardConfig := mux.SessionOptions{}
 
-		var (
-			forwards []*conf.PortForward
-			err      error
-		)
+		var forwards []*conf.PortForward
 		for _, forwardargs := range c.StringSlice("R") {
 			f := new(conf.PortForward)
 			f.Mode = "R"

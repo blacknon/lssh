@@ -64,6 +64,7 @@ USAGE:
 		// common option
 		cli.StringSliceFlag{Name: "host,H", Usage: "connect `servername`."},
 		cli.StringFlag{Name: "file,F", Value: defConf, Usage: "config `filepath`."},
+		cli.StringFlag{Name: "generate-lssh-conf", Usage: "print generated lssh config from OpenSSH config to stdout (`~/.ssh/config` by default)."},
 
 		// port forward option
 		cli.StringSliceFlag{Name: "R", Usage: "Remote port forward mode.Specify a `[bind_address:]port:remote_address:port`. If only one port is specified, it will operate as Reverse Dynamic Forward. Only single connection works."},
@@ -89,8 +90,15 @@ USAGE:
 		hosts := c.StringSlice("host")
 		confpath := c.String("file")
 
+		if handled, err := conf.HandleGenerateConfigMode(c.String("generate-lssh-conf"), os.Stdout); handled {
+			return err
+		}
+
 		// Get config data
-		data := conf.Read(confpath)
+		data, configErr := conf.ReadWithFallback(confpath, os.Stderr)
+		if configErr != nil {
+			return configErr
+		}
 
 		// Set `exec command` or `shell` flag
 		isMulti := true

@@ -94,6 +94,12 @@ addr = "192.168.100.20"
 note = "staging"
 ```
 
+If you already keep hosts in `~/.ssh/config`, you can generate a starter file:
+
+```bash
+lssh --generate-lssh-conf > ~/.lssh.conf
+```
+
 ### 3. Start with these commands
 
 ```bash
