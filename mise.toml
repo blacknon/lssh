@@ -18,6 +18,20 @@ depends = [
     "sysadmin_install",
 ]
 
+[tasks.completion_install]
+description = "Install shell completion files for bash, zsh, and fish to the user profile"
+depends = []
+run = """
+    ./scripts/install-completions.sh all --user
+"""
+
+[tasks.completion_install_system]
+description = "Install shell completion files for bash, zsh, and fish under /usr/local"
+depends = []
+run = """
+    sudo ./scripts/install-completions.sh all --system
+"""
+
 [tasks.full_test]
 description = "Run go test for all"
 depends = ["core_test", "transfer_test", "monitor_test", "sysadmin_test"]

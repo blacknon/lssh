@@ -1,0 +1,15 @@
+#compdef lsmon
+_lsmon() {
+    _arguments -s \
+        '(-H --host)'{-H,--host}'[Connect to server by name]:server:_hosts' \
+        '(-F --file)'{-F,--file}'[Specify config file path]:config file:_files' \
+        '--generate-lssh-conf[Print generated lssh config from OpenSSH config]:OpenSSH config:_files' \
+        '(-L --logfile)'{-L,--logfile}'[Set log file path]:log file:_files' \
+        '(-s --share-connect)'{-s,--share-connect}'[Reuse the monitor SSH connection for terminals]' \
+        '(-l --list)'{-l,--list}'[Print server list from config]' \
+        '--debug[Enable pprof on localhost:6060]' \
+        '(-h --help)'{-h,--help}'[Print this help]' \
+        '(-v --version)'{-v,--version}'[Print the version]'
+}
+
+_lsmon "$@"
