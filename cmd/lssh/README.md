@@ -382,6 +382,25 @@ server:
 
 #### Tips
 
+Internally, `local_rc` works by starting `bash` with `--rcfile` and giving it rc content generated from your local files. That means the settings are applied only to the shell process created for that SSH session, instead of being written to a persistent file on the remote host.
+
+The behavior is conceptually similar to the following:
+
+```bash
+ssh user@remote 'bash --rcfile /dev/fd/0 -i' < ~/.bashrc
+```
+
+In practice, large rc payloads can fail if they are sent as-is, so `lssh` can compress the transferred content before sending it and expand it only inside the session startup path. The idea is conceptually similar to:
+
+```bash
+zip -j - ~/.bashrc ~/.bash_profile | ssh user@remote '
+  unzip -p /dev/stdin | bash --rcfile /dev/fd/0 -i
+'
+```
+
+Because the rc content is streamed into the session and used only for the shell being launched, there is no need to copy `~/.bashrc` or other files onto the remote server as persistent files. Once the session ends, the transferred content is gone as well, so the remote host is not polluted with extra config files or temporary artifacts.
+
+
 ##### Use local vimrc & tmux.conf
 
 When you want to use your local `vimrc` or `tmux.conf` on the remote side without leaving files behind, the practical approach is to generate wrapper functions and transfer those wrappers with `local_rc_file`. Unlike `bash --rcfile`, these tools need the config every time they start, so it is easier to decode the local config inside a function such as `lvim` or `ltmux` and then replace the command with an alias like `alias vim=lvim`.

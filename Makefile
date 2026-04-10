@@ -7,6 +7,8 @@ GOTEST=$(MODULE) $(GOCMD) test -cover
 GOGET=$(GOCMD) get
 GOMOD=$(MODULE) $(GOCMD) mod
 GOINSTALL=$(MODULE) $(GOCMD) install
+COMPLETION_SHELL?=all
+COMPLETION_PREFIX?=
 
 # OS別にbuildのコマンド生成
 UNAME_S=$(shell uname -s)
@@ -74,10 +76,65 @@ install:
 	cp -n example/config.tml ~/.lssh.conf || true
 
 install-completions:
-	./scripts/install-completions.sh all --system
+	@set -eu; \
+	shell_name="$(COMPLETION_SHELL)"; \
+	prefix="$(if $(COMPLETION_PREFIX),$(COMPLETION_PREFIX),/usr/local)"; \
+	install_shell() { \
+		src_dir="$$1"; \
+		dst_dir="$$2"; \
+		mkdir -p "$$dst_dir"; \
+		for src in "$$src_dir"/*; do \
+			[ -f "$$src" ] || continue; \
+			cp "$$src" "$$dst_dir/"; \
+			printf 'installed %s -> %s\n' "$$src" "$$dst_dir/"; \
+		done; \
+	}; \
+	case "$$shell_name" in \
+		bash) install_shell completion/bash "$$prefix/share/bash-completion/completions" ;; \
+		zsh) install_shell completion/zsh "$$prefix/share/zsh/site-functions" ;; \
+		fish) install_shell completion/fish "$$prefix/share/fish/vendor_completions.d" ;; \
+		all) \
+			install_shell completion/bash "$$prefix/share/bash-completion/completions"; \
+			install_shell completion/zsh "$$prefix/share/zsh/site-functions"; \
+			install_shell completion/fish "$$prefix/share/fish/vendor_completions.d"; \
+			;; \
+		*) echo "unknown COMPLETION_SHELL: $$shell_name" >&2; exit 1 ;; \
+	esac
 
 install-completions-user:
-	./scripts/install-completions.sh all --user
+	@set -eu; \
+	shell_name="$(COMPLETION_SHELL)"; \
+	prefix="$(if $(COMPLETION_PREFIX),$(COMPLETION_PREFIX),$$HOME)"; \
+	install_shell() { \
+		src_dir="$$1"; \
+		dst_dir="$$2"; \
+		mkdir -p "$$dst_dir"; \
+		for src in "$$src_dir"/*; do \
+			[ -f "$$src" ] || continue; \
+			cp "$$src" "$$dst_dir/"; \
+			printf 'installed %s -> %s\n' "$$src" "$$dst_dir/"; \
+		done; \
+	}; \
+	zsh_note=0; \
+	case "$$shell_name" in \
+		bash) install_shell completion/bash "$$prefix/.local/share/bash-completion/completions" ;; \
+		zsh) install_shell completion/zsh "$$prefix/.zfunc"; zsh_note=1 ;; \
+		fish) install_shell completion/fish "$$prefix/.config/fish/completions" ;; \
+		all) \
+			install_shell completion/bash "$$prefix/.local/share/bash-completion/completions"; \
+			install_shell completion/zsh "$$prefix/.zfunc"; \
+			install_shell completion/fish "$$prefix/.config/fish/completions"; \
+			zsh_note=1; \
+			;; \
+		*) echo "unknown COMPLETION_SHELL: $$shell_name" >&2; exit 1 ;; \
+	esac; \
+	if [ "$$zsh_note" -eq 1 ]; then \
+		printf '%s\n' \
+			'zsh note:' \
+			'  Add this to ~/.zshrc if ~/.zfunc is not already in fpath:' \
+			'    fpath=($$HOME/.zfunc $$fpath)' \
+			'    autoload -Uz compinit && compinit'; \
+	fi
 
 test:
 	$(GOTEST) ./...
