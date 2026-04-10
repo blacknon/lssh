@@ -513,6 +513,66 @@ func TestResolveConditionalMatchesInvalidCIDR(t *testing.T) {
 	assert.Contains(t, err.Error(), "invalid IP/CIDR")
 }
 
+func TestActiveOpenSSHConfigsFiltersByWhen(t *testing.T) {
+	originalDetector := detectMatchContext
+	t.Cleanup(func() { detectMatchContext = originalDetector })
+	detectMatchContext = func(reqs matchRequirements) matchContext {
+		return matchContext{
+			LocalIPs: []netip.Addr{netip.MustParseAddr("172.31.0.10")},
+			Username: "demo",
+		}
+	}
+
+	cfg := Config{
+		SSHConfig: map[string]OpenSSHConfig{
+			"default": {
+				Path: "~/.ssh/config",
+			},
+			"frontend": {
+				Path: "~/.ssh/frontend",
+				When: ServerMatchWhen{
+					LocalIPIn: []string{"172.31.0.0/24"},
+				},
+			},
+			"admin_only": {
+				Path: "~/.ssh/admin",
+				When: ServerMatchWhen{
+					UsernameIn: []string{"admin"},
+				},
+			},
+		},
+	}
+
+	got := cfg.activeOpenSSHConfigs()
+	if len(got) != 2 {
+		t.Fatalf("len(activeOpenSSHConfigs()) = %d, want 2", len(got))
+	}
+
+	paths := []string{got[0].Path, got[1].Path}
+	assert.Contains(t, paths, "~/.ssh/config")
+	assert.Contains(t, paths, "~/.ssh/frontend")
+	assert.NotContains(t, paths, "~/.ssh/admin")
+}
+
+func TestValidateOpenSSHConfigWhensInvalidCIDR(t *testing.T) {
+	cfg := Config{
+		SSHConfig: map[string]OpenSSHConfig{
+			"bad": {
+				Path: "~/.ssh/config",
+				When: ServerMatchWhen{
+					LocalIPIn: []string{"bad-cidr"},
+				},
+			},
+		},
+	}
+
+	_, err := cfg.validateOpenSSHConfigWhens()
+	if !assert.Error(t, err) {
+		return
+	}
+	assert.Contains(t, err.Error(), "invalid IP/CIDR")
+}
+
 func mustDecodeMeta(t *testing.T, body string) toml.MetaData {
 	t.Helper()
 

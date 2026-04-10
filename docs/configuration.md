@@ -526,12 +526,22 @@ interactive terminal, they can also offer to create `~/.lssh.conf` from
 
 You can also specify and read another path.
 In addition to the path, server config items can be specified and applied collectively.
+You can also add `when.*` conditions to each `[sshconfig.<name>]` block.
+The available condition keys are the same as `server.<name>.match.<branch>.when.*`.
 
 ```toml
 [sshconfig.default]
 path = "~/.ssh/config"
 pre_cmd = 'printf "\033]50;SetProfile=local\a"'
 post_cmd = 'printf "\033]50;SetProfile=Default\a"'
+```
+
+```toml
+[sshconfig.frontend_only]
+path = "~/.ssh/config.frontend"
+
+[sshconfig.frontend_only.when]
+local_ip_in = ["172.31.0.0/24"]
 ```
 
 You can also generate a starter `~/.lssh.conf` from any suite command and write

@@ -27,18 +27,16 @@ type openSSHConfigEntry struct {
 func readOpenSSHConfig(path, command string) (cfg *ssh_config.Config, err error) {
 	var rd io.Reader
 	switch {
-	case path != "": // 1st
-		// Read OpenSSH Config
+	case path != "":
 		sshConfigFile := common.GetFullPath(path)
 		rd, err = os.Open(sshConfigFile)
-	case command != "": // 2nd
+	case command != "":
 		var data []byte
 		cmd := exec.Command("sh", "-c", command)
 		data, err = cmd.Output()
 		rd = bytes.NewReader(data)
 	}
 
-	// error check
 	if err != nil {
 		return
 	}
@@ -47,7 +45,7 @@ func readOpenSSHConfig(path, command string) (cfg *ssh_config.Config, err error)
 	return
 }
 
-// getOpenSSHConfig loads the specified OpenSSH configuration file and returns it in conf.ServerConfig format
+// getOpenSSHConfig loads the specified OpenSSH configuration file and returns it in conf.ServerConfig format.
 func getOpenSSHConfig(path, command string) (config map[string]ServerConfig, err error) {
 	config = map[string]ServerConfig{}
 
@@ -56,7 +54,6 @@ func getOpenSSHConfig(path, command string) (config map[string]ServerConfig, err
 		return config, err
 	}
 
-	// open openSSH config
 	ele := path
 	if ele == "" {
 		ele = "generate_sshconfig"
@@ -80,13 +77,21 @@ func loadOpenSSHConfigEntries(path, command string) ([]openSSHConfigEntry, error
 
 	hostList := []string{}
 	for _, h := range cfg.Hosts {
-		re := regexp.MustCompile(`\*`)
+		if h.IsMatchBlock() {
+			continue
+		}
+
+		re := regexp.MustCompile(`[\*\?]`)
 		for _, pattern := range h.Patterns {
-			if !re.MatchString(pattern.String()) {
-				hostList = append(hostList, pattern.String())
+			patternString := pattern.String()
+			if strings.HasPrefix(patternString, "!") || re.MatchString(patternString) {
+				continue
 			}
+			hostList = append(hostList, patternString)
 		}
 	}
+
+	hostList = removeDupString(hostList)
 
 	entries := make([]openSSHConfigEntry, 0, len(hostList))
 	for _, host := range hostList {
@@ -107,7 +112,7 @@ func loadOpenSSHConfigEntries(path, command string) ([]openSSHConfigEntry, error
 		}
 
 		keys := getOpenSSHIdentityFiles(cfg, host)
-		certs := getOpenSSHValues(cfg, host, "Certificate")
+		certs := getOpenSSHValues(cfg, host, "CertificateFile")
 		if len(certs) > 0 {
 			serverConfig.Cert = certs[0]
 			if len(keys) > 0 {
@@ -148,7 +153,7 @@ func loadOpenSSHConfigEntries(path, command string) ([]openSSHConfigEntry, error
 		}
 
 		cm := getOpenSSHValue(cfg, host, "ControlMaster")
-		if cm != "" {
+		if cm != "" && cm != "no" {
 			serverConfig.ControlMaster = true
 		}
 
@@ -159,7 +164,7 @@ func loadOpenSSHConfigEntries(path, command string) ([]openSSHConfigEntry, error
 
 		cper := getOpenSSHValue(cfg, host, "ControlPersist")
 		if cper != "" {
-			if cperValue, parseErr := parseControlPersist(cper); parseErr == nil {
+			if cperValue, err := parseControlPersist(cper); err == nil {
 				serverConfig.ControlPersist = cperValue
 			}
 		}
@@ -301,4 +306,18 @@ func getOpenSSHIdentityFiles(cfg *ssh_config.Config, host string) []string {
 	}
 
 	return keys
+}
+
+func removeDupString(values []string) []string {
+	seen := map[string]struct{}{}
+	result := make([]string, 0, len(values))
+	for _, value := range values {
+		if _, ok := seen[value]; ok {
+			continue
+		}
+		seen[value] = struct{}{}
+		result = append(result, value)
+	}
+
+	return result
 }

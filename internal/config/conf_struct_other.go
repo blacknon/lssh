@@ -23,7 +23,8 @@ type IncludesConfig struct {
 
 // OpenSSHConfig is read OpenSSH configuration file.
 type OpenSSHConfig struct {
-	Path    string `toml:"path"` // This is preferred
-	Command string `toml:"command"`
+	Path    string          `toml:"path"` // This is preferred
+	Command string          `toml:"command"`
+	When    ServerMatchWhen `toml:"when"`
 	ServerConfig
 }

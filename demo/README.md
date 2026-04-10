@@ -127,6 +127,11 @@ docker compose exec --user demo client /usr/local/bin/demo-lssh-bastion.sh --lis
 After entering the client container, the demo configuration is available at `/home/demo/.lssh.conf`.
 This configuration also serves as an example of the include feature, and the actual settings are split across `~/.lssh.d/*.toml`.
 
+For the OpenSSH import demo, the client container also includes
+`/home/demo/.ssh/config_match_demo`.
+That file contains `Match originalhost`, `Match user`, and `Match localuser`
+ examples that can be imported into `lssh`.
+
 ```toml
 [includes]
 path = [
@@ -250,6 +255,32 @@ lssh --host ConditionalOverProxy
 # Conditional nested route example: on the demo client this uses deep_http_proxy
 lssh --host ConditionalNestedProxy
 ```
+
+## OpenSSH Match Import Demo
+
+Inside the client container, you can also test the OpenSSH import path with a
+dedicated sample file:
+
+```sh
+# inspect the Match-based OpenSSH config sample
+sed -n '1,200p' ~/.ssh/config_match_demo
+
+# generate lssh config from the sample OpenSSH config
+lssh --generate-lssh-conf=~/.ssh/config_match_demo
+
+# save it and inspect the imported hosts
+lssh --generate-lssh-conf=~/.ssh/config_match_demo > /tmp/lssh-from-match.conf
+lssh --file /tmp/lssh-from-match.conf --list
+```
+
+The sample file defines these import targets:
+
+- `password-auth-match`
+  - Basic host with `Match originalhost`
+- `key-auth-match`
+  - Host with `Match user demo`
+- `over-proxy-match`
+  - Host with `Match localuser demo`
 
 From the host, you can also treat `client` as a jump entrypoint that always launches `lssh`:
 
