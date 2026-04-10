@@ -66,10 +66,10 @@ USAGE:
 
 ## OverView
 
-### terminal log
+### connect Terminal
 
-You can record terminal session logs while connected to a host.
-If needed, timestamps can also be included in the log output, which is useful when reviewing command history or troubleshooting interactive work later.
+Terminal connections work as naturally as with the standard `ssh` command, so you can move from familiar interactive sessions to `lssh` without changing how you work.
+Unlike many tools in this space, full-screen applications such as `vim` and `htop` generally work as expected, and shell prompts stay intact without the display glitches that often disrupt interactive sessions.
 
 ### command execution
 
@@ -106,6 +106,12 @@ When a command is given, piped `stdin` is copied to each pane, and `--hold` keep
 ```sh
 lssh -P --hold hostname
 ```
+
+### terminal log
+
+You can record terminal session logs while connected to a host.
+If needed, timestamps can also be included in the log output, which is useful when reviewing command history or troubleshooting interactive work later.
+
 
 ### pre_cmd / post_cmd
 
@@ -265,7 +271,6 @@ x11_trusted = true
 ```
 
 Tunnel device forwarding is available from the command line with `--tunnel`.
-
 
 
 ### local bashrc
