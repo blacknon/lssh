@@ -8,6 +8,8 @@ complete -c lssh -s d -d "HTTP dynamic port forward mode" -r
 complete -c lssh -s r -d "HTTP reverse dynamic port forward mode" -r
 complete -c lssh -s M -d "NFS dynamic forward mode" -r
 complete -c lssh -s m -d "NFS reverse dynamic forward mode" -r
+complete -c lssh -s S -d "SMB dynamic forward mode" -r
+complete -c lssh -s s -d "SMB reverse dynamic forward mode" -r
 complete -c lssh -l tunnel -d "Enable tunnel device" -r
 complete -c lssh -s w -d "Display server header in command execution mode"
 complete -c lssh -s W -d "Do not display server header in command execution mode"

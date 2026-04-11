@@ -504,18 +504,24 @@ func ParseForwardSpec(value string) (localNetwork, local, remoteNetwork, remote 
 	return
 }
 
-// ParseNFSForwardPortPath
-func ParseNFSForwardPortPath(value string) (port, path string, err error) {
-	data := strings.Split(value, ":")
-	if len(data) != 2 {
+// ParseForwardPathPair parses `<left>:<path>` style arguments used by
+// filesystem forwarding options.
+func ParseForwardPathPair(value string) (left, path string, err error) {
+	data := strings.SplitN(value, ":", 2)
+	if len(data) != 2 || data[0] == "" || data[1] == "" {
 		err = errors.New("Could not parse.")
 		return
 	}
 
-	port = data[0]
+	left = data[0]
 	path = data[1]
 
 	return
+}
+
+// ParseNFSForwardPortPath parses `port:/path` style NFS/SMB forwarding args.
+func ParseNFSForwardPortPath(value string) (port, path string, err error) {
+	return ParseForwardPathPair(value)
 }
 
 // ParseTunnelSpec parses a tunnel specification string of the form

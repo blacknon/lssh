@@ -100,6 +100,8 @@ USAGE:
 		cli.StringFlag{Name: "r", Usage: "HTTP Reverse Dynamic port forward mode. Specify a `port`. Only single connection works."},
 		cli.StringFlag{Name: "M", Usage: "NFS Dynamic forward mode. Specify a `port:/path/to/remote`. Only single connection works."},
 		cli.StringFlag{Name: "m", Usage: "NFS Reverse Dynamic forward mode. Specify a `port:/path/to/local`. Only single connection works."},
+		cli.StringFlag{Name: "S", Usage: "SMB Dynamic forward mode. Specify a `port:/path/to/remote`. Only single connection works."},
+		cli.StringFlag{Name: "s", Usage: "SMB Reverse Dynamic forward mode. Specify a `port:/path/to/local`. Only single connection works."},
 		// tunnel device option (like `ssh -w local:remote`)
 		cli.StringFlag{Name: "tunnel", Usage: "Enable tunnel device. Specify `${local}:${remote}` (use 'any' to request next available)."},
 
@@ -229,6 +231,15 @@ USAGE:
 				forwardConfig.NFSReverseDynamicForwardPort = port
 				forwardConfig.NFSReverseDynamicForwardPath = common.GetFullPath(path)
 			}
+			if smbReverseForwarding := c.String("s"); smbReverseForwarding != "" {
+				port, path, parseErr := common.ParseNFSForwardPortPath(smbReverseForwarding)
+				if parseErr != nil {
+					fmt.Fprintf(os.Stderr, "Error: %s\n", parseErr)
+					os.Exit(1)
+				}
+				forwardConfig.SMBReverseDynamicForwardPort = port
+				forwardConfig.SMBReverseDynamicForwardPath = common.GetFullPath(path)
+			}
 
 			run := &sshcmd.Run{
 				Conf:                          data,
@@ -240,6 +251,8 @@ USAGE:
 				HTTPReverseDynamicPortForward: forwardConfig.HTTPReverseDynamicPortForward,
 				NFSReverseDynamicForwardPort:  forwardConfig.NFSReverseDynamicForwardPort,
 				NFSReverseDynamicForwardPath:  forwardConfig.NFSReverseDynamicForwardPath,
+				SMBReverseDynamicForwardPort:  forwardConfig.SMBReverseDynamicForwardPort,
+				SMBReverseDynamicForwardPath:  forwardConfig.SMBReverseDynamicForwardPath,
 			}
 			forwardConfig.ControlMasterOverride = controlMasterOverride
 			if nfsForwarding := c.String("M"); nfsForwarding != "" {
@@ -250,6 +263,15 @@ USAGE:
 				}
 				run.NFSDynamicForwardPort = port
 				run.NFSDynamicForwardPath = path
+			}
+			if smbForwarding := c.String("S"); smbForwarding != "" {
+				port, path, parseErr := common.ParseNFSForwardPortPath(smbForwarding)
+				if parseErr != nil {
+					fmt.Fprintf(os.Stderr, "Error: %s\n", parseErr)
+					os.Exit(1)
+				}
+				run.SMBDynamicForwardPort = port
+				run.SMBDynamicForwardPath = path
 			}
 			if t := c.String("tunnel"); t != "" {
 				local, remote, parseErr := common.ParseTunnelSpec(t)
@@ -397,6 +419,17 @@ USAGE:
 			r.NFSDynamicForwardPort = port
 			r.NFSDynamicForwardPath = path
 		}
+		smbForwarding := c.String("S")
+		if smbForwarding != "" {
+			port, path, err := common.ParseNFSForwardPortPath(smbForwarding)
+			if err != nil {
+				fmt.Fprintf(os.Stderr, "Error: %s\n", err)
+				os.Exit(1)
+			}
+
+			r.SMBDynamicForwardPort = port
+			r.SMBDynamicForwardPath = path
+		}
 
 		// Set NFS Reverse Forwarding
 		nfsReverseForwarding := c.String("m")
@@ -411,6 +444,17 @@ USAGE:
 
 			r.NFSReverseDynamicForwardPort = port
 			r.NFSReverseDynamicForwardPath = path
+		}
+		smbReverseForwarding := c.String("s")
+		if smbReverseForwarding != "" {
+			port, path, err := common.ParseNFSForwardPortPath(smbReverseForwarding)
+			if err != nil {
+				fmt.Fprintf(os.Stderr, "Error: %s\n", err)
+				os.Exit(1)
+			}
+
+			r.SMBReverseDynamicForwardPort = port
+			r.SMBReverseDynamicForwardPath = common.GetFullPath(path)
 		}
 
 		// if err

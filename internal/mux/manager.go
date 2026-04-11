@@ -68,6 +68,8 @@ type SessionOptions struct {
 	HTTPReverseDynamicPortForward string
 	NFSReverseDynamicForwardPort  string
 	NFSReverseDynamicForwardPath  string
+	SMBReverseDynamicForwardPort  string
+	SMBReverseDynamicForwardPath  string
 	X11                           bool
 	X11Trusted                    bool
 	IsBashrc                      bool

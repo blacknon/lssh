@@ -76,7 +76,7 @@ jobs:
             ext=".exe"
           fi
 
-          for cmd in lssh lscp lsftp lsmon lsshell; do
+          for cmd in lssh lscp lsftp lssync lsshfs lsmon lsshell lsmux; do
             go build -o "dist/bin/${cmd}${ext}" "./cmd/${cmd}"
           done
 
@@ -105,19 +105,19 @@ jobs:
             case "$1" in
               full) echo "Full lssh suite with SSH, transfer, monitoring, and parallel shell tools." ;;
               core) echo "Core SSH client package for the lssh suite." ;;
-              transfer) echo "Transfer tools package for the lssh suite, including lscp and lsftp." ;;
+              transfer) echo "Transfer and mount tools package for the lssh suite, including lscp, lsftp, lssync, and lsshfs." ;;
               monitor) echo "Monitoring tools package for the lssh suite, including lsmon." ;;
-              sysadmin) echo "Sysadmin tools package for the lssh suite, including lsshell." ;;
+              sysadmin) echo "Sysadmin tools package for the lssh suite, including lsshell and lsmux." ;;
             esac
           }
 
           package_binaries() {
             case "$1" in
-              full) echo "lssh lscp lsftp lsmon lsshell" ;;
+              full) echo "lssh lscp lsftp lssync lsshfs lsmon lsshell lsmux" ;;
               core) echo "lssh" ;;
-              transfer) echo "lscp lsftp" ;;
+              transfer) echo "lscp lsftp lssync lsshfs" ;;
               monitor) echo "lsmon" ;;
-              sysadmin) echo "lsshell" ;;
+              sysadmin) echo "lsshell lsmux" ;;
             esac
           }
 

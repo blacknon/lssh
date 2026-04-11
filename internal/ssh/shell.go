@@ -65,6 +65,12 @@ func (r *Run) shell() (err error) {
 	if r.NFSDynamicForwardPath != "" {
 		config.NFSDynamicForwardPath = r.NFSDynamicForwardPath
 	}
+	if r.SMBDynamicForwardPort != "" {
+		config.SMBDynamicForwardPort = r.SMBDynamicForwardPort
+	}
+	if r.SMBDynamicForwardPath != "" {
+		config.SMBDynamicForwardPath = r.SMBDynamicForwardPath
+	}
 
 	// OverWrite nfs reverse dynamic forwarding
 	if r.NFSReverseDynamicForwardPort != "" {
@@ -74,6 +80,12 @@ func (r *Run) shell() (err error) {
 	// OverWrite nfs reverse dynamic path
 	if r.NFSReverseDynamicForwardPath != "" {
 		config.NFSReverseDynamicForwardPath = r.NFSReverseDynamicForwardPath
+	}
+	if r.SMBReverseDynamicForwardPort != "" {
+		config.SMBReverseDynamicForwardPort = r.SMBReverseDynamicForwardPort
+	}
+	if r.SMBReverseDynamicForwardPath != "" {
+		config.SMBReverseDynamicForwardPath = r.SMBReverseDynamicForwardPath
 	}
 
 	// OverWrite local bashrc use
@@ -96,6 +108,8 @@ func (r *Run) shell() (err error) {
 	r.printHTTPDynamicPortForward(config.HTTPDynamicPortForward)
 	r.printNFSDynamicForward(config.NFSDynamicForwardPort, config.NFSDynamicForwardPath)
 	r.printNFSReverseDynamicForward(config.NFSReverseDynamicForwardPort, config.NFSReverseDynamicForwardPath)
+	r.printSMBDynamicForward(config.SMBDynamicForwardPort, config.SMBDynamicForwardPath)
+	r.printSMBReverseDynamicForward(config.SMBReverseDynamicForwardPort, config.SMBReverseDynamicForwardPath)
 	r.printProxy(server)
 
 	connect, err := r.CreateSshConnect(server)
@@ -177,6 +191,14 @@ func (r *Run) shell() (err error) {
 	// NFS Reverse Dynamic Forwarding
 	if config.NFSReverseDynamicForwardPort != "" && config.NFSReverseDynamicForwardPath != "" {
 		go connect.NFSReverseForward("localhost", config.NFSReverseDynamicForwardPort, config.NFSReverseDynamicForwardPath)
+	}
+
+	if config.SMBDynamicForwardPort != "" && config.SMBDynamicForwardPath != "" {
+		go connect.SMBForward("localhost", config.SMBDynamicForwardPort, "", config.SMBDynamicForwardPath)
+	}
+
+	if config.SMBReverseDynamicForwardPort != "" && config.SMBReverseDynamicForwardPath != "" {
+		go connect.SMBReverseForward("localhost", config.SMBReverseDynamicForwardPort, "", config.SMBReverseDynamicForwardPath)
 	}
 
 	// If started as daemonized child, notify parent that forwarding is ready

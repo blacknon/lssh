@@ -8,6 +8,7 @@ RUN apt-get update && \
       netcat-openbsd \
       openssh-server \
       procps \
+      smbclient \
       tmux \
       vim && \
     rm -rf /var/lib/apt/lists/* && \
