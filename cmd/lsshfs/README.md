@@ -17,6 +17,37 @@ NAME:
     lsshfs - Single-host SSH mount command with OS-specific local mount backends.
 USAGE:
     lsshfs [options] [host:]remote_path mountpoint
+
+OPTIONS:
+    --host servername, -H servername    connect servername.
+    --file filepath, -F filepath        config filepath. (default: "/Users/blacknon/.lssh.conf")
+    --generate-lssh-conf ~/.ssh/config  print generated lssh config from OpenSSH config to stdout (~/.ssh/config by default).
+    --rw                                mount as read-write (current default behavior).
+    --unmount                           unmount the specified mountpoint and stop the background process.
+    --list-mounts                       list active lsshfs mount records.
+    --foreground                        run in the foreground for debugging and tests.
+    --list, -l                          print server list from config.
+    --help, -h                          print this help
+    --enable-control-master             temporarily enable ControlMaster for this command execution
+    --disable-control-master            temporarily disable ControlMaster for this command execution
+    --version, -v                       print the version
+
+VERSION:
+    lssh-suite 0.8.1 (alpha/unknown)
+
+USAGE:
+    # mount a remote path from the selected host
+    lsshfs /srv/data ~/mnt/data
+
+    # mount a remote path from the named inventory host
+    lsshfs @app:/srv/data ~/mnt/data
+
+    # unmount
+    lsshfs --unmount ~/mnt/data
+
+    # windows example
+    lsshfs @app:/srv/data Z:
+
 ```
 
 Examples:

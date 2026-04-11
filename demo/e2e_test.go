@@ -1,6 +1,7 @@
 package demo
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"os/exec"
@@ -150,14 +151,14 @@ func TestDemoDockerComposeE2E(t *testing.T) {
 		)
 
 		assertClientCommandContains(t, demoDir,
-			`smbclient //127.0.0.1/share -N -p 1445 -c 'ls'`,
-			"bin",
+			`smbclient //127.0.0.1/share -N -p 1445 -c 'get .lssh.conf -'`,
+			"[common]",
 		)
 	})
 
 	t.Run("lsshfs mounts remote path locally and can unmount it", func(t *testing.T) {
 		runClientCommandOrFail(t, demoDir,
-			"mkdir -p /home/demo/mnt/lsshfs && lsshfs @KeyAuth:/home/demo /home/demo/mnt/lsshfs --foreground & echo $! >/tmp/lsshfs-demo.pid",
+			"mkdir -p /home/demo/mnt/lsshfs && lsshfs @KeyAuth:/home/demo /home/demo/mnt/lsshfs",
 		)
 
 		deadline := time.Now().Add(20 * time.Second)
@@ -193,8 +194,8 @@ func TestDemoDockerComposeE2E(t *testing.T) {
 			"lssh --host KeyAuth -N -s 1446:/home/demo/.demo_sync/local-one-way",
 		)
 		waitForComposeExecContains(t, demoDir, "key_ssh",
-			`smbclient //127.0.0.1/share -N -p 1446 -c 'ls'`,
-			"root.txt",
+			`smbclient //127.0.0.1/share -N -p 1446 -c 'get root.txt -'`,
+			"local one-way root",
 		)
 	})
 
@@ -370,9 +371,15 @@ func runClientCommandOrFail(t *testing.T, demoDir, command string) string {
 }
 
 func runClientCommand(demoDir, command string) (string, error) {
-	cmd := exec.Command("docker", "compose", "exec", "-T", "--user", "demo", "client", "bash", "-lc", command)
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	cmd := exec.CommandContext(ctx, "docker", "compose", "exec", "-T", "--user", "demo", "client", "bash", "-lc", command)
 	cmd.Dir = demoDir
 	output, err := cmd.CombinedOutput()
+	if ctx.Err() == context.DeadlineExceeded {
+		return string(output), fmt.Errorf("command timeout: %s", command)
+	}
 	if err != nil {
 		return string(output), fmt.Errorf("%w", err)
 	}
@@ -458,9 +465,15 @@ func waitForComposeExecContains(t *testing.T, demoDir, service, command, want st
 }
 
 func runComposeServiceCommand(demoDir, service, command string) (string, error) {
-	cmd := exec.Command("docker", "compose", "exec", "-T", service, "bash", "-lc", command)
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	cmd := exec.CommandContext(ctx, "docker", "compose", "exec", "-T", service, "bash", "-lc", command)
 	cmd.Dir = demoDir
 	output, err := cmd.CombinedOutput()
+	if ctx.Err() == context.DeadlineExceeded {
+		return string(output), fmt.Errorf("command timeout: %s", command)
+	}
 	if err != nil {
 		return string(output), fmt.Errorf("%w", err)
 	}
