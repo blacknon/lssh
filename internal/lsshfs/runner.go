@@ -38,6 +38,18 @@ type Runner struct {
 	Stdout                io.Writer
 	Stderr                io.Writer
 	execCommand           func(name string, args ...string) *exec.Cmd
+	createConnect         func(*Runner) (mountConn, error)
+	waitForMountActive    func(goos, mountpoint string, timeout time.Duration) error
+	aliveCheckInterval    time.Duration
+	signalCh              <-chan os.Signal
+}
+
+type mountConn interface {
+	Close() error
+	FUSEForward(local, remote string) error
+	NFSForward(bindAddr, port, remote string) error
+	SMBForward(bindAddr, port, shareName, remote string) error
+	CheckClientAlive() error
 }
 
 func (r *Runner) Run() error {
@@ -50,8 +62,17 @@ func (r *Runner) Run() error {
 	if r.execCommand == nil {
 		r.execCommand = exec.Command
 	}
+	if r.createConnect == nil {
+		r.createConnect = createMountConn
+	}
+	if r.waitForMountActive == nil {
+		r.waitForMountActive = waitForMountActive
+	}
 	if r.GOOS == "" {
 		r.GOOS = currentGOOS
+	}
+	if r.aliveCheckInterval == 0 {
+		r.aliveCheckInterval = defaultAliveCheckInterval
 	}
 
 	backend, err := backendForGOOS(r.GOOS)
@@ -71,14 +92,7 @@ func (r *Runner) Run() error {
 		}
 	}
 
-	run := &lsshssh.Run{
-		ServerList:            []string{r.Host},
-		Conf:                  r.Config,
-		ControlMasterOverride: r.ControlMasterOverride,
-	}
-	run.CreateAuthMethodMap()
-
-	connect, err := run.CreateSshConnectDirect(r.Host)
+	connect, err := r.createConnect(r)
 	if err != nil {
 		return err
 	}
@@ -141,7 +155,7 @@ func (r *Runner) Run() error {
 		case <-time.After(defaultMountRetryDelay):
 		}
 
-		if err := waitForMountActive(r.GOOS, r.MountPoint, defaultMountActiveTimeout); err != nil {
+		if err := r.waitForMountActive(r.GOOS, r.MountPoint, defaultMountActiveTimeout); err != nil {
 			return err
 		}
 	}
@@ -150,11 +164,15 @@ func (r *Runner) Run() error {
 		r.ReadyNotifier()
 	}
 
-	sigCh := make(chan os.Signal, 1)
-	signal.Notify(sigCh, os.Interrupt, syscall.SIGTERM)
-	defer signal.Stop(sigCh)
+	sigCh := r.signalCh
+	if sigCh == nil {
+		ch := make(chan os.Signal, 1)
+		signal.Notify(ch, os.Interrupt, syscall.SIGTERM)
+		defer signal.Stop(ch)
+		sigCh = ch
+	}
 
-	ticker := time.NewTicker(defaultAliveCheckInterval)
+	ticker := time.NewTicker(r.aliveCheckInterval)
 	defer ticker.Stop()
 
 	var cleanupOnce sync.Once
@@ -187,6 +205,21 @@ func (r *Runner) Run() error {
 			return nil
 		}
 	}
+}
+
+func createMountConn(r *Runner) (mountConn, error) {
+	run := &lsshssh.Run{
+		ServerList:            []string{r.Host},
+		Conf:                  r.Config,
+		ControlMasterOverride: r.ControlMasterOverride,
+	}
+	run.CreateAuthMethodMap()
+
+	connect, err := run.CreateSshConnectDirect(r.Host)
+	if err != nil {
+		return nil, err
+	}
+	return connect, nil
 }
 
 func (r *Runner) mountWithRetry(spec CommandSpec, serveErrCh <-chan error) error {

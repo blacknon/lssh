@@ -15,6 +15,13 @@ import (
 	"github.com/urfave/cli"
 )
 
+var (
+	resolveTargetsFn = diffapp.ResolveTargets
+	fetchDocumentsFn = diffapp.FetchDocuments
+	alignDocumentsFn = diffapp.AlignDocuments
+	newViewerFn      = diffapp.NewViewer
+)
+
 func Lsdiff() (app *cli.App) {
 	defConf := common.GetDefaultConfigPath()
 
@@ -79,12 +86,12 @@ USAGE:
 			return err
 		}
 
-		targets, err := diffapp.ResolveTargets(config, c.Args())
+		targets, err := resolveTargetsFn(config, c.Args())
 		if err != nil {
 			return err
 		}
 
-		documents, err := diffapp.FetchDocuments(config, targets, controlMasterOverride)
+		documents, err := fetchDocumentsFn(config, targets, controlMasterOverride)
 		if err != nil {
 			return err
 		}
@@ -92,7 +99,7 @@ USAGE:
 			return fmt.Errorf("lsdiff requires at least two files to compare")
 		}
 
-		viewer := diffapp.NewViewer(diffapp.AlignDocuments(documents))
+		viewer := newViewerFn(alignDocumentsFn(documents))
 		return viewer.Run()
 	}
 

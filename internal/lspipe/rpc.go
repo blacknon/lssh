@@ -14,6 +14,8 @@ import (
 	"time"
 )
 
+var dialSession = DialSession
+
 const (
 	actionPing = "ping"
 	actionExec = "exec"
@@ -68,7 +70,7 @@ func DialSession(session Session) (net.Conn, error) {
 }
 
 func PingSession(session Session) bool {
-	conn, err := DialSession(session)
+	conn, err := dialSession(session)
 	if err != nil {
 		return false
 	}

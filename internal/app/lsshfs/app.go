@@ -22,6 +22,15 @@ import (
 	"github.com/urfave/cli"
 )
 
+var (
+	loadMountRecordFn    = mountfs.LoadMountRecord
+	removeMountRecordFn  = mountfs.RemoveMountRecord
+	unmountCommandsFn    = mountfs.UnmountCommands
+	normalizeMountPtFn   = mountfs.NormalizeMountPoint
+	stateFilePathFn      = mountfs.StateFilePath
+	execCommandFn        = exec.Command
+)
+
 func Lsshfs() (app *cli.App) {
 	defConf := common.GetDefaultConfigPath()
 
@@ -315,12 +324,12 @@ func printMountRecords() error {
 
 func unmountRecordedMount(mountpoint string) error {
 	goos := runtime.GOOS
-	normalizedMountPoint, err := mountfs.NormalizeMountPoint(goos, mountpoint)
+	normalizedMountPoint, err := normalizeMountPtFn(goos, mountpoint)
 	if err != nil {
 		return err
 	}
 
-	record, err := mountfs.LoadMountRecord(normalizedMountPoint)
+	record, err := loadMountRecordFn(normalizedMountPoint)
 	if err == nil && record.PID > 0 {
 		process, findErr := os.FindProcess(record.PID)
 		if findErr == nil {
@@ -335,12 +344,12 @@ func unmountRecordedMount(mountpoint string) error {
 		}
 	}
 
-	commands, err := mountfs.UnmountCommands(goos, normalizedMountPoint)
+	commands, err := unmountCommandsFn(goos, normalizedMountPoint)
 	if err != nil {
 		return err
 	}
 	for _, command := range commands {
-		cmd := exec.Command(command.Name, command.Args...)
+		cmd := execCommandFn(command.Name, command.Args...)
 		cmd.Stdout = os.Stdout
 		cmd.Stderr = os.Stderr
 		if runErr := cmd.Run(); runErr == nil {
@@ -348,12 +357,12 @@ func unmountRecordedMount(mountpoint string) error {
 		}
 	}
 
-	_ = mountfs.RemoveMountRecord(normalizedMountPoint)
+	_ = removeMountRecordFn(normalizedMountPoint)
 	return nil
 }
 
 func processStatePath(mountpoint string) string {
-	path, err := mountfs.StateFilePath(mountpoint)
+	path, err := stateFilePathFn(mountpoint)
 	if err != nil {
 		return ""
 	}

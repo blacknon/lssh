@@ -26,6 +26,47 @@ import (
 	gossh "golang.org/x/crypto/ssh"
 )
 
+type sessionConn interface {
+	CreateSession() (sessionRunner, error)
+	CheckClientAlive() error
+	Close() error
+}
+
+type sessionRunner interface {
+	StdoutPipe() (io.Reader, error)
+	StderrPipe() (io.Reader, error)
+	StdinPipe() (io.WriteCloser, error)
+	Start(string) error
+	Wait() error
+	Close() error
+}
+
+type sshConnectAdapter struct {
+	conn *sshlib.Connect
+}
+
+func (a *sshConnectAdapter) CreateSession() (sessionRunner, error) {
+	session, err := a.conn.CreateSession()
+	if err != nil {
+		return nil, err
+	}
+	return &sshSessionAdapter{session: session}, nil
+}
+
+func (a *sshConnectAdapter) CheckClientAlive() error { return a.conn.CheckClientAlive() }
+func (a *sshConnectAdapter) Close() error            { return a.conn.Close() }
+
+type sshSessionAdapter struct {
+	session *gossh.Session
+}
+
+func (a *sshSessionAdapter) StdoutPipe() (io.Reader, error)  { return a.session.StdoutPipe() }
+func (a *sshSessionAdapter) StderrPipe() (io.Reader, error)  { return a.session.StderrPipe() }
+func (a *sshSessionAdapter) StdinPipe() (io.WriteCloser, error) { return a.session.StdinPipe() }
+func (a *sshSessionAdapter) Start(command string) error      { return a.session.Start(command) }
+func (a *sshSessionAdapter) Wait() error                     { return a.session.Wait() }
+func (a *sshSessionAdapter) Close() error                    { return a.session.Close() }
+
 type Daemon struct {
 	Name                  string
 	Config                conf.Config
@@ -33,10 +74,12 @@ type Daemon struct {
 	Hosts                 []string
 	ControlMasterOverride *bool
 
-	mu       sync.RWMutex
-	conns    map[string]*sshlib.Connect
-	health   map[string]HostHealth
-	listener net.Listener
+	mu           sync.RWMutex
+	conns        map[string]sessionConn
+	health       map[string]HostHealth
+	listener     net.Listener
+	runCommandFn func(host string, req Request, sendEvent func(Event)) (int, error)
+	connectFn    func(host string) (sessionConn, error)
 }
 
 func NewDaemon(name, configPath string, config conf.Config, hosts []string, controlMasterOverride *bool) *Daemon {
@@ -48,7 +91,7 @@ func NewDaemon(name, configPath string, config conf.Config, hosts []string, cont
 		ConfigPath:            configPath,
 		Hosts:                 hosts,
 		ControlMasterOverride: controlMasterOverride,
-		conns:                 map[string]*sshlib.Connect{},
+		conns:                 map[string]sessionConn{},
 		health:                map[string]HostHealth{},
 	}
 }
@@ -159,6 +202,11 @@ func (d *Daemon) handleConn(conn net.Conn) {
 }
 
 func (d *Daemon) execRequest(enc *json.Encoder, req Request) error {
+	runCommand := d.runCommandFn
+	if runCommand == nil {
+		runCommand = d.runCommand
+	}
+
 	targets, err := d.resolveTargets(req.Hosts)
 	if err != nil {
 		return err
@@ -182,7 +230,7 @@ func (d *Daemon) execRequest(enc *json.Encoder, req Request) error {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			code, runErr := d.runCommand(host, req, sendEvent)
+			code, runErr := runCommand(host, req, sendEvent)
 			if runErr != nil {
 				sendEvent(Event{Type: "stderr", Host: host, Stream: "stderr", Data: []byte(fmt.Sprintf("%s :: %v\n", host, runErr))})
 			}
@@ -272,7 +320,7 @@ func (d *Daemon) runCommand(host string, req Request, sendEvent func(Event)) (in
 	return code, nil
 }
 
-func runSessionCommand(conn *sshlib.Connect, command string, stdin []byte, stdout io.Writer, stderr io.Writer) error {
+func runSessionCommand(conn sessionConn, command string, stdin []byte, stdout io.Writer, stderr io.Writer) error {
 	session, err := conn.CreateSession()
 	if err != nil {
 		return err
@@ -341,7 +389,7 @@ func (d *Daemon) connectAll() error {
 	return nil
 }
 
-func (d *Daemon) getOrReconnect(host string) (*sshlib.Connect, error) {
+func (d *Daemon) getOrReconnect(host string) (sessionConn, error) {
 	d.mu.RLock()
 	conn := d.conns[host]
 	d.mu.RUnlock()
@@ -356,7 +404,20 @@ func (d *Daemon) getOrReconnect(host string) (*sshlib.Connect, error) {
 	return d.connect(host)
 }
 
-func (d *Daemon) connect(host string) (*sshlib.Connect, error) {
+func (d *Daemon) connect(host string) (sessionConn, error) {
+	if d.connectFn != nil {
+		conn, err := d.connectFn(host)
+		if err != nil {
+			d.setHealth(host, HostHealth{Connected: false, Error: err.Error()})
+			return nil, err
+		}
+		d.mu.Lock()
+		d.conns[host] = conn
+		d.health[host] = HostHealth{Connected: true}
+		d.mu.Unlock()
+		return conn, nil
+	}
+
 	run := &lssh.Run{
 		ServerList:            []string{host},
 		Conf:                  d.Config,
@@ -372,12 +433,13 @@ func (d *Daemon) connect(host string) (*sshlib.Connect, error) {
 		d.setHealth(host, HostHealth{Connected: false, Error: err.Error()})
 		return nil, err
 	}
+	adapted := &sshConnectAdapter{conn: conn}
 
 	d.mu.Lock()
-	d.conns[host] = conn
+	d.conns[host] = adapted
 	d.health[host] = HostHealth{Connected: true}
 	d.mu.Unlock()
-	return conn, nil
+	return adapted, nil
 }
 
 func (d *Daemon) setHealth(host string, health HostHealth) {
