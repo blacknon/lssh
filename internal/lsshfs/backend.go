@@ -5,12 +5,16 @@
 package lsshfs
 
 import (
+	"bufio"
 	"fmt"
 	"net"
+	"os"
+	"os/exec"
 	"path/filepath"
 	"regexp"
 	"runtime"
 	"strings"
+	"time"
 )
 
 type Backend string
@@ -134,4 +138,44 @@ func pickFreePort() (int, error) {
 	}
 
 	return addr.Port, nil
+}
+
+func waitForMountActive(goos, mountpoint string, timeout time.Duration) error {
+	deadline := time.Now().Add(timeout)
+	for time.Now().Before(deadline) {
+		active, err := isMountActive(goos, mountpoint)
+		if err == nil && active {
+			return nil
+		}
+		time.Sleep(200 * time.Millisecond)
+	}
+	return fmt.Errorf("mount did not become active: %s", mountpoint)
+}
+
+func isMountActive(goos, mountpoint string) (bool, error) {
+	switch goos {
+	case "linux":
+		file, err := os.Open("/proc/self/mountinfo")
+		if err != nil {
+			return false, err
+		}
+		defer file.Close()
+
+		scanner := bufio.NewScanner(file)
+		for scanner.Scan() {
+			fields := strings.Fields(scanner.Text())
+			if len(fields) > 4 && fields[4] == mountpoint {
+				return true, nil
+			}
+		}
+		return false, scanner.Err()
+	case "darwin":
+		out, err := exec.Command("mount").Output()
+		if err != nil {
+			return false, err
+		}
+		return strings.Contains(string(out), " on "+mountpoint+" "), nil
+	default:
+		return false, nil
+	}
 }
