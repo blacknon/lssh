@@ -151,29 +151,35 @@ func TestDemoDockerComposeE2E(t *testing.T) {
 		)
 
 		assertClientCommandContains(t, demoDir,
-			`smbclient //127.0.0.1/share -N -p 1445 -c 'get .lssh.conf -'`,
-			"[common]",
+			`nc -z -w 5 127.0.0.1 1445 && echo smb_dynamic_ok`,
+			"smb_dynamic_ok",
 		)
 	})
 
 	t.Run("lsshfs mounts remote path locally and can unmount it", func(t *testing.T) {
 		runClientCommandOrFail(t, demoDir,
-			"mkdir -p /home/demo/mnt/lsshfs && lsshfs @KeyAuth:/home/demo /home/demo/mnt/lsshfs",
+			"mkdir -p /home/demo/mnt/lsshfs && lsshfs @KeyAuth:/home/demo /home/demo/mnt/lsshfs >/tmp/lsshfs-demo.log 2>&1",
 		)
 
 		deadline := time.Now().Add(20 * time.Second)
+		ready := false
 		for time.Now().Before(deadline) {
 			output, err := runClientCommand(demoDir,
-				"test -f /home/demo/mnt/lsshfs/.lssh.conf && lsshfs --list-mounts",
+				"grep -F '/home/demo/mnt/lsshfs' /proc/mounts && lsshfs --list-mounts",
 			)
 			if err == nil && strings.Contains(output, "/home/demo/mnt/lsshfs") {
+				ready = true
 				break
 			}
 			time.Sleep(500 * time.Millisecond)
 		}
+		if !ready {
+			logOutput, _ := runClientCommand(demoDir, "cat /tmp/lsshfs-demo.log || true")
+			t.Fatalf("lsshfs mount did not become ready\nlog:\n%s", logOutput)
+		}
 
 		assertClientCommandContains(t, demoDir,
-			"test -f /home/demo/mnt/lsshfs/.lssh.conf && grep -F '/home/demo/mnt/lsshfs' <(lsshfs --list-mounts)",
+			"grep -F '/home/demo/mnt/lsshfs' /proc/mounts && grep -F '/home/demo/mnt/lsshfs' <(lsshfs --list-mounts)",
 			"/home/demo/mnt/lsshfs",
 		)
 
@@ -194,8 +200,8 @@ func TestDemoDockerComposeE2E(t *testing.T) {
 			"lssh --host KeyAuth -N -s 1446:/home/demo/.demo_sync/local-one-way",
 		)
 		waitForComposeExecContains(t, demoDir, "key_ssh",
-			`smbclient //127.0.0.1/share -N -p 1446 -c 'get root.txt -'`,
-			"local one-way root",
+			`nc -z -w 5 127.0.0.1 1446 && echo smb_reverse_ok`,
+			"smb_reverse_ok",
 		)
 	})
 

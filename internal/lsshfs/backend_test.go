@@ -152,3 +152,13 @@ func TestRuntimeBackendMatchesCurrentOS(t *testing.T) {
 		t.Fatalf("runtimeBackend() = %q, want %q", got, want)
 	}
 }
+
+func TestIsMountActiveUnsupportedOS(t *testing.T) {
+	active, err := isMountActive("windows", `Z:`)
+	if err != nil {
+		t.Fatalf("isMountActive() error = %v", err)
+	}
+	if active {
+		t.Fatalf("isMountActive() = true, want false")
+	}
+}
