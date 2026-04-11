@@ -20,15 +20,19 @@ USAGE:
     lsftp [options]
 
 OPTIONS:
-    --file value, -F value  config file path (default: "/Users/blacknon/.lssh.conf")
-    --help, -h              print this help
-    --version, -v           print the version
+    --file value, -F value              config file path (default: "/Users/blacknon/.lssh.conf")
+    --generate-lssh-conf ~/.ssh/config  print generated lssh config from OpenSSH config to stdout (~/.ssh/config by default).
+    --auto-reconnect                    automatically reconnect disconnected hosts before commands
+    --help, -h                          print this help
+    --enable-control-master             temporarily enable ControlMaster for this command execution
+    --disable-control-master            temporarily disable ControlMaster for this command execution
+    --version, -v                       print the version
 
 COPYRIGHT:
     blacknon(blacknon@orebibou.com)
 
 VERSION:
-    lssh-suite 0.8.0 (stable/transfer)
+    lssh-suite 0.9.0 (stable/transfer)
 
 USAGE:
     # start lsftp shell
@@ -36,12 +40,13 @@ USAGE:
 
 ```
 
-## OverView
+## Overview
 
 ### interactive shell
 
 Start `lsftp`, select one or more hosts from the TUI list, and the `lsftp>>` prompt will open.
 When multiple hosts are selected, many operations run in parallel against the selected hosts.
+Use `--auto-reconnect` when you want disconnected hosts to be reconnected before running shell commands.
 
 ```bash
 # start lsftp shell

@@ -18,6 +18,7 @@ USAGE:
 OPTIONS:
     --host servername, -H servername            connect servername.
     --file filepath, -F filepath                config filepath. (default: "/Users/blacknon/.lssh.conf")
+    --generate-lssh-conf ~/.ssh/config          print generated lssh config from OpenSSH config to stdout (~/.ssh/config by default).
     -L [bind_address:]port:remote_address:port  Local port forward mode.Specify a [bind_address:]port:remote_address:port. Only single connection works.
     -R [bind_address:]port:remote_address:port  Remote port forward mode.Specify a [bind_address:]port:remote_address:port. If only one port is specified, it will operate as Reverse Dynamic Forward. Only single connection works.
     -D port                                     Dynamic port forward mode(Socks5). Specify a port. Only single connection works.
@@ -43,13 +44,15 @@ OPTIONS:
     --list, -l                                  print server list from config.
     --help, -h                                  print this help
     -f                                          Run in background after forwarding/connection (ssh -f like).
+    --enable-control-master                     temporarily enable ControlMaster for this command execution
+    --disable-control-master                    temporarily disable ControlMaster for this command execution
     --version, -v                               print the version
 
 COPYRIGHT:
     blacknon(blacknon@orebibou.com)
 
 VERSION:
-    lssh-suite 0.8.0 (stable/core)
+    lssh-suite 0.9.0 (stable/core)
 
 USAGE:
     # connect ssh

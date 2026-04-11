@@ -1,7 +1,10 @@
 lsshfs
 ======
 
+## About
+
 `lsshfs` mounts a remote directory from a single host in your `lssh` inventory.
+It reuses the same host selection and SSH config flow as `lssh`, but exposes the remote path through a local mount backend that depends on the client OS.
 
 - Linux clients use `FUSE`
 - macOS clients use `NFS`
@@ -11,7 +14,7 @@ The command runs in the background by default and automatically unmounts when th
 
 ## Usage
 
-```console
+```shell
 $ lsshfs --help
 NAME:
     lsshfs - Single-host SSH mount command with OS-specific local mount backends.
@@ -33,7 +36,7 @@ OPTIONS:
     --version, -v                       print the version
 
 VERSION:
-    lssh-suite 0.8.1 (alpha/unknown)
+    lssh-suite 0.9.0 (beta/transfer)
 
 USAGE:
     # mount a remote path from the selected host
@@ -50,15 +53,30 @@ USAGE:
 
 ```
 
-Examples:
+## Overview
+
+### mount a remote path locally
+
+`lsshfs` resolves exactly one target host, then mounts one remote directory to one local mountpoint.
+You can specify the host explicitly with `@host:/path`, use `-H`, or let the TUI picker choose the host for you.
 
 ```bash
 lsshfs @web01:/var/www ./mnt/web01
 lsshfs -H web01 /var/www ./mnt/web01
 lsshfs --rw @web01:/srv/app ./mnt/app
+```
+
+### inspect and unmount mounts
+
+Mounts are recorded locally so you can list them later or unmount by mountpoint.
+This is the easiest way to clean up background sessions after a long-lived mount.
+
+```bash
 lsshfs --unmount ./mnt/app
 lsshfs --list-mounts
 ```
+
+### windows mount targets
 
 Windows uses a drive letter as the mount target:
 
@@ -66,10 +84,11 @@ Windows uses a drive letter as the mount target:
 lsshfs @web01:/srv/data Z:
 ```
 
-## Notes
+### notes
 
 - `lsshfs` supports only one host at a time.
 - `@host:/path` is the preferred remote path format, but `host:/path` is still accepted for compatibility.
 - On macOS, the local mount is created with `mount_nfs`.
 - On Windows, the local mount is created with `net use` against `\\127.0.0.1\share`.
 - On Windows, binding the local SMB listener to port `445` may require elevated privileges depending on the environment.
+- The default config search order is `~/.lssh.toml`, `~/.lssh.yaml`, `~/.lssh.yml`, then `~/.lssh.conf`.
