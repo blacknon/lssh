@@ -165,6 +165,8 @@ func (s *shell) Completer(t prompt.Document) []prompt.Suggest {
 				{Text: "%outexec", Description: "%outexec <-n num> command..., exec local command with output result. result is in env variable."},
 				{Text: "%get", Description: "%get remote local, copy files from remote hosts to localhost."},
 				{Text: "%put", Description: "%put local... remote, copy local files to remote hosts."},
+				{Text: "%reconnect", Description: "%reconnect [host...], reconnect disconnected hosts."},
+				{Text: "%status", Description: "%status, show current connection status."},
 				{Text: "%sync", Description: "%sync [--delete] [--dry-run] [-p] [-P num] (local|remote):source... (local|remote):target"},
 				{Text: "%save", Description: "reserved built-in command."},
 				{Text: "%set", Description: "reserved built-in command."},
@@ -280,9 +282,30 @@ func (s *shell) getBuildInCommandSuggest(command string, t prompt.Document, targ
 				s.GetPathCompleteForConnects(targetConns, true, t.GetWordBeforeCursor()),
 			)
 		}
+
+	case "%reconnect":
+		return s.getServerStatusSuggests()
+
+	case "%status":
+		return nil
 	}
 
 	return nil
+}
+
+func (s *shell) getServerStatusSuggests() []prompt.Suggest {
+	result := make([]prompt.Suggest, 0, len(s.Connects))
+	for _, conn := range s.Connects {
+		if conn == nil {
+			continue
+		}
+		desc := "connected"
+		if !conn.Connected {
+			desc = "disconnected"
+		}
+		result = append(result, prompt.Suggest{Text: conn.Name, Description: desc})
+	}
+	return result
 }
 
 func (s *shell) getHistorySuggest() []prompt.Suggest {
@@ -319,6 +342,30 @@ func appendPathSuggests(groups ...[]prompt.Suggest) []prompt.Suggest {
 
 	sort.SliceStable(result, func(i, j int) bool { return result[i].Text < result[j].Text })
 	return result
+}
+
+func filterConnectedConnects(connects []*sConnect) []*sConnect {
+	filtered := make([]*sConnect, 0, len(connects))
+	for _, conn := range connects {
+		if conn == nil || conn.Connect == nil || !conn.Connected {
+			continue
+		}
+		filtered = append(filtered, conn)
+	}
+
+	return filtered
+}
+
+func filterLiveRemoteCompletionConnects(connects []*sConnect) []*sConnect {
+	filtered := make([]*sConnect, 0, len(connects))
+	for _, conn := range filterConnectedConnects(connects) {
+		if conn.Connect.IsControlClient() {
+			continue
+		}
+		filtered = append(filtered, conn)
+	}
+
+	return filtered
 }
 
 // GetLocalhostCommandComplete
@@ -367,7 +414,7 @@ func (s *shell) GetCommandComplete() {
 	cmdMap := map[string][]string{}
 
 	// append command to cmdMap
-	for _, c := range s.Connects {
+	for _, c := range filterConnectedConnects(s.Connects) {
 		if c == nil || c.Connect == nil {
 			continue
 		}
@@ -408,7 +455,7 @@ func (s *shell) GetCommandComplete() {
 // GetPathComplete return complete path from local or remote machine.
 // TODO(blacknon): 複数のノードにあるPATHだけ補完リストに出てる状態なので、単一ノードにしか無いファイルも出力されるよう修正する
 func (s *shell) GetPathComplete(remote bool, word string) (p []prompt.Suggest) {
-	return s.GetPathCompleteForConnects(s.Connects, remote, word)
+	return s.GetPathCompleteForConnects(filterConnectedConnects(s.Connects), remote, word)
 }
 
 func (s *shell) GetPathCompleteForConnects(connects []*sConnect, remote bool, word string) (p []prompt.Suggest) {
@@ -417,6 +464,11 @@ func (s *shell) GetPathCompleteForConnects(connects []*sConnect, remote bool, wo
 
 	switch {
 	case remote: // is remote machine
+		connects = filterLiveRemoteCompletionConnects(connects)
+		if len(connects) == 0 {
+			return nil
+		}
+
 		// create map
 		m := map[string][]string{}
 
@@ -429,7 +481,7 @@ func (s *shell) GetPathCompleteForConnects(connects []*sConnect, remote bool, wo
 		for _, c := range connects {
 			con := c
 			go func() {
-				if con == nil || con.Connect == nil {
+				if con == nil || con.Connect == nil || !con.Connected {
 					exit <- true
 					return
 				}

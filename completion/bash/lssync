@@ -4,7 +4,7 @@ _lssync_completion() {
     cur="${COMP_WORDS[COMP_CWORD]}"
     prev="${COMP_WORDS[COMP_CWORD-1]}"
 
-    local opts="--host -H --list -l --file -F --generate-lssh-conf --daemon -D --daemon-interval --bidirectional -B --parallel -P --permission -p --delete --help -h --version -v"
+    local opts="--host -H --list -l --file -F --generate-lssh-conf --daemon -D --daemon-interval --bidirectional -B --parallel -P --permission -p --dry-run --delete --enable-control-master --disable-control-master --help -h --version -v"
 
     case "${prev}" in
         --file|-F|--generate-lssh-conf)

@@ -18,9 +18,14 @@ _lssh() {
         '-Y[Enable trusted X11 forwarding to ${DISPLAY}]' \
         '(-t --term)'{-t,--term}'[Run specified command in terminal]' \
         '(-p --parallel)'{-p,--parallel}'[Run command in parallel mode]' \
+        '-P[Run shell or command in mux UI]' \
+        '--hold[Keep command panes after remote command exits]' \
+        '--allow-layout-change[Allow opening new pages or panes even in command mode]' \
         '--localrc[Use local bashrc shell]' \
         '--not-localrc[Do not use local bashrc shell]' \
         '(-l --list)'{-l,--list}'[Print server list from config]' \
+        '--enable-control-master[Temporarily enable ControlMaster for this command execution]' \
+        '--disable-control-master[Temporarily disable ControlMaster for this command execution]' \
         '(-h --help)'{-h,--help}'[Print help]' \
         '(-v --version)'{-v,--version}'[Print version]'
 

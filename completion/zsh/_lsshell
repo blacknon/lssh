@@ -9,6 +9,8 @@ _lsshell() {
         '-m[NFS reverse dynamic forward mode]:port/path:_files' \
         '(-t --term)'{-t,--term}'[Run specified command in terminal]' \
         '(-l --list)'{-l,--list}'[Print server list from config]' \
+        '--enable-control-master[Temporarily enable ControlMaster for this command execution]' \
+        '--disable-control-master[Temporarily disable ControlMaster for this command execution]' \
         '(-h --help)'{-h,--help}'[Print this help]' \
         '(-v --version)'{-v,--version}'[Print the version]'
 }

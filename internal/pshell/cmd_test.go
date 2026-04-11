@@ -61,6 +61,8 @@ func TestCheckBuildInCommand(t *testing.T) {
 	}{
 		{name: "sync", in: "%sync", want: true},
 		{name: "get", in: "%get", want: true},
+		{name: "status", in: "%status", want: true},
+		{name: "reconnect", in: "%reconnect", want: true},
 		{name: "plain remote", in: "hostname", want: false},
 	}
 

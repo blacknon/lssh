@@ -7,7 +7,10 @@ complete -c lssync -l daemon-interval -d "Set daemon sync interval" -r
 complete -c lssync -l bidirectional -s B -d "Sync both sides"
 complete -c lssync -l parallel -s P -d "Parallel file sync count per host" -r
 complete -c lssync -l permission -s p -d "Copy file permission"
+complete -c lssync -l dry-run -d "Show sync actions without modifying files"
 complete -c lssync -l delete -d "Delete destination entries missing in source"
+complete -c lssync -l enable-control-master -d "Temporarily enable ControlMaster for this command execution"
+complete -c lssync -l disable-control-master -d "Temporarily disable ControlMaster for this command execution"
 complete -c lssync -l help -s h -d "Print help"
 complete -c lssync -l version -s v -d "Print version"
 complete -c lssync -f -a "local: remote:"

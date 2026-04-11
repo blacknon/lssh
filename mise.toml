@@ -42,14 +42,14 @@ run = """
 description = "Install shell completion files for bash, zsh, and fish under /usr/local"
 depends = []
 run = """
-    sudo mkdir -p /usr/local/share/bash-completion/completions
-    sudo cp completion/bash/* /usr/local/share/bash-completion/completions/
+    mkdir -p /usr/local/share/bash-completion/completions
+    cp completion/bash/* /usr/local/share/bash-completion/completions/
 
-    sudo mkdir -p /usr/local/share/zsh/site-functions
-    sudo cp completion/zsh/* /usr/local/share/zsh/site-functions/
+    mkdir -p /usr/local/share/zsh/site-functions
+    cp completion/zsh/* /usr/local/share/zsh/site-functions/
 
-    sudo mkdir -p /usr/local/share/fish/vendor_completions.d
-    sudo cp completion/fish/* /usr/local/share/fish/vendor_completions.d/
+    mkdir -p /usr/local/share/fish/vendor_completions.d
+    cp completion/fish/* /usr/local/share/fish/vendor_completions.d/
 """
 
 [tasks.full_test]
@@ -87,7 +87,7 @@ run = """
 description = "Install binary file only lssh"
 depends = ["core_build"]
 run = """
-    sudo cp lssh /usr/local/bin/lssh
+    cp lssh /usr/local/bin/lssh
 """
 
 [tasks.core_test]
@@ -123,9 +123,9 @@ run = """
 description = "Install binary file only lscp, lsftp, and lssync"
 depends = ["transfer_build"]
 run = """
-    sudo cp lscp /usr/local/bin/lscp
-    sudo cp lsftp /usr/local/bin/lsftp
-    sudo cp lssync /usr/local/bin/lssync
+    cp lscp /usr/local/bin/lscp
+    cp lsftp /usr/local/bin/lsftp
+    cp lssync /usr/local/bin/lssync
 """
 
 [tasks.transfer_test]
@@ -160,7 +160,7 @@ run = """
 description = "Install binary file only lsmon"
 depends = ["monitor_build"]
 run = """
-    sudo cp lsmon /usr/local/bin/lsmon
+    cp lsmon /usr/local/bin/lsmon
 """
 
 [tasks.monitor_test]
@@ -194,8 +194,8 @@ run = """
 description = "Install binary files only lsshell and lsmux"
 depends = ["sysadmin_build"]
 run = """
-    sudo cp lsshell /usr/local/bin/lsshell
-    sudo cp lsmux /usr/local/bin/lsmux
+    cp lsshell /usr/local/bin/lsshell
+    cp lsmux /usr/local/bin/lsmux
 """
 
 [tasks.sysadmin_test]

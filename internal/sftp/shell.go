@@ -98,7 +98,24 @@ func (r *RunSftp) Executor(command string) {
 	case "bye", "exit", "quit":
 		os.Exit(0)
 	case "help", "?":
+	case "status":
+		r.status(cmdline)
+		return
+	case "reconnect":
+		r.reconnectCommand(cmdline)
+		return
+	default:
+		if r.AutoReconnect {
+			r.reconnectDisconnected()
+		}
+	}
 
+	if !r.hasConnectedClients() {
+		fmt.Fprintln(os.Stderr, "Error: no connected hosts. Use reconnect or enable auto reconnect.")
+		return
+	}
+
+	switch cmdline[0] {
 	case "cat":
 		r.cat(cmdline)
 	case "cd": // change remote directory
@@ -200,8 +217,10 @@ func (r *RunSftp) Completer(t prompt.Document) []prompt.Suggest {
 			{Text: "pwd", Description: "Display remote working directory"},
 			{Text: "quit", Description: "Quit sftp"},
 			{Text: "rename", Description: "Rename remote file"},
+			{Text: "reconnect", Description: "Reconnect disconnected hosts"},
 			{Text: "rm", Description: "Delete remote file"},
 			{Text: "rmdir", Description: "Remove remote directory"},
+			{Text: "status", Description: "Show current connection status"},
 			{Text: "symlink", Description: "Create symbolic link"},
 			{Text: "sync", Description: "One-way sync between local and remote paths"},
 			{Text: "tree", Description: "Tree view remote directory"},
@@ -367,6 +386,8 @@ func (r *RunSftp) Completer(t prompt.Document) []prompt.Suggest {
 			}
 		case "pwd":
 		case "quit":
+		case "reconnect":
+			return prompt.FilterHasPrefix(r.serverSuggests(), t.GetWordBeforeCursor(), false)
 		case "rename":
 			switch {
 			case strings.Count(t.CurrentLineBeforeCursor(), " ") == 1: // with select server
@@ -378,6 +399,8 @@ func (r *RunSftp) Completer(t prompt.Document) []prompt.Suggest {
 			return r.PathComplete(true, false, false, t)
 		case "rmdir":
 			return r.PathComplete(true, false, false, t)
+		case "status":
+			return nil
 		case "symlink":
 			switch {
 			case strings.Count(t.CurrentLineBeforeCursor(), " ") == 1: // with select server
@@ -415,6 +438,22 @@ func (r *RunSftp) Completer(t prompt.Document) []prompt.Suggest {
 
 	// return prompt.FilterHasPrefix(suggest, t.GetWordBeforeCursor(), true)
 	return prompt.FilterHasPrefix(suggest, t.GetWordBeforeCursor(), false)
+}
+
+func (r *RunSftp) serverSuggests() []prompt.Suggest {
+	clients := r.listClients()
+	result := make([]prompt.Suggest, 0, len(clients))
+	for _, client := range clients {
+		if client == nil {
+			continue
+		}
+		desc := "connected"
+		if !client.Connected {
+			desc = "disconnected"
+		}
+		result = append(result, prompt.Suggest{Text: client.Server, Description: desc})
+	}
+	return result
 }
 
 func (r *RunSftp) CopyPathComplete(t prompt.Document) []prompt.Suggest {
@@ -600,7 +639,7 @@ func (r *RunSftp) GetRemoteComplete(ishost, ispath, useTargetmap bool, path stri
 		}
 
 		for server, client := range r.Client {
-			if common.Contains(parsedservers, server) {
+			if common.Contains(parsedservers, server) && client != nil && client.Connected && client.Connect != nil {
 				targetmap[server] = client
 			}
 		}
@@ -616,6 +655,11 @@ func (r *RunSftp) GetRemoteComplete(ishost, ispath, useTargetmap bool, path stri
 		client := c
 
 		go func() {
+			if client == nil || !client.Connected || client.Connect == nil {
+				exit <- true
+				return
+			}
+
 			// set rpath
 			var rpath string
 
@@ -816,7 +860,7 @@ func (r *RunSftp) CreatePrompt() (p string, result bool) {
 // exitChecker return true if all connections are disconnected or if the `exit` command is entered.
 // This function used in `prompt.OptionSetExitCheckerOnInput`.
 func (r *RunSftp) exitChecker(in string, breakline bool) bool {
-	if breakline {
+	if breakline && r.hasConnectedClients() {
 		r.checkKeepalive()
 	}
 
@@ -828,6 +872,16 @@ func (r *RunSftp) exitChecker(in string, breakline bool) bool {
 		os.Exit(1)
 
 		return true
+	}
+
+	return false
+}
+
+func (r *RunSftp) hasConnectedClients() bool {
+	for _, client := range r.listClients() {
+		if client != nil && client.Connected && client.Connect != nil {
+			return true
+		}
 	}
 
 	return false

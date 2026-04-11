@@ -7,5 +7,7 @@ complete -c lsmux -s m -d "NFS reverse dynamic forward mode" -r
 complete -c lsmux -l hold -d "Keep command panes after remote command exits"
 complete -c lsmux -l allow-layout-change -d "Allow opening new pages or panes even in command mode"
 complete -c lsmux -l list -s l -d "Print server list from config"
+complete -c lsmux -l enable-control-master -d "Temporarily enable ControlMaster for this command execution"
+complete -c lsmux -l disable-control-master -d "Temporarily disable ControlMaster for this command execution"
 complete -c lsmux -l help -s h -d "Print help"
 complete -c lsmux -l version -s v -d "Print version"
