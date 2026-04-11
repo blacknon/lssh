@@ -56,6 +56,7 @@ USAGE:
 	app.Flags = []cli.Flag{
 		cli.StringFlag{Name: "file,F", Value: defConf, Usage: "config file path"},
 		cli.StringFlag{Name: "generate-lssh-conf", Usage: "print generated lssh config from OpenSSH config to stdout (`~/.ssh/config` by default)."},
+		cli.BoolFlag{Name: "auto-reconnect", Usage: "automatically reconnect disconnected hosts before commands"},
 		cli.BoolFlag{Name: "help,h", Usage: "print this help"},
 	}
 	app.Flags = append(app.Flags, common.ControlMasterOverrideFlags()...)
@@ -118,6 +119,7 @@ USAGE:
 		runSftp.Config = data
 		runSftp.SelectServer = selected
 		runSftp.ControlMasterOverride = controlMasterOverride
+		runSftp.AutoReconnect = c.Bool("auto-reconnect")
 
 		// start lsftp shell
 		runSftp.Start()

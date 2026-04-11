@@ -22,6 +22,8 @@ complete -c lssh -l allow-layout-change -d "Allow opening new pages or panes eve
 complete -c lssh -l localrc -d "Use local bashrc shell"
 complete -c lssh -l not-localrc -d "Do not use local bashrc shell"
 complete -c lssh -l list -s l -d "Print server list from config"
+complete -c lssh -l enable-control-master -d "Temporarily enable ControlMaster for this command execution"
+complete -c lssh -l disable-control-master -d "Temporarily disable ControlMaster for this command execution"
 complete -c lssh -l help -s h -d "Print help"
 complete -c lssh -l version -s v -d "Print version"
 complete -c lssh -s f -d "Run in background after forwarding or connection"

@@ -10,7 +10,10 @@ _lssync() {
         '(-B --bidirectional)'{-B,--bidirectional}'[Sync both sides and copy newer changes in either direction]' \
         '(-P --parallel)'{-P,--parallel}'[Parallel file sync count per host]:count:' \
         '(-p --permission)'{-p,--permission}'[Copy file permission]' \
+        '--dry-run[Show sync actions without modifying files]' \
         '--delete[Delete destination entries that do not exist in source]' \
+        '--enable-control-master[Temporarily enable ControlMaster for this command execution]' \
+        '--disable-control-master[Temporarily disable ControlMaster for this command execution]' \
         '(-h --help)'{-h,--help}'[Print this help]' \
         '(-v --version)'{-v,--version}'[Print the version]' \
         '*:sync_path:_lssync_path_completion'

@@ -284,6 +284,10 @@ func (r *RunSftp) get(args []string) {
 }
 
 func (r *RunSftp) enqueuePullTasks(ctx context.Context, client *TargetConnectMap, path, targetpath string, isdir bool, enqueue func(task pullTask) error) error {
+	if err := ensureTargetConnectAvailable(client); err != nil {
+		return err
+	}
+
 	ow := client.Output.NewWriter()
 	defer ow.Close()
 
@@ -380,6 +384,10 @@ func (r *RunSftp) enqueuePullTasks(ctx context.Context, client *TargetConnectMap
 
 // pullData
 func (r *RunSftp) pullData(ctx context.Context, client *TargetConnectMap, task pullTask) (err error) {
+	if err = ensureTargetConnectAvailable(client); err != nil {
+		return
+	}
+
 	filePerm := GeneratePermWithUmask([]string{"0", "6", "6", "6"}, r.LocalUmask)
 	ow := client.Output.NewWriter()
 	defer ow.Close()

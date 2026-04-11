@@ -1,4 +1,7 @@
 complete -c lsftp -l file -s F -d "Specify config file path" -r -a "(__fish_complete_path)"
 complete -c lsftp -l generate-lssh-conf -d "Print generated lssh config from OpenSSH config" -r -a "(__fish_complete_path)"
+complete -c lsftp -l auto-reconnect -d "Automatically reconnect disconnected hosts before commands"
+complete -c lsftp -l enable-control-master -d "Temporarily enable ControlMaster for this command execution"
+complete -c lsftp -l disable-control-master -d "Temporarily disable ControlMaster for this command execution"
 complete -c lsftp -l help -s h -d "Print help"
 complete -c lsftp -l version -s v -d "Print version"

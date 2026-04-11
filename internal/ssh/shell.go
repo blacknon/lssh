@@ -7,6 +7,7 @@ package ssh
 import (
 	"errors"
 	"fmt"
+	"io"
 	"log"
 	"os"
 	"os/user"
@@ -100,6 +101,22 @@ func (r *Run) shell() (err error) {
 	connect, err := r.CreateSshConnect(server)
 	if err != nil {
 		return
+	}
+
+	if connect.IsControlClient() {
+		if validateErr := validateControlMasterClient(connect); validateErr != nil {
+			if isControlMasterRemoteExit255(validateErr) {
+				if connect.ControlPath != "" {
+					_ = os.Remove(connect.ControlPath)
+				}
+				connect, err = r.CreateSshConnect(server)
+				if err != nil {
+					return
+				}
+			} else {
+				return validateErr
+			}
+		}
 	}
 
 	// Print connection info (Local rc, ControlMaster state, etc.).
@@ -311,9 +328,7 @@ func localrcShell(connect *sshlib.Connect, session *ssh.Session, localrcPath []s
 
 	}
 
-	connect.CmdShell(session, cmd)
-
-	return
+	return connect.CmdShell(session, cmd)
 }
 
 func localrcArchiveMode(compress bool) int {
@@ -322,4 +337,22 @@ func localrcArchiveMode(compress bool) int {
 	}
 
 	return common.ARCHIVE_NONE
+}
+
+func validateControlMasterClient(connect *sshlib.Connect) error {
+	if connect == nil || !connect.IsControlClient() {
+		return nil
+	}
+
+	clone := *connect
+	clone.Stdin = nil
+	clone.Stdout = io.Discard
+	clone.Stderr = io.Discard
+	clone.TTY = false
+
+	return clone.Command("true")
+}
+
+func isControlMasterRemoteExit255(err error) bool {
+	return err != nil && strings.Contains(err.Error(), "sshlib: remote command exited with status 255")
 }

@@ -60,6 +60,7 @@ func checkBuildInCommand(cmd string) (isBuildInCmd bool) {
 		"%history",
 		"%out", "%outlist", "%outexec",
 		"%get", "%put", "%sync",
+		"%status", "%reconnect",
 		"%save",
 		"%set": // parsent build-in command.
 		isBuildInCmd = true
@@ -105,7 +106,8 @@ func (s *shell) run(pline pipeLine, in *io.PipeReader, out *io.PipeWriter, ch ch
 	switch command {
 	// exit or quit
 	case "exit", "quit":
-		os.Exit(0)
+		s.exit(0, "")
+		return
 
 	// clear
 	case "clear":
@@ -162,6 +164,12 @@ func (s *shell) run(pline pipeLine, in *io.PipeReader, out *io.PipeWriter, ch ch
 	// %sync local:/path... remote:/path
 	case "%sync":
 		s.buildin_sync(pline.Args, out, ch)
+		return
+	case "%status":
+		s.buildin_status(out, ch)
+		return
+	case "%reconnect":
+		s.buildin_reconnect(pline.Args, out, ch)
 		return
 	}
 
@@ -245,6 +253,9 @@ func expandRemotePath(client *pkgsftp.Client, path string) ([]string, error) {
 func (s *shell) openSFTPClient(conn *sConnect) (*pkgsftp.Client, func(), error) {
 	if conn == nil || conn.Connect == nil {
 		return nil, func() {}, fmt.Errorf("sftp unavailable")
+	}
+	if !conn.Connected {
+		return nil, func() {}, fmt.Errorf("host %s is disconnected; use %%reconnect", conn.Name)
 	}
 
 	if conn.Connect.Client != nil {
@@ -463,6 +474,63 @@ func parseDryRunFlag(args []string) (bool, []string) {
 	}
 
 	return dryRun, filtered
+}
+
+func (s *shell) buildin_status(out *io.PipeWriter, ch chan<- bool) {
+	stdout := setOutput(out)
+	s.checkKeepalive(true)
+	for _, conn := range s.Connects {
+		if conn == nil {
+			continue
+		}
+		state := "connected"
+		if !conn.Connected {
+			state = "disconnected"
+		}
+		if conn.LastError != "" {
+			fmt.Fprintf(stdout, "%s\t%s\t%s\n", conn.Name, state, conn.LastError)
+		} else {
+			fmt.Fprintf(stdout, "%s\t%s\n", conn.Name, state)
+		}
+	}
+	if out != nil {
+		out.CloseWithError(io.ErrClosedPipe)
+	}
+	ch <- true
+}
+
+func (s *shell) buildin_reconnect(args []string, out *io.PipeWriter, ch chan<- bool) {
+	stdout := setOutput(out)
+	targets := args[1:]
+	if len(targets) == 0 {
+		for _, conn := range s.Connects {
+			if conn != nil && !conn.Connected {
+				targets = append(targets, conn.Name)
+			}
+		}
+	}
+
+	if len(targets) == 0 {
+		fmt.Fprintln(stdout, "No disconnected hosts.")
+		if out != nil {
+			out.CloseWithError(io.ErrClosedPipe)
+		}
+		ch <- true
+		return
+	}
+
+	for _, name := range targets {
+		if err := s.reconnect(name); err != nil {
+			fmt.Fprintf(stdout, "%s\treconnect failed\t%s\n", name, err)
+			continue
+		}
+		fmt.Fprintf(stdout, "%s\treconnected\n", name)
+	}
+
+	if out != nil {
+		out.CloseWithError(io.ErrClosedPipe)
+	}
+	ch <- true
 }
 
 func (s *shell) buildin_get(args []string, out *io.PipeWriter, ch chan<- bool) {
@@ -1097,6 +1165,26 @@ func (s *shell) executeRemotePipeLine(pline pipeLine, in *io.PipeReader, out *io
 
 	// runCount tracks total goroutines writing to exit channel
 	runCount := 0
+
+	active := make([]*sConnect, 0, len(connects))
+	for _, c := range connects {
+		if c == nil {
+			continue
+		}
+		if !c.Connected {
+			fmt.Fprintf(os.Stderr, "%s is disconnected. Use %%reconnect.\n", c.Name)
+			continue
+		}
+		active = append(active, c)
+	}
+	connects = active
+	if len(connects) == 0 {
+		if out != nil {
+			out.CloseWithError(io.ErrClosedPipe)
+		}
+		ch <- true
+		return
+	}
 
 	for _, c := range connects {
 		if c == nil || c.Connect == nil {

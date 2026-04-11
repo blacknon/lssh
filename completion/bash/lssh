@@ -4,7 +4,7 @@ _lssh_completion() {
     cur="${COMP_WORDS[COMP_CWORD]}"
     prev="${COMP_WORDS[COMP_CWORD-1]}"
 
-    local opts="--host -H --file -F --generate-lssh-conf -L -R -D -d -r -M -m --tunnel -w -W --not-execute -N --X11 -X -Y --term -t --parallel -p -P --hold --allow-layout-change --localrc --not-localrc --list -l --help -h --version -v -f"
+    local opts="--host -H --file -F --generate-lssh-conf -L -R -D -d -r -M -m --tunnel -w -W --not-execute -N --X11 -X -Y --term -t --parallel -p -P --hold --allow-layout-change --localrc --not-localrc --list -l --enable-control-master --disable-control-master --help -h --version -v -f"
 
     case "${prev}" in
         --file|-F|--generate-lssh-conf|-L|-R|-M|-m)

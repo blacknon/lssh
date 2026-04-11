@@ -8,6 +8,8 @@ _lsmon() {
         '(-s --share-connect)'{-s,--share-connect}'[Reuse the monitor SSH connection for terminals]' \
         '(-l --list)'{-l,--list}'[Print server list from config]' \
         '--debug[Enable pprof on localhost:6060]' \
+        '--enable-control-master[Temporarily enable ControlMaster for this command execution]' \
+        '--disable-control-master[Temporarily disable ControlMaster for this command execution]' \
         '(-h --help)'{-h,--help}'[Print this help]' \
         '(-v --version)'{-v,--version}'[Print the version]'
 }

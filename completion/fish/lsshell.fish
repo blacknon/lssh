@@ -6,5 +6,7 @@ complete -c lsshell -s r -d "HTTP reverse dynamic port forward mode" -r
 complete -c lsshell -s m -d "NFS reverse dynamic forward mode" -r
 complete -c lsshell -l term -s t -d "Run specified command in terminal"
 complete -c lsshell -l list -s l -d "Print server list from config"
+complete -c lsshell -l enable-control-master -d "Temporarily enable ControlMaster for this command execution"
+complete -c lsshell -l disable-control-master -d "Temporarily disable ControlMaster for this command execution"
 complete -c lsshell -l help -s h -d "Print help"
 complete -c lsshell -l version -s v -d "Print version"
