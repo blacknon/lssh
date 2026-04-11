@@ -208,6 +208,7 @@ Each tool uses the same TUI-based host selection flow.
 | `lsshfs` | A single-host mount command that chooses FUSE on Linux, NFS on macOS, and SMB on Windows so remote files can be mounted with the same inventory. | [cmd/lsshfs/README.md](./cmd/lsshfs/README.md) |
 | `lsshell` | A parallel interactive shell for working across multiple hosts at once, with support for broadcasting commands, targeting specific hosts, and combining pipelines with the local host. | [cmd/lsshell/README.md](./cmd/lsshell/README.md) |
 | `lsmux` | A pane-based, tmux-like SSH workspace for keeping multiple remote sessions visible at once and running commands in a split-terminal layout. | [cmd/lsmux/README.md](./cmd/lsmux/README.md) |
+| `lspipe` | A persistent pipe-oriented runner that keeps a selected host set in the background and lets you reuse it from local shell pipelines. | [cmd/lspipe/README.md](./cmd/lspipe/README.md) |
 | `lsmon` | A multi-host monitoring TUI that shows CPU, memory, disk, network, and process information over SSH, and can open a terminal to the selected host without requiring agents on the remote hosts. | [cmd/lsmon/README.md](./cmd/lsmon/README.md) |
 
 If all you need is SSH access, start with `lssh`.

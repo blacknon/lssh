@@ -41,11 +41,11 @@ sudo dnf install -y /tmp/lssh.rpm
 
 | Package | Includes | Best for |
 | --- | --- | --- |
-| `lssh_*` | `lssh`, `lscp`, `lsftp`, `lssync`, `lsdiff`, `lsshfs`, `lsmon`, `lsshell`, `lsmux` | Full installation of the entire tool suite |
+| `lssh_*` | `lssh`, `lscp`, `lsftp`, `lssync`, `lsdiff`, `lsshfs`, `lsmon`, `lsshell`, `lsmux`, `lspipe` | Full installation of the entire tool suite |
 | `lssh-core_*` | `lssh` | SSH access and forwarding only |
 | `lssh-transfer_*` | `lscp`, `lsftp`, `lssync`, `lsdiff`, `lsshfs` | File transfer, diff, and mount workflows only |
 | `lssh-monitor_*` | `lsmon` | Monitoring multiple remote hosts |
-| `lssh-sysadmin_*` | `lsshell`, `lsmux` | Parallel shell and multi-host operations |
+| `lssh-sysadmin_*` | `lsshell`, `lsmux`, `lspipe` | Parallel shell and multi-host operations |
 
 ## go install
 
@@ -61,6 +61,7 @@ go install github.com/blacknon/lssh/cmd/lsshfs@latest
 go install github.com/blacknon/lssh/cmd/lsshell@latest
 go install github.com/blacknon/lssh/cmd/lsmon@latest
 go install github.com/blacknon/lssh/cmd/lsmux@latest
+go install github.com/blacknon/lssh/cmd/lspipe@latest
 ```
 
 ## Homebrew
