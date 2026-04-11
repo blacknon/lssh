@@ -60,6 +60,9 @@ func ForCommand(name string) Info {
 	case "lssync":
 		info.Domain = Transfer
 		info.Maturity = Beta
+	case "lsshfs":
+		info.Domain = Transfer
+		info.Maturity = Beta
 
 	// Monitor
 	case "lsmon":
@@ -71,6 +74,9 @@ func ForCommand(name string) Info {
 		info.Domain = Sysadmin
 		info.Maturity = Beta
 	case "lsmux":
+		info.Domain = Sysadmin
+		info.Maturity = Beta
+	case "lsdiff":
 		info.Domain = Sysadmin
 		info.Maturity = Beta
 	}

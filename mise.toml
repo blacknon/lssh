@@ -102,42 +102,47 @@ run = """
 # Note: Transferは、lscpとlsftpとlssyncを対象とするタスク。これらはcoreに含まれるため、coreのタスクでビルド・インストールされる。
 # ====================
 [tasks.transfer_build]
-description = "Build binary file only lscp, lsftp, lssync, and lsshfs"
+description = "Build binary file only lscp, lsftp, lssync, lsdiff, and lsshfs"
 depends = ["transfer_clean", "go_mod"]
 run = """
     go build -o lscp ./cmd/lscp
     go build -o lsftp ./cmd/lsftp
     go build -o lssync ./cmd/lssync
+    go build -o lsdiff ./cmd/lsdiff
     go build -o lsshfs ./cmd/lsshfs
 """
 
 [tasks.transfer_clean]
-description = "Clean binary file only lscp, lsftp, lssync, and lsshfs"
+description = "Clean binary file only lscp, lsftp, lssync, lsdiff, and lsshfs"
 depends = []
 run = """
     rm -f lscp
     rm -f lsftp
     rm -f lssync
+    rm -f lsdiff
     rm -f lsshfs
 """
 
 [tasks.transfer_install]
-description = "Install binary file only lscp, lsftp, lssync, and lsshfs"
+description = "Install binary file only lscp, lsftp, lssync, lsdiff, and lsshfs"
 depends = ["transfer_build"]
 run = """
     cp lscp /usr/local/bin/lscp
     cp lsftp /usr/local/bin/lsftp
     cp lssync /usr/local/bin/lssync
+    cp lsdiff /usr/local/bin/lsdiff
     cp lsshfs /usr/local/bin/lsshfs
 """
 
 [tasks.transfer_test]
-description = "Run go test for lscp, lsftp, lssync, and lsshfs"
+description = "Run go test for lscp, lsftp, lssync, lsdiff, and lsshfs"
 depends = ["go_mod"]
 run = """
     go test -v ./internal/app/lscp/...
     go test -v ./internal/app/lsftp/...
     go test -v ./internal/app/lssync/...
+    go test -v ./internal/app/lsdiff/...
+    go test -v ./internal/lsdiff/...
     go test -v ./internal/app/lsshfs/...
     go test -v ./internal/lsshfs/...
     go test -v ./internal/sync/...
