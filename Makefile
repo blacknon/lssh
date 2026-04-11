@@ -18,6 +18,7 @@ BUILDCMD_LSFTP=$(GOBUILD) ./cmd/lsftp
 BUILDCMD_LSSYNC=$(GOBUILD) ./cmd/lssync
 BUILDCMD_LSMON=$(GOBUILD) ./cmd/lsmon
 BUILDCMD_LSSHELL=$(GOBUILD) ./cmd/lsshell
+BUILDCMD_LSPIPE=$(GOBUILD) ./cmd/lspipe
 
 # install path
 INSTALL_PATH_LSSH=/usr/local/bin/lssh
@@ -26,6 +27,7 @@ INSTALL_PATH_LSFTP=/usr/local/bin/lsftp
 INSTALL_PATH_LSSYNC=/usr/local/bin/lssync
 INSTALL_PATH_LSSHELL=/usr/local/bin/lsshell
 INSTALL_PATH_LSMON=/usr/local/bin/lsmon
+INSTALL_PATH_LSPIPE=/usr/local/bin/lspipe
 
 build:
 	# Remove unnecessary dependent libraries
@@ -45,6 +47,8 @@ build:
 	$(BUILDCMD_LSMON)
 	# Build lsshell
 	$(BUILDCMD_LSSHELL)
+	# Build lspipe
+	$(BUILDCMD_LSPIPE)
 
 clean:
 	$(GOCLEAN) ./...
@@ -54,6 +58,7 @@ clean:
 	rm -f lssync
 	rm -f lsmon
 	rm -f lsshell
+	rm -f lspipe
 
 install:
 	# rm old binary
@@ -63,6 +68,7 @@ install:
 	[ -e $(INSTALL_PATH_LSSYNC) ] && rm $(INSTALL_PATH_LSSYNC) || true
 	[ -e $(INSTALL_PATH_LSSHELL) ] && rm $(INSTALL_PATH_LSSHELL) || true
 	[ -e $(INSTALL_PATH_LSMON) ] && rm $(INSTALL_PATH_LSMON) || true
+	[ -e $(INSTALL_PATH_LSPIPE) ] && rm $(INSTALL_PATH_LSPIPE) || true
 
 	# copy binary to /usr/local/bin/
 	cp lssh $(INSTALL_PATH_LSSH)
@@ -71,6 +77,7 @@ install:
 	cp lssync $(INSTALL_PATH_LSSYNC)
 	cp lsshell $(INSTALL_PATH_LSSHELL)
 	cp lsmon $(INSTALL_PATH_LSMON)
+	cp lspipe $(INSTALL_PATH_LSPIPE)
 
 	# copy template config file
 	cp -n example/config.tml ~/.lssh.conf || true

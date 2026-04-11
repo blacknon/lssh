@@ -185,35 +185,40 @@ run = """
 # Note: Sysadminは、lsshell, lsmuxのみを対象とするタスク。lsshはcoreに含まれるため、coreのタスクでビルド・インストールされる。
 # ====================
 [tasks.sysadmin_build]
-description = "Build binary files only lsshell and lsmux"
+description = "Build binary files only lsshell, lsmux, and lspipe"
 depends = ["sysadmin_clean", "go_mod"]
 run = """
     go build -o lsshell ./cmd/lsshell
     go build -o lsmux ./cmd/lsmux
+    go build -o lspipe ./cmd/lspipe
 """
 
 [tasks.sysadmin_clean]
-description = "Clean binary files only lsshell and lsmux"
+description = "Clean binary files only lsshell, lsmux, and lspipe"
 depends = []
 run = """
     rm -f lsshell
     rm -f lsmux
+    rm -f lspipe
 """
 
 [tasks.sysadmin_install]
-description = "Install binary files only lsshell and lsmux"
+description = "Install binary files only lsshell, lsmux, and lspipe"
 depends = ["sysadmin_build"]
 run = """
     cp lsshell /usr/local/bin/lsshell
     cp lsmux /usr/local/bin/lsmux
+    cp lspipe /usr/local/bin/lspipe
 """
 
 [tasks.sysadmin_test]
-description = "Run go test for lsshell and lsmux"
+description = "Run go test for lsshell, lsmux, and lspipe"
 depends = ["go_mod"]
 run = """
     go test -v ./internal/app/lsshell/...
     go test -v ./internal/app/lsmux/...
+    go test -v ./internal/app/lspipe/...
+    go test -v ./internal/lspipe/...
 """
 
 # Tasks(Demo)
