@@ -129,7 +129,10 @@ func collectDefinedMatchKeys(md toml.MetaData, serverName, branchName string) ma
 		"port_forward_local", "port_forward_remote", "port_forwards", "dynamic_port_forward",
 		"reverse_dynamic_port_forward", "http_dynamic_port_forward",
 		"http_reverse_dynamic_port_forward", "nfs_dynamic_forward", "nfs_dynamic_forward_path",
-		"nfs_reverse_dynamic_forward", "nfs_reverse_dynamic_forward_path", "x11", "x11_trusted",
+		"nfs_reverse_dynamic_forward", "nfs_reverse_dynamic_forward_path",
+		"smb_dynamic_forward", "smb_dynamic_forward_path",
+		"smb_reverse_dynamic_forward", "smb_reverse_dynamic_forward_path",
+		"x11", "x11_trusted",
 		"connect_timeout", "alive_max", "alive_interval", "check_known_hosts",
 		"known_hosts_files", "control_master", "control_path", "control_persist", "note", "ignore",
 	}
@@ -217,7 +220,10 @@ func collectDefinedYAMLMatchKeys(branchNode *yaml.Node) map[string]bool {
 		"port_forward_local", "port_forward_remote", "port_forwards", "dynamic_port_forward",
 		"reverse_dynamic_port_forward", "http_dynamic_port_forward",
 		"http_reverse_dynamic_port_forward", "nfs_dynamic_forward", "nfs_dynamic_forward_path",
-		"nfs_reverse_dynamic_forward", "nfs_reverse_dynamic_forward_path", "x11", "x11_trusted",
+		"nfs_reverse_dynamic_forward", "nfs_reverse_dynamic_forward_path",
+		"smb_dynamic_forward", "smb_dynamic_forward_path",
+		"smb_reverse_dynamic_forward", "smb_reverse_dynamic_forward_path",
+		"x11", "x11_trusted",
 		"connect_timeout", "alive_max", "alive_interval", "check_known_hosts",
 		"known_hosts_files", "control_master", "control_path", "control_persist", "note", "ignore",
 	}

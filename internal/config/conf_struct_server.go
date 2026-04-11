@@ -110,6 +110,22 @@ type ServerConfig struct {
 	// ex.) "/path/to/local"
 	NFSReverseDynamicForwardPath string `toml:"nfs_reverse_dynamic_forward_path" yaml:"nfs_reverse_dynamic_forward_path"`
 
+	// SMB Dynamic Forward port setting
+	// ex.) "12445"
+	SMBDynamicForwardPort string `toml:"smb_dynamic_forward" yaml:"smb_dynamic_forward"`
+
+	// SMB Dynamic Forward path setting
+	// ex.) "/path/to/remote"
+	SMBDynamicForwardPath string `toml:"smb_dynamic_forward_path" yaml:"smb_dynamic_forward_path"`
+
+	// SMB Reverse Dynamic Forward port setting
+	// ex.) "12445"
+	SMBReverseDynamicForwardPort string `toml:"smb_reverse_dynamic_forward" yaml:"smb_reverse_dynamic_forward"`
+
+	// SMB Reverse Dynamic Forward path setting
+	// ex.) "/path/to/local"
+	SMBReverseDynamicForwardPath string `toml:"smb_reverse_dynamic_forward_path" yaml:"smb_reverse_dynamic_forward_path"`
+
 	// x11 forwarding setting
 	X11 bool `toml:"x11" yaml:"x11"`
 
@@ -237,6 +253,10 @@ type ServerMatchConfig struct {
 	NFSDynamicForwardPath         string `toml:"nfs_dynamic_forward_path" yaml:"nfs_dynamic_forward_path"`
 	NFSReverseDynamicForwardPort  string `toml:"nfs_reverse_dynamic_forward" yaml:"nfs_reverse_dynamic_forward"`
 	NFSReverseDynamicForwardPath  string `toml:"nfs_reverse_dynamic_forward_path" yaml:"nfs_reverse_dynamic_forward_path"`
+	SMBDynamicForwardPort         string `toml:"smb_dynamic_forward" yaml:"smb_dynamic_forward"`
+	SMBDynamicForwardPath         string `toml:"smb_dynamic_forward_path" yaml:"smb_dynamic_forward_path"`
+	SMBReverseDynamicForwardPort  string `toml:"smb_reverse_dynamic_forward" yaml:"smb_reverse_dynamic_forward"`
+	SMBReverseDynamicForwardPath  string `toml:"smb_reverse_dynamic_forward_path" yaml:"smb_reverse_dynamic_forward_path"`
 
 	X11        bool `toml:"x11" yaml:"x11"`
 	X11Trusted bool `toml:"x11_trusted" yaml:"x11_trusted"`
@@ -315,6 +335,10 @@ func (m ServerMatchConfig) OverrideConfig() ServerConfig {
 		NFSDynamicForwardPath:         m.NFSDynamicForwardPath,
 		NFSReverseDynamicForwardPort:  m.NFSReverseDynamicForwardPort,
 		NFSReverseDynamicForwardPath:  m.NFSReverseDynamicForwardPath,
+		SMBDynamicForwardPort:         m.SMBDynamicForwardPort,
+		SMBDynamicForwardPath:         m.SMBDynamicForwardPath,
+		SMBReverseDynamicForwardPort:  m.SMBReverseDynamicForwardPort,
+		SMBReverseDynamicForwardPath:  m.SMBReverseDynamicForwardPath,
 		X11:                           m.X11,
 		X11Trusted:                    m.X11Trusted,
 		ConnectTimeout:                m.ConnectTimeout,

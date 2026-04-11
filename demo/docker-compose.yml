@@ -20,6 +20,12 @@ services:
       - over_deep_http_ssh
     stdin_open: true
     tty: true
+    cap_add:
+      - SYS_ADMIN
+    security_opt:
+      - apparmor:unconfined
+    devices:
+      - /dev/fuse:/dev/fuse
     command: ["sleep", "infinity"]
     ports:
       - "2222:2222"

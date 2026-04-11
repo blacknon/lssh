@@ -60,6 +60,8 @@ func NewSessionFactory(cfg conf.Config, command []string, options SessionOptions
 			HTTPReverseDynamicPortForward: options.HTTPReverseDynamicPortForward,
 			NFSReverseDynamicForwardPort:  options.NFSReverseDynamicForwardPort,
 			NFSReverseDynamicForwardPath:  options.NFSReverseDynamicForwardPath,
+			SMBReverseDynamicForwardPort:  options.SMBReverseDynamicForwardPort,
+			SMBReverseDynamicForwardPath:  options.SMBReverseDynamicForwardPath,
 			X11:                           options.X11,
 			X11Trusted:                    options.X11Trusted,
 			IsBashrc:                      options.IsBashrc,

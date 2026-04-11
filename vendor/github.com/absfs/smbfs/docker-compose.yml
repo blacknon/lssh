@@ -1,0 +1,34 @@
+version: '3.8'
+
+services:
+  samba:
+    image: dperson/samba:latest
+    container_name: smbfs-test-server
+    environment:
+      # Create a test user
+      - USER=testuser;testpass123
+      # Create test shares
+      - SHARE=testshare;/data;yes;no;no;testuser;testuser;testuser
+      - SHARE2=public;/public;yes;no;yes;all;testuser
+      # Set workgroup
+      - WORKGROUP=TESTGROUP
+      # Enable SMB2/SMB3
+      - SMB=true
+    ports:
+      - "445:445"
+    volumes:
+      - samba-data:/data
+      - samba-public:/public
+    tmpfs:
+      - /tmp
+    restart: unless-stopped
+    networks:
+      - smbfs-test
+
+networks:
+  smbfs-test:
+    driver: bridge
+
+volumes:
+  samba-data:
+  samba-public:
