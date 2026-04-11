@@ -18,6 +18,13 @@ import (
 
 const defaultOpenSSHConfigPath = "~/.ssh/config"
 
+var (
+	generateConfigFromOpenSSHFn = GenerateLSSHConfigFromOpenSSH
+	isInteractivePromptFn       = isInteractivePrompt
+	promptYesNoFn               = promptYesNo
+	readConfigFn                = Read
+)
+
 // HandleGenerateConfigMode writes a generated lssh config to stdout and reports
 // whether the caller should exit without continuing normal command execution.
 func HandleGenerateConfigMode(path string, out io.Writer) (bool, error) {
@@ -25,7 +32,7 @@ func HandleGenerateConfigMode(path string, out io.Writer) (bool, error) {
 		return false, nil
 	}
 
-	data, err := GenerateLSSHConfigFromOpenSSH(path, "")
+	data, err := generateConfigFromOpenSSHFn(path, "")
 	if err != nil {
 		return true, err
 	}
@@ -39,7 +46,7 @@ func HandleGenerateConfigMode(path string, out io.Writer) (bool, error) {
 // file in interactive sessions.
 func ReadWithFallback(confPath string, stderr io.Writer) (Config, error) {
 	confExists := common.IsExist(confPath)
-	data := Read(confPath)
+	data := readConfigFn(confPath)
 	if confExists {
 		return data, nil
 	}
@@ -52,7 +59,7 @@ func ReadWithFallback(confPath string, stderr io.Writer) (Config, error) {
 		return Config{}, err
 	}
 	if created {
-		data = Read(confPath)
+		data = readConfigFn(confPath)
 	}
 
 	return data, nil
@@ -64,12 +71,12 @@ func maybeCreateConfigFromOpenSSH(confPath string, stderr io.Writer) (bool, erro
 		return false, nil
 	}
 
-	if !isInteractivePrompt() {
+	if !isInteractivePromptFn() {
 		fmt.Fprintf(stderr, "Information   : run `lssh --generate-lssh-conf > %s` if you want to create it.\n", confPath)
 		return false, nil
 	}
 
-	answer, err := promptYesNo(
+	answer, err := promptYesNoFn(
 		stderr,
 		fmt.Sprintf("Create %s from %s now? (Y/n): ", confPath, defaultSSHConfig),
 		true,
@@ -81,7 +88,7 @@ func maybeCreateConfigFromOpenSSH(confPath string, stderr io.Writer) (bool, erro
 		return false, nil
 	}
 
-	data, err := GenerateLSSHConfigFromOpenSSH(defaultSSHConfig, "")
+	data, err := generateConfigFromOpenSSHFn(defaultSSHConfig, "")
 	if err != nil {
 		return false, err
 	}

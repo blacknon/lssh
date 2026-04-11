@@ -1,6 +1,10 @@
 lsdiff
 ======
 
+<p align="center">
+<img src="./img/lsdiff.png" width="720" />
+</p>
+
 ## About
 
 `lsdiff` fetches remote files over SSH/SFTP and compares them side by side in a synchronized `tview` UI.

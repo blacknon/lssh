@@ -31,7 +31,7 @@ func Execute(opts ExecOptions) error {
 		return err
 	}
 
-	conn, err := DialSession(session)
+	conn, err := dialSession(session)
 	if err != nil {
 		return err
 	}

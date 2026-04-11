@@ -24,6 +24,22 @@ import (
 	"github.com/urfave/cli"
 )
 
+var (
+	loadSessionFn        = pipeapp.LoadSession
+	markSessionAliveFn   = pipeapp.MarkSessionAlive
+	formatSessionFn      = pipeapp.FormatSessionSummary
+	resolveSessionFn     = pipeapp.ResolveSession
+	listFIFORecordsFn    = pipeapp.ListFIFORecords
+	removeSessionFn      = pipeapp.RemoveSession
+	pingSessionFn        = pipeapp.PingSession
+	buildFIFOEndpointsFn = pipeapp.BuildFIFOEndpoints
+	loadFIFORecordFn     = pipeapp.LoadFIFORecord
+	saveFIFORecordFn     = pipeapp.SaveFIFORecord
+	removeFIFORecordFn   = pipeapp.RemoveFIFORecord
+	executePipeFn        = pipeapp.Execute
+	spawnDaemonFn        = spawnDaemon
+)
+
 func Lspipe() (app *cli.App) {
 	defConf := common.GetDefaultConfigPath()
 
@@ -145,7 +161,7 @@ USAGE:
 			return err
 		}
 
-		return pipeapp.Execute(pipeapp.ExecOptions{
+		return executePipeFn(pipeapp.ExecOptions{
 			Name:    name,
 			Command: command,
 			Hosts:   c.StringSlice("host"),
@@ -160,11 +176,11 @@ USAGE:
 }
 
 func ensureSession(c *cli.Context, config conf.Config, name string) error {
-	current, err := pipeapp.LoadSession(name)
+	current, err := loadSessionFn(name)
 	if err == nil {
-		pipeapp.MarkSessionAlive(&current)
+		markSessionAliveFn(&current)
 		if !current.Stale && !c.Bool("replace") {
-			fmt.Fprintln(os.Stdout, pipeapp.FormatSessionSummary(current))
+			fmt.Fprintln(os.Stdout, formatSessionFn(current))
 			return nil
 		}
 		_ = closeSession(name)
@@ -175,7 +191,7 @@ func ensureSession(c *cli.Context, config conf.Config, name string) error {
 		return err
 	}
 
-	return spawnDaemon(c, name, selectedHosts)
+	return spawnDaemonFn(c, name, selectedHosts)
 }
 
 func resolveCreateHosts(c *cli.Context, config conf.Config) ([]string, error) {
@@ -356,7 +372,7 @@ func listSessions() error {
 }
 
 func printSessionInfo(name string) error {
-	session, err := pipeapp.LoadSession(name)
+	session, err := loadSessionFn(name)
 	if err != nil {
 		return err
 	}
@@ -389,7 +405,7 @@ func closeSession(name string) error {
 		return err
 	}
 
-	records, _ := pipeapp.ListFIFORecords()
+	records, _ := listFIFORecordsFn()
 	for _, record := range records {
 		if record.SessionName == session.Name {
 			_ = removeFIFOBridge(record.SessionName, record.Name)
@@ -408,13 +424,13 @@ func closeSession(name string) error {
 	}
 
 	for i := 0; i < 20; i++ {
-		if !pipeapp.PingSession(session) {
+		if !pingSessionFn(session) {
 			break
 		}
 		time.Sleep(100 * time.Millisecond)
 	}
 
-	return pipeapp.RemoveSession(name)
+	return removeSessionFn(name)
 }
 
 func readPipeInput(r io.Reader) ([]byte, error) {
@@ -436,19 +452,19 @@ func ternaryStatus(stale bool) string {
 }
 
 func ensureFIFOBridge(c *cli.Context, sessionName string) error {
-	session, err := pipeapp.ResolveSession(sessionName)
+	session, err := resolveSessionFn(sessionName)
 	if err != nil {
 		return err
 	}
 
 	fifoName := c.String("fifo-name")
-	record, err := pipeapp.LoadFIFORecord(session.Name, fifoName)
+	record, err := loadFIFORecordFn(session.Name, fifoName)
 	if err == nil {
 		fmt.Fprintf(os.Stdout, "%s\t%s\tpid=%d\n", record.SessionName, record.Dir, record.PID)
 		return nil
 	}
 
-	endpoints, baseDir, err := pipeapp.BuildFIFOEndpoints(session, fifoName)
+	endpoints, baseDir, err := buildFIFOEndpointsFn(session, fifoName)
 	if err != nil {
 		return err
 	}
@@ -457,7 +473,7 @@ func ensureFIFOBridge(c *cli.Context, sessionName string) error {
 		return err
 	}
 
-	record, err = pipeapp.LoadFIFORecord(session.Name, fifoName)
+	record, err = loadFIFORecordFn(session.Name, fifoName)
 	if err != nil {
 		return err
 	}
@@ -513,10 +529,10 @@ func spawnFIFOWorker(c *cli.Context, sessionName, fifoName string, hosts []strin
 		return err
 	}
 
-	record, err := pipeapp.LoadFIFORecord(sessionName, fifoName)
+	record, err := loadFIFORecordFn(sessionName, fifoName)
 	if err == nil {
 		record.PID = cmd.Process.Pid
-		_ = pipeapp.SaveFIFORecord(record)
+		_ = saveFIFORecordFn(record)
 	}
 
 	if runtime.GOOS != "windows" && wpipe != nil {
@@ -536,18 +552,18 @@ func spawnFIFOWorker(c *cli.Context, sessionName, fifoName string, hosts []strin
 }
 
 func runFIFOWorker(c *cli.Context, sessionName string) error {
-	session, err := pipeapp.ResolveSession(sessionName)
+	session, err := resolveSessionFn(sessionName)
 	if err != nil {
 		return err
 	}
 
 	fifoName := c.String("fifo-name")
-	endpoints, baseDir, err := pipeapp.BuildFIFOEndpoints(session, fifoName)
+	endpoints, baseDir, err := buildFIFOEndpointsFn(session, fifoName)
 	if err != nil {
 		return err
 	}
 
-	if err := pipeapp.SaveFIFORecord(pipeapp.FIFORecord{
+	if err := saveFIFORecordFn(pipeapp.FIFORecord{
 		SessionName: session.Name,
 		Name:        fifoName,
 		Dir:         baseDir,
@@ -567,7 +583,7 @@ func runFIFOWorker(c *cli.Context, sessionName string) error {
 }
 
 func listFIFOs() error {
-	records, err := pipeapp.ListFIFORecords()
+	records, err := listFIFORecordsFn()
 	if err != nil {
 		return err
 	}
@@ -583,7 +599,7 @@ func listFIFOs() error {
 }
 
 func removeFIFOBridge(sessionName, fifoName string) error {
-	record, err := pipeapp.LoadFIFORecord(sessionName, fifoName)
+	record, err := loadFIFORecordFn(sessionName, fifoName)
 	if err != nil {
 		return err
 	}
@@ -600,5 +616,5 @@ func removeFIFOBridge(sessionName, fifoName string) error {
 	}
 
 	_ = os.RemoveAll(record.Dir)
-	return pipeapp.RemoveFIFORecord(sessionName, fifoName)
+	return removeFIFORecordFn(sessionName, fifoName)
 }
