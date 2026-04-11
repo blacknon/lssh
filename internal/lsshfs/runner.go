@@ -23,6 +23,7 @@ const (
 	defaultAliveCheckInterval = 5 * time.Second
 	defaultMountRetryCount    = 20
 	defaultMountRetryDelay    = 500 * time.Millisecond
+	defaultMountActiveTimeout = 10 * time.Second
 )
 
 type Runner struct {
@@ -138,6 +139,10 @@ func (r *Runner) Run() error {
 			}
 			return nil
 		case <-time.After(defaultMountRetryDelay):
+		}
+
+		if err := waitForMountActive(r.GOOS, r.MountPoint, defaultMountActiveTimeout); err != nil {
+			return err
 		}
 	}
 
