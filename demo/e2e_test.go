@@ -29,6 +29,26 @@ func TestDemoDockerComposeE2E(t *testing.T) {
 	})
 	waitForServices(t, demoDir)
 
+	t.Run("config and auth", func(t *testing.T) {
+		testDemoConfigAndAuth(t, demoDir)
+	})
+
+	t.Run("proxy and forwarding", func(t *testing.T) {
+		testDemoProxyAndForwarding(t, demoDir)
+	})
+
+	t.Run("lsshfs and sync", func(t *testing.T) {
+		testDemoFilesystemFlows(t, demoDir)
+	})
+
+	t.Run("local rc", func(t *testing.T) {
+		testDemoLocalRC(t, demoDir)
+	})
+}
+
+func testDemoConfigAndAuth(t *testing.T, demoDir string) {
+	t.Helper()
+
 	t.Run("client bastion command is configured", func(t *testing.T) {
 		assertClientCommandContains(t, demoDir,
 			`grep -q '^ForceCommand /usr/local/bin/demo-lssh-bastion.sh$' ~/.demo-sshd/sshd_config && grep -q '^ssh-ed25519 ' ~/.ssh/authorized_keys && /usr/local/bin/demo-lssh-bastion.sh --list`,
@@ -63,6 +83,10 @@ func TestDemoDockerComposeE2E(t *testing.T) {
 			"key-ssh",
 		)
 	})
+}
+
+func testDemoProxyAndForwarding(t *testing.T, demoDir string) {
+	t.Helper()
 
 	t.Run("ssh proxy works", func(t *testing.T) {
 		assertClientCommandContains(t, demoDir, "lssh --host OverSshProxy hostname", "over-proxy-ssh")
@@ -204,20 +228,10 @@ func TestDemoDockerComposeE2E(t *testing.T) {
 			"smb_reverse_ok",
 		)
 	})
+}
 
-	t.Run("local rc is available on remote shell", func(t *testing.T) {
-		assertClientCommandContains(t, demoDir,
-			`lssh --host LocalRcKeyAuth 'type lvim >/dev/null && type ltmux >/dev/null && echo local_rc_ok'`,
-			"local_rc_ok",
-		)
-	})
-
-	t.Run("generated vim wrapper is loaded", func(t *testing.T) {
-		assertClientCommandContains(t, demoDir,
-			`lssh --host LocalRcKeyAuth 'declare -f lvim | grep -F "vim -u <(printf" && echo lvim_wrapper_ok'`,
-			"lvim_wrapper_ok",
-		)
-	})
+func testDemoFilesystemFlows(t *testing.T, demoDir string) {
+	t.Helper()
 
 	t.Run("lssync one-way sync updates remote fixture", func(t *testing.T) {
 		runClientCommandOrFail(t, demoDir,
@@ -258,6 +272,24 @@ func TestDemoDockerComposeE2E(t *testing.T) {
 			 grep -Fxq 'local nested only' /home/demo/demo-sync/bidirectional-remote/nested/local-nested.txt && \
 			 echo lssync_bidirectional_remote_ok`,
 			"lssync_bidirectional_remote_ok",
+		)
+	})
+}
+
+func testDemoLocalRC(t *testing.T, demoDir string) {
+	t.Helper()
+
+	t.Run("local rc is available on remote shell", func(t *testing.T) {
+		assertClientCommandContains(t, demoDir,
+			`lssh --host LocalRcKeyAuth 'type lvim >/dev/null && type ltmux >/dev/null && echo local_rc_ok'`,
+			"local_rc_ok",
+		)
+	})
+
+	t.Run("generated vim wrapper is loaded", func(t *testing.T) {
+		assertClientCommandContains(t, demoDir,
+			`lssh --host LocalRcKeyAuth 'declare -f lvim | grep -F "vim -u <(printf" && echo lvim_wrapper_ok'`,
+			"lvim_wrapper_ok",
 		)
 	})
 }
