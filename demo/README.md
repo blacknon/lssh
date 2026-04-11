@@ -2,7 +2,7 @@ Demo
 ===
 
 `demo/` provides a Docker Compose environment for trying the main `lssh` connection patterns locally in one place.
-From the client container, you can use `lssh` / `lscp` / `lsftp` / `lssync` / `lsshell` / `lsmon` to verify the following:
+From the client container, you can use `lssh` / `lscp` / `lsftp` / `lssync` / `lsshfs` / `lsshell` / `lsmon` to verify the following:
 
 - Using the demo client itself as an SSH bastion that launches `lssh`
 - Password-based SSH authentication

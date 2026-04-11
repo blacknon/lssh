@@ -138,6 +138,66 @@ func TestDemoDockerComposeE2E(t *testing.T) {
 		)
 	})
 
+	t.Run("smb dynamic forward exposes remote path locally", func(t *testing.T) {
+		pidFile := "/tmp/lssh-demo-smb-dynamic.pid"
+		t.Cleanup(func() {
+			stopClientForward(t, demoDir, pidFile)
+		})
+
+		startClientForward(t, demoDir, pidFile,
+			"lssh --host KeyAuth -N -S 1445:/home/demo",
+			"127.0.0.1:1445",
+		)
+
+		assertClientCommandContains(t, demoDir,
+			`smbclient //127.0.0.1/share -N -p 1445 -c 'ls'`,
+			"bin",
+		)
+	})
+
+	t.Run("lsshfs mounts remote path locally and can unmount it", func(t *testing.T) {
+		runClientCommandOrFail(t, demoDir,
+			"mkdir -p /home/demo/mnt/lsshfs && lsshfs @KeyAuth:/home/demo /home/demo/mnt/lsshfs --foreground & echo $! >/tmp/lsshfs-demo.pid",
+		)
+
+		deadline := time.Now().Add(20 * time.Second)
+		for time.Now().Before(deadline) {
+			output, err := runClientCommand(demoDir,
+				"test -f /home/demo/mnt/lsshfs/.lssh.conf && lsshfs --list-mounts",
+			)
+			if err == nil && strings.Contains(output, "/home/demo/mnt/lsshfs") {
+				break
+			}
+			time.Sleep(500 * time.Millisecond)
+		}
+
+		assertClientCommandContains(t, demoDir,
+			"test -f /home/demo/mnt/lsshfs/.lssh.conf && grep -F '/home/demo/mnt/lsshfs' <(lsshfs --list-mounts)",
+			"/home/demo/mnt/lsshfs",
+		)
+
+		runClientCommandOrFail(t, demoDir, "lsshfs --unmount /home/demo/mnt/lsshfs")
+		assertClientCommandContains(t, demoDir,
+			"! grep -Fq '/home/demo/mnt/lsshfs' <(lsshfs --list-mounts 2>/dev/null || true) && echo lsshfs_unmount_ok",
+			"lsshfs_unmount_ok",
+		)
+	})
+
+	t.Run("smb reverse dynamic forward exposes local path on remote host", func(t *testing.T) {
+		pidFile := "/tmp/lssh-demo-smb-reverse.pid"
+		t.Cleanup(func() {
+			stopClientForward(t, demoDir, pidFile)
+		})
+
+		startClientBackground(t, demoDir, pidFile,
+			"lssh --host KeyAuth -N -s 1446:/home/demo/.demo_sync/local-one-way",
+		)
+		waitForComposeExecContains(t, demoDir, "key_ssh",
+			`smbclient //127.0.0.1/share -N -p 1446 -c 'ls'`,
+			"root.txt",
+		)
+	})
+
 	t.Run("local rc is available on remote shell", func(t *testing.T) {
 		assertClientCommandContains(t, demoDir,
 			`lssh --host LocalRcKeyAuth 'type lvim >/dev/null && type ltmux >/dev/null && echo local_rc_ok'`,
@@ -335,17 +395,7 @@ func mustRunComposeCommand(t *testing.T, demoDir string, args ...string) string 
 func startClientForward(t *testing.T, demoDir, pidFile, forwardCommand, waitAddr string) {
 	t.Helper()
 
-	stopClientForward(t, demoDir, pidFile)
-
-	startCmd := fmt.Sprintf(
-		`rm -f %[1]s; nohup %[2]s >/tmp/$(basename %[1]s).log 2>&1 & echo $! > %[1]s`,
-		pidFile,
-		forwardCommand,
-	)
-
-	if output, err := runClientCommand(demoDir, startCmd); err != nil {
-		t.Fatalf("failed to start forward: %s\nerror: %v\noutput:\n%s", forwardCommand, err, output)
-	}
+	startClientBackground(t, demoDir, pidFile, forwardCommand)
 
 	if waitAddr == "" {
 		time.Sleep(2 * time.Second)
@@ -363,6 +413,22 @@ func startClientForward(t *testing.T, demoDir, pidFile, forwardCommand, waitAddr
 
 	logOutput, _ := runClientCommand(demoDir, fmt.Sprintf("cat /tmp/$(basename %s).log || true", pidFile))
 	t.Fatalf("forward did not become ready: %s\nlog:\n%s", forwardCommand, logOutput)
+}
+
+func startClientBackground(t *testing.T, demoDir, pidFile, command string) {
+	t.Helper()
+
+	stopClientForward(t, demoDir, pidFile)
+
+	startCmd := fmt.Sprintf(
+		`rm -f %[1]s; nohup %[2]s >/tmp/$(basename %[1]s).log 2>&1 & echo $! > %[1]s`,
+		pidFile,
+		command,
+	)
+
+	if output, err := runClientCommand(demoDir, startCmd); err != nil {
+		t.Fatalf("failed to start background command: %s\nerror: %v\noutput:\n%s", command, err, output)
+	}
 }
 
 func stopClientForward(t *testing.T, demoDir, pidFile string) {

@@ -11,6 +11,8 @@ _lssh() {
         '-r[HTTP reverse dynamic forward mode. Specify a port]:port:_ports' \
         '-M[NFS dynamic forward mode. Specify port:/path/to/remote]:port/path:_files' \
         '-m[NFS reverse dynamic forward mode. Specify port:/path/to/local]:port/path:_files' \
+        '-S[SMB dynamic forward mode. Specify port:/path/to/remote]:port/path:_files' \
+        '-s[SMB reverse dynamic forward mode. Specify port:/path/to/local]:port/path:_files' \
         '-w[Display the server header when in command execution mode]' \
         '-W[Do not display the server header when in command execution mode]' \
         '(-N --not-execute)'{-N,--not-execute}'[Do not execute remote command or shell]' \

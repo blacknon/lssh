@@ -13,11 +13,5 @@ Each command has its own `main.go` and delegates the actual application logic to
 - [`lsftp`](./lsftp/README.md): An interactive SFTP shell for working with one or more hosts from a single interface.
 - [`lscp`](./lscp/README.md): A file transfer client that provides an SCP-style interface.
 - [`lssync`](./lssync/README.md): A one-way sync command over SSH/SFTP with optional destination pruning.
+- [`lsshfs`](./lsshfs/README.md): A single-host mount command that uses FUSE on Linux, NFS on macOS, and SMB on Windows.
 - [`lsmon`](./lsmon/README.md): A TUI monitor for viewing the status of multiple hosts side by side.
-
-<!-- Note:
-    以下のコマンドは後々作っていく
-
-    - lsmux ... v0.8.0
-    - lsshfs ... v0.8.0
- -->

@@ -398,7 +398,7 @@ These hooks are separate from `[shell].pre_cmd` and `[shell].post_cmd`.
 ## Port forwarding
 
 You can define forwarding behavior directly in `[server.<name>]` and then connect with the saved profile.
-This covers local and remote port forwarding, dynamic forwarding, HTTP forwarding, NFS forwarding, and X11 forwarding.
+This covers local and remote port forwarding, dynamic forwarding, HTTP forwarding, NFS forwarding, SMB forwarding, and X11 forwarding.
 
 Simple local / remote examples:
 
@@ -470,14 +470,28 @@ key = "~/.ssh/id_rsa"
 nfs_reverse_dynamic_forward = "2049"
 nfs_reverse_dynamic_forward_path = "/path/to/local"
 
-[server.x11]
+[server.smb-dynamic]
 addr = "192.168.100.47"
+user = "demo"
+key = "~/.ssh/id_rsa"
+smb_dynamic_forward = "1445"
+smb_dynamic_forward_path = "/path/to/remote"
+
+[server.smb-reverse-dynamic]
+addr = "192.168.100.48"
+user = "demo"
+key = "~/.ssh/id_rsa"
+smb_reverse_dynamic_forward = "1445"
+smb_reverse_dynamic_forward_path = "/path/to/local"
+
+[server.x11]
+addr = "192.168.100.49"
 user = "demo"
 key = "~/.ssh/id_rsa"
 x11 = true
 
 [server.x11-trusted]
-addr = "192.168.100.48"
+addr = "192.168.100.50"
 user = "demo"
 key = "~/.ssh/id_rsa"
 x11_trusted = true
@@ -497,6 +511,10 @@ Available forwarding settings:
 - `nfs_dynamic_forward_path`: remote path exported through NFS dynamic forwarding
 - `nfs_reverse_dynamic_forward`: local port used for reverse NFS forwarding
 - `nfs_reverse_dynamic_forward_path`: local path exported for reverse NFS forwarding
+- `smb_dynamic_forward`: local port used for SMB dynamic forwarding
+- `smb_dynamic_forward_path`: remote path exported through SMB dynamic forwarding
+- `smb_reverse_dynamic_forward`: local port used for reverse SMB forwarding
+- `smb_reverse_dynamic_forward_path`: local path exported for reverse SMB forwarding
 - `x11`: enable X11 forwarding
 - `x11_trusted`: enable trusted X11 forwarding
 

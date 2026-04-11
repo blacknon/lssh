@@ -25,6 +25,8 @@ OPTIONS:
     -r port                                     HTTP Reverse Dynamic port forward mode. Specify a port. Only single connection works.
     -M port:/path/to/remote                     NFS Dynamic forward mode. Specify a port:/path/to/remote. Only single connection works.
     -m port:/path/to/local                      NFS Reverse Dynamic forward mode. Specify a port:/path/to/local. Only single connection works.
+    -S port:/path/to/remote                     SMB Dynamic forward mode. Specify a port:/path/to/remote. Only single connection works.
+    -s port:/path/to/local                      SMB Reverse Dynamic forward mode. Specify a port:/path/to/local. Only single connection works.
     --tunnel ${local}:${remote}                 Enable tunnel device. Specify ${local}:${remote} (use 'any' to request next available).
     -w                                          Displays the server header when in command execution mode.
     -W                                          Not displays the server header when in command execution mode.
@@ -192,11 +194,12 @@ The following forwarding features are available
 - HTTP Reverse Dynamic forward (`-r`)
 - NFS Dynamic forward (`-M`)
 - NFS Reverse Dynamic forward (`-m`)
+- SMB Dynamic forward (`-S`)
+- SMB Reverse Dynamic forward (`-s`)
 - Tunnel device (`--tunnel`)
 - x11 forward (`-X`, `-Y`)
 
-When using NFS forward, lssh starts the NFS server and begins listening on the specified port.
-After that, the forwarded PATH can be used as a mount point on the local machine or the remote machine.
+When using NFS or SMB forward, lssh starts the corresponding server and begins listening on the specified port.
 
 #### if use command line option
 
@@ -228,6 +231,12 @@ lssh -M 2049:/path/to/remote
 # NFS reverse dynamic forward
 # Note: required mount process after forward.
 lssh -m 2049:/path/to/local
+
+# SMB dynamic forward
+lssh -S 1445:/path/to/remote
+
+# SMB reverse dynamic forward
+lssh -s 1445:/path/to/local
 
 # tunnel device
 lssh --tunnel 0:0
@@ -288,6 +297,16 @@ nfs_dynamic_forward_path = "/path/to/remote"
 nfs_reverse_dynamic_forward = "2049"
 nfs_reverse_dynamic_forward_path = "/path/to/local"
 
+# SMB dynamic forward
+[server.smb-dynamic]
+smb_dynamic_forward = "1445"
+smb_dynamic_forward_path = "/path/to/remote"
+
+# SMB reverse dynamic forward
+[server.smb-reverse-dynamic]
+smb_reverse_dynamic_forward = "1445"
+smb_reverse_dynamic_forward_path = "/path/to/local"
+
 # x11 forwarding
 [server.x11]
 x11 = true
@@ -325,6 +344,12 @@ server:
   nfs-reverse-dynamic:
     nfs_reverse_dynamic_forward: "2049"
     nfs_reverse_dynamic_forward_path: "/path/to/local"
+  smb-dynamic:
+    smb_dynamic_forward: "1445"
+    smb_dynamic_forward_path: "/path/to/remote"
+  smb-reverse-dynamic:
+    smb_reverse_dynamic_forward: "1445"
+    smb_reverse_dynamic_forward_path: "/path/to/local"
   x11:
     x11: true
   x11-trusted:

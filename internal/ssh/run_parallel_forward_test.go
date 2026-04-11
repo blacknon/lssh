@@ -23,6 +23,10 @@ func TestPrepareParallelForwardConfigKeepsOnlyReverseSafeForwards(t *testing.T) 
 					NFSDynamicForwardPath:         "/remote",
 					NFSReverseDynamicForwardPort:  "3049",
 					NFSReverseDynamicForwardPath:  "/local",
+					SMBDynamicForwardPort:         "445",
+					SMBDynamicForwardPath:         "/remote-smb",
+					SMBReverseDynamicForwardPort:  "1445",
+					SMBReverseDynamicForwardPath:  "/local-smb",
 				},
 			},
 		},
@@ -55,6 +59,12 @@ func TestPrepareParallelForwardConfigKeepsOnlyReverseSafeForwards(t *testing.T) 
 	if config.NFSReverseDynamicForwardPath != "/local" {
 		t.Fatalf("config.NFSReverseDynamicForwardPath = %q, want /local", config.NFSReverseDynamicForwardPath)
 	}
+	if config.SMBReverseDynamicForwardPort != "1445" {
+		t.Fatalf("config.SMBReverseDynamicForwardPort = %q, want 1445", config.SMBReverseDynamicForwardPort)
+	}
+	if config.SMBReverseDynamicForwardPath != "/local-smb" {
+		t.Fatalf("config.SMBReverseDynamicForwardPath = %q, want /local-smb", config.SMBReverseDynamicForwardPath)
+	}
 
 	if config.DynamicPortForward != "" {
 		t.Fatalf("config.DynamicPortForward = %q, want empty", config.DynamicPortForward)
@@ -64,6 +74,9 @@ func TestPrepareParallelForwardConfigKeepsOnlyReverseSafeForwards(t *testing.T) 
 	}
 	if config.NFSDynamicForwardPort != "" || config.NFSDynamicForwardPath != "" {
 		t.Fatalf("NFS dynamic forward was not cleared: %q %q", config.NFSDynamicForwardPort, config.NFSDynamicForwardPath)
+	}
+	if config.SMBDynamicForwardPort != "" || config.SMBDynamicForwardPath != "" {
+		t.Fatalf("SMB dynamic forward was not cleared: %q %q", config.SMBDynamicForwardPort, config.SMBDynamicForwardPath)
 	}
 }
 
@@ -76,6 +89,8 @@ func TestPrepareParallelForwardConfigUsesRunOverrides(t *testing.T) {
 					HTTPReverseDynamicPortForward: "28080",
 					NFSReverseDynamicForwardPort:  "3049",
 					NFSReverseDynamicForwardPath:  "/config-local",
+					SMBReverseDynamicForwardPort:  "1445",
+					SMBReverseDynamicForwardPath:  "/config-smb-local",
 				},
 			},
 		},
@@ -83,6 +98,8 @@ func TestPrepareParallelForwardConfigUsesRunOverrides(t *testing.T) {
 		HTTPReverseDynamicPortForward: "38080",
 		NFSReverseDynamicForwardPort:  "4049",
 		NFSReverseDynamicForwardPath:  "/override-local",
+		SMBReverseDynamicForwardPort:  "2445",
+		SMBReverseDynamicForwardPath:  "/override-smb-local",
 		PortForward: []*conf.PortForward{
 			{
 				Mode:   "R",
@@ -106,6 +123,12 @@ func TestPrepareParallelForwardConfigUsesRunOverrides(t *testing.T) {
 	if config.NFSReverseDynamicForwardPath != "/override-local" {
 		t.Fatalf("config.NFSReverseDynamicForwardPath = %q, want /override-local", config.NFSReverseDynamicForwardPath)
 	}
+	if config.SMBReverseDynamicForwardPort != "2445" {
+		t.Fatalf("config.SMBReverseDynamicForwardPort = %q, want 2445", config.SMBReverseDynamicForwardPort)
+	}
+	if config.SMBReverseDynamicForwardPath != "/override-smb-local" {
+		t.Fatalf("config.SMBReverseDynamicForwardPath = %q, want /override-smb-local", config.SMBReverseDynamicForwardPath)
+	}
 	if len(config.Forwards) != 1 {
 		t.Fatalf("len(config.Forwards) = %d, want 1", len(config.Forwards))
 	}
@@ -124,6 +147,8 @@ func TestParallelIgnoredFeatures(t *testing.T) {
 					HTTPDynamicPortForward: "18080",
 					NFSDynamicForwardPort:  "2049",
 					NFSDynamicForwardPath:  "/remote",
+					SMBDynamicForwardPort:  "445",
+					SMBDynamicForwardPath:  "/remote-smb",
 				},
 			},
 		},
@@ -133,7 +158,7 @@ func TestParallelIgnoredFeatures(t *testing.T) {
 	}
 
 	got := r.ParallelIgnoredFeatures("target")
-	if len(got) != 5 {
-		t.Fatalf("len(ParallelIgnoredFeatures()) = %d, want 5: %#v", len(got), got)
+	if len(got) != 6 {
+		t.Fatalf("len(ParallelIgnoredFeatures()) = %d, want 6: %#v", len(got), got)
 	}
 }
