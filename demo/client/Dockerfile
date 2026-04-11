@@ -7,6 +7,7 @@ RUN GO111MODULE=on go build -mod=vendor -o /out/lssh ./cmd/lssh && \
     GO111MODULE=on go build -mod=vendor -o /out/lscp ./cmd/lscp && \
     GO111MODULE=on go build -mod=vendor -o /out/lsftp ./cmd/lsftp && \
     GO111MODULE=on go build -mod=vendor -o /out/lssync ./cmd/lssync && \
+    GO111MODULE=on go build -mod=vendor -o /out/lsdiff ./cmd/lsdiff && \
     GO111MODULE=on go build -mod=vendor -o /out/lsshfs ./cmd/lsshfs && \
     GO111MODULE=on go build -mod=vendor -o /out/lsshell ./cmd/lsshell && \
     GO111MODULE=on go build -mod=vendor -o /out/lsmon ./cmd/lsmon && \
@@ -40,6 +41,7 @@ COPY --from=builder /out/lssh /usr/local/bin/lssh
 COPY --from=builder /out/lscp /usr/local/bin/lscp
 COPY --from=builder /out/lsftp /usr/local/bin/lsftp
 COPY --from=builder /out/lssync /usr/local/bin/lssync
+COPY --from=builder /out/lsdiff /usr/local/bin/lsdiff
 COPY --from=builder /out/lsshfs /usr/local/bin/lsshfs
 COPY --from=builder /out/lsshell /usr/local/bin/lsshell
 COPY --from=builder /out/lsmon /usr/local/bin/lsmon
