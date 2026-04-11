@@ -81,7 +81,7 @@ func ForCommand(name string) Info {
 		info.Maturity = Beta
 	case "lspipe":
 		info.Domain = Sysadmin
-		info.Maturity = Beta
+		info.Maturity = Alpha
 	}
 
 	return info
