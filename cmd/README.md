@@ -16,3 +16,4 @@ Each command has its own `main.go` and delegates the actual application logic to
 - [`lsdiff`](./lsdiff/README.md): A synchronized TUI diff viewer for comparing remote files across multiple hosts.
 - [`lsshfs`](./lsshfs/README.md): A single-host mount command that uses FUSE on Linux, NFS on macOS, and SMB on Windows.
 - [`lsmon`](./lsmon/README.md): A TUI monitor for viewing the status of multiple hosts side by side.
+- [`lspipe`](./lspipe/README.md): A persistent pipe-oriented runner for reusing selected SSH hosts from local shell pipelines.

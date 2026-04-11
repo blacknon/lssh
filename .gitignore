@@ -23,4 +23,5 @@
 /lsshfs
 /lssync
 /lsdiff
+/lspipe
 *.exe
