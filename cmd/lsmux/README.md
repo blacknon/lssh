@@ -24,6 +24,7 @@ USAGE:
 OPTIONS:
     --host servername, -H servername            connect servername.
     --file filepath, -F filepath                config filepath. (default: "/Users/blacknon/.lssh.conf")
+    --generate-lssh-conf ~/.ssh/config          print generated lssh config from OpenSSH config to stdout (~/.ssh/config by default).
     -R [bind_address:]port:remote_address:port  Remote port forward mode.Specify a [bind_address:]port:remote_address:port. If only one port is specified, it will operate as Reverse Dynamic Forward.
     -r port                                     HTTP Reverse Dynamic port forward mode. Specify a port.
     -m port:/path/to/local                      NFS Reverse Dynamic forward mode. Specify a port:/path/to/local.
@@ -31,10 +32,12 @@ OPTIONS:
     --allow-layout-change                       allow opening new pages/panes even in command mode.
     --list, -l                                  print server list from config.
     --help, -h                                  print this help
+    --enable-control-master                     temporarily enable ControlMaster for this command execution
+    --disable-control-master                    temporarily disable ControlMaster for this command execution
     --version, -v                               print the version
 
 VERSION:
-    lssh-suite 0.8.0 (beta/sysadmin)
+    lssh-suite 0.9.0 (beta/sysadmin)
 
 USAGE:
     lsmux
@@ -42,7 +45,7 @@ USAGE:
 
 ```
 
-## OverView
+## Overview
 
 ### terminal connect
 

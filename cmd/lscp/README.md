@@ -11,7 +11,7 @@ lscp
 It supports local-to-remote, remote-to-local, and remote-to-remote transfers.
 Although the command interface is SCP-style, file transfers are performed using the SFTP protocol over SSH.
 
-<!-- TODO: 他のコマンドと名称が被るので、用意しているパッケージ上は`lssh-scp`という名称になっている旨を記載する -->
+Release packages may use the split-package naming `lssh-scp`, but the command you run remains `lscp`.
 
 ## Usage
 
@@ -23,19 +23,23 @@ USAGE:
     lscp [options] (local|remote):from_path... (local|remote):to_path
 
 OPTIONS:
-    --host value, -H value      connect servernames
-    --list, -l                  print server list from config
-    --file value, -F value      config file path (default: "/Users/blacknon/.lssh.conf")
-    --parallel value, -P value  parallel file copy count per host (default: 1)
-    --permission, -p            copy file permission
-    --help, -h                  print this help
-    --version, -v               print the version
+    --host value, -H value              connect servernames
+    --list, -l                          print server list from config
+    --file value, -F value              config file path (default: "/Users/blacknon/.lssh.conf")
+    --generate-lssh-conf ~/.ssh/config  print generated lssh config from OpenSSH config to stdout (~/.ssh/config by default).
+    --parallel value, -P value          parallel file copy count per host (default: 1)
+    --permission, -p                    copy file permission
+    --dry-run                           show copy actions without modifying files
+    --help, -h                          print this help
+    --enable-control-master             temporarily enable ControlMaster for this command execution
+    --disable-control-master            temporarily disable ControlMaster for this command execution
+    --version, -v                       print the version
 
 COPYRIGHT:
     blacknon(blacknon@orebibou.com)
 
 VERSION:
-    lssh-suite 0.8.0 (stable/transfer)
+    lssh-suite 0.9.0 (stable/transfer)
 
 USAGE:
     # local to remote scp
@@ -49,7 +53,7 @@ USAGE:
 
 ```
 
-## OverView
+## Overview
 
 ### transfer types
 
