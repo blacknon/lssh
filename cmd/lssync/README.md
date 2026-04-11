@@ -18,23 +18,27 @@ USAGE:
     lssync [options] (local|remote):from_path... (local|remote):to_path
 
 OPTIONS:
-    --host value, -H value      connect servernames
-    --list, -l                  print server list from config
-    --file value, -F value      config file path (default: "/Users/blacknon/.lssh.conf")
-    --daemon, -D                run as a daemon and repeat sync at each interval
-    --daemon-interval value     daemon sync interval (default: 5s)
-    --bidirectional, -B         sync both sides and copy newer changes in either direction
-    --parallel value, -P value  parallel file sync count per host (default: 1)
-    --permission, -p            copy file permission
-    --delete                    delete destination entries that do not exist in source
-    --help, -h                  print this help
-    --version, -v               print the version
+    --host value, -H value              connect servernames
+    --list, -l                          print server list from config
+    --file value, -F value              config file path (default: "/Users/blacknon/.lssh.conf")
+    --generate-lssh-conf ~/.ssh/config  print generated lssh config from OpenSSH config to stdout (~/.ssh/config by default).
+    --daemon, -D                        run as a daemon and repeat sync at each interval
+    --daemon-interval value             daemon sync interval (default: 5s)
+    --bidirectional, -B                 sync both sides and copy newer changes in either direction
+    --parallel value, -P value          parallel file sync count per host (default: 1)
+    --permission, -p                    copy file permission
+    --dry-run                           show sync actions without modifying files
+    --delete                            delete destination entries that do not exist in source
+    --help, -h                          print this help
+    --enable-control-master             temporarily enable ControlMaster for this command execution
+    --disable-control-master            temporarily disable ControlMaster for this command execution
+    --version, -v                       print the version
 
 COPYRIGHT:
     blacknon(blacknon@orebibou.com)
 
 VERSION:
-    lssh-suite 0.8.0 (beta/transfer)
+    lssh-suite 0.9.0 (beta/transfer)
 
 USAGE:
     # local to remote sync

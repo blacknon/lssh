@@ -23,20 +23,23 @@ USAGE:
     lsmon [options] [commands...]
 
 OPTIONS:
-    --host servername, -H servername  connect servername.
-    --file filepath, -F filepath      config filepath. (default: "/Users/blacknon/.lssh.conf")
-    --logfile value, -L value         Set log file path.
-    --share-connect, -s               reuse the monitor SSH connection for terminals.
-    --list, -l                        print server list from config.
-    --debug                           debug pprof. use port 6060.
-    --help, -h                        print this help
-    --version, -v                     print the version
+    --host servername, -H servername    connect servername.
+    --file filepath, -F filepath        config filepath. (default: "/Users/blacknon/.lssh.conf")
+    --generate-lssh-conf ~/.ssh/config  print generated lssh config from OpenSSH config to stdout (~/.ssh/config by default).
+    --logfile value, -L value           Set log file path.
+    --share-connect, -s                 reuse the monitor SSH connection for terminals.
+    --list, -l                          print server list from config.
+    --debug                             debug pprof. use port 6060.
+    --help, -h                          print this help
+    --enable-control-master             temporarily enable ControlMaster for this command execution
+    --disable-control-master            temporarily disable ControlMaster for this command execution
+    --version, -v                       print the version
 
 COPYRIGHT:
     blacknon(blacknon@orebibou.com)
 
 VERSION:
-    lssh-suite 0.8.0 (beta/monitor)
+    lssh-suite 0.9.0 (beta/monitor)
 
 USAGE:
     # connect parallel ssh monitoring command
@@ -44,7 +47,7 @@ USAGE:
 
 ```
 
-## OverView
+## Overview
 
 ### monitor targets
 

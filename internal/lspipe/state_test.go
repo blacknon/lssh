@@ -1,6 +1,7 @@
 package lspipe
 
 import (
+	"strings"
 	"os"
 	"path/filepath"
 	"testing"
@@ -65,5 +66,29 @@ func TestListenerSpecCreatesStateDir(t *testing.T) {
 		if _, err := os.Stat(filepath.Dir(address)); err != nil {
 			t.Fatalf("listenerSpec() did not create socket dir: %v", err)
 		}
+	}
+}
+
+func TestResolveSessionMarksMissingAddressAsStale(t *testing.T) {
+	cacheDir := filepath.Join(t.TempDir(), "cache")
+	t.Setenv("XDG_CACHE_HOME", cacheDir)
+
+	if err := SaveSession(Session{
+		Name:  "prod",
+		Hosts: []string{"web01"},
+		PID:   42,
+	}); err != nil {
+		t.Fatalf("SaveSession() error = %v", err)
+	}
+
+	session, err := ResolveSession("prod")
+	if err == nil {
+		t.Fatal("ResolveSession() error = nil, want stale session error")
+	}
+	if !strings.Contains(err.Error(), "stale") {
+		t.Fatalf("ResolveSession() error = %q, want stale message", err)
+	}
+	if !session.AliveChecked || !session.Stale {
+		t.Fatalf("ResolveSession() = %#v, want checked stale session", session)
 	}
 }
