@@ -76,11 +76,7 @@ func (r *RunSftp) ls(args []string) (err error) {
 				targetmap = r.createTargetMap(targetmap, arg)
 			}
 		} else {
-			for server, client := range r.Client {
-				// sftp target host
-				targetmap[server] = &TargetConnectMap{}
-				targetmap[server].SftpConnect = *client
-			}
+			targetmap = r.createConnectedTargetMapAll()
 		}
 
 		r.executeRemoteLs(c, targetmap)
@@ -296,6 +292,10 @@ func (r *RunSftp) executeRemoteLs(c *cli.Context, clients map[string]*TargetConn
 
 // getRemoteLsData
 func (r *RunSftp) getRemoteLsData(client *TargetConnectMap) (lsdata sftpLs, err error) {
+	if err = ensureTargetConnectAvailable(client); err != nil {
+		return
+	}
+
 	w := client.Output.NewWriter()
 	defer w.Close()
 

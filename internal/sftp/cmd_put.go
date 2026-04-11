@@ -266,6 +266,10 @@ func (r *RunSftp) put(args []string) {
 }
 
 func (r *RunSftp) pushData(client *TargetConnectMap, isMultiple bool, root string, rootIsDir bool, path string) (err error) {
+	if err = ensureTargetConnectAvailable(client); err != nil {
+		return
+	}
+
 	for _, target := range client.Path {
 		target = strings.TrimSpace(target)
 		targetList := []string{}
@@ -360,6 +364,10 @@ func (r *RunSftp) pushData(client *TargetConnectMap, isMultiple bool, root strin
 
 // pushfile put file to path.
 func (r *RunSftp) pushFile(client *TargetConnectMap, localfile io.Reader, sourcePath, path string, size int64) (err error) {
+	if err = ensureTargetConnectAvailable(client); err != nil {
+		return
+	}
+
 	if r.DryRun {
 		r.printAction(client.Output, "copy", fmt.Sprintf("local:%s -> %s:%s", sourcePath, client.Output.Server, path))
 		return nil

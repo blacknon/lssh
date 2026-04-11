@@ -4,7 +4,7 @@ _lscp_completion() {
     cur="${COMP_WORDS[COMP_CWORD]}"
     prev="${COMP_WORDS[COMP_CWORD-1]}"
 
-    local opts="--host -H --list -l --file -F --generate-lssh-conf --parallel -P --permission -p --help -h --version -v"
+    local opts="--host -H --list -l --file -F --generate-lssh-conf --parallel -P --permission -p --dry-run --enable-control-master --disable-control-master --help -h --version -v"
 
     case "${prev}" in
         --file|-F|--generate-lssh-conf)

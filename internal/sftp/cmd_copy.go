@@ -240,6 +240,10 @@ func (r *RunSftp) copyRemoteToRemote(src remoteCopySource, dst *TargetConnectMap
 }
 
 func resolveRemoteCopyPath(client *TargetConnectMap, path string) (string, error) {
+	if err := ensureTargetConnectAvailable(client); err != nil {
+		return "", err
+	}
+
 	switch {
 	case path == "~":
 		return client.Connect.Getwd()
@@ -257,6 +261,10 @@ func resolveRemoteCopyPath(client *TargetConnectMap, path string) (string, error
 }
 
 func (r *RunSftp) isRemoteCopyTargetDir(dst *TargetConnectMap, rawPath, resolvedPath string, defaultIsDir bool) (bool, error) {
+	if err := ensureTargetConnectAvailable(dst); err != nil {
+		return false, err
+	}
+
 	if defaultIsDir || strings.HasSuffix(rawPath, "/") {
 		return true, nil
 	}
@@ -279,6 +287,13 @@ func (r *RunSftp) isRemoteCopyTargetDir(dst *TargetConnectMap, rawPath, resolved
 }
 
 func (r *RunSftp) copyRemoteDirToRemote(srcClient *SftpConnect, dst *TargetConnectMap, sourcePath, targetPath string) error {
+	if err := ensureSFTPClientAvailable(srcClient); err != nil {
+		return err
+	}
+	if err := ensureTargetConnectAvailable(dst); err != nil {
+		return err
+	}
+
 	walker := srcClient.Connect.Walk(sourcePath)
 	baseDir := filepath.Dir(sourcePath)
 
@@ -324,6 +339,13 @@ func (r *RunSftp) copyRemoteDirToRemote(srcClient *SftpConnect, dst *TargetConne
 }
 
 func (r *RunSftp) copyRemoteFileToRemote(srcClient *SftpConnect, dst *TargetConnectMap, sourcePath, targetPath string, mode os.FileMode) error {
+	if err := ensureSFTPClientAvailable(srcClient); err != nil {
+		return err
+	}
+	if err := ensureTargetConnectAvailable(dst); err != nil {
+		return err
+	}
+
 	if r.DryRun {
 		r.printAction(dst.Output, "copy", fmt.Sprintf("%s:%s -> %s:%s", srcClient.Output.Server, sourcePath, dst.Output.Server, targetPath))
 		if r.Permission {

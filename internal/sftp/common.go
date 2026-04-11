@@ -5,6 +5,7 @@
 package sftp
 
 import (
+	"fmt"
 	"io/fs"
 	"os"
 	"os/user"
@@ -69,8 +70,37 @@ func GeneratePermWithUmask(defaultPerm, umask []string) fs.FileMode {
 	return os.FileMode(perm)
 }
 
+func ensureSFTPClientAvailable(client *SftpConnect) error {
+	if client == nil {
+		return fmt.Errorf("sftp client is not available")
+	}
+	if !client.Connected {
+		return fmt.Errorf("host %s is disconnected", client.Server)
+	}
+	if client.Connect == nil {
+		return fmt.Errorf("sftp client for host %s is not available", client.Server)
+	}
+
+	return nil
+}
+
+func ensureTargetConnectAvailable(client *TargetConnectMap) error {
+	if client == nil {
+		return fmt.Errorf("sftp target client is not available")
+	}
+	if err := ensureSFTPClientAvailable(&client.SftpConnect); err != nil {
+		return err
+	}
+
+	return nil
+}
+
 // Pass path including tilde etc., expand it as local machine PATH and return
 func ExpandRemotePath(client *TargetConnectMap, path string) (expandPaths []string, err error) {
+	if err = ensureTargetConnectAvailable(client); err != nil {
+		return
+	}
+
 	// get home dir
 	dir, err := client.Connect.Getwd()
 	if err != nil {
