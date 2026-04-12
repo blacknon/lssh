@@ -128,13 +128,16 @@ func (fs *billyPathFS) String() string {
 }
 
 func (fs *billyPathFS) GetAttr(name string, _ *fuse.Context) (*fuse.Attr, fuse.Status) {
+	debugf("sshlib-fuse getattr name=%q clean=%q\n", name, fs.clean(name))
 	info, err := fs.lstat(name)
 	if err != nil {
+		debugf("sshlib-fuse getattr error name=%q err=%v\n", name, err)
 		return nil, fuse.ToStatus(err)
 	}
 
 	attr := fileInfoToAttr(info)
 	if attr == nil {
+		debugf("sshlib-fuse getattr attr nil name=%q\n", name)
 		return nil, fuse.EIO
 	}
 
@@ -213,8 +216,10 @@ func (fs *billyPathFS) Unlink(name string, _ *fuse.Context) fuse.Status {
 }
 
 func (fs *billyPathFS) Open(name string, flags uint32, _ *fuse.Context) (nodefs.File, fuse.Status) {
+	debugf("sshlib-fuse open name=%q clean=%q flags=%d\n", name, fs.clean(name), flags)
 	file, err := fs.fs.OpenFile(fs.clean(name), int(flags)&^syscall.O_APPEND, 0)
 	if err != nil {
+		debugf("sshlib-fuse open error name=%q err=%v\n", name, err)
 		return nil, fuse.ToStatus(err)
 	}
 
@@ -222,8 +227,10 @@ func (fs *billyPathFS) Open(name string, flags uint32, _ *fuse.Context) (nodefs.
 }
 
 func (fs *billyPathFS) Create(name string, flags uint32, mode uint32, _ *fuse.Context) (nodefs.File, fuse.Status) {
+	debugf("sshlib-fuse create name=%q clean=%q flags=%d mode=%o\n", name, fs.clean(name), flags, mode)
 	file, err := fs.fs.OpenFile(fs.clean(name), int(flags)&^syscall.O_APPEND|os.O_CREATE, os.FileMode(mode))
 	if err != nil {
+		debugf("sshlib-fuse create error name=%q err=%v\n", name, err)
 		return nil, fuse.ToStatus(err)
 	}
 
@@ -231,8 +238,10 @@ func (fs *billyPathFS) Create(name string, flags uint32, mode uint32, _ *fuse.Co
 }
 
 func (fs *billyPathFS) OpenDir(name string, _ *fuse.Context) ([]fuse.DirEntry, fuse.Status) {
+	debugf("sshlib-fuse opendir name=%q clean=%q\n", name, fs.clean(name))
 	infos, err := fs.fs.ReadDir(fs.clean(name))
 	if err != nil {
+		debugf("sshlib-fuse opendir error name=%q err=%v\n", name, err)
 		return nil, fuse.ToStatus(err)
 	}
 
@@ -287,9 +296,11 @@ func (fs *billyPathFS) clean(name string) string {
 
 func (fs *billyPathFS) lstat(name string) (os.FileInfo, error) {
 	if name == "" || name == string(filepath.Separator) {
+		debugf("sshlib-fuse lstat root name=%q\n", name)
 		return fs.fs.Stat(".")
 	}
 
+	debugf("sshlib-fuse lstat name=%q clean=%q\n", name, fs.clean(name))
 	return fs.fs.Lstat(fs.clean(name))
 }
 
@@ -346,8 +357,10 @@ func (f *billyFuseFile) InnerFile() nodefs.File {
 func (f *billyFuseFile) SetInode(*nodefs.Inode) {}
 
 func (f *billyFuseFile) Read(dest []byte, off int64) (fuse.ReadResult, fuse.Status) {
+	debugf("sshlib-fuse read file=%q off=%d size=%d\n", f.file.Name(), off, len(dest))
 	n, err := f.file.ReadAt(dest, off)
 	if err != nil && !errors.Is(err, io.EOF) {
+		debugf("sshlib-fuse read error file=%q err=%v\n", f.file.Name(), err)
 		return nil, fuse.ToStatus(err)
 	}
 

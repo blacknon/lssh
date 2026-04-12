@@ -67,6 +67,13 @@ func (r *Runner) debugf(format string, args ...interface{}) {
 	if !r.debugEnabled() {
 		return
 	}
+	if path := os.Getenv("LSSHFS_DEBUG_LOG"); path != "" {
+		if f, err := os.OpenFile(path, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0o600); err == nil {
+			_, _ = fmt.Fprintf(f, "DEBUG lsshfs: "+format+"\n", args...)
+			_ = f.Close()
+			return
+		}
+	}
 	_, _ = fmt.Fprintf(r.Stderr, "DEBUG lsshfs: "+format+"\n", args...)
 }
 

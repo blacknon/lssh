@@ -36,6 +36,14 @@ var (
 
 const backgroundReadyTimeout = 15 * time.Second
 
+func debugLogPath(mountpoint string) string {
+	dir, err := mountfs.StateFilePath(mountpoint)
+	if err != nil || strings.TrimSpace(dir) == "" {
+		return ""
+	}
+	return strings.TrimSuffix(dir, filepath.Ext(dir)) + ".debug.log"
+}
+
 func Lsshfs() (app *cli.App) {
 	defConf := common.GetDefaultConfigPath()
 
@@ -235,6 +243,13 @@ func spawnBackgroundProcess(selectedHost string, appendHostFlag bool) error {
 
 	cmd := exec.Command(exe, args...)
 	cmd.Env = append(os.Environ(), "_LSSHFS_DAEMON=1")
+	if os.Getenv("LSSHFS_DEBUG") == "1" {
+		if len(args) > 0 {
+			if logPath := debugLogPath(args[len(args)-1]); logPath != "" {
+				cmd.Env = append(cmd.Env, "LSSHFS_DEBUG_LOG="+logPath, "GO_SSHLIB_DEBUG_LOG="+logPath)
+			}
+		}
+	}
 	if readyPath != "" {
 		cmd.Env = append(cmd.Env, "_LSSHFS_READY_FILE="+readyPath)
 	}
@@ -268,6 +283,11 @@ func spawnBackgroundProcess(selectedHost string, appendHostFlag bool) error {
 		_ = rpipe.Close()
 		if n > 0 {
 			fmt.Fprintf(os.Stderr, "Mounted in background (pid %d)\n", pid)
+			if os.Getenv("LSSHFS_DEBUG") == "1" && len(args) > 0 {
+				if logPath := debugLogPath(args[len(args)-1]); logPath != "" {
+					fmt.Fprintf(os.Stderr, "Debug log: %s\n", logPath)
+				}
+			}
 			os.Exit(0)
 		}
 		return fmt.Errorf("background start failed")
@@ -278,6 +298,11 @@ func spawnBackgroundProcess(selectedHost string, appendHostFlag bool) error {
 	}
 
 	fmt.Fprintf(os.Stderr, "Mounted in background (pid %d)\n", pid)
+	if os.Getenv("LSSHFS_DEBUG") == "1" && len(args) > 0 {
+		if logPath := debugLogPath(args[len(args)-1]); logPath != "" {
+			fmt.Fprintf(os.Stderr, "Debug log: %s\n", logPath)
+		}
+	}
 	os.Exit(0)
 	return nil
 }
