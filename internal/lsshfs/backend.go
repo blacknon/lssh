@@ -5,9 +5,7 @@
 package lsshfs
 
 import (
-	"crypto/rand"
 	"bufio"
-	"encoding/hex"
 	"fmt"
 	"net"
 	"os"
@@ -24,19 +22,12 @@ type Backend string
 const (
 	BackendFUSE Backend = "fuse"
 	BackendNFS  Backend = "nfs"
-	BackendSMB  Backend = "smb"
+	BackendWinFsp Backend = "winfsp"
 )
-
-const defaultSMBShareName = "share"
 
 type CommandSpec struct {
 	Name string
 	Args []string
-}
-
-type SMBCredentials struct {
-	Username string
-	Password string
 }
 
 func backendForGOOS(goos string) (Backend, error) {
@@ -46,7 +37,7 @@ func backendForGOOS(goos string) (Backend, error) {
 	case "darwin":
 		return BackendNFS, nil
 	case "windows":
-		return BackendSMB, nil
+		return BackendWinFsp, nil
 	default:
 		return "", fmt.Errorf("lsshfs does not support %s", goos)
 	}
@@ -77,7 +68,7 @@ func NormalizeMountPoint(goos, mountpoint string) (string, error) {
 	return normalizeMountPoint(goos, mountpoint)
 }
 
-func mountCommand(goos, mountpoint string, port int, shareName string, creds *SMBCredentials) (CommandSpec, error) {
+func mountCommand(goos, mountpoint string, port int, shareName string, creds interface{}) (CommandSpec, error) {
 	switch goos {
 	case "darwin":
 		return CommandSpec{
@@ -89,37 +80,9 @@ func mountCommand(goos, mountpoint string, port int, shareName string, creds *SM
 				mountpoint,
 			},
 		}, nil
-	case "windows":
-		if shareName == "" {
-			shareName = defaultSMBShareName
-		}
-		args := []string{
-			"use",
-			mountpoint,
-			fmt.Sprintf(`\\127.0.0.1\%s`, shareName),
-		}
-		if creds != nil && creds.Username != "" {
-			args = append(args, creds.Password, "/user:"+creds.Username)
-		}
-		return CommandSpec{
-			Name: "net",
-			Args: append(args, "/persistent:no"),
-		}, nil
 	default:
 		return CommandSpec{}, fmt.Errorf("mount command is not defined for %s", goos)
 	}
-}
-
-func generateSMBCredentials() (*SMBCredentials, error) {
-	buf := make([]byte, 16)
-	if _, err := rand.Read(buf); err != nil {
-		return nil, err
-	}
-
-	return &SMBCredentials{
-		Username: "lsshfs",
-		Password: hex.EncodeToString(buf),
-	}, nil
 }
 
 func unmountCommands(goos, mountpoint string) ([]CommandSpec, error) {
@@ -136,6 +99,7 @@ func unmountCommands(goos, mountpoint string) ([]CommandSpec, error) {
 		}, nil
 	case "windows":
 		return []CommandSpec{
+			{Name: "sshfs.exe", Args: []string{"unmount", mountpoint}},
 			{Name: "net", Args: []string{"use", mountpoint, "/delete", "/y"}},
 		}, nil
 	default:

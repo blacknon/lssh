@@ -10,12 +10,13 @@ import (
 	"os"
 	"os/exec"
 	"os/signal"
+	"path/filepath"
 	"strconv"
+	"strings"
 	"sync"
 	"syscall"
 	"time"
 
-	sshlib "github.com/blacknon/go-sshlib"
 	conf "github.com/blacknon/lssh/internal/config"
 	lsshssh "github.com/blacknon/lssh/internal/ssh"
 )
@@ -50,23 +51,7 @@ type mountConn interface {
 	FUSEForward(local, remote string) error
 	NFSForward(bindAddr, port, remote string) error
 	SMBForward(bindAddr, port, shareName, remote string) error
-	SMBForwardAuth(bindAddr, port, shareName, remote string, creds *SMBCredentials) error
 	CheckClientAlive() error
-}
-
-type sshMountConn struct {
-	*sshlib.Connect
-}
-
-func (c *sshMountConn) SMBForwardAuth(bindAddr, port, shareName, remote string, creds *SMBCredentials) error {
-	if creds == nil {
-		return c.Connect.SMBForward(bindAddr, port, shareName, remote)
-	}
-
-	return c.Connect.SMBForwardAuth(bindAddr, port, shareName, remote, &sshlib.SMBCredentials{
-		Username: creds.Username,
-		Password: creds.Password,
-	})
 }
 
 func (r *Runner) Run() error {
@@ -103,7 +88,7 @@ func (r *Runner) Run() error {
 	}
 	r.MountPoint = mountpoint
 
-	if backend != BackendSMB {
+	if backend != BackendWinFsp {
 		if err := os.MkdirAll(r.MountPoint, 0o755); err != nil {
 			return err
 		}
@@ -149,11 +134,8 @@ func (r *Runner) Run() error {
 		if err := r.mountWithRetry(spec, serveErrCh); err != nil {
 			return err
 		}
-	case BackendSMB:
-		go func() {
-			serveErrCh <- connect.SMBForward("127.0.0.1", "445", defaultSMBShareName, r.RemotePath)
-		}()
-		spec, err := mountCommand(r.GOOS, r.MountPoint, 445, defaultSMBShareName, nil)
+	case BackendWinFsp:
+		spec, err := r.winFspMountCommand()
 		if err != nil {
 			return err
 		}
@@ -236,7 +218,7 @@ func createMountConn(r *Runner) (mountConn, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &sshMountConn{Connect: connect}, nil
+	return connect, nil
 }
 
 func (r *Runner) mountWithRetry(spec CommandSpec, serveErrCh <-chan error) error {
@@ -270,7 +252,52 @@ func (r *Runner) mountWithRetry(spec CommandSpec, serveErrCh <-chan error) error
 
 func (r *Runner) runCommand(spec CommandSpec) error {
 	cmd := r.execCommand(spec.Name, spec.Args...)
+	cmd.Stdin = os.Stdin
 	cmd.Stdout = r.Stdout
 	cmd.Stderr = r.Stderr
 	return cmd.Run()
+}
+
+func (r *Runner) winFspMountCommand() (CommandSpec, error) {
+	server, ok := r.Config.Server[r.Host]
+	if !ok {
+		return CommandSpec{}, fmt.Errorf("host not found in config: %s", r.Host)
+	}
+	if strings.TrimSpace(server.Addr) == "" || strings.TrimSpace(server.User) == "" {
+		return CommandSpec{}, fmt.Errorf("windows winfsp backend requires host addr and user")
+	}
+	if server.Pass != "" || len(server.Passes) > 0 {
+		return CommandSpec{}, fmt.Errorf("windows winfsp backend currently supports key/agent auth only")
+	}
+
+	remoteSpec := fmt.Sprintf("%s@%s:%s", server.User, server.Addr, r.RemotePath)
+	args := []string{remoteSpec, r.MountPoint}
+
+	if strings.TrimSpace(server.Port) != "" && server.Port != "22" {
+		args = append(args, "-p", server.Port)
+	}
+	if key := firstKeyPath(server); key != "" {
+		args = append(args, "-o", "IdentityFile="+filepath.Clean(key))
+	}
+	if len(server.KnownHostsFiles) > 0 && strings.TrimSpace(server.KnownHostsFiles[0]) != "" {
+		args = append(args, "-o", "UserKnownHostsFile="+filepath.Clean(server.KnownHostsFiles[0]))
+	}
+	if !server.CheckKnownHosts {
+		args = append(args, "-o", "StrictHostKeyChecking=no")
+	}
+
+	return CommandSpec{Name: "sshfs.exe", Args: args}, nil
+}
+
+func firstKeyPath(server conf.ServerConfig) string {
+	if strings.TrimSpace(server.Key) != "" {
+		return server.Key
+	}
+	for _, key := range server.Keys {
+		pair := strings.SplitN(key, "::", 2)
+		if strings.TrimSpace(pair[0]) != "" {
+			return pair[0]
+		}
+	}
+	return ""
 }
