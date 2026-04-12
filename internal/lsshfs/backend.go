@@ -22,7 +22,6 @@ type Backend string
 const (
 	BackendFUSE Backend = "fuse"
 	BackendNFS  Backend = "nfs"
-	BackendWinFsp Backend = "winfsp"
 )
 
 type CommandSpec struct {
@@ -37,7 +36,7 @@ func backendForGOOS(goos string) (Backend, error) {
 	case "darwin":
 		return BackendNFS, nil
 	case "windows":
-		return BackendWinFsp, nil
+		return BackendNFS, nil
 	default:
 		return "", fmt.Errorf("lsshfs does not support %s", goos)
 	}
@@ -70,12 +69,34 @@ func NormalizeMountPoint(goos, mountpoint string) (string, error) {
 
 func mountCommand(goos, mountpoint string, port int, shareName string, creds interface{}) (CommandSpec, error) {
 	switch goos {
+	case "linux":
+		return CommandSpec{
+			Name: "mount",
+			Args: []string{
+				"-t",
+				"nfs",
+				"-o",
+				fmt.Sprintf("port=%d,mountport=%d,tcp,nfsvers=3", port, port),
+				"127.0.0.1:/",
+				mountpoint,
+			},
+		}, nil
 	case "darwin":
 		return CommandSpec{
 			Name: "mount_nfs",
 			Args: []string{
 				"-o",
 				fmt.Sprintf("port=%d,mountport=%d,tcp,nfsvers=3", port, port),
+				"127.0.0.1:/",
+				mountpoint,
+			},
+		}, nil
+	case "windows":
+		return CommandSpec{
+			Name: "mount",
+			Args: []string{
+				"-o",
+				"anon,mtype=hard",
 				"127.0.0.1:/",
 				mountpoint,
 			},
@@ -99,8 +120,7 @@ func unmountCommands(goos, mountpoint string) ([]CommandSpec, error) {
 		}, nil
 	case "windows":
 		return []CommandSpec{
-			{Name: "sshfs.exe", Args: []string{"unmount", mountpoint}},
-			{Name: "net", Args: []string{"use", mountpoint, "/delete", "/y"}},
+			{Name: "umount", Args: []string{"-f", mountpoint}},
 		}, nil
 	default:
 		return nil, fmt.Errorf("unmount command is not defined for %s", goos)

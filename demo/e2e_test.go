@@ -181,26 +181,7 @@ func testDemoProxyAndForwarding(t *testing.T, demoDir string) {
 	})
 
 	t.Run("lsshfs mounts remote path locally and can unmount it", func(t *testing.T) {
-		runClientCommandOrFail(t, demoDir,
-			"mkdir -p /home/demo/mnt/lsshfs && lsshfs @KeyAuth:/home/demo /home/demo/mnt/lsshfs >/tmp/lsshfs-demo.log 2>&1",
-		)
-
-		deadline := time.Now().Add(20 * time.Second)
-		ready := false
-		for time.Now().Before(deadline) {
-			output, err := runClientCommand(demoDir,
-				"grep -F '/home/demo/mnt/lsshfs' /proc/mounts && lsshfs --list-mounts",
-			)
-			if err == nil && strings.Contains(output, "/home/demo/mnt/lsshfs") {
-				ready = true
-				break
-			}
-			time.Sleep(500 * time.Millisecond)
-		}
-		if !ready {
-			logOutput, _ := runClientCommand(demoDir, "cat /tmp/lsshfs-demo.log || true")
-			t.Fatalf("lsshfs mount did not become ready\nlog:\n%s", logOutput)
-		}
+		startDemoLsshfsMount(t, demoDir, "@KeyAuth:/home/demo", "/home/demo/mnt/lsshfs", "/tmp/lsshfs-demo.log")
 
 		assertClientCommandContains(t, demoDir,
 			"grep -F '/home/demo/mnt/lsshfs' /proc/mounts && grep -F '/home/demo/mnt/lsshfs' <(lsshfs --list-mounts)",
@@ -212,6 +193,30 @@ func testDemoProxyAndForwarding(t *testing.T, demoDir string) {
 			"! grep -Fq '/home/demo/mnt/lsshfs' <(lsshfs --list-mounts 2>/dev/null || true) && echo lsshfs_unmount_ok",
 			"lsshfs_unmount_ok",
 		)
+	})
+
+	t.Run("lsshfs mounted directory can be traversed without hanging", func(t *testing.T) {
+		startDemoLsshfsMount(t, demoDir, "@KeyAuth:/home/demo", "/home/demo/mnt/lsshfs", "/tmp/lsshfs-demo-interaction.log")
+		t.Cleanup(func() {
+			_, _ = runClientCommand(demoDir, "lsshfs --unmount /home/demo/mnt/lsshfs")
+		})
+
+		assertClientCommandContains(t, demoDir,
+			`cd /home/demo/mnt/lsshfs && pwd && ls -1a | grep -F '.ssh'`,
+			"/home/demo/mnt/lsshfs",
+		)
+	})
+
+	t.Run("lsshfs rejects missing remote paths", func(t *testing.T) {
+		output, err := runClientCommand(demoDir,
+			"mkdir -p /home/demo/mnt/lsshfs-missing && lsshfs @KeyAuth:/home/demo/does-not-exist /home/demo/mnt/lsshfs-missing",
+		)
+		if err == nil {
+			t.Fatalf("expected lsshfs missing path mount to fail\noutput:\n%s", output)
+		}
+		if strings.Contains(output, "/home/demo/mnt/lsshfs-missing") {
+			t.Fatalf("unexpected mount record/output for missing path\noutput:\n%s", output)
+		}
 	})
 
 	t.Run("smb reverse dynamic forward exposes local path on remote host", func(t *testing.T) {
@@ -422,6 +427,28 @@ func runClientCommand(demoDir, command string) (string, error) {
 		return string(output), fmt.Errorf("%w", err)
 	}
 	return string(output), nil
+}
+
+func startDemoLsshfsMount(t *testing.T, demoDir, remotePath, mountPoint, logPath string) {
+	t.Helper()
+
+	runClientCommandOrFail(t, demoDir,
+		fmt.Sprintf("mkdir -p %s && lsshfs %s %s >%s 2>&1", mountPoint, remotePath, mountPoint, logPath),
+	)
+
+	deadline := time.Now().Add(20 * time.Second)
+	for time.Now().Before(deadline) {
+		output, err := runClientCommand(demoDir,
+			fmt.Sprintf("grep -F %q /proc/mounts && lsshfs --list-mounts", mountPoint),
+		)
+		if err == nil && strings.Contains(output, mountPoint) {
+			return
+		}
+		time.Sleep(500 * time.Millisecond)
+	}
+
+	logOutput, _ := runClientCommand(demoDir, fmt.Sprintf("cat %s || true", logPath))
+	t.Fatalf("lsshfs mount did not become ready for %s\nlog:\n%s", mountPoint, logOutput)
 }
 
 func mustRunComposeCommand(t *testing.T, demoDir string, args ...string) string {

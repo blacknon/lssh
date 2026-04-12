@@ -10,8 +10,6 @@ import (
 	"syscall"
 	"testing"
 	"time"
-
-	conf "github.com/blacknon/lssh/internal/config"
 )
 
 type fakeMountConn struct {
@@ -175,15 +173,6 @@ func TestRunnerRunWaitsForSMBMountBeforeReady(t *testing.T) {
 	sigCh := make(chan os.Signal, 1)
 
 	runner := &Runner{
-		Config: conf.Config{
-			Server: map[string]conf.ServerConfig{
-				"web01": {
-					Addr: "example.com",
-					User: "demo",
-					Port: "22",
-				},
-			},
-		},
 		Host:       "web01",
 		RemotePath: "/srv/data",
 		MountPoint: "Z:",
@@ -195,7 +184,7 @@ func TestRunnerRunWaitsForSMBMountBeforeReady(t *testing.T) {
 		waitForMountActive: func(goos, mountpoint string, timeout time.Duration) error {
 			waitCalled = true
 			if readyCalled {
-				t.Fatal("ready notifier called before WinFsp mount became active")
+				t.Fatal("ready notifier called before windows NFS mount became active")
 			}
 			return nil
 		},
@@ -214,5 +203,30 @@ func TestRunnerRunWaitsForSMBMountBeforeReady(t *testing.T) {
 	}
 	if !waitCalled || !readyCalled {
 		t.Fatalf("waitCalled=%v readyCalled=%v", waitCalled, readyCalled)
+	}
+}
+
+func TestRunnerRunWindowsRequiresMountCommand(t *testing.T) {
+	t.Setenv("XDG_CACHE_HOME", t.TempDir())
+	origPath := os.Getenv("PATH")
+	t.Cleanup(func() { _ = os.Setenv("PATH", origPath) })
+	if err := os.Setenv("PATH", t.TempDir()); err != nil {
+		t.Fatalf("Setenv: %v", err)
+	}
+
+	runner := &Runner{
+		Host:       "web01",
+		RemotePath: "/srv/data",
+		MountPoint: "Z:",
+		ReadWrite:  true,
+		GOOS:       "windows",
+		createConnect: func(r *Runner) (mountConn, error) {
+			return &fakeMountConn{}, nil
+		},
+	}
+
+	err := runner.Run()
+	if err == nil || !strings.Contains(err.Error(), "windows nfs client is not installed") {
+		t.Fatalf("Run() error = %v", err)
 	}
 }
