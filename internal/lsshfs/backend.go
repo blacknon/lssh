@@ -158,28 +158,6 @@ func waitForMountActive(goos, mountpoint string, timeout time.Duration) error {
 	return fmt.Errorf("mount did not become active: %s", mountpoint)
 }
 
-func probeMountedFS(goos, mountpoint string, timeout time.Duration) error {
-	if goos != "linux" {
-		return nil
-	}
-
-	done := make(chan error, 1)
-	go func() {
-		_, err := os.ReadDir(mountpoint)
-		done <- err
-	}()
-
-	select {
-	case err := <-done:
-		if err != nil {
-			return fmt.Errorf("mounted filesystem is not responding: %s: %w", mountpoint, err)
-		}
-		return nil
-	case <-time.After(timeout):
-		return fmt.Errorf("mounted filesystem is not responding: %s", mountpoint)
-	}
-}
-
 func isMountActive(goos, mountpoint string) (bool, error) {
 	switch goos {
 	case "linux":
