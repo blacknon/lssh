@@ -90,12 +90,6 @@ func TestRunnerRunWaitsForMountBeforeReady(t *testing.T) {
 			}
 			return nil
 		},
-		probeMountedFS: func(goos, mountpoint string, timeout time.Duration) error {
-			if readyCalled {
-				t.Fatal("ready notifier called before mounted filesystem probe")
-			}
-			return nil
-		},
 		ReadyNotifier: func() {
 			readyCalled = true
 			close(done)
@@ -165,9 +159,6 @@ func TestRunnerRunUnmountsOnDisconnect(t *testing.T) {
 		waitForMountActive: func(goos, mountpoint string, timeout time.Duration) error {
 			return nil
 		},
-		probeMountedFS: func(goos, mountpoint string, timeout time.Duration) error {
-			return nil
-		},
 		execCommand: func(name string, args ...string) *exec.Cmd {
 			commands = append(commands, name+" "+strings.Join(args, " "))
 			return exec.Command("sh", "-c", "true")
@@ -227,9 +218,6 @@ func TestRunnerRunDoesNotUnmountOnSingleAliveFailure(t *testing.T) {
 		waitForMountActive: func(goos, mountpoint string, timeout time.Duration) error {
 			return nil
 		},
-		probeMountedFS: func(goos, mountpoint string, timeout time.Duration) error {
-			return nil
-		},
 		execCommand: func(name string, args ...string) *exec.Cmd {
 			return exec.Command("sh", "-c", "true")
 		},
@@ -261,41 +249,5 @@ func TestRunnerRunDoesNotUnmountOnSingleAliveFailure(t *testing.T) {
 	}
 	if strings.Contains(stderr.String(), "ssh connection lost") {
 		t.Fatalf("stderr = %q", stderr.String())
-	}
-}
-
-func TestRunnerRunReturnsErrorWhenMountedFilesystemProbeFails(t *testing.T) {
-	t.Setenv("XDG_CACHE_HOME", t.TempDir())
-
-	done := make(chan struct{})
-	var commands []string
-	runner := &Runner{
-		Host:       "web01",
-		RemotePath: "/srv/data",
-		MountPoint: t.TempDir(),
-		ReadWrite:  true,
-		GOOS:       "linux",
-		createConnect: func(r *Runner) (mountConn, error) {
-			return &fakeMountConn{fuseBlock: done}, nil
-		},
-		waitForMountActive: func(goos, mountpoint string, timeout time.Duration) error {
-			return nil
-		},
-		probeMountedFS: func(goos, mountpoint string, timeout time.Duration) error {
-			close(done)
-			return errors.New("probe timeout")
-		},
-		execCommand: func(name string, args ...string) *exec.Cmd {
-			commands = append(commands, name+" "+strings.Join(args, " "))
-			return exec.Command("sh", "-c", "true")
-		},
-	}
-
-	err := runner.Run()
-	if err == nil || !strings.Contains(err.Error(), "probe timeout") {
-		t.Fatalf("Run() error = %v", err)
-	}
-	if len(commands) == 0 {
-		t.Fatalf("expected cleanup command on probe failure")
 	}
 }
