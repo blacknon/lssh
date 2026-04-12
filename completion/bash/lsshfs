@@ -1,0 +1,26 @@
+_lsshfs_completion() {
+    local cur prev
+    COMPREPLY=()
+    cur="${COMP_WORDS[COMP_CWORD]}"
+    prev="${COMP_WORDS[COMP_CWORD-1]}"
+
+    local opts="--host -H --file -F --generate-lssh-conf --debug --rw --unmount --list-mounts --foreground --list -l --enable-control-master --disable-control-master --help -h --version -v"
+
+    case "${prev}" in
+        --file|-F|--generate-lssh-conf|--unmount)
+            COMPREPLY=($(compgen -f -- "${cur}"))
+            return
+            ;;
+        --host|-H)
+            return
+            ;;
+    esac
+
+    if [[ "${cur}" == -* ]]; then
+        COMPREPLY=($(compgen -W "${opts}" -- "${cur}"))
+    else
+        COMPREPLY=($(compgen -f -- "${cur}"))
+    fi
+}
+
+complete -F _lsshfs_completion lsshfs

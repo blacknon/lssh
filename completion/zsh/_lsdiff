@@ -1,0 +1,13 @@
+#compdef lsdiff
+_lsdiff() {
+  _arguments -s \
+    '(-F --file)'{-F,--file}'+[Specify config file path]:config file:_files' \
+    '--generate-lssh-conf[Print generated lssh config from OpenSSH config]:OpenSSH config:_files' \
+    '--enable-control-master[Temporarily enable ControlMaster for this command execution]' \
+    '--disable-control-master[Temporarily disable ControlMaster for this command execution]' \
+    '(-h --help)'{-h,--help}'[Print help]' \
+    '(-v --version)'{-v,--version}'[Print version]' \
+    '*:remote path:_files'
+}
+
+_lsdiff "$@"
