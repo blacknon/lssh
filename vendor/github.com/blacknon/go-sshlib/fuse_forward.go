@@ -9,6 +9,7 @@ package sshlib
 import (
 	"errors"
 	"io"
+	"log"
 	"os"
 	"os/signal"
 	"path/filepath"
@@ -66,15 +67,32 @@ func serveFUSEMount(mountpoint string, fs pathfs.FileSystem) error {
 		return err
 	}
 
-	pfs := pathfs.NewPathNodeFs(fs, nil)
+	debug := debugEnabled()
+	if debug {
+		fs.SetDebug(true)
+	}
+
+	pfs := pathfs.NewPathNodeFs(fs, &pathfs.PathNodeFsOptions{
+		Debug: debug,
+	})
+
+	var logger *log.Logger
+	if debug {
+		logger = log.New(debugWriter(), "go-fuse: ", log.LstdFlags|log.Lmicroseconds)
+	}
+
 	server, _, err := nodefs.Mount(
 		mountpoint,
 		pfs.Root(),
 		&fuse.MountOptions{
 			FsName: fs.String(),
 			Name:   "sshlib",
+			Debug:  debug,
+			Logger: logger,
 		},
-		nil,
+		&nodefs.Options{
+			Debug: debug,
+		},
 	)
 	if err != nil {
 		return err
