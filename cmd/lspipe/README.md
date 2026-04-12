@@ -5,6 +5,7 @@
 `lspipe` keeps a selected host set in the background and lets you reuse it from local shell pipelines.
 It is designed for cases where you want to choose hosts once, keep that session alive, and then run multiple commands through the same selection later.
 
+Session-based execution works on Linux, macOS, and Windows.
 Named pipe bridges created with `--mkfifo` are currently supported on Unix-like systems only.
 
 ## Usage
@@ -121,7 +122,8 @@ echo 'cat' > ~/.cache/lssh/lspipe/fifo/default/ops/web01.cmd
 - `lspipe` sessions are single local handles to a chosen host set.
 - `stdin` is broadcast to every selected host in the current MVP.
 - `--raw` is only allowed when the resolved target set contains exactly one host.
+- Windows supports normal `lspipe` session creation and command execution through the local TCP fallback.
 - `--mkfifo` creates `all.*` pipes plus one `host.*` set per host: `.cmd`, `.stdin`, `.out`.
 - Write stdin into `.stdin`, then write the remote command into `.cmd`; read the result from `.out`.
-- `--mkfifo` is currently Unix-only. Windows is not supported yet.
+- `--mkfifo` is currently Unix-only. Windows does not support the FIFO bridge workflow in `0.9.0`.
 - The default config search order is `~/.lssh.toml`, `~/.lssh.yaml`, `~/.lssh.yml`, then `~/.lssh.conf`.

@@ -74,14 +74,6 @@ lsshfs --unmount ./mnt/app
 lsshfs --list-mounts
 ```
 
-### windows mount targets
-
-Windows uses a drive letter as the mount target:
-
-```powershell
-lsshfs @web01:/srv/data Z:
-```
-
 ### notes
 
 - `lsshfs` supports only one host at a time.
