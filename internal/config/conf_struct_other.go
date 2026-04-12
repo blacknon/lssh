@@ -6,7 +6,7 @@ package conf
 
 // IncludeConfig specify the configuration file to include (ServerConfig only).
 type IncludeConfig struct {
-	Path string `toml:"path"`
+	Path string `toml:"path" yaml:"path"`
 }
 
 // IncludesConfig specify the configuration file to include (ServerConfig only).
@@ -18,12 +18,13 @@ type IncludesConfig struct {
 	// 		 "~/.lssh.d/home.conf"
 	// 		,"~/.lssh.d/cloud.conf"
 	// 	]
-	Path []string `toml:"path"`
+	Path []string `toml:"path" yaml:"path"`
 }
 
 // OpenSSHConfig is read OpenSSH configuration file.
 type OpenSSHConfig struct {
-	Path    string `toml:"path"` // This is preferred
-	Command string `toml:"command"`
+	Path    string          `toml:"path" yaml:"path"` // This is preferred
+	Command string          `toml:"command" yaml:"command"`
+	When    ServerMatchWhen `toml:"when" yaml:"when"`
 	ServerConfig
 }

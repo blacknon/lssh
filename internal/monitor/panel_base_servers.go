@@ -194,33 +194,24 @@ func (m *Monitor) updateBaseGridTableRows() {
 		}
 		wg1.Wait()
 
-		// Update rows
-		var wg2 sync.WaitGroup
-		for i := 0; i < count-1; i++ {
-			row := i + 1
-			server := m.table.GetCell(row, 0).GetText()
+		m.View.QueueUpdateDraw(func() {
+			for i := 0; i < count-1; i++ {
+				row := i + 1
+				server := m.table.GetCell(row, 0).GetText()
 
-			if _, ok := nodeRows.data[server]; !ok {
-				continue
+				if _, ok := nodeRows.data[server]; !ok {
+					continue
+				}
+
+				for col, cell := range nodeRows.data[server] {
+					m.table.SetCell(row, col+1, cell)
+				}
 			}
 
-			for col, cell := range nodeRows.data[server] {
-				wg2.Add(1)
-				m.View.QueueUpdate(
-					func() {
-						defer wg2.Done()
-						m.table.SetCell(row, col+1, cell)
-					})
-			}
-
-		}
-		wg2.Wait()
-
-		sortColumn := m.table.GetSortClickedColumn()
-		isDescending := m.table.GetSortClickedDescending()
-		m.table.Sort(sortColumn, isDescending)
-
-		m.View.Draw()
+			sortColumn := m.table.GetSortClickedColumn()
+			isDescending := m.table.GetSortClickedDescending()
+			m.table.Sort(sortColumn, isDescending)
+		})
 	}
 }
 

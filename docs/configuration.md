@@ -2,12 +2,13 @@ Configuration
 =============
 
 This document collects the shared configuration features used across the `lssh` suite.
+The same schema can be written in either TOML or YAML.
 For command-specific behavior such as forwarding examples or local rc usage, see [`cmd/lssh/README.md`](../cmd/lssh/README.md).
 
 ## Configuration snippets
 
 The snippets below collect the configuration patterns currently covered in this document.
-Copy only the blocks you need into your `~/.lssh.conf`.
+Copy only the blocks you need into your `~/.lssh.toml` or `~/.lssh.yaml`.
 
 Base inventory:
 
@@ -20,6 +21,18 @@ key = "~/.ssh/id_rsa"
 [server.dev]
 addr = "192.168.100.10"
 note = "development server"
+```
+
+```yaml
+common:
+  user: "demo"
+  port: "22"
+  key: "~/.ssh/id_rsa"
+
+server:
+  dev:
+    addr: "192.168.100.10"
+    note: "development server"
 ```
 
 Logging:
@@ -52,6 +65,14 @@ pre_cmd = 'printf "\033]50;SetProfile=local\a"'
 post_cmd = 'printf "\033]50;SetProfile=Default\a"'
 ```
 
+```yaml
+sshconfig:
+  default:
+    path: "~/.ssh/config"
+    pre_cmd: 'printf "\033]50;SetProfile=local\a"'
+    post_cmd: 'printf "\033]50;SetProfile=Default\a"'
+```
+
 Split config files:
 
 ```toml
@@ -60,6 +81,13 @@ path = [
      "~/.lssh.d/home.conf"
     ,"~/.lssh.d/cloud.conf"
 ]
+```
+
+```yaml
+includes:
+  path:
+    - "~/.lssh.d/home.conf"
+    - "~/.lssh.d/cloud.conf"
 ```
 
 Local bashrc:
@@ -136,6 +164,22 @@ command = "ls -lh"
 
 [shell.outexecs.vimdiff]
 path = "/usr/bin/vimdiff"
+```
+
+```yaml
+shell:
+  PROMPT: "[${COUNT}] <<< "
+  OPROMPT: "[${SERVER}][${COUNT}] > "
+  title: "lsshell"
+  histfile: "~/.lssh_history"
+  pre_cmd: "printf 'start lsshell\n'"
+  post_cmd: "printf 'finish lsshell\n'"
+  alias:
+    ll:
+      command: "ls -lh"
+  outexecs:
+    vimdiff:
+      path: "/usr/bin/vimdiff"
 ```
 
 HTTP / SOCKS5 / SSH proxy and `ProxyCommand`:
@@ -354,7 +398,7 @@ These hooks are separate from `[shell].pre_cmd` and `[shell].post_cmd`.
 ## Port forwarding
 
 You can define forwarding behavior directly in `[server.<name>]` and then connect with the saved profile.
-This covers local and remote port forwarding, dynamic forwarding, HTTP forwarding, NFS forwarding, and X11 forwarding.
+This covers local and remote port forwarding, dynamic forwarding, HTTP forwarding, NFS forwarding, SMB forwarding, and X11 forwarding.
 
 Simple local / remote examples:
 
@@ -426,14 +470,28 @@ key = "~/.ssh/id_rsa"
 nfs_reverse_dynamic_forward = "2049"
 nfs_reverse_dynamic_forward_path = "/path/to/local"
 
-[server.x11]
+[server.smb-dynamic]
 addr = "192.168.100.47"
+user = "demo"
+key = "~/.ssh/id_rsa"
+smb_dynamic_forward = "1445"
+smb_dynamic_forward_path = "/path/to/remote"
+
+[server.smb-reverse-dynamic]
+addr = "192.168.100.48"
+user = "demo"
+key = "~/.ssh/id_rsa"
+smb_reverse_dynamic_forward = "1445"
+smb_reverse_dynamic_forward_path = "/path/to/local"
+
+[server.x11]
+addr = "192.168.100.49"
 user = "demo"
 key = "~/.ssh/id_rsa"
 x11 = true
 
 [server.x11-trusted]
-addr = "192.168.100.48"
+addr = "192.168.100.50"
 user = "demo"
 key = "~/.ssh/id_rsa"
 x11_trusted = true
@@ -453,6 +511,10 @@ Available forwarding settings:
 - `nfs_dynamic_forward_path`: remote path exported through NFS dynamic forwarding
 - `nfs_reverse_dynamic_forward`: local port used for reverse NFS forwarding
 - `nfs_reverse_dynamic_forward_path`: local path exported for reverse NFS forwarding
+- `smb_dynamic_forward`: local port used for SMB dynamic forwarding
+- `smb_dynamic_forward_path`: remote path exported through SMB dynamic forwarding
+- `smb_reverse_dynamic_forward`: local port used for reverse SMB forwarding
+- `smb_reverse_dynamic_forward_path`: local path exported for reverse SMB forwarding
 - `x11`: enable X11 forwarding
 - `x11_trusted`: enable trusted X11 forwarding
 
@@ -482,7 +544,8 @@ In `dirpath`, `~` expands to your home directory, `<Date>` becomes the current d
 
 ## Shared host inventory
 
-`lssh` reads `~/.lssh.conf` by default.
+`lssh` reads config files in this order by default:
+`~/.lssh.toml` > `~/.lssh.yaml` > `~/.lssh.yml` > `~/.lssh.conf`.
 You can define shared settings in `[common]` and host entries in `[server.<name>]`.
 Values in `[server.<name>]` override values from `[common]`.
 
@@ -497,6 +560,18 @@ key = "~/.ssh/id_rsa"
 [server.dev]
 addr = "192.168.100.10"
 note = "development server"
+```
+
+```yaml
+common:
+  user: "demo"
+  port: "22"
+  key: "~/.ssh/id_rsa"
+
+server:
+  dev:
+    addr: "192.168.100.10"
+    note: "development server"
 ```
 
 At minimum, a server entry needs `addr`, `user`, and authentication settings such as `pass`, `key`, `cert`, `pkcs11`, or `agentauth`.
@@ -519,8 +594,15 @@ With the example above, `lssh` sends a keepalive request every 10 seconds and cl
 Load and use `~/.ssh/config` by default.
 `ProxyCommand` can also be used.
 
+If no lssh config file exists, the `lssh` suite commands show an information
+message and fall back to OpenSSH config import mode automatically. In an
+interactive terminal, they can also offer to create `~/.lssh.toml` from
+`~/.ssh/config` on the spot.
+
 You can also specify and read another path.
 In addition to the path, server config items can be specified and applied collectively.
+You can also add `when.*` conditions to each `[sshconfig.<name>]` block.
+The available condition keys are the same as `server.<name>.match.<branch>.when.*`.
 
 ```toml
 [sshconfig.default]
@@ -529,12 +611,45 @@ pre_cmd = 'printf "\033]50;SetProfile=local\a"'
 post_cmd = 'printf "\033]50;SetProfile=Default\a"'
 ```
 
+```yaml
+sshconfig:
+  default:
+    path: "~/.ssh/config"
+    pre_cmd: 'printf "\033]50;SetProfile=local\a"'
+    post_cmd: 'printf "\033]50;SetProfile=Default\a"'
+```
+
+```toml
+[sshconfig.frontend_only]
+path = "~/.ssh/config.frontend"
+
+[sshconfig.frontend_only.when]
+local_ip_in = ["172.31.0.0/24"]
+```
+
+```yaml
+sshconfig:
+  frontend_only:
+    path: "~/.ssh/config.frontend"
+    when:
+      local_ip_in:
+        - "172.31.0.0/24"
+```
+
+You can also generate a starter `~/.lssh.toml` from any suite command and write
+it with shell redirection:
+
+```bash
+lssh --generate-lssh-conf > ~/.lssh.toml
+lssh --generate-lssh-conf=~/.ssh/config.work > ~/.lssh.toml
+```
+
 ## Split config into multiple files
 
 You can include server settings in other files.
 Each included file can also define its own `[common]` settings.
 
-`~/.lssh.conf`:
+`~/.lssh.toml`:
 
 ```toml
 [includes]
@@ -569,7 +684,7 @@ local_rc = "yes"
 
 Priority order:
 
-`[server.<name>]` > `[common]` in included file > `[common]` in `~/.lssh.conf`
+`[server.<name>]` > `[common]` in included file > `[common]` in the main config file
 
 ## Multi-stage proxy
 
@@ -827,7 +942,7 @@ Notes:
 - `env_*` checks whether the named environment variables exist
 - `env_value_*` matches exact `KEY=value` pairs
 
-## Interactive shell settings with `[shell]`
+## Parallel Interactive shell settings with `[shell]`
 
 Use `[shell]` to customize the interactive behavior of `lsshell`.
 These settings control the prompt text, shell title, history file, startup and shutdown hooks, command aliases, and local helper commands started by `%outexec`.

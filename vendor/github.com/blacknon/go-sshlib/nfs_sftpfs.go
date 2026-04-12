@@ -44,6 +44,7 @@ func NewChangeSFTPFS(client *sftp.Client, base string) billy.Filesystem {
 type SFTPFS struct {
 	billy.Filesystem
 	Client *sftp.Client
+	mu     sync.Mutex
 }
 
 // Create
@@ -66,6 +67,9 @@ func (fs *SFTPFS) openFile(fn string, flag int, perm os.FileMode, createDir func
 		}
 	}
 
+	fs.mu.Lock()
+	defer fs.mu.Unlock()
+
 	f, err := fs.Client.OpenFile(fn, flag)
 	if err != nil {
 		return nil, err
@@ -77,6 +81,8 @@ func (fs *SFTPFS) openFile(fn string, flag int, perm os.FileMode, createDir func
 func (fs *SFTPFS) createDir(fullpath string) error {
 	dir := filepath.Dir(fullpath)
 	if dir != "." {
+		fs.mu.Lock()
+		defer fs.mu.Unlock()
 		if err := fs.Client.MkdirAll(dir); err != nil {
 			return err
 		}
@@ -87,6 +93,9 @@ func (fs *SFTPFS) createDir(fullpath string) error {
 
 // ReadDir
 func (fs *SFTPFS) ReadDir(path string) ([]os.FileInfo, error) {
+	fs.mu.Lock()
+	defer fs.mu.Unlock()
+
 	l, err := fs.Client.ReadDir(path)
 	if err != nil {
 		return nil, err
@@ -102,11 +111,16 @@ func (fs *SFTPFS) ReadDir(path string) ([]os.FileInfo, error) {
 
 // Rename
 func (fs *SFTPFS) Rename(from, to string) error {
+	fs.mu.Lock()
+	defer fs.mu.Unlock()
 	return fs.Client.Rename(from, to)
 }
 
 // MkdirAll
 func (fs *SFTPFS) MkdirAll(filename string, perm os.FileMode) error {
+	fs.mu.Lock()
+	defer fs.mu.Unlock()
+
 	err := fs.Client.MkdirAll(filename)
 	if err != nil {
 		return err
@@ -117,6 +131,9 @@ func (fs *SFTPFS) MkdirAll(filename string, perm os.FileMode) error {
 
 // Open
 func (fs *SFTPFS) Open(filename string) (billy.File, error) {
+	fs.mu.Lock()
+	defer fs.mu.Unlock()
+
 	f, err := fs.Client.Open(filename)
 	if err != nil {
 		return nil, err
@@ -126,11 +143,15 @@ func (fs *SFTPFS) Open(filename string) (billy.File, error) {
 
 // Stat
 func (fs *SFTPFS) Stat(filename string) (os.FileInfo, error) {
+	fs.mu.Lock()
+	defer fs.mu.Unlock()
 	return fs.Client.Stat(filepath.Clean(filename))
 }
 
 // Remove
 func (fs *SFTPFS) Remove(filename string) error {
+	fs.mu.Lock()
+	defer fs.mu.Unlock()
 	return fs.Client.Remove(filename)
 }
 
@@ -157,21 +178,29 @@ func (fs *SFTPFS) Join(elem ...string) string {
 
 // RemoveAll
 func (fs *SFTPFS) RemoveAll(filename string) error {
+	fs.mu.Lock()
+	defer fs.mu.Unlock()
 	return fs.Client.RemoveAll(filename)
 }
 
 // Lstat
 func (fs *SFTPFS) Lstat(filename string) (os.FileInfo, error) {
+	fs.mu.Lock()
+	defer fs.mu.Unlock()
 	return fs.Client.Lstat(filepath.Clean(filename))
 }
 
 // Symlink
 func (fs *SFTPFS) Symlink(target, link string) error {
+	fs.mu.Lock()
+	defer fs.mu.Unlock()
 	return fs.Client.Symlink(target, link)
 }
 
 // Readlink
 func (fs *SFTPFS) Readlink(link string) (string, error) {
+	fs.mu.Lock()
+	defer fs.mu.Unlock()
 	return fs.Client.ReadLink(link)
 }
 

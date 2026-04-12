@@ -19,6 +19,11 @@ func (r *RunSftp) pwd(args []string) {
 
 	go func() {
 		for server, client := range r.Client {
+			if client == nil || !client.Connected || client.Connect == nil {
+				exit <- true
+				continue
+			}
+
 			// get writer
 			client.Output.Create(server)
 			w := client.Output.NewWriter()

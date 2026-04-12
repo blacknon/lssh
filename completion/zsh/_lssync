@@ -1,0 +1,34 @@
+#compdef lssync
+_lssync() {
+    _arguments -s \
+        '(-H --host)'{-H,--host}'[Connect to server by name]:server:_hosts' \
+        '(-l --list)'{-l,--list}'[Print server list from config]' \
+        '(-F --file)'{-F,--file}'[Specify config file path]:config file:_files' \
+        '--generate-lssh-conf[Print generated lssh config from OpenSSH config]:OpenSSH config:_files' \
+        '(-D --daemon)'{-D,--daemon}'[Run as a daemon and repeat sync at each interval]' \
+        '--daemon-interval[Set daemon sync interval]:duration:' \
+        '(-B --bidirectional)'{-B,--bidirectional}'[Sync both sides and copy newer changes in either direction]' \
+        '(-P --parallel)'{-P,--parallel}'[Parallel file sync count per host]:count:' \
+        '(-p --permission)'{-p,--permission}'[Copy file permission]' \
+        '--dry-run[Show sync actions without modifying files]' \
+        '--delete[Delete destination entries that do not exist in source]' \
+        '--enable-control-master[Temporarily enable ControlMaster for this command execution]' \
+        '--disable-control-master[Temporarily disable ControlMaster for this command execution]' \
+        '(-h --help)'{-h,--help}'[Print this help]' \
+        '(-v --version)'{-v,--version}'[Print the version]' \
+        '*:sync_path:_lssync_path_completion'
+}
+
+_lssync_path_completion() {
+    local current_arg="${words[-1]}"
+    if [[ "$current_arg" == remote:* ]]; then
+        return
+    elif [[ "$current_arg" == local:* ]]; then
+        _files -W "${current_arg#local:}"
+    else
+        _files
+        compadd -S '' "local:" "remote:"
+    fi
+}
+
+_lssync "$@"

@@ -6,6 +6,7 @@ package pshell
 
 import (
 	"fmt"
+	"io"
 	"log"
 	"os"
 	"os/exec"
@@ -75,8 +76,10 @@ type shellOption struct {
 
 // sConnect is shell connect struct.
 type sConnect struct {
-	Name   string
-	Output *output.Output
+	Name      string
+	Output    *output.Output
+	Connected bool
+	LastError string
 	*sshlib.Connect
 }
 
@@ -130,6 +133,24 @@ func Shell(r *sshcmd.Run) (err error) {
 			continue
 		}
 
+		if con.IsControlClient() {
+			if validateErr := validatePShellControlMasterClient(con); validateErr != nil {
+				if isPShellControlMasterRemoteExit255(validateErr) {
+					if con.ControlPath != "" {
+						_ = os.Remove(con.ControlPath)
+					}
+					con, err = r.CreateSshConnect(server)
+					if err != nil {
+						log.Println(err)
+						continue
+					}
+				} else {
+					log.Println(validateErr)
+					continue
+				}
+			}
+		}
+
 		// TTY enable
 		con.TTY = true
 
@@ -154,9 +175,10 @@ func Shell(r *sshcmd.Run) (err error) {
 		o.Create(server)
 
 		psCon := &sConnect{
-			Name:    server,
-			Output:  o,
-			Connect: con,
+			Name:      server,
+			Output:    o,
+			Connected: true,
+			Connect:   con,
 		}
 		cons = append(cons, psCon)
 	}
@@ -200,7 +222,7 @@ func Shell(r *sshcmd.Run) (err error) {
 	// check keepalive
 	go func() {
 		for {
-			s.checkKeepalive()
+			s.checkKeepalive(false)
 			time.Sleep(3 * time.Second)
 		}
 	}()
@@ -253,6 +275,69 @@ func Shell(r *sshcmd.Run) (err error) {
 	return
 }
 
+func (s *shell) reconnect(server string) error {
+	if s == nil || s.Run == nil {
+		return fmt.Errorf("shell is not initialized")
+	}
+
+	var target *sConnect
+	for _, conn := range s.Connects {
+		if conn != nil && conn.Name == server {
+			target = conn
+			break
+		}
+	}
+	if target == nil {
+		return fmt.Errorf("host %s not found", server)
+	}
+
+	con, err := s.Run.CreateSshConnect(server)
+	if err != nil {
+		target.Connected = false
+		target.LastError = err.Error()
+		return err
+	}
+
+	if con.IsControlClient() {
+		if validateErr := validatePShellControlMasterClient(con); validateErr != nil {
+			if isPShellControlMasterRemoteExit255(validateErr) {
+				if con.ControlPath != "" {
+					_ = os.Remove(con.ControlPath)
+				}
+				con, err = s.Run.CreateSshConnect(server)
+				if err != nil {
+					target.Connected = false
+					target.LastError = err.Error()
+					return err
+				}
+			} else {
+				target.Connected = false
+				target.LastError = validateErr.Error()
+				return validateErr
+			}
+		}
+	}
+
+	con.TTY = true
+	forwardConf := s.Run.PrepareParallelForwardConfig(server)
+	if err := sshcmd.StartParallelForwards(con, forwardConf); err != nil {
+		if con.Client != nil {
+			_ = con.Client.Close()
+		}
+		target.Connected = false
+		target.LastError = err.Error()
+		return err
+	}
+
+	if target.Connect != nil {
+		_ = target.Connect.Close()
+	}
+	target.Connect = con
+	target.Connected = true
+	target.LastError = ""
+	return nil
+}
+
 // CreatePrompt is create shell prompt.
 // default value is `[${COUNT}] <<< `
 func (s *shell) CreatePrompt() (p string, result bool) {
@@ -277,10 +362,6 @@ func (s *shell) CreatePrompt() (p string, result bool) {
 }
 
 func (s *shell) exitChecker(in string, breakline bool) bool {
-	if breakline {
-		s.checkKeepalive()
-	}
-
 	if len(s.Connects) == 0 {
 		s.exit(1, "Error: No valid connections\n")
 
@@ -304,4 +385,22 @@ func (s *shell) exit(exitCode int, message string) {
 func execLocalCommand(cmd string) {
 	out, _ := exec.Command("sh", "-c", cmd).CombinedOutput()
 	fmt.Print(string(out))
+}
+
+func validatePShellControlMasterClient(connect *sshlib.Connect) error {
+	if connect == nil || !connect.IsControlClient() {
+		return nil
+	}
+
+	clone := *connect
+	clone.Stdin = nil
+	clone.Stdout = io.Discard
+	clone.Stderr = io.Discard
+	clone.TTY = false
+
+	return clone.Command("true")
+}
+
+func isPShellControlMasterRemoteExit255(err error) bool {
+	return err != nil && strings.Contains(err.Error(), "sshlib: remote command exited with status 255")
 }

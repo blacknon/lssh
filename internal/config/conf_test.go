@@ -6,6 +6,8 @@ package conf
 
 import (
 	"net/netip"
+	"os"
+	"path/filepath"
 	"testing"
 
 	"github.com/BurntSushi/toml"
@@ -214,6 +216,68 @@ addr = "172.31.0.51"
 		return
 	}
 	assert.Equal(t, "172.31.0.51", cfg.Server["test"].Addr)
+}
+
+func TestDecodeConfigFileYAML(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "lssh.yaml")
+
+	err := os.WriteFile(path, []byte(`
+common:
+  user: common-user
+  pass: common-pass
+server:
+  demo:
+    addr: 192.168.10.20
+    user: demo-user
+    pass: secret
+    control_persist: 15s
+    match:
+      office:
+        priority: 10
+        when:
+          os_in:
+            - darwin
+        proxy: bastion
+      local:
+        when:
+          hostname_in:
+            - mbp
+        addr: 127.0.0.1
+sshconfig:
+  extra:
+    path: ~/.ssh/config
+    when:
+      os_in:
+        - darwin
+`), 0o600)
+	if !assert.NoError(t, err) {
+		return
+	}
+
+	var cfg Config
+	err = decodeConfigFile(path, &cfg)
+	if !assert.NoError(t, err) {
+		return
+	}
+
+	assert.Equal(t, "common-user", cfg.Common.User)
+	assert.Equal(t, "demo-user", cfg.Server["demo"].User)
+	assert.Equal(t, ControlPersistDuration(15), cfg.Server["demo"].ControlPersist)
+
+	office := cfg.Server["demo"].Match["office"]
+	assert.Equal(t, 10, office.EffectivePriority())
+	assert.True(t, office.priorityDefined)
+	assert.True(t, office.IsDefined("proxy"))
+	assert.Equal(t, "bastion", office.Proxy)
+
+	local := cfg.Server["demo"].Match["local"]
+	assert.False(t, local.priorityDefined)
+	assert.Equal(t, 100, local.EffectivePriority())
+	assert.True(t, local.IsDefined("addr"))
+
+	assert.Equal(t, "~/.ssh/config", cfg.SSHConfig["extra"].Path)
+	assert.Equal(t, []string{"darwin"}, cfg.SSHConfig["extra"].When.OSIn)
 }
 
 func TestResolveConditionalMatchesMergeByPriority(t *testing.T) {
@@ -511,6 +575,91 @@ func TestResolveConditionalMatchesInvalidCIDR(t *testing.T) {
 		return
 	}
 	assert.Contains(t, err.Error(), "invalid IP/CIDR")
+}
+
+func TestActiveOpenSSHConfigsFiltersByWhen(t *testing.T) {
+	originalDetector := detectMatchContext
+	t.Cleanup(func() { detectMatchContext = originalDetector })
+	detectMatchContext = func(reqs matchRequirements) matchContext {
+		return matchContext{
+			LocalIPs: []netip.Addr{netip.MustParseAddr("172.31.0.10")},
+			Username: "demo",
+		}
+	}
+
+	cfg := Config{
+		SSHConfig: map[string]OpenSSHConfig{
+			"default": {
+				Path: "~/.ssh/config",
+			},
+			"frontend": {
+				Path: "~/.ssh/frontend",
+				When: ServerMatchWhen{
+					LocalIPIn: []string{"172.31.0.0/24"},
+				},
+			},
+			"admin_only": {
+				Path: "~/.ssh/admin",
+				When: ServerMatchWhen{
+					UsernameIn: []string{"admin"},
+				},
+			},
+		},
+	}
+
+	got := cfg.activeOpenSSHConfigs()
+	if len(got) != 2 {
+		t.Fatalf("len(activeOpenSSHConfigs()) = %d, want 2", len(got))
+	}
+
+	paths := []string{got[0].Path, got[1].Path}
+	assert.Contains(t, paths, "~/.ssh/config")
+	assert.Contains(t, paths, "~/.ssh/frontend")
+	assert.NotContains(t, paths, "~/.ssh/admin")
+}
+
+func TestValidateOpenSSHConfigWhensInvalidCIDR(t *testing.T) {
+	cfg := Config{
+		SSHConfig: map[string]OpenSSHConfig{
+			"bad": {
+				Path: "~/.ssh/config",
+				When: ServerMatchWhen{
+					LocalIPIn: []string{"bad-cidr"},
+				},
+			},
+		},
+	}
+
+	_, err := cfg.validateOpenSSHConfigWhens()
+	if !assert.Error(t, err) {
+		return
+	}
+	assert.Contains(t, err.Error(), "invalid IP/CIDR")
+}
+
+func TestReadOpenSSHConfigSkipsMissingDefaultConfig(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+
+	cfg := Config{
+		Common: ServerConfig{
+			User: "demo",
+			Pass: "secret",
+		},
+		Server: map[string]ServerConfig{
+			"vm-mng": {
+				Addr: "192.0.2.10",
+				User: "admin",
+				Pass: "secret",
+			},
+		},
+	}
+
+	cfg.ReadOpenSSHConfig()
+
+	if got := cfg.Server["vm-mng"].User; got != "admin" {
+		t.Fatalf("cfg.Server[vm-mng].User = %q, want %q", got, "admin")
+	}
 }
 
 func mustDecodeMeta(t *testing.T, body string) toml.MetaData {

@@ -6,11 +6,11 @@ package conf
 
 // ProxyConfig is that stores Proxy server settings connected via http and socks5.
 type ProxyConfig struct {
-	Addr      string `toml:"addr"`
-	Port      string `toml:"port"`
-	User      string `toml:"user"`
-	Pass      string `toml:"pass"`
-	Proxy     string `toml:"proxy"`
-	ProxyType string `toml:"proxy_type"`
-	Note      string `toml:"note"`
+	Addr      string `toml:"addr" yaml:"addr"`
+	Port      string `toml:"port" yaml:"port"`
+	User      string `toml:"user" yaml:"user"`
+	Pass      string `toml:"pass" yaml:"pass"`
+	Proxy     string `toml:"proxy" yaml:"proxy"`
+	ProxyType string `toml:"proxy_type" yaml:"proxy_type"`
+	Note      string `toml:"note" yaml:"note"`
 }

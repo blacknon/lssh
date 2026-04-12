@@ -1,6 +1,7 @@
 package sync
 
 import (
+	"bytes"
 	"io"
 	"io/fs"
 	"os"
@@ -27,18 +28,26 @@ func (f fakeInfo) Sys() interface{}   { return nil }
 
 type fakeFS struct {
 	entries map[string]fakeInfo
+	data    map[string][]byte
 	expands map[string][]string
 }
 
 func newFakeFS() *fakeFS {
 	return &fakeFS{
 		entries: map[string]fakeInfo{},
+		data:    map[string][]byte{},
 		expands: map[string][]string{},
 	}
 }
 
 func (f *fakeFS) addFile(path string, size int64, mod time.Time) {
 	f.entries[path] = fakeInfo{name: pathpkg.Base(path), size: size, mode: 0644, modTime: mod}
+	f.data[path] = bytes.Repeat([]byte("x"), int(size))
+}
+
+func (f *fakeFS) addFileWithContent(path string, body string, mod time.Time) {
+	f.entries[path] = fakeInfo{name: pathpkg.Base(path), size: int64(len(body)), mode: 0644, modTime: mod}
+	f.data[path] = []byte(body)
 }
 
 func (f *fakeFS) addDir(path string, mod time.Time) {
@@ -78,7 +87,13 @@ func (f *fakeFS) Walk(root string, fn func(path string, info fs.FileInfo) error)
 	return nil
 }
 
-func (f *fakeFS) Open(path string) (io.ReadCloser, error)                          { return nil, nil }
+func (f *fakeFS) Open(path string) (io.ReadCloser, error) {
+	body, ok := f.data[pathpkg.Clean(path)]
+	if !ok {
+		return nil, os.ErrNotExist
+	}
+	return io.NopCloser(bytes.NewReader(body)), nil
+}
 func (f *fakeFS) OpenWriter(path string, perm fs.FileMode) (io.WriteCloser, error) { return nil, nil }
 func (f *fakeFS) MkdirAll(path string) error                                       { return nil }
 func (f *fakeFS) Remove(path string) error                                         { return nil }
@@ -115,7 +130,7 @@ func TestBuildPlanSingleDirectoryRename(t *testing.T) {
 	}
 }
 
-func TestBuildPlanExistingDirectoryKeepsSourceName(t *testing.T) {
+func TestBuildPlanExistingDirectoryUsesDestinationAsSyncRoot(t *testing.T) {
 	t.Parallel()
 
 	src := newFakeFS()
@@ -130,10 +145,13 @@ func TestBuildPlanExistingDirectoryKeepsSourceName(t *testing.T) {
 		t.Fatalf("BuildPlan returned error: %v", err)
 	}
 
-	if _, ok := plan.Desired["/tmp/app/file.txt"]; !ok {
-		t.Fatalf("expected /tmp/app/file.txt to be planned")
+	if _, ok := plan.Desired["/tmp/file.txt"]; !ok {
+		t.Fatalf("expected /tmp/file.txt to be planned")
 	}
-	if len(plan.DeleteScopes) != 1 || plan.DeleteScopes[0].Path != "/tmp/app" {
+	if _, ok := plan.Desired["/tmp/app/file.txt"]; ok {
+		t.Fatalf("did not expect nested /tmp/app/file.txt")
+	}
+	if len(plan.DeleteScopes) != 1 || plan.DeleteScopes[0].Path != "/tmp" {
 		t.Fatalf("unexpected delete scopes: %#v", plan.DeleteScopes)
 	}
 }
@@ -218,11 +236,14 @@ func TestPathsToDelete(t *testing.T) {
 func TestFileNeedsCopy(t *testing.T) {
 	t.Parallel()
 
+	src := newFakeFS()
 	dst := newFakeFS()
 	now := time.Unix(100, 0)
-	dst.addFile("/dest/file.txt", 10, now)
+	src.addFileWithContent("/src/file.txt", "abcdefghij", now)
+	dst.addFileWithContent("/dest/file.txt", "abcdefghij", now)
 
-	needsCopy, err := fileNeedsCopy(dst, DesiredEntry{
+	needsCopy, err := fileNeedsCopy(src, dst, DesiredEntry{
+		SourcePath:      "/src/file.txt",
 		DestinationPath: "/dest/file.txt",
 		Size:            10,
 		ModTime:         now,
@@ -234,7 +255,9 @@ func TestFileNeedsCopy(t *testing.T) {
 		t.Fatalf("expected identical file to be skipped")
 	}
 
-	needsCopy, err = fileNeedsCopy(dst, DesiredEntry{
+	src.addFileWithContent("/src/file.txt", "different!!", now)
+	needsCopy, err = fileNeedsCopy(src, dst, DesiredEntry{
+		SourcePath:      "/src/file.txt",
 		DestinationPath: "/dest/file.txt",
 		Size:            11,
 		ModTime:         now,

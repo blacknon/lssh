@@ -4,16 +4,21 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/blacknon/lssh/internal/common"
 )
 
 type CommandArgs struct {
-	Delete      bool
-	Permission  bool
-	ParallelNum int
-	Sources     []string
-	Destination string
+	Delete         bool
+	DryRun         bool
+	Permission     bool
+	Daemon         bool
+	DaemonInterval time.Duration
+	Bidirectional  bool
+	ParallelNum    int
+	Sources        []string
+	Destination    string
 }
 
 type PathSpec struct {
@@ -25,7 +30,8 @@ type PathSpec struct {
 
 func ParseCommandArgs(args []string) (CommandArgs, error) {
 	result := CommandArgs{
-		ParallelNum: 1,
+		ParallelNum:    1,
+		DaemonInterval: 5 * time.Second,
 	}
 
 	if len(args) == 0 {
@@ -37,8 +43,27 @@ func ParseCommandArgs(args []string) (CommandArgs, error) {
 		switch args[i] {
 		case "--delete":
 			result.Delete = true
+		case "--dry-run":
+			result.DryRun = true
+		case "--daemon", "-D":
+			result.Daemon = true
+		case "--bidirectional", "-B":
+			result.Bidirectional = true
 		case "--permission", "-p":
 			result.Permission = true
+		case "--daemon-interval":
+			if i+1 >= len(args) {
+				return result, fmt.Errorf("missing value for %s", args[i])
+			}
+			i++
+			v, err := time.ParseDuration(args[i])
+			if err != nil {
+				return result, fmt.Errorf("invalid daemon interval value: %s", args[i])
+			}
+			if v <= 0 {
+				v = 5 * time.Second
+			}
+			result.DaemonInterval = v
 		case "--parallel", "-P":
 			if i+1 >= len(args) {
 				return result, fmt.Errorf("missing value for %s", args[i])

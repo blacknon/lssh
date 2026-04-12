@@ -24,6 +24,7 @@ USAGE:
 OPTIONS:
     --host servername, -H servername            connect servername.
     --file filepath, -F filepath                config filepath. (default: "/Users/blacknon/.lssh.conf")
+    --generate-lssh-conf ~/.ssh/config          print generated lssh config from OpenSSH config to stdout (~/.ssh/config by default).
     -R [bind_address:]port:remote_address:port  Remote port forward mode.Specify a [bind_address:]port:remote_address:port. If only one port is specified, it will operate as Reverse Dynamic Forward.
     -r port                                     HTTP Reverse Dynamic port forward mode. Specify a port.
     -m port:/path/to/local                      NFS Reverse Dynamic forward mode. Specify a port:/path/to/local.
@@ -31,10 +32,12 @@ OPTIONS:
     --allow-layout-change                       allow opening new pages/panes even in command mode.
     --list, -l                                  print server list from config.
     --help, -h                                  print this help
+    --enable-control-master                     temporarily enable ControlMaster for this command execution
+    --disable-control-master                    temporarily disable ControlMaster for this command execution
     --version, -v                               print the version
 
 VERSION:
-    lssh-suite 0.8.0 (beta/sysadmin)
+    lssh-suite 0.9.0 (beta/sysadmin)
 
 USAGE:
     lsmux
@@ -42,7 +45,7 @@ USAGE:
 
 ```
 
-## OverView
+## Overview
 
 ### terminal connect
 
@@ -105,7 +108,7 @@ It fits well with the pane-oriented workflow when you want to upload a file and 
 Connection settings such as address, user, authentication method, and related SSH options are loaded from the configured file.
 If you already manage hosts with `lssh`, you can usually start using `lsmux` with the same inventory right away.
 
-You can customize `lsmux` key bindings and pane colors with settings under `mux` in `~/.lssh.conf`.
+You can customize `lsmux` key bindings and pane colors with settings under `mux` in `~/.lssh.toml` or `~/.lssh.yaml`.
 
 ```toml
 [mux]
@@ -128,6 +131,29 @@ broadcast_border_color = "yellow"
 broadcast_title_color = "yellow"
 done_border_color = "gray"
 done_title_color = "gray"
+```
+
+```yaml
+mux:
+  prefix: "Ctrl+A"
+  quit: "&"
+  new_page: "c"
+  new_pane: "s"
+  split_horizontal: "\""
+  split_vertical: "%"
+  next_pane: "o"
+  next_page: "n"
+  prev_page: "p"
+  page_list: "w"
+  close_pane: "x"
+  broadcast: "b"
+  transfer: "f"
+  focus_border_color: "green"
+  focus_title_color: "green"
+  broadcast_border_color: "yellow"
+  broadcast_title_color: "yellow"
+  done_border_color: "gray"
+  done_title_color: "gray"
 ```
 
 Available `mux` settings:

@@ -11,7 +11,7 @@ lssh
 
 `lssh` is a TUI-first SSH client for operators who work across multiple servers.
 
-Choose hosts from an interactive selector, connect immediately, run commands in parallel, reuse your local bashrc on remote shells without leaving files behind, and use advanced forwarding including NFS-based mounts.
+Choose hosts from an interactive selector, connect immediately, run commands in parallel, reuse your local bashrc on remote shells without leaving files behind, and use advanced forwarding including NFS and SMB based mounts.
 
 ## Why start with `lssh`
 
@@ -51,7 +51,7 @@ For the detailed setup, see [`local bashrc`](./cmd/lssh/README.md#local-bashrc).
 
 Beyond interactive SSH login, `lssh` also supports:
 
-- NFS reverse forwarding for mounting a local directory on a remote server
+- NFS & SMB reverse forwarding for mounting a local directory on a remote server
 - SSH local / remote port forwarding
 - SOCKS5 and HTTP dynamic forwarding
 - X11 forwarding
@@ -75,10 +75,11 @@ go install github.com/blacknon/lssh/cmd/lssh@latest
 
 Prebuilt packages and the full suite are also available on GitHub Releases.
 See the install details in [`docs/install.md`](./docs/install.md).
+Shell completion installers for `bash`, `zsh`, and `fish` are also included.
 
 ### 2. Create a minimal config
 
-Create `~/.lssh.conf`:
+Create `~/.lssh.toml`:
 
 ```toml
 [common]
@@ -92,6 +93,28 @@ note = "development"
 [server.stg]
 addr = "192.168.100.20"
 note = "staging"
+```
+
+Or write the same config as YAML in `~/.lssh.yaml`:
+
+```yaml
+common:
+  user: "demo"
+  key: "~/.ssh/id_rsa"
+
+server:
+  dev:
+    addr: "192.168.100.10"
+    note: "development"
+  stg:
+    addr: "192.168.100.20"
+    note: "staging"
+```
+
+If you already keep hosts in `~/.ssh/config`, you can generate a starter file:
+
+```bash
+lssh --generate-lssh-conf > ~/.lssh.toml
 ```
 
 ### 3. Start with these commands
@@ -109,19 +132,83 @@ lssh -p 'uptime'
 
 If you want a ready-to-run local playground, see [`demo/README.md`](./demo/README.md).
 
+## Demo
+
+```mermaid
+flowchart LR
+    client["client
+frontend
+172.31.0.10"]
+    password_ssh["password_ssh
+frontend
+172.31.0.21"]
+    key_ssh["key_ssh
+frontend
+172.31.0.22"]
+    over_proxy_ssh["over_proxy_ssh
+backend
+172.31.1.41"]
+    deep_proxy_ssh["deep_proxy_ssh
+deepback
+172.31.2.51"]
+    deep_http_proxy["deep_http_proxy
+deepback: 172.31.2.61
+finalback: 172.31.3.61"]
+    deep_socks_proxy["deep_socks_proxy
+deepback: 172.31.2.62
+finalback: 172.31.3.62"]
+    over_deep_http_ssh["over_deep_http_ssh
+finalback
+172.31.3.71"]
+
+    ssh_proxy["ssh_proxy
+frontend: 172.31.0.31
+backend: 172.31.1.31"]
+    http_proxy["http_proxy
+frontend: 172.31.0.32
+backend: 172.31.1.32"]
+    socks_proxy["socks_proxy
+frontend: 172.31.0.33
+backend: 172.31.1.33"]
+
+    client --> password_ssh
+    client --> key_ssh
+    client --> ssh_proxy
+    client -. via proxy .-> http_proxy
+    client -. via proxy .-> socks_proxy
+
+    ssh_proxy --> over_proxy_ssh
+    http_proxy -. via proxy .->  over_proxy_ssh
+    socks_proxy -. via proxy .->  over_proxy_ssh
+    over_proxy_ssh --> deep_proxy_ssh
+    over_proxy_ssh -. via proxy .->  deep_http_proxy
+    over_proxy_ssh -. via proxy .->  deep_socks_proxy
+    deep_http_proxy -. via proxy .->  over_deep_http_ssh
+    deep_socks_proxy -. via proxy .->  over_deep_http_ssh
+```
+
+
+Want to try `lssh` quickly with a ready-to-run local playground?
+Start with [`demo/README.md`](./demo/README.md).
+
+
 ## What else is in the suite
 
-You can stay on `lssh` for most SSH access workflows, but the repository also includes other tools when the job is more specialized.
+You can use `lssh` for most day-to-day SSH work, and switch to the other commands when you need a more specialized workflow.
+Each tool uses the same TUI-based host selection flow.
 
-| Command | Best for | README |
-| --- | --- | --- |
-| `lssh` | Interactive SSH, selection TUI, parallel commands, forwarding | [cmd/lssh/README.md](./cmd/lssh/README.md) |
-| `lscp` | SCP-style file copy | [cmd/lscp/README.md](./cmd/lscp/README.md) |
-| `lsftp` | Interactive file transfer and remote file operations | [cmd/lsftp/README.md](./cmd/lsftp/README.md) |
-| `lssync` | One-way sync over SSH/SFTP | [cmd/lssync/README.md](./cmd/lssync/README.md) |
-| `lsshell` | Broadcast-style multi-host shell | [cmd/lsshell/README.md](./cmd/lsshell/README.md) |
-| `lsmux` | Pane-based multi-host SSH workspace | [cmd/lsmux/README.md](./cmd/lsmux/README.md) |
-| `lsmon` | Multi-host monitoring UI | [cmd/lsmon/README.md](./cmd/lsmon/README.md) |
+| Command | Category | Maturity | Supported OS | About | README |
+| --- | --- | --- | --- | --- | --- |
+| `lssh` | `core` | `stable` | Linux / macOS / Windows | The main command in the suite, with interactive SSH access, parallel remote command execution, and multiple forwarding modes. | [cmd/lssh/README.md](./cmd/lssh/README.md) |
+| `lscp` | `transfer` | `stable` | Linux / macOS / Windows | An SCP-style file copy command that transfers files over SSH using SFTP, with support for local-to-remote, remote-to-local, and remote-to-remote copies. | [cmd/lscp/README.md](./cmd/lscp/README.md) |
+| `lsftp` | `transfer` | `stable` | Linux / macOS / Windows | An interactive SFTP shell for browsing remote files, managing directories, and transferring data across one or more hosts from a single prompt. | [cmd/lsftp/README.md](./cmd/lsftp/README.md) |
+| `lssync` | `transfer` | `beta` | Linux / macOS / Windows | A one-way sync command over SSH/SFTP that mirrors a source tree to a destination tree and can remove extra destination files with `--delete`. | [cmd/lssync/README.md](./cmd/lssync/README.md) |
+| `lsdiff` | `sysadmin` | `beta` | Linux / macOS / Windows | A synchronized TUI diff viewer that fetches remote files from multiple hosts over SSH/SFTP and compares them side by side. | [cmd/lsdiff/README.md](./cmd/lsdiff/README.md) |
+| `lsshfs` | `transfer` | `beta` | Linux / macOS | A single-host mount command that uses FUSE on Linux and NFS on macOS so remote files can be mounted with the same inventory. Windows is not supported in `0.9.0`. | [cmd/lsshfs/README.md](./cmd/lsshfs/README.md) |
+| `lsshell` | `sysadmin` | `beta` | Linux / macOS / Windows | A parallel interactive shell for working across multiple hosts at once, with support for broadcasting commands, targeting specific hosts, and combining pipelines with the local host. | [cmd/lsshell/README.md](./cmd/lsshell/README.md) |
+| `lsmux` | `sysadmin` | `beta` | Linux / macOS / Windows | A pane-based, tmux-like SSH workspace for keeping multiple remote sessions visible at once and running commands in a split-terminal layout. | [cmd/lsmux/README.md](./cmd/lsmux/README.md) |
+| `lspipe` | `sysadmin` | `alpha` | Linux / macOS / Windows (`--mkfifo` is Unix-only) | A persistent pipe-oriented runner that keeps a selected host set in the background and lets you reuse it from local shell pipelines. Session-based execution works on Windows, but FIFO bridge features are Unix-only. | [cmd/lspipe/README.md](./cmd/lspipe/README.md) |
+| `lsmon` | `monitor` | `beta` | Linux / macOS / Windows | A multi-host monitoring TUI that shows CPU, memory, disk, network, and process information over SSH, and can open a terminal to the selected host without requiring agents on the remote hosts. | [cmd/lsmon/README.md](./cmd/lsmon/README.md) |
 
 If all you need is SSH access, start with `lssh`.
 When you later need file transfer, sync, monitoring, or a pane UI, the rest of the suite is there.

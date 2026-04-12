@@ -1,0 +1,20 @@
+#compdef lsmux
+_lsmux() {
+    _arguments -s \
+        '(-H --host)'{-H,--host}'[Connect to server by name]:server:_hosts' \
+        '(-F --file)'{-F,--file}'[Specify config file path]:config file:_files' \
+        '--generate-lssh-conf[Print generated lssh config from OpenSSH config]:OpenSSH config:_files' \
+        '*-R[Remote port forward mode]:remote port forwarding:' \
+        '-r[HTTP reverse dynamic port forward mode]:port:_ports' \
+        '-m[NFS reverse dynamic forward mode]:port/path:_files' \
+        '--hold[Keep command panes after remote command exits]' \
+        '--allow-layout-change[Allow opening new pages or panes even in command mode]' \
+        '(-l --list)'{-l,--list}'[Print server list from config]' \
+        '--enable-control-master[Temporarily enable ControlMaster for this command execution]' \
+        '--disable-control-master[Temporarily disable ControlMaster for this command execution]' \
+        '(-h --help)'{-h,--help}'[Print this help]' \
+        '(-v --version)'{-v,--version}'[Print the version]' \
+        '*:command:_command_names'
+}
+
+_lsmux "$@"

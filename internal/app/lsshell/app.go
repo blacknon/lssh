@@ -64,6 +64,7 @@ USAGE:
 		// common option
 		cli.StringSliceFlag{Name: "host,H", Usage: "connect `servername`."},
 		cli.StringFlag{Name: "file,F", Value: defConf, Usage: "config `filepath`."},
+		cli.StringFlag{Name: "generate-lssh-conf", Usage: "print generated lssh config from OpenSSH config to stdout (`~/.ssh/config` by default)."},
 
 		// port forward option
 		cli.StringSliceFlag{Name: "R", Usage: "Remote port forward mode.Specify a `[bind_address:]port:remote_address:port`. If only one port is specified, it will operate as Reverse Dynamic Forward. Only single connection works."},
@@ -75,6 +76,7 @@ USAGE:
 		cli.BoolFlag{Name: "list,l", Usage: "print server list from config."},
 		cli.BoolFlag{Name: "help,h", Usage: "print this help"},
 	}
+	app.Flags = append(app.Flags, common.ControlMasterOverrideFlags()...)
 	app.EnableBashCompletion = true
 	app.HideHelp = true
 
@@ -88,9 +90,20 @@ USAGE:
 
 		hosts := c.StringSlice("host")
 		confpath := c.String("file")
+		controlMasterOverride, controlMasterErr := common.GetControlMasterOverride(c)
+		if controlMasterErr != nil {
+			return controlMasterErr
+		}
+
+		if handled, err := conf.HandleGenerateConfigMode(c.String("generate-lssh-conf"), os.Stdout); handled {
+			return err
+		}
 
 		// Get config data
-		data := conf.Read(confpath)
+		data, configErr := conf.ReadWithFallback(confpath, os.Stderr)
+		if configErr != nil {
+			return configErr
+		}
 
 		// Set `exec command` or `shell` flag
 		isMulti := true
@@ -135,6 +148,7 @@ USAGE:
 		r := new(sshcmd.Run)
 		r.ServerList = selected
 		r.Conf = data
+		r.ControlMasterOverride = controlMasterOverride
 
 		// is tty
 		r.IsTerm = c.Bool("term")

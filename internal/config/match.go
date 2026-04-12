@@ -9,6 +9,7 @@ import (
 	"os"
 	"os/exec"
 	"os/user"
+	"path/filepath"
 	"reflect"
 	"runtime"
 	"sort"
@@ -16,6 +17,7 @@ import (
 	"strings"
 
 	"github.com/BurntSushi/toml"
+	"gopkg.in/yaml.v3"
 )
 
 type matchContext struct {
@@ -48,9 +50,19 @@ type namedMatch struct {
 	config ServerMatchConfig
 }
 
+type namedOpenSSHConfig struct {
+	name   string
+	config OpenSSHConfig
+}
+
 var detectMatchContext = buildMatchContext
 
 func decodeConfigFile(path string, c *Config) error {
+	switch strings.ToLower(filepath.Ext(path)) {
+	case ".yaml", ".yml":
+		return decodeYAMLConfigFile(path, c)
+	}
+
 	md, err := toml.DecodeFile(path, c)
 	if err != nil {
 		return err
@@ -58,6 +70,19 @@ func decodeConfigFile(path string, c *Config) error {
 
 	applyMatchMetadata(c, md)
 	return nil
+}
+
+func decodeYAMLConfigFile(path string, c *Config) error {
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return err
+	}
+
+	if err := yaml.Unmarshal(data, c); err != nil {
+		return err
+	}
+
+	return applyYAMLMatchMetadata(data, c)
 }
 
 func applyMatchMetadata(c *Config, md toml.MetaData) {
@@ -104,7 +129,10 @@ func collectDefinedMatchKeys(md toml.MetaData, serverName, branchName string) ma
 		"port_forward_local", "port_forward_remote", "port_forwards", "dynamic_port_forward",
 		"reverse_dynamic_port_forward", "http_dynamic_port_forward",
 		"http_reverse_dynamic_port_forward", "nfs_dynamic_forward", "nfs_dynamic_forward_path",
-		"nfs_reverse_dynamic_forward", "nfs_reverse_dynamic_forward_path", "x11", "x11_trusted",
+		"nfs_reverse_dynamic_forward", "nfs_reverse_dynamic_forward_path",
+		"smb_dynamic_forward", "smb_dynamic_forward_path",
+		"smb_reverse_dynamic_forward", "smb_reverse_dynamic_forward_path",
+		"x11", "x11_trusted",
 		"connect_timeout", "alive_max", "alive_interval", "check_known_hosts",
 		"known_hosts_files", "control_master", "control_path", "control_persist", "note", "ignore",
 	}
@@ -117,6 +145,115 @@ func collectDefinedMatchKeys(md toml.MetaData, serverName, branchName string) ma
 	}
 
 	return defined
+}
+
+func applyYAMLMatchMetadata(data []byte, c *Config) error {
+	var node yaml.Node
+	if err := yaml.Unmarshal(data, &node); err != nil {
+		return err
+	}
+
+	if len(node.Content) == 0 {
+		return nil
+	}
+
+	root := node.Content[0]
+	if root.Kind != yaml.MappingNode {
+		return nil
+	}
+
+	serversNode := yamlMapValue(root, "server")
+	if serversNode == nil || serversNode.Kind != yaml.MappingNode {
+		return nil
+	}
+
+	order := 0
+	for i := 0; i+1 < len(serversNode.Content); i += 2 {
+		serverName := serversNode.Content[i].Value
+		serverNode := serversNode.Content[i+1]
+		if serverNode.Kind != yaml.MappingNode {
+			continue
+		}
+
+		matchesNode := yamlMapValue(serverNode, "match")
+		if matchesNode == nil || matchesNode.Kind != yaml.MappingNode {
+			continue
+		}
+
+		serverConf, ok := c.Server[serverName]
+		if !ok || serverConf.Match == nil {
+			continue
+		}
+
+		for j := 0; j+1 < len(matchesNode.Content); j += 2 {
+			branchName := matchesNode.Content[j].Value
+			branchNode := matchesNode.Content[j+1]
+
+			matchConf, ok := serverConf.Match[branchName]
+			if !ok {
+				continue
+			}
+
+			if matchConf.order == 0 {
+				order++
+				matchConf.order = order
+			}
+			matchConf.priorityDefined = yamlMapHasKey(branchNode, "priority")
+			matchConf.definedKeys = collectDefinedYAMLMatchKeys(branchNode)
+
+			serverConf.Match[branchName] = matchConf
+		}
+
+		c.Server[serverName] = serverConf
+	}
+
+	return nil
+}
+
+func collectDefinedYAMLMatchKeys(branchNode *yaml.Node) map[string]bool {
+	keys := []string{
+		"addr", "port", "user", "pass", "passes", "key", "keycmd", "keycmdpass", "keypass",
+		"keys", "cert", "certs", "certkey", "certkeypass", "certpkcs11", "agentauth",
+		"ssh_agent", "ssh_agent_key", "pkcs11", "pkcs11provider", "pkcs11pin", "pre_cmd",
+		"post_cmd", "proxy_type", "proxy", "proxy_cmd", "local_rc", "local_rc_file",
+		"local_rc_compress", "local_rc_decode_cmd", "local_rc_uncompress_cmd", "port_forward",
+		"port_forward_local", "port_forward_remote", "port_forwards", "dynamic_port_forward",
+		"reverse_dynamic_port_forward", "http_dynamic_port_forward",
+		"http_reverse_dynamic_port_forward", "nfs_dynamic_forward", "nfs_dynamic_forward_path",
+		"nfs_reverse_dynamic_forward", "nfs_reverse_dynamic_forward_path",
+		"smb_dynamic_forward", "smb_dynamic_forward_path",
+		"smb_reverse_dynamic_forward", "smb_reverse_dynamic_forward_path",
+		"x11", "x11_trusted",
+		"connect_timeout", "alive_max", "alive_interval", "check_known_hosts",
+		"known_hosts_files", "control_master", "control_path", "control_persist", "note", "ignore",
+	}
+
+	defined := make(map[string]bool, len(keys))
+	for _, key := range keys {
+		if yamlMapHasKey(branchNode, key) {
+			defined[key] = true
+		}
+	}
+
+	return defined
+}
+
+func yamlMapValue(node *yaml.Node, key string) *yaml.Node {
+	if node == nil || node.Kind != yaml.MappingNode {
+		return nil
+	}
+
+	for i := 0; i+1 < len(node.Content); i += 2 {
+		if node.Content[i].Value == key {
+			return node.Content[i+1]
+		}
+	}
+
+	return nil
+}
+
+func yamlMapHasKey(node *yaml.Node, key string) bool {
+	return yamlMapValue(node, key) != nil
 }
 
 func (c *Config) ResolveConditionalMatches() error {
@@ -215,7 +352,10 @@ func sortedMatches(matches map[string]ServerMatchConfig) []namedMatch {
 }
 
 func branchMatches(serverName, branchName string, branch ServerMatchConfig, ctx matchContext) bool {
-	when := branch.When
+	return whenMatches(branch.When, serverName, branchName, ctx)
+}
+
+func whenMatches(when ServerMatchWhen, serverName, branchName string, ctx matchContext) bool {
 
 	if len(when.LocalIPIn) > 0 && !matchIPList(ctx.LocalIPs, when.LocalIPIn) {
 		return false
@@ -283,6 +423,79 @@ func branchMatches(serverName, branchName string, branch ServerMatchConfig, ctx 
 	}
 
 	return true
+}
+
+func (c *Config) activeOpenSSHConfigs() []OpenSSHConfig {
+	if len(c.SSHConfig) == 0 {
+		return nil
+	}
+
+	reqs, err := c.validateOpenSSHConfigWhens()
+	if err != nil {
+		log.Println(err)
+		os.Exit(1)
+	}
+
+	ctx := matchContext{}
+	if reqs.needLocalIP || reqs.needGateway || reqs.needUsername || reqs.needHostname || reqs.needOS || reqs.needTerm || reqs.needEnv {
+		ctx = detectMatchContext(reqs)
+	}
+
+	configs := sortedOpenSSHConfigs(c.SSHConfig)
+	result := make([]OpenSSHConfig, 0, len(configs))
+	for _, item := range configs {
+		if item.config.When.Empty() || whenMatches(item.config.When, "sshconfig", item.name, ctx) {
+			result = append(result, item.config)
+		}
+	}
+
+	return result
+}
+
+func sortedOpenSSHConfigs(configs map[string]OpenSSHConfig) []namedOpenSSHConfig {
+	result := make([]namedOpenSSHConfig, 0, len(configs))
+	for name, config := range configs {
+		result = append(result, namedOpenSSHConfig{name: name, config: config})
+	}
+
+	sort.SliceStable(result, func(i, j int) bool {
+		return result[i].name < result[j].name
+	})
+
+	return result
+}
+
+func (c *Config) validateOpenSSHConfigWhens() (matchRequirements, error) {
+	reqs := matchRequirements{}
+
+	for name, sc := range c.SSHConfig {
+		if sc.When.Empty() {
+			continue
+		}
+
+		if err := validateMatchNetworkList(sc.When.LocalIPIn, "local_ip_in", "sshconfig", name); err != nil {
+			return reqs, err
+		}
+		if err := validateMatchNetworkList(sc.When.LocalIPNotIn, "local_ip_not_in", "sshconfig", name); err != nil {
+			return reqs, err
+		}
+		if err := validateMatchNetworkList(sc.When.GatewayIn, "gateway_in", "sshconfig", name); err != nil {
+			return reqs, err
+		}
+		if err := validateMatchNetworkList(sc.When.GatewayNotIn, "gateway_not_in", "sshconfig", name); err != nil {
+			return reqs, err
+		}
+
+		reqs.needLocalIP = reqs.needLocalIP || len(sc.When.LocalIPIn) > 0 || len(sc.When.LocalIPNotIn) > 0
+		reqs.needGateway = reqs.needGateway || len(sc.When.GatewayIn) > 0 || len(sc.When.GatewayNotIn) > 0
+		reqs.needUsername = reqs.needUsername || len(sc.When.UsernameIn) > 0 || len(sc.When.UsernameNotIn) > 0
+		reqs.needHostname = reqs.needHostname || len(sc.When.HostnameIn) > 0 || len(sc.When.HostnameNotIn) > 0
+		reqs.needOS = reqs.needOS || len(sc.When.OSIn) > 0 || len(sc.When.OSNotIn) > 0
+		reqs.needTerm = reqs.needTerm || len(sc.When.TermIn) > 0 || len(sc.When.TermNotIn) > 0
+		reqs.needEnv = reqs.needEnv || len(sc.When.EnvIn) > 0 || len(sc.When.EnvNotIn) > 0 || len(sc.When.EnvValueIn) > 0 || len(sc.When.EnvValueNotIn) > 0
+	}
+
+	return reqs, nil
 }
 
 func matchStringList(value string, candidates []string) bool {

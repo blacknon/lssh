@@ -29,6 +29,10 @@ type Run struct {
 	ServerList []string
 	Conf       conf.Config
 
+	// ControlMasterOverride temporarily overrides the config setting for
+	// this run. nil means use the config value as-is.
+	ControlMasterOverride *bool
+
 	// Mode value in
 	//     - shell
 	//     - cmd
@@ -98,6 +102,22 @@ type Run struct {
 	// NFS Reverse Dynamic Forward Path
 	// set localhost path (ex. /path/to/local).
 	NFSReverseDynamicForwardPath string
+
+	// SMB Dynamic Forward
+	// set localhost port num (ex. 12445).
+	SMBDynamicForwardPort string
+
+	// SMB Dynamic Forward Path
+	// set remotehost path (ex. /path/to/remote).
+	SMBDynamicForwardPath string
+
+	// SMB Reverse Dynamic Forward
+	// set remotehost port num (ex. 12445).
+	SMBReverseDynamicForwardPort string
+
+	// SMB Reverse Dynamic Forward Path
+	// set localhost path (ex. /path/to/local).
+	SMBReverseDynamicForwardPath string
 
 	// Tunnel device (-w equivalent). Enable and units.
 	TunnelEnabled bool
@@ -306,6 +326,20 @@ func (r *Run) printNFSReverseDynamicForward(port, path string) {
 	}
 }
 
+func (r *Run) printSMBDynamicForward(port, path string) {
+	if port != "" {
+		fmt.Fprintf(os.Stderr, "SMBDynamicForward:%s:%s\n", port, path)
+		fmt.Fprintf(os.Stderr, "                 %s\n", "connect SMB.")
+	}
+}
+
+func (r *Run) printSMBReverseDynamicForward(port, path string) {
+	if port != "" {
+		fmt.Fprintf(os.Stderr, "SMBReverseDynamicForward:%s:%s\n", port, path)
+		fmt.Fprintf(os.Stderr, "                      %s\n", "connect SMB.")
+	}
+}
+
 // printProxy is printout proxy route.
 // use ssh command run header. only use shell().
 func (r *Run) printProxy(server string) {
@@ -454,6 +488,12 @@ func (r *Run) ParallelIgnoredFeatures(server string) []string {
 	if r.NFSDynamicForwardPath != "" {
 		config.NFSDynamicForwardPath = r.NFSDynamicForwardPath
 	}
+	if r.SMBDynamicForwardPort != "" {
+		config.SMBDynamicForwardPort = r.SMBDynamicForwardPort
+	}
+	if r.SMBDynamicForwardPath != "" {
+		config.SMBDynamicForwardPath = r.SMBDynamicForwardPath
+	}
 
 	notices := []string{}
 	for _, fw := range config.Forwards {
@@ -470,6 +510,9 @@ func (r *Run) ParallelIgnoredFeatures(server string) []string {
 	}
 	if config.NFSDynamicForwardPort != "" && config.NFSDynamicForwardPath != "" {
 		notices = append(notices, fmt.Sprintf("-M %s:%s", config.NFSDynamicForwardPort, config.NFSDynamicForwardPath))
+	}
+	if config.SMBDynamicForwardPort != "" && config.SMBDynamicForwardPath != "" {
+		notices = append(notices, fmt.Sprintf("-S %s:%s", config.SMBDynamicForwardPort, config.SMBDynamicForwardPath))
 	}
 	if r.TunnelEnabled {
 		notices = append(notices, fmt.Sprintf("--tunnel %d:%d", r.TunnelLocal, r.TunnelRemote))
@@ -496,6 +539,12 @@ func (r *Run) PrepareParallelForwardConfig(server string) (c conf.ServerConfig) 
 	if r.NFSReverseDynamicForwardPath != "" {
 		c.NFSReverseDynamicForwardPath = r.NFSReverseDynamicForwardPath
 	}
+	if r.SMBReverseDynamicForwardPort != "" {
+		c.SMBReverseDynamicForwardPort = r.SMBReverseDynamicForwardPort
+	}
+	if r.SMBReverseDynamicForwardPath != "" {
+		c.SMBReverseDynamicForwardPath = r.SMBReverseDynamicForwardPath
+	}
 
 	forwards := make([]*conf.PortForward, 0, len(c.Forwards))
 	for _, fw := range c.Forwards {
@@ -513,6 +562,8 @@ func (r *Run) PrepareParallelForwardConfig(server string) (c conf.ServerConfig) 
 	c.HTTPDynamicPortForward = ""
 	c.NFSDynamicForwardPort = ""
 	c.NFSDynamicForwardPath = ""
+	c.SMBDynamicForwardPort = ""
+	c.SMBDynamicForwardPath = ""
 
 	return
 }
@@ -541,6 +592,10 @@ func StartParallelForwards(connect *sshlib.Connect, config conf.ServerConfig) er
 
 	if config.NFSReverseDynamicForwardPort != "" && config.NFSReverseDynamicForwardPath != "" {
 		go connect.NFSReverseForward("localhost", config.NFSReverseDynamicForwardPort, config.NFSReverseDynamicForwardPath)
+	}
+
+	if config.SMBReverseDynamicForwardPort != "" && config.SMBReverseDynamicForwardPath != "" {
+		go connect.SMBReverseForward("localhost", config.SMBReverseDynamicForwardPort, "", config.SMBReverseDynamicForwardPath)
 	}
 
 	return errors.Join(errs...)

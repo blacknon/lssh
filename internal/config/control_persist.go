@@ -19,6 +19,21 @@ func (d *ControlPersistDuration) UnmarshalTOML(v interface{}) error {
 	return nil
 }
 
+func (d *ControlPersistDuration) UnmarshalYAML(unmarshal func(interface{}) error) error {
+	var value interface{}
+	if err := unmarshal(&value); err != nil {
+		return err
+	}
+
+	parsed, err := parseControlPersist(value)
+	if err != nil {
+		return err
+	}
+
+	*d = parsed
+	return nil
+}
+
 func parseControlPersist(v interface{}) (ControlPersistDuration, error) {
 	switch value := v.(type) {
 	case int64:

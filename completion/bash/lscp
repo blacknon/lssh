@@ -1,0 +1,34 @@
+_lscp_completion() {
+    local cur prev
+    COMPREPLY=()
+    cur="${COMP_WORDS[COMP_CWORD]}"
+    prev="${COMP_WORDS[COMP_CWORD-1]}"
+
+    local opts="--host -H --list -l --file -F --generate-lssh-conf --parallel -P --permission -p --dry-run --enable-control-master --disable-control-master --help -h --version -v"
+
+    case "${prev}" in
+        --file|-F|--generate-lssh-conf)
+            COMPREPLY=($(compgen -f -- "${cur}"))
+            return
+            ;;
+        --parallel|-P|--host|-H)
+            return
+            ;;
+    esac
+
+    if [[ "${cur}" == local:* ]]; then
+        local path="${cur#local:}"
+        COMPREPLY=($(compgen -f -- "${path}"))
+        COMPREPLY=("${COMPREPLY[@]/#/local:}")
+        return
+    fi
+
+    if [[ "${cur}" == -* ]]; then
+        COMPREPLY=($(compgen -W "${opts}" -- "${cur}"))
+    else
+        COMPREPLY=($(compgen -W "local: remote:" -- "${cur}"))
+        COMPREPLY+=($(compgen -f -- "${cur}"))
+    fi
+}
+
+complete -F _lscp_completion lscp
