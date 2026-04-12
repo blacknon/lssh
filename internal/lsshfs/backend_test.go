@@ -14,7 +14,7 @@ func TestBackendForGOOS(t *testing.T) {
 	}{
 		{goos: "linux", want: BackendFUSE, ok: true},
 		{goos: "darwin", want: BackendNFS, ok: true},
-		{goos: "windows", want: BackendWinFsp, ok: true},
+		{goos: "windows", want: BackendNFS, ok: true},
 		{goos: "plan9", ok: false},
 	}
 
@@ -63,27 +63,49 @@ func TestNormalizeMountPoint(t *testing.T) {
 }
 
 func TestMountCommand(t *testing.T) {
-	got, err := mountCommand("darwin", "/mnt/test", 2049, "share", nil)
-	if err != nil {
-		t.Fatalf("mountCommand(darwin) error = %v", err)
+	tests := []struct {
+		goos       string
+		mountpoint string
+		want       CommandSpec
+	}{
+		{
+			goos:       "darwin",
+			mountpoint: "/mnt/test",
+			want: CommandSpec{
+				Name: "mount_nfs",
+				Args: []string{"-o", "port=2049,mountport=2049,tcp,nfsvers=3", "127.0.0.1:/", "/mnt/test"},
+			},
+		},
+		{
+			goos:       "windows",
+			mountpoint: "Z:",
+			want: CommandSpec{
+				Name: "mount",
+				Args: []string{"-o", "anon,mtype=hard", "127.0.0.1:/", "Z:"},
+			},
+		},
 	}
 
-	want := CommandSpec{
-		Name: "mount_nfs",
-		Args: []string{"-o", "port=2049,mountport=2049,tcp,nfsvers=3", "127.0.0.1:/", "/mnt/test"},
-	}
-	if !reflect.DeepEqual(got, want) {
-		t.Fatalf("mountCommand(darwin) = %#v, want %#v", got, want)
+	for _, tt := range tests {
+		got, err := mountCommand(tt.goos, tt.mountpoint, 2049, "", nil)
+		if err != nil {
+			t.Fatalf("mountCommand(%q) error = %v", tt.goos, err)
+		}
+		if !reflect.DeepEqual(got, tt.want) {
+			t.Fatalf("mountCommand(%q) = %#v, want %#v", tt.goos, got, tt.want)
+		}
 	}
 }
 
 func TestUnmountCommands(t *testing.T) {
 	tests := []struct {
-		goos string
-		want []CommandSpec
+		goos   string
+		target string
+		want   []CommandSpec
 	}{
 		{
-			goos: "linux",
+			goos:   "linux",
+			target: "/mnt/test",
 			want: []CommandSpec{
 				{Name: "fusermount3", Args: []string{"-u", "/mnt/test"}},
 				{Name: "fusermount", Args: []string{"-u", "/mnt/test"}},
@@ -91,27 +113,23 @@ func TestUnmountCommands(t *testing.T) {
 			},
 		},
 		{
-			goos: "darwin",
+			goos:   "darwin",
+			target: "/mnt/test",
 			want: []CommandSpec{
 				{Name: "umount", Args: []string{"/mnt/test"}},
 			},
 		},
 		{
-			goos: "windows",
+			goos:   "windows",
+			target: "Z:",
 			want: []CommandSpec{
-				{Name: "sshfs.exe", Args: []string{"unmount", "Z:"}},
-				{Name: "net", Args: []string{"use", "Z:", "/delete", "/y"}},
+				{Name: "umount", Args: []string{"-f", "Z:"}},
 			},
 		},
 	}
 
 	for _, tt := range tests {
-		target := "/mnt/test"
-		if tt.goos == "windows" {
-			target = "Z:"
-		}
-
-		got, err := unmountCommands(tt.goos, target)
+		got, err := unmountCommands(tt.goos, tt.target)
 		if err != nil {
 			t.Fatalf("unmountCommands(%q) error = %v", tt.goos, err)
 		}
