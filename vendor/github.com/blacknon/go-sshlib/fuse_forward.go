@@ -98,6 +98,8 @@ func serveFUSEMount(mountpoint string, fs pathfs.FileSystem) error {
 		return err
 	}
 
+	go server.Serve()
+
 	if err := server.WaitMount(); err != nil {
 		_ = server.Unmount()
 		return err

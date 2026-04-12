@@ -147,7 +147,9 @@ USAGE:
 			if logPath := debugLogPath(c.Args()[1]); logPath != "" {
 				_ = os.Setenv("LSSHFS_DEBUG_LOG", logPath)
 				_ = os.Setenv("GO_SSHLIB_DEBUG_LOG", logPath)
-				fmt.Fprintf(os.Stderr, "Debug log: %s\n", logPath)
+				if c.Bool("foreground") && os.Getenv("_LSSHFS_DAEMON") != "1" {
+					fmt.Fprintf(os.Stderr, "Debug log: %s\n", logPath)
+				}
 			}
 		}
 
