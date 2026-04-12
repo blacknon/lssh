@@ -268,20 +268,25 @@ func (fs *billyPathFS) Readlink(name string, _ *fuse.Context) (string, fuse.Stat
 }
 
 func (fs *billyPathFS) clean(name string) string {
-	if name == "" {
+	if name == "" || name == string(filepath.Separator) {
 		return "."
 	}
 
 	name = filepath.Clean(name)
-	if name == "." {
+	if name == "." || name == string(filepath.Separator) || name == "" {
 		return "."
 	}
 
-	return strings.TrimPrefix(name, string(filepath.Separator))
+	name = strings.TrimPrefix(name, string(filepath.Separator))
+	if name == "" {
+		return "."
+	}
+
+	return name
 }
 
 func (fs *billyPathFS) lstat(name string) (os.FileInfo, error) {
-	if name == "" {
+	if name == "" || name == string(filepath.Separator) {
 		return fs.fs.Stat(".")
 	}
 
