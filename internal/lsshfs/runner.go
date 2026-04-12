@@ -21,6 +21,7 @@ import (
 
 const (
 	defaultAliveCheckInterval = 5 * time.Second
+	defaultAliveFailureLimit  = 3
 	defaultMountRetryCount    = 20
 	defaultMountRetryDelay    = 500 * time.Millisecond
 	defaultMountActiveTimeout = 10 * time.Second
@@ -42,6 +43,7 @@ type Runner struct {
 	waitForMountActive    func(goos, mountpoint string, timeout time.Duration) error
 	probeMountedFS        func(goos, mountpoint string, timeout time.Duration) error
 	aliveCheckInterval    time.Duration
+	aliveFailureLimit     int
 	signalCh              <-chan os.Signal
 }
 
@@ -77,6 +79,9 @@ func (r *Runner) Run() error {
 	}
 	if r.aliveCheckInterval == 0 {
 		r.aliveCheckInterval = defaultAliveCheckInterval
+	}
+	if r.aliveFailureLimit == 0 {
+		r.aliveFailureLimit = defaultAliveFailureLimit
 	}
 
 	backend, err := backendForGOOS(r.GOOS)
@@ -182,6 +187,7 @@ func (r *Runner) Run() error {
 	ticker := time.NewTicker(r.aliveCheckInterval)
 	defer ticker.Stop()
 
+	aliveFailures := 0
 	var cleanupOnce sync.Once
 	cleanup := func() {
 		cleanupOnce.Do(func() {
@@ -203,10 +209,15 @@ func (r *Runner) Run() error {
 			return err
 		case <-ticker.C:
 			if err := connect.CheckClientAlive(); err != nil {
-				fmt.Fprintf(r.Stderr, "Information   : ssh connection lost, unmounting %s\n", r.MountPoint)
-				cleanup()
-				return nil
+				aliveFailures++
+				if aliveFailures >= r.aliveFailureLimit {
+					fmt.Fprintf(r.Stderr, "Information   : ssh connection lost, unmounting %s\n", r.MountPoint)
+					cleanup()
+					return nil
+				}
+				continue
 			}
+			aliveFailures = 0
 		case <-sigCh:
 			cleanup()
 			return nil

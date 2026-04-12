@@ -17,6 +17,7 @@ type fakeMountConn struct {
 	nfsErr       error
 	smbErr       error
 	aliveErr     error
+	aliveChecks  int
 	closeCount   int
 	forwardCalls []string
 	fuseBlock    <-chan struct{}
@@ -50,7 +51,12 @@ func (f *fakeMountConn) SMBForward(bindAddr, port, shareName, remote string) err
 	f.mu.Unlock()
 	return f.smbErr
 }
-func (f *fakeMountConn) CheckClientAlive() error { return f.aliveErr }
+func (f *fakeMountConn) CheckClientAlive() error {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.aliveChecks++
+	return f.aliveErr
+}
 
 func TestRunnerRunWaitsForMountBeforeReady(t *testing.T) {
 	cacheDir := t.TempDir()
@@ -144,6 +150,7 @@ func TestRunnerRunUnmountsOnDisconnect(t *testing.T) {
 		ReadWrite:           true,
 		GOOS:                "linux",
 		aliveCheckInterval:  time.Millisecond,
+		aliveFailureLimit:   1,
 		signalCh:            sigCh,
 		Stderr:              &stderr,
 		createConnect: func(r *Runner) (mountConn, error) {
@@ -184,6 +191,67 @@ func TestRunnerRunReturnsUnsupportedOnWindows(t *testing.T) {
 	err := runner.Run()
 	if err == nil || !strings.Contains(strings.ToLower(err.Error()), "does not support windows") {
 		t.Fatalf("Run() error = %v", err)
+	}
+}
+
+func TestRunnerRunDoesNotUnmountOnSingleAliveFailure(t *testing.T) {
+	t.Setenv("XDG_CACHE_HOME", t.TempDir())
+
+	done := make(chan struct{})
+	conn := &fakeMountConn{aliveErr: errors.New("temporary"), fuseBlock: done}
+	sigCh := make(chan os.Signal, 1)
+	var stderr bytes.Buffer
+
+	runner := &Runner{
+		Host:               "web01",
+		RemotePath:         "/srv/data",
+		MountPoint:         t.TempDir(),
+		ReadWrite:          true,
+		GOOS:               "linux",
+		aliveCheckInterval: time.Millisecond,
+		aliveFailureLimit:  2,
+		signalCh:           sigCh,
+		Stderr:             &stderr,
+		createConnect: func(r *Runner) (mountConn, error) {
+			return conn, nil
+		},
+		waitForMountActive: func(goos, mountpoint string, timeout time.Duration) error {
+			return nil
+		},
+		probeMountedFS: func(goos, mountpoint string, timeout time.Duration) error {
+			return nil
+		},
+		execCommand: func(name string, args ...string) *exec.Cmd {
+			return exec.Command("sh", "-c", "true")
+		},
+	}
+
+	go func() {
+		deadline := time.Now().Add(1200 * time.Millisecond)
+		for time.Now().Before(deadline) {
+			conn.mu.Lock()
+			checks := conn.aliveChecks
+			conn.mu.Unlock()
+			if checks > 0 {
+				break
+			}
+			time.Sleep(time.Millisecond)
+		}
+		close(done)
+		sigCh <- syscall.SIGTERM
+	}()
+
+	if err := runner.Run(); err != nil {
+		t.Fatalf("Run() error = %v", err)
+	}
+	if conn.closeCount == 0 {
+		t.Fatalf("expected connection to close during cleanup")
+	}
+	if conn.aliveChecks == 0 {
+		t.Fatalf("expected alive check to run")
+	}
+	if strings.Contains(stderr.String(), "ssh connection lost") {
+		t.Fatalf("stderr = %q", stderr.String())
 	}
 }
 
