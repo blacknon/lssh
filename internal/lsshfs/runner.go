@@ -120,6 +120,20 @@ func (r *Runner) Run() error {
 	}
 	defer removeMountRecord(r.MountPoint)
 
+	var cleanupOnce sync.Once
+	cleanup := func() {
+		cleanupOnce.Do(func() {
+			if commands, err := unmountCommands(r.GOOS, r.MountPoint); err == nil {
+				for _, command := range commands {
+					if err := r.runCommand(command); err == nil {
+						break
+					}
+				}
+			}
+			_ = connect.Close()
+		})
+	}
+
 	serveErrCh := make(chan error, 1)
 	switch backend {
 	case BackendFUSE:
@@ -145,9 +159,11 @@ func (r *Runner) Run() error {
 		}()
 		spec, err := mountCommand(r.GOOS, r.MountPoint, port, "", nil)
 		if err != nil {
+			cleanup()
 			return err
 		}
 		if err := r.mountWithRetry(spec, serveErrCh); err != nil {
+			cleanup()
 			return err
 		}
 	}
@@ -156,6 +172,7 @@ func (r *Runner) Run() error {
 		select {
 		case err := <-serveErrCh:
 			if err != nil {
+				cleanup()
 				return err
 			}
 			return nil
@@ -164,10 +181,12 @@ func (r *Runner) Run() error {
 	}
 
 	if err := r.waitForMountActive(r.GOOS, r.MountPoint, defaultMountActiveTimeout); err != nil {
+		cleanup()
 		return err
 	}
 	if backend == BackendFUSE {
 		if err := r.probeMountedFS(r.GOOS, r.MountPoint, defaultMountActiveTimeout); err != nil {
+			cleanup()
 			return err
 		}
 	}
@@ -188,19 +207,6 @@ func (r *Runner) Run() error {
 	defer ticker.Stop()
 
 	aliveFailures := 0
-	var cleanupOnce sync.Once
-	cleanup := func() {
-		cleanupOnce.Do(func() {
-			if commands, err := unmountCommands(r.GOOS, r.MountPoint); err == nil {
-				for _, command := range commands {
-					if err := r.runCommand(command); err == nil {
-						break
-					}
-				}
-			}
-			_ = connect.Close()
-		})
-	}
 
 	for {
 		select {
