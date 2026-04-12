@@ -12,6 +12,7 @@ import (
 	"net"
 	"os"
 	"os/signal"
+	"strings"
 	"sync"
 	"syscall"
 	"time"
@@ -495,8 +496,11 @@ func (c *Connect) CheckClientAlive() error {
 		return c.controlClient.Ping()
 	}
 
-	_, _, err := c.Client.SendRequest("keepalive", true, nil)
+	_, _, err := c.Client.SendRequest("keepalive@openssh.com", true, nil)
 	if err == nil {
+		return nil
+	}
+	if strings.Contains(strings.ToLower(err.Error()), "request failed") {
 		return nil
 	}
 	return err
