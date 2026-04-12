@@ -10,6 +10,8 @@ import (
 	"syscall"
 	"testing"
 	"time"
+
+	conf "github.com/blacknon/lssh/internal/config"
 )
 
 type fakeMountConn struct {
@@ -47,16 +49,6 @@ func (f *fakeMountConn) NFSForward(bindAddr, port, remote string) error {
 func (f *fakeMountConn) SMBForward(bindAddr, port, shareName, remote string) error {
 	f.mu.Lock()
 	f.forwardCalls = append(f.forwardCalls, "smb:"+port+":"+shareName+":"+remote)
-	f.mu.Unlock()
-	return f.smbErr
-}
-func (f *fakeMountConn) SMBForwardAuth(bindAddr, port, shareName, remote string, creds *SMBCredentials) error {
-	f.mu.Lock()
-	user := ""
-	if creds != nil {
-		user = creds.Username
-	}
-	f.forwardCalls = append(f.forwardCalls, "smbauth:"+port+":"+shareName+":"+remote+":"+user)
 	f.mu.Unlock()
 	return f.smbErr
 }
@@ -183,6 +175,15 @@ func TestRunnerRunWaitsForSMBMountBeforeReady(t *testing.T) {
 	sigCh := make(chan os.Signal, 1)
 
 	runner := &Runner{
+		Config: conf.Config{
+			Server: map[string]conf.ServerConfig{
+				"web01": {
+					Addr: "example.com",
+					User: "demo",
+					Port: "22",
+				},
+			},
+		},
 		Host:       "web01",
 		RemotePath: "/srv/data",
 		MountPoint: "Z:",
@@ -194,7 +195,7 @@ func TestRunnerRunWaitsForSMBMountBeforeReady(t *testing.T) {
 		waitForMountActive: func(goos, mountpoint string, timeout time.Duration) error {
 			waitCalled = true
 			if readyCalled {
-				t.Fatal("ready notifier called before SMB mount became active")
+				t.Fatal("ready notifier called before WinFsp mount became active")
 			}
 			return nil
 		},
