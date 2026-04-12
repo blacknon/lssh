@@ -17,6 +17,7 @@ type fakeMountConn struct {
 	nfsErr       error
 	smbErr       error
 	aliveErr     error
+	aliveErrs    []error
 	aliveChecks  int
 	closeCount   int
 	forwardCalls []string
@@ -55,6 +56,11 @@ func (f *fakeMountConn) CheckClientAlive() error {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	f.aliveChecks++
+	if len(f.aliveErrs) > 0 {
+		err := f.aliveErrs[0]
+		f.aliveErrs = f.aliveErrs[1:]
+		return err
+	}
 	return f.aliveErr
 }
 
@@ -198,7 +204,10 @@ func TestRunnerRunDoesNotUnmountOnSingleAliveFailure(t *testing.T) {
 	t.Setenv("XDG_CACHE_HOME", t.TempDir())
 
 	done := make(chan struct{})
-	conn := &fakeMountConn{aliveErr: errors.New("temporary"), fuseBlock: done}
+	conn := &fakeMountConn{
+		aliveErrs: []error{errors.New("temporary"), nil, nil},
+		fuseBlock: done,
+	}
 	sigCh := make(chan os.Signal, 1)
 	var stderr bytes.Buffer
 
@@ -232,7 +241,7 @@ func TestRunnerRunDoesNotUnmountOnSingleAliveFailure(t *testing.T) {
 			conn.mu.Lock()
 			checks := conn.aliveChecks
 			conn.mu.Unlock()
-			if checks > 0 {
+			if checks >= 2 {
 				break
 			}
 			time.Sleep(time.Millisecond)
