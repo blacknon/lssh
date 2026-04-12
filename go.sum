@@ -27,8 +27,8 @@ github.com/blacknon/crypto11 v1.6.2-0.20260315101107-fd111b1d25ce h1:e/O1bXnYwEq
 github.com/blacknon/crypto11 v1.6.2-0.20260315101107-fd111b1d25ce/go.mod h1:DK0nQEQvNRRg4/vN5CfNhvvUNTPbOQ2xAQ83qQFK20s=
 github.com/blacknon/go-prompt v0.2.7 h1:dVdTqVplKvpT/k4bB9BlbcBYl/k6amYX5tvjYBmuKkI=
 github.com/blacknon/go-prompt v0.2.7/go.mod h1:zNBmC/BPAyr+3ey1oRhPxuXJS9zz1lEmJpwaoQroe3w=
-github.com/blacknon/go-sshlib v0.1.30 h1:E6IguDJ4rZhw2ZR25tospi0gDHPQqm5xn2wvh5COWrs=
-github.com/blacknon/go-sshlib v0.1.30/go.mod h1:8oL4/UIifYJM88LTXljPpm0Ub7je1C293ths3z+ntLQ=
+github.com/blacknon/go-sshlib v0.1.31 h1:D9ZLMqHLW798nreNAtJnXEaWZa0jMsjrYhxD+5Swt3E=
+github.com/blacknon/go-sshlib v0.1.31/go.mod h1:8oL4/UIifYJM88LTXljPpm0Ub7je1C293ths3z+ntLQ=
 github.com/blacknon/go-sshproc v0.1.1 h1:Zhhm/lyC+lotbN8vqXD3fnxVbJP4ILMCu086PuTLXFo=
 github.com/blacknon/go-sshproc v0.1.1/go.mod h1:FoW0cVjAxqtJVrhgzif6SOBsZ27EiMF/i2iCqiUPwBY=
 github.com/blacknon/go-x11auth v0.1.0 h1:SnljCPWcvglWeGAlKc1RAPMHnOfMpM9+GrTGEUQ1lqQ=
