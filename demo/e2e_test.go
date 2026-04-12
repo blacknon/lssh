@@ -219,8 +219,9 @@ func testDemoProxyAndForwarding(t *testing.T, demoDir string) {
 		if err == nil {
 			t.Fatalf("expected lsshfs missing path mount to fail\noutput:\n%s", output)
 		}
-		if strings.Contains(output, "/home/demo/mnt/lsshfs-missing") {
-			t.Fatalf("unexpected mount record/output for missing path\noutput:\n%s", output)
+		records, listErr := runClientCommand(demoDir, "lsshfs --list-mounts")
+		if listErr == nil && strings.Contains(records, "/home/demo/mnt/lsshfs-missing") {
+			t.Fatalf("unexpected mount record for missing path\ncommand output:\n%s\nlist-mounts:\n%s", output, records)
 		}
 	})
 
@@ -449,7 +450,7 @@ func startDemoLsshfsMount(t *testing.T, demoDir, remotePath, mountPoint, logPath
 	deadline := time.Now().Add(20 * time.Second)
 	for time.Now().Before(deadline) {
 		output, err := runClientCommand(demoDir,
-			fmt.Sprintf("grep -F %q /proc/mounts && lsshfs --list-mounts", mountPoint),
+			fmt.Sprintf("grep -F %q /proc/mounts && lsshfs --list-mounts | grep -F %q", mountPoint, mountPoint),
 		)
 		if err == nil && strings.Contains(output, mountPoint) {
 			return

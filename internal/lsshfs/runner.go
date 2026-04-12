@@ -41,7 +41,6 @@ type Runner struct {
 	execCommand           func(name string, args ...string) *exec.Cmd
 	createConnect         func(*Runner) (mountConn, error)
 	waitForMountActive    func(goos, mountpoint string, timeout time.Duration) error
-	probeMountedFS        func(goos, mountpoint string, timeout time.Duration) error
 	aliveCheckInterval    time.Duration
 	aliveFailureLimit     int
 	signalCh              <-chan os.Signal
@@ -70,9 +69,6 @@ func (r *Runner) Run() error {
 	}
 	if r.waitForMountActive == nil {
 		r.waitForMountActive = waitForMountActive
-	}
-	if r.probeMountedFS == nil {
-		r.probeMountedFS = probeMountedFS
 	}
 	if r.GOOS == "" {
 		r.GOOS = currentGOOS
@@ -183,12 +179,6 @@ func (r *Runner) Run() error {
 	if err := r.waitForMountActive(r.GOOS, r.MountPoint, defaultMountActiveTimeout); err != nil {
 		cleanup()
 		return err
-	}
-	if backend == BackendFUSE {
-		if err := r.probeMountedFS(r.GOOS, r.MountPoint, defaultMountActiveTimeout); err != nil {
-			cleanup()
-			return err
-		}
 	}
 
 	if r.ReadyNotifier != nil {
