@@ -36,6 +36,7 @@ import (
 	"github.com/blacknon/lssh/internal/common"
 	"log"
 	"os"
+	"path/filepath"
 	"strings"
 	"time"
 )
@@ -65,7 +66,12 @@ func (c *Config) ReduceCommon() {
 // ReadOpenSSHConfig read OpenSSH config file and append to Config.Server.
 func (c *Config) ReadOpenSSHConfig() {
 	if len(c.SSHConfig) == 0 {
-		openSSHServerConfig, err := getOpenSSHConfig("~/.ssh/config", "")
+		defaultPath := defaultOpenSSHConfigCandidate()
+		if defaultPath == "" || !common.IsExist(defaultPath) {
+			return
+		}
+
+		openSSHServerConfig, err := getOpenSSHConfig(defaultPath, "")
 		if err == nil {
 			// append data
 			for key, value := range openSSHServerConfig {
@@ -86,6 +92,13 @@ func (c *Config) ReadOpenSSHConfig() {
 			}
 		}
 	}
+}
+
+func defaultOpenSSHConfigCandidate() string {
+	if home, err := os.UserHomeDir(); err == nil && home != "" {
+		return filepath.Join(home, ".ssh", "config")
+	}
+	return "~/.ssh/config"
 }
 
 // ReadIncludeFiles read include files and append to Config.Server.

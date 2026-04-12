@@ -27,21 +27,23 @@ import (
 // The server runs until the process receives SIGINT or SIGTERM.
 // If shareName is empty, "share" is used.
 func (c *Connect) SMBForward(address, port, shareName, basepoint string) (err error) {
+	return c.SMBForwardAuth(address, port, shareName, basepoint, nil)
+}
+
+func (c *Connect) SMBForwardAuth(address, port, shareName, basepoint string, creds *SMBCredentials) (err error) {
 	client, err := c.newSFTPClient()
 	if err != nil {
 		return err
 	}
 	defer client.Close()
 
-	homepoint, err := client.RealPath(".")
+	basepoint, err = resolveRemoteBasepoint(client, basepoint)
 	if err != nil {
 		return err
 	}
-
-	basepoint = getRemoteAbsPath(homepoint, basepoint)
 	remoteFS := chroot.New(&SFTPFS{Client: client}, basepoint)
 
-	return serveSMB(address, port, defaultSMBShareName(shareName), newAbsBillyFS(remoteFS), nil)
+	return serveSMB(address, port, defaultSMBShareName(shareName), newAbsBillyFS(remoteFS), nil, creds)
 }
 
 // SMBReverseForward starts a local SMB server backed by sharepoint, then exposes
@@ -58,20 +60,32 @@ func (c *Connect) SMBReverseForward(address, port, shareName, sharepoint string)
 
 	return serveSMB("127.0.0.1", "0", defaultSMBShareName(shareName), localFS, func(localAddr string) error {
 		return c.TCPRemoteForward(localAddr, remoteAddr)
-	})
+	}, nil)
 }
 
-func serveSMB(host, port, shareName string, fs absfs.FileSystem, onReady func(localAddr string) error) error {
+type SMBCredentials struct {
+	Username string
+	Password string
+}
+
+func serveSMB(host, port, shareName string, fs absfs.FileSystem, onReady func(localAddr string) error, creds *SMBCredentials) error {
 	portNum, err := net.LookupPort("tcp", port)
 	if err != nil {
 		return err
+	}
+
+	allowGuest := creds == nil || creds.Username == ""
+	users := map[string]string(nil)
+	if !allowGuest {
+		users = map[string]string{creds.Username: creds.Password}
 	}
 
 	server, err := smbfs.NewServer(smbfs.ServerOptions{
 		Hostname:        host,
 		Port:            portNum,
 		ServerName:      "SSHLIB",
-		AllowGuest:      true,
+		AllowGuest:      allowGuest,
+		Users:           users,
 		SigningRequired: true,
 	})
 	if err != nil {
@@ -81,7 +95,7 @@ func serveSMB(host, port, shareName string, fs absfs.FileSystem, onReady func(lo
 	if err := server.AddShare(fs, smbfs.ShareOptions{
 		ShareName:  shareName,
 		SharePath:  "/",
-		AllowGuest: true,
+		AllowGuest: allowGuest,
 	}); err != nil {
 		return err
 	}

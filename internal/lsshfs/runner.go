@@ -15,6 +15,7 @@ import (
 	"syscall"
 	"time"
 
+	sshlib "github.com/blacknon/go-sshlib"
 	conf "github.com/blacknon/lssh/internal/config"
 	lsshssh "github.com/blacknon/lssh/internal/ssh"
 )
@@ -49,7 +50,23 @@ type mountConn interface {
 	FUSEForward(local, remote string) error
 	NFSForward(bindAddr, port, remote string) error
 	SMBForward(bindAddr, port, shareName, remote string) error
+	SMBForwardAuth(bindAddr, port, shareName, remote string, creds *SMBCredentials) error
 	CheckClientAlive() error
+}
+
+type sshMountConn struct {
+	*sshlib.Connect
+}
+
+func (c *sshMountConn) SMBForwardAuth(bindAddr, port, shareName, remote string, creds *SMBCredentials) error {
+	if creds == nil {
+		return c.Connect.SMBForward(bindAddr, port, shareName, remote)
+	}
+
+	return c.Connect.SMBForwardAuth(bindAddr, port, shareName, remote, &sshlib.SMBCredentials{
+		Username: creds.Username,
+		Password: creds.Password,
+	})
 }
 
 func (r *Runner) Run() error {
@@ -125,7 +142,7 @@ func (r *Runner) Run() error {
 		go func() {
 			serveErrCh <- connect.NFSForward("127.0.0.1", strconv.Itoa(port), r.RemotePath)
 		}()
-		spec, err := mountCommand(r.GOOS, r.MountPoint, port, "")
+		spec, err := mountCommand(r.GOOS, r.MountPoint, port, "", nil)
 		if err != nil {
 			return err
 		}
@@ -136,7 +153,7 @@ func (r *Runner) Run() error {
 		go func() {
 			serveErrCh <- connect.SMBForward("127.0.0.1", "445", defaultSMBShareName, r.RemotePath)
 		}()
-		spec, err := mountCommand(r.GOOS, r.MountPoint, 445, defaultSMBShareName)
+		spec, err := mountCommand(r.GOOS, r.MountPoint, 445, defaultSMBShareName, nil)
 		if err != nil {
 			return err
 		}
@@ -154,10 +171,10 @@ func (r *Runner) Run() error {
 			return nil
 		case <-time.After(defaultMountRetryDelay):
 		}
+	}
 
-		if err := r.waitForMountActive(r.GOOS, r.MountPoint, defaultMountActiveTimeout); err != nil {
-			return err
-		}
+	if err := r.waitForMountActive(r.GOOS, r.MountPoint, defaultMountActiveTimeout); err != nil {
+		return err
 	}
 
 	if r.ReadyNotifier != nil {
@@ -219,7 +236,7 @@ func createMountConn(r *Runner) (mountConn, error) {
 	if err != nil {
 		return nil, err
 	}
-	return connect, nil
+	return &sshMountConn{Connect: connect}, nil
 }
 
 func (r *Runner) mountWithRetry(spec CommandSpec, serveErrCh <-chan error) error {
