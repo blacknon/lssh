@@ -62,14 +62,11 @@ USAGE:
 
     # unmount
     {{.Name}} --unmount ~/mnt/data
-
-    # windows example
-    {{.Name}} @app:/srv/data Z:
 `
 
 	app = cli.NewApp()
 	app.Name = "lsshfs"
-	app.Usage = "Single-host SSH mount command with OS-specific local mount backends."
+	app.Usage = "Single-host SSH mount command with FUSE/NFS local mount backends."
 	app.Copyright = "blacknon(blacknon@orebibou.com)"
 	app.Version = version.AppVersion(app.Name)
 	app.EnableBashCompletion = true

@@ -5,7 +5,6 @@
 package sshlib
 
 import (
-	"fmt"
 	"net"
 	"strings"
 
@@ -28,13 +27,10 @@ func (c *Connect) NFSForward(address, port, basepoint string) (err error) {
 	}
 	defer client.Close()
 
-	// create abs path
-	homepoint, err := client.RealPath(".")
+	basepoint, err = resolveAndValidateRemoteDir(client, basepoint)
 	if err != nil {
 		return
 	}
-	basepoint = getRemoteAbsPath(homepoint, basepoint)
-	fmt.Println(basepoint)
 
 	sftpfsPlusChange := NewChangeSFTPFS(client, basepoint)
 

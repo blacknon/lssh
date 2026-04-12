@@ -8,7 +8,7 @@ It reuses the same host selection and SSH config flow as `lssh`, but exposes the
 
 - Linux clients use `FUSE`
 - macOS clients use `NFS`
-- Windows clients use `NFS` via the built-in Windows Client for NFS
+- Windows is not supported in `0.9.0`
 
 The command runs in the background by default and automatically unmounts when the SSH connection is lost.
 
@@ -48,9 +48,6 @@ USAGE:
     # unmount
     lsshfs --unmount ~/mnt/data
 
-    # windows example
-    lsshfs @app:/srv/data Z:
-
 ```
 
 ## Overview
@@ -89,7 +86,5 @@ lsshfs @web01:/srv/data Z:
 - `lsshfs` supports only one host at a time.
 - `@host:/path` is the preferred remote path format, but `host:/path` is still accepted for compatibility.
 - On macOS, the local mount is created with `mount_nfs`.
-- On Windows, the local mount is created with the built-in `mount` / `umount` commands for Client for NFS.
-- On Windows, Client for NFS must be enabled ahead of time or `lsshfs` returns an explicit error.
-- On Windows, the local NFS server listens on port `2049`, so binding that port must be allowed in the environment.
+- On Windows, `lsshfs` is not supported in `0.9.0`.
 - The default config search order is `~/.lssh.toml`, `~/.lssh.yaml`, `~/.lssh.yml`, then `~/.lssh.conf`.
