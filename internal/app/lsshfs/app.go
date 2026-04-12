@@ -143,6 +143,13 @@ USAGE:
 			cli.ShowAppHelp(c)
 			return fmt.Errorf("lsshfs requires remote_path and mountpoint")
 		}
+		if c.Bool("debug") {
+			if logPath := debugLogPath(c.Args()[1]); logPath != "" {
+				_ = os.Setenv("LSSHFS_DEBUG_LOG", logPath)
+				_ = os.Setenv("GO_SSHLIB_DEBUG_LOG", logPath)
+				fmt.Fprintf(os.Stderr, "Debug log: %s\n", logPath)
+			}
+		}
 
 		specHost, remotePath, parseErr := mountfs.ParseRemoteSpec(c.Args()[0])
 		if parseErr != nil {

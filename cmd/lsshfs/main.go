@@ -16,6 +16,7 @@ func main() {
 	app := lsshfs.Lsshfs()
 	args := common.NormalizeGenerateLSSHConfArgs(os.Args)
 	args = common.NormalizeTrailingBoolFlags(args, map[string]bool{
+		"--debug":      true,
 		"--foreground": true,
 		"--rw":         true,
 		"--list":       true,
