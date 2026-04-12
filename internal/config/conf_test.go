@@ -637,6 +637,31 @@ func TestValidateOpenSSHConfigWhensInvalidCIDR(t *testing.T) {
 	assert.Contains(t, err.Error(), "invalid IP/CIDR")
 }
 
+func TestReadOpenSSHConfigSkipsMissingDefaultConfig(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+
+	cfg := Config{
+		Common: ServerConfig{
+			User: "demo",
+			Pass: "secret",
+		},
+		Server: map[string]ServerConfig{
+			"vm-mng": {
+				Addr: "192.0.2.10",
+				User: "admin",
+				Pass: "secret",
+			},
+		},
+	}
+
+	cfg.ReadOpenSSHConfig()
+
+	if got := cfg.Server["vm-mng"].User; got != "admin" {
+		t.Fatalf("cfg.Server[vm-mng].User = %q, want %q", got, "admin")
+	}
+}
+
 func mustDecodeMeta(t *testing.T, body string) toml.MetaData {
 	t.Helper()
 

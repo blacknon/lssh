@@ -5,13 +5,10 @@
 package list
 
 import (
-	"fmt"
-
 	conf "github.com/blacknon/lssh/internal/config"
-	termbox "github.com/nsf/termbox-go"
 )
 
-// SelectHosts displays the classic list UI and returns selected hosts.
+// SelectHosts displays the selector UI and returns selected hosts.
 // ok is false when the selector was canceled.
 func SelectHosts(prompt string, names []string, data conf.Config, multi bool) (selected []string, ok bool, err error) {
 	l := &ListInfo{
@@ -26,11 +23,5 @@ func SelectHosts(prompt string, names []string, data conf.Config, multi bool) (s
 		return nil, false, nil
 	}
 
-	if err := termbox.Init(); err != nil {
-		return nil, false, fmt.Errorf("termbox init error: %w", err)
-	}
-	defer termbox.Close()
-
-	termbox.SetInputMode(termbox.InputMouse)
-	return l.keyEventSelectable()
+	return l.selectWithTview()
 }

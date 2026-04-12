@@ -130,3 +130,12 @@ func TestLoadOpenSSHConfigEntriesAppliesMatchUser(t *testing.T) {
 		t.Fatalf("entry.Config.X11 = false, want true")
 	}
 }
+
+func TestCurrentUsernameFallsBackToWindowsStyleEnv(t *testing.T) {
+	t.Setenv("USER", "")
+	t.Setenv("USERNAME", "demo-user")
+
+	if got := currentUsername(); got != "demo-user" {
+		t.Fatalf("currentUsername() = %q, want %q", got, "demo-user")
+	}
+}

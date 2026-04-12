@@ -50,6 +50,16 @@ func (f *fakeMountConn) SMBForward(bindAddr, port, shareName, remote string) err
 	f.mu.Unlock()
 	return f.smbErr
 }
+func (f *fakeMountConn) SMBForwardAuth(bindAddr, port, shareName, remote string, creds *SMBCredentials) error {
+	f.mu.Lock()
+	user := ""
+	if creds != nil {
+		user = creds.Username
+	}
+	f.forwardCalls = append(f.forwardCalls, "smbauth:"+port+":"+shareName+":"+remote+":"+user)
+	f.mu.Unlock()
+	return f.smbErr
+}
 func (f *fakeMountConn) CheckClientAlive() error { return f.aliveErr }
 
 func TestRunnerRunWaitsForMountBeforeReady(t *testing.T) {
@@ -160,5 +170,48 @@ func TestRunnerRunUnmountsOnDisconnect(t *testing.T) {
 	}
 	if !strings.Contains(stderr.String(), "ssh connection lost") {
 		t.Fatalf("stderr = %q", stderr.String())
+	}
+}
+
+func TestRunnerRunWaitsForSMBMountBeforeReady(t *testing.T) {
+	cacheDir := t.TempDir()
+	t.Setenv("XDG_CACHE_HOME", cacheDir)
+
+	conn := &fakeMountConn{}
+	readyCalled := false
+	waitCalled := false
+	sigCh := make(chan os.Signal, 1)
+
+	runner := &Runner{
+		Host:       "web01",
+		RemotePath: "/srv/data",
+		MountPoint: "Z:",
+		ReadWrite:  true,
+		GOOS:       "windows",
+		createConnect: func(r *Runner) (mountConn, error) {
+			return conn, nil
+		},
+		waitForMountActive: func(goos, mountpoint string, timeout time.Duration) error {
+			waitCalled = true
+			if readyCalled {
+				t.Fatal("ready notifier called before SMB mount became active")
+			}
+			return nil
+		},
+		ReadyNotifier: func() {
+			readyCalled = true
+			sigCh <- syscall.SIGTERM
+		},
+		signalCh: sigCh,
+		execCommand: func(name string, args ...string) *exec.Cmd {
+			return exec.Command("sh", "-c", "true")
+		},
+	}
+
+	if err := runner.Run(); err != nil {
+		t.Fatalf("Run() error = %v", err)
+	}
+	if !waitCalled || !readyCalled {
+		t.Fatalf("waitCalled=%v readyCalled=%v", waitCalled, readyCalled)
 	}
 }

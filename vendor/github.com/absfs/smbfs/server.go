@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"io"
 	"net"
+	"strings"
 	"sync"
 	"time"
 
@@ -136,7 +137,8 @@ func (s *Server) AddShare(fs absfs.FileSystem, options ShareOptions) error {
 	}
 
 	// Normalize share name to uppercase (SMB convention)
-	shareName := options.ShareName
+	shareName := strings.ToUpper(options.ShareName)
+	options.ShareName = shareName
 
 	s.sharesMu.Lock()
 	defer s.sharesMu.Unlock()
@@ -156,6 +158,8 @@ func (s *Server) AddShare(fs absfs.FileSystem, options ShareOptions) error {
 
 // RemoveShare removes a share
 func (s *Server) RemoveShare(shareName string) error {
+	shareName = strings.ToUpper(shareName)
+
 	s.sharesMu.Lock()
 	defer s.sharesMu.Unlock()
 
@@ -170,6 +174,8 @@ func (s *Server) RemoveShare(shareName string) error {
 
 // GetShare retrieves a share by name
 func (s *Server) GetShare(shareName string) *Share {
+	shareName = strings.ToUpper(shareName)
+
 	s.sharesMu.RLock()
 	defer s.sharesMu.RUnlock()
 	return s.shares[shareName]

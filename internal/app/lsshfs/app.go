@@ -8,8 +8,10 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"runtime"
 	"sort"
+	"strings"
 	"syscall"
 	"time"
 
@@ -29,7 +31,10 @@ var (
 	normalizeMountPtFn   = mountfs.NormalizeMountPoint
 	stateFilePathFn      = mountfs.StateFilePath
 	execCommandFn        = exec.Command
+	osExecutableFn       = os.Executable
 )
+
+const backgroundReadyTimeout = 15 * time.Second
 
 func Lsshfs() (app *cli.App) {
 	defConf := common.GetDefaultConfigPath()
@@ -201,7 +206,7 @@ func spawnBackgroundProcess(selectedHost string, appendHostFlag bool) error {
 		args = insertHostFlag(args, selectedHost)
 	}
 
-	exe, err := os.Executable()
+	exe, err := osExecutableFn()
 	if err != nil {
 		return err
 	}
@@ -215,8 +220,21 @@ func spawnBackgroundProcess(selectedHost string, appendHostFlag bool) error {
 		}
 	}
 
+	var readyPath string
+	if runtime.GOOS == "windows" {
+		readyDir, err := os.MkdirTemp("", "lsshfs-ready-*")
+		if err != nil {
+			return err
+		}
+		defer os.RemoveAll(readyDir)
+		readyPath = filepath.Join(readyDir, "ready")
+	}
+
 	cmd := exec.Command(exe, args...)
 	cmd.Env = append(os.Environ(), "_LSSHFS_DAEMON=1")
+	if readyPath != "" {
+		cmd.Env = append(cmd.Env, "_LSSHFS_READY_FILE="+readyPath)
+	}
 	if runtime.GOOS != "windows" {
 		cmd.ExtraFiles = []*os.File{wpipe}
 		cmd.SysProcAttr = daemonSysProcAttr()
@@ -250,6 +268,10 @@ func spawnBackgroundProcess(selectedHost string, appendHostFlag bool) error {
 			os.Exit(0)
 		}
 		return fmt.Errorf("background start failed")
+	}
+
+	if err := waitForBackgroundReadyFile(readyPath, backgroundReadyTimeout); err != nil {
+		return err
 	}
 
 	fmt.Fprintf(os.Stderr, "Mounted in background (pid %d)\n", pid)
@@ -291,6 +313,10 @@ func notifyParentReady() {
 		return
 	}
 
+	if readyPath := strings.TrimSpace(os.Getenv("_LSSHFS_READY_FILE")); readyPath != "" {
+		_ = os.WriteFile(readyPath, []byte("OK\n"), 0o600)
+	}
+
 	f := os.NewFile(uintptr(3), "lsshfs_ready")
 	if f == nil {
 		return
@@ -298,6 +324,26 @@ func notifyParentReady() {
 	defer f.Close()
 
 	_, _ = f.Write([]byte("OK\n"))
+}
+
+func waitForBackgroundReadyFile(path string, timeout time.Duration) error {
+	if strings.TrimSpace(path) == "" {
+		return nil
+	}
+
+	deadline := time.Now().Add(timeout)
+	for time.Now().Before(deadline) {
+		data, err := os.ReadFile(path)
+		if err == nil && len(data) > 0 {
+			return nil
+		}
+		if err != nil && !os.IsNotExist(err) {
+			return err
+		}
+		time.Sleep(200 * time.Millisecond)
+	}
+
+	return fmt.Errorf("background start failed")
 }
 
 func printMountRecords() error {

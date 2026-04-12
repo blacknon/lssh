@@ -84,13 +84,31 @@ func TestMountCommand(t *testing.T) {
 	}
 
 	for _, tt := range tests {
-		got, err := mountCommand(tt.goos, map[string]string{"darwin": "/mnt/test", "windows": "Z:"}[tt.goos], 2049, "share")
+		got, err := mountCommand(tt.goos, map[string]string{"darwin": "/mnt/test", "windows": "Z:"}[tt.goos], 2049, "share", nil)
 		if err != nil {
 			t.Fatalf("mountCommand(%q) error = %v", tt.goos, err)
 		}
 		if !reflect.DeepEqual(got, tt.want) {
 			t.Fatalf("mountCommand(%q) = %#v, want %#v", tt.goos, got, tt.want)
 		}
+	}
+}
+
+func TestMountCommandWindowsWithCredentials(t *testing.T) {
+	got, err := mountCommand("windows", "Z:", 445, "share", &SMBCredentials{
+		Username: "lsshfs",
+		Password: "secret",
+	})
+	if err != nil {
+		t.Fatalf("mountCommand(windows) error = %v", err)
+	}
+
+	want := CommandSpec{
+		Name: "net",
+		Args: []string{"use", "Z:", `\\127.0.0.1\share`, "secret", "/user:lsshfs", "/persistent:no"},
+	}
+	if !reflect.DeepEqual(got, want) {
+		t.Fatalf("mountCommand(windows) = %#v, want %#v", got, want)
 	}
 }
 
@@ -154,11 +172,23 @@ func TestRuntimeBackendMatchesCurrentOS(t *testing.T) {
 }
 
 func TestIsMountActiveUnsupportedOS(t *testing.T) {
-	active, err := isMountActive("windows", `Z:`)
+	active, err := isMountActive("plan9", `/mnt/test`)
 	if err != nil {
 		t.Fatalf("isMountActive() error = %v", err)
 	}
 	if active {
 		t.Fatalf("isMountActive() = true, want false")
+	}
+}
+
+func TestIsMountActiveWindowsChecksDrivePath(t *testing.T) {
+	drive := t.TempDir()
+
+	active, err := isMountActive("windows", drive)
+	if err != nil {
+		t.Fatalf("isMountActive() error = %v", err)
+	}
+	if !active {
+		t.Fatalf("isMountActive() = false, want true")
 	}
 }

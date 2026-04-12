@@ -128,8 +128,8 @@ func TestGetText(t *testing.T) {
 				},
 			},
 			expect: []string{
-				"ServerName         Connect Information         Note         ",
-				"dev_web1           user1@192.168.101.1         WebServer",
+				"ServerName  Connect Information  Note",
+				"dev_web1    user1@192.168.101.1  WebServer",
 			},
 		},
 		{
@@ -144,9 +144,9 @@ func TestGetText(t *testing.T) {
 				},
 			},
 			expect: []string{
-				"ServerName         Connect Information         Note         ",
-				"dev_web1           user1@192.168.101.1         WebServer",
-				"dev_web2           user1@192.168.101.2         WebServer",
+				"ServerName  Connect Information  Note",
+				"dev_web1    user1@192.168.101.1  WebServer",
+				"dev_web2    user1@192.168.101.2  WebServer",
 			},
 		},
 		{
@@ -161,7 +161,7 @@ func TestGetText(t *testing.T) {
 				},
 			},
 			expect: []string{
-				"ServerName         Connect Information         Note         ",
+				"ServerName  Connect Information  Note",
 			},
 		},
 		{
@@ -176,7 +176,7 @@ func TestGetText(t *testing.T) {
 				},
 			},
 			expect: []string{
-				"ServerName         Connect Information         Note         ",
+				"ServerName  Connect Information  Note",
 			},
 		},
 	}
