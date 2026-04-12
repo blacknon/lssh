@@ -268,6 +268,7 @@ func TestRunnerRunReturnsErrorWhenMountedFilesystemProbeFails(t *testing.T) {
 	t.Setenv("XDG_CACHE_HOME", t.TempDir())
 
 	done := make(chan struct{})
+	var commands []string
 	runner := &Runner{
 		Host:       "web01",
 		RemotePath: "/srv/data",
@@ -284,10 +285,17 @@ func TestRunnerRunReturnsErrorWhenMountedFilesystemProbeFails(t *testing.T) {
 			close(done)
 			return errors.New("probe timeout")
 		},
+		execCommand: func(name string, args ...string) *exec.Cmd {
+			commands = append(commands, name+" "+strings.Join(args, " "))
+			return exec.Command("sh", "-c", "true")
+		},
 	}
 
 	err := runner.Run()
 	if err == nil || !strings.Contains(err.Error(), "probe timeout") {
 		t.Fatalf("Run() error = %v", err)
+	}
+	if len(commands) == 0 {
+		t.Fatalf("expected cleanup command on probe failure")
 	}
 }
