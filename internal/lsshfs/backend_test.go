@@ -14,7 +14,7 @@ func TestBackendForGOOS(t *testing.T) {
 	}{
 		{goos: "linux", want: BackendFUSE, ok: true},
 		{goos: "darwin", want: BackendNFS, ok: true},
-		{goos: "windows", want: BackendSMB, ok: true},
+		{goos: "windows", want: BackendWinFsp, ok: true},
 		{goos: "plan9", ok: false},
 	}
 
@@ -63,52 +63,17 @@ func TestNormalizeMountPoint(t *testing.T) {
 }
 
 func TestMountCommand(t *testing.T) {
-	tests := []struct {
-		goos string
-		want CommandSpec
-	}{
-		{
-			goos: "darwin",
-			want: CommandSpec{
-				Name: "mount_nfs",
-				Args: []string{"-o", "port=2049,mountport=2049,tcp,nfsvers=3", "127.0.0.1:/", "/mnt/test"},
-			},
-		},
-		{
-			goos: "windows",
-			want: CommandSpec{
-				Name: "net",
-				Args: []string{"use", "Z:", `\\127.0.0.1\share`, "/persistent:no"},
-			},
-		},
-	}
-
-	for _, tt := range tests {
-		got, err := mountCommand(tt.goos, map[string]string{"darwin": "/mnt/test", "windows": "Z:"}[tt.goos], 2049, "share", nil)
-		if err != nil {
-			t.Fatalf("mountCommand(%q) error = %v", tt.goos, err)
-		}
-		if !reflect.DeepEqual(got, tt.want) {
-			t.Fatalf("mountCommand(%q) = %#v, want %#v", tt.goos, got, tt.want)
-		}
-	}
-}
-
-func TestMountCommandWindowsWithCredentials(t *testing.T) {
-	got, err := mountCommand("windows", "Z:", 445, "share", &SMBCredentials{
-		Username: "lsshfs",
-		Password: "secret",
-	})
+	got, err := mountCommand("darwin", "/mnt/test", 2049, "share", nil)
 	if err != nil {
-		t.Fatalf("mountCommand(windows) error = %v", err)
+		t.Fatalf("mountCommand(darwin) error = %v", err)
 	}
 
 	want := CommandSpec{
-		Name: "net",
-		Args: []string{"use", "Z:", `\\127.0.0.1\share`, "secret", "/user:lsshfs", "/persistent:no"},
+		Name: "mount_nfs",
+		Args: []string{"-o", "port=2049,mountport=2049,tcp,nfsvers=3", "127.0.0.1:/", "/mnt/test"},
 	}
 	if !reflect.DeepEqual(got, want) {
-		t.Fatalf("mountCommand(windows) = %#v, want %#v", got, want)
+		t.Fatalf("mountCommand(darwin) = %#v, want %#v", got, want)
 	}
 }
 
@@ -134,6 +99,7 @@ func TestUnmountCommands(t *testing.T) {
 		{
 			goos: "windows",
 			want: []CommandSpec{
+				{Name: "sshfs.exe", Args: []string{"unmount", "Z:"}},
 				{Name: "net", Args: []string{"use", "Z:", "/delete", "/y"}},
 			},
 		},
