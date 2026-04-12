@@ -5,6 +5,7 @@
 package main
 
 import (
+	"fmt"
 	"os"
 
 	lsshfs "github.com/blacknon/lssh/internal/app/lsshfs"
@@ -29,5 +30,8 @@ func main() {
 		"--generate-lssh-conf": true,
 	})
 	args = common.ParseArgs(app.Flags, args)
-	app.Run(args)
+	if err := app.Run(args); err != nil {
+		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+		os.Exit(1)
+	}
 }

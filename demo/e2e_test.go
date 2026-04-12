@@ -201,10 +201,15 @@ func testDemoProxyAndForwarding(t *testing.T, demoDir string) {
 			_, _ = runClientCommand(demoDir, "lsshfs --unmount /home/demo/mnt/lsshfs")
 		})
 
-		assertClientCommandContains(t, demoDir,
-			`cd /home/demo/mnt/lsshfs && pwd && ls -1a | grep -F '.ssh'`,
-			"/home/demo/mnt/lsshfs",
-		)
+		output, err := runClientCommand(demoDir, `cd /home/demo/mnt/lsshfs && pwd && ls -1a | grep -F '.ssh'`)
+		if err != nil {
+			logOutput, _ := runClientCommand(demoDir, "cat /tmp/lsshfs-demo-interaction.log || true")
+			t.Fatalf("command failed: cd /home/demo/mnt/lsshfs && pwd && ls -1a | grep -F '.ssh'\nerror: %v\noutput:\n%s\nlog:\n%s", err, output, logOutput)
+		}
+		if !strings.Contains(output, "/home/demo/mnt/lsshfs") {
+			logOutput, _ := runClientCommand(demoDir, "cat /tmp/lsshfs-demo-interaction.log || true")
+			t.Fatalf("output missing mount path\noutput:\n%s\nlog:\n%s", output, logOutput)
+		}
 	})
 
 	t.Run("lsshfs rejects missing remote paths", func(t *testing.T) {
