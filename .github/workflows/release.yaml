@@ -170,7 +170,7 @@ jobs:
             root="dist/archive/${base}"
 
             rm -rf "$root"
-            mkdir -p "$root/bin" "$root/completion/zsh"
+            mkdir -p "$root/bin" "$root/completion/bash" "$root/completion/fish" "$root/completion/zsh"
             cp README.md LICENSE.md "$root/"
 
             for bin in $(package_binaries "$package_id"); do
@@ -179,6 +179,12 @@ jobs:
                 ext=".exe"
               fi
               cp "dist/bin/${bin}${ext}" "$root/bin/${bin}${ext}"
+              if [ -f "completion/bash/${bin}" ]; then
+                cp "completion/bash/${bin}" "$root/completion/bash/${bin}"
+              fi
+              if [ -f "completion/fish/${bin}.fish" ]; then
+                cp "completion/fish/${bin}.fish" "$root/completion/fish/${bin}.fish"
+              fi
               if [ -f "completion/zsh/_${bin}" ]; then
                 cp "completion/zsh/_${bin}" "$root/completion/zsh/_${bin}"
               fi
@@ -227,6 +233,24 @@ jobs:
               file_info:
                 mode: 0755
           EOF
+
+              if [ -f "completion/bash/${bin}" ]; then
+                cat >> "$config_path" <<EOF
+            - src: ./completion/bash/${bin}
+              dst: /usr/share/bash-completion/completions/${bin}
+              file_info:
+                mode: 0644
+          EOF
+              fi
+
+              if [ -f "completion/fish/${bin}.fish" ]; then
+                cat >> "$config_path" <<EOF
+            - src: ./completion/fish/${bin}.fish
+              dst: /usr/share/fish/vendor_completions.d/${bin}.fish
+              file_info:
+                mode: 0644
+          EOF
+              fi
 
               if [ -f "completion/zsh/_${bin}" ]; then
                 cat >> "$config_path" <<EOF

@@ -1,0 +1,25 @@
+#compdef lspipe
+_lspipe() {
+  _arguments -s \
+    '--name[Session name]:name:' \
+    '--fifo-name[Named pipe set name]:name:' \
+    '(-H --create-host)'{-H,--create-host}'[Add servername when creating or replacing a session]:server:' \
+    '(-h --host)'{-h,--host}'[Limit command execution to servername inside the session]:server:' \
+    '(-F --file)'{-F,--file}'+[Specify config file path]:config file:_files' \
+    '--generate-lssh-conf[Print generated lssh config from OpenSSH config]:OpenSSH config:_files' \
+    '--replace[Replace the named session if it already exists]' \
+    '--list[List known lspipe sessions]' \
+    '--mkfifo[Create a named pipe bridge for the named session]' \
+    '--list-fifos[List named pipe bridges]' \
+    '--rmfifo[Remove the named pipe bridge for the named session]' \
+    '--info[Show information for the named session]' \
+    '--close[Close the named session]' \
+    '--raw[Write pure stdout for exactly one resolved host]' \
+    '--enable-control-master[Temporarily enable ControlMaster for this command execution]' \
+    '--disable-control-master[Temporarily disable ControlMaster for this command execution]' \
+    '--help[Print help]' \
+    '(-v --version)'{-v,--version}'[Print version]' \
+    '*:command:_command_names'
+}
+
+_lspipe "$@"
