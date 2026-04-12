@@ -1,0 +1,26 @@
+_lspipe_completion() {
+    local cur prev
+    COMPREPLY=()
+    cur="${COMP_WORDS[COMP_CWORD]}"
+    prev="${COMP_WORDS[COMP_CWORD-1]}"
+
+    local opts="--name --fifo-name --create-host -H --host -h --file -F --generate-lssh-conf --replace --list --mkfifo --list-fifos --rmfifo --info --close --raw --enable-control-master --disable-control-master --help --version -v"
+
+    case "${prev}" in
+        --file|-F|--generate-lssh-conf)
+            COMPREPLY=($(compgen -f -- "${cur}"))
+            return
+            ;;
+        --name|--fifo-name|--create-host|-H|--host|-h)
+            return
+            ;;
+    esac
+
+    if [[ "${cur}" == -* ]]; then
+        COMPREPLY=($(compgen -W "${opts}" -- "${cur}"))
+    else
+        COMPREPLY=($(compgen -c -- "${cur}"))
+    fi
+}
+
+complete -F _lspipe_completion lspipe

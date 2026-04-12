@@ -1,0 +1,6 @@
+complete -c lsdiff -l file -s F -d "Config filepath" -r -a "(__fish_complete_path)"
+complete -c lsdiff -l generate-lssh-conf -d "Print generated lssh config from OpenSSH config" -r -a "(__fish_complete_path)"
+complete -c lsdiff -l enable-control-master -d "Temporarily enable ControlMaster for this command execution"
+complete -c lsdiff -l disable-control-master -d "Temporarily disable ControlMaster for this command execution"
+complete -c lsdiff -l help -s h -d "Print help"
+complete -c lsdiff -l version -s v -d "Print version"

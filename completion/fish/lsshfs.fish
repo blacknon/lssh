@@ -1,0 +1,13 @@
+complete -c lsshfs -l host -s H -d "Connect servername" -r
+complete -c lsshfs -l file -s F -d "Config filepath" -r -a "(__fish_complete_path)"
+complete -c lsshfs -l generate-lssh-conf -d "Print generated lssh config from OpenSSH config" -r -a "(__fish_complete_path)"
+complete -c lsshfs -l debug -d "Enable debug logging for lsshfs and go-sshlib"
+complete -c lsshfs -l rw -d "Mount as read-write"
+complete -c lsshfs -l unmount -d "Unmount the specified mountpoint and stop the background process" -r -a "(__fish_complete_path)"
+complete -c lsshfs -l list-mounts -d "List active lsshfs mount records"
+complete -c lsshfs -l foreground -d "Run in the foreground for debugging and tests"
+complete -c lsshfs -l list -s l -d "Print server list from config"
+complete -c lsshfs -l enable-control-master -d "Temporarily enable ControlMaster for this command execution"
+complete -c lsshfs -l disable-control-master -d "Temporarily disable ControlMaster for this command execution"
+complete -c lsshfs -l help -s h -d "Print help"
+complete -c lsshfs -l version -s v -d "Print version"
