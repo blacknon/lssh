@@ -14,7 +14,7 @@ func TestBackendForGOOS(t *testing.T) {
 	}{
 		{goos: "linux", want: BackendFUSE, ok: true},
 		{goos: "darwin", want: BackendNFS, ok: true},
-		{goos: "windows", want: BackendNFS, ok: true},
+		{goos: "windows", ok: false},
 		{goos: "plan9", ok: false},
 	}
 
