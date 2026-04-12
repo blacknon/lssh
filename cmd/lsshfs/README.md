@@ -25,6 +25,7 @@ OPTIONS:
     --host servername, -H servername    connect servername.
     --file filepath, -F filepath        config filepath. (default: "/Users/blacknon/.lssh.conf")
     --generate-lssh-conf ~/.ssh/config  print generated lssh config from OpenSSH config to stdout (~/.ssh/config by default).
+    --debug                             enable debug logging for lsshfs and go-sshlib.
     --rw                                mount as read-write (current default behavior).
     --unmount                           unmount the specified mountpoint and stop the background process.
     --list-mounts                       list active lsshfs mount records.
