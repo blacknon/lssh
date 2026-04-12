@@ -51,8 +51,7 @@ For the detailed setup, see [`local bashrc`](./cmd/lssh/README.md#local-bashrc).
 
 Beyond interactive SSH login, `lssh` also supports:
 
-- NFS reverse forwarding for mounting a local directory on a remote server
-- SMB dynamic / reverse dynamic forwarding
+- NFS & SMB reverse forwarding for mounting a local directory on a remote server
 - SSH local / remote port forwarding
 - SOCKS5 and HTTP dynamic forwarding
 - X11 forwarding
