@@ -32,6 +32,9 @@ func (r *RunSftp) copy(args []string) {
 	app.HideHelp = true
 	app.HideVersion = true
 	app.EnableBashCompletion = true
+	app.Flags = []cli.Flag{
+		cli.BoolFlag{Name: "dry-run", Usage: "show copy actions without modifying files"},
+	}
 
 	app.Action = func(c *cli.Context) error {
 		if len(c.Args()) < 2 {
@@ -42,6 +45,7 @@ func (r *RunSftp) copy(args []string) {
 
 		r.ProgressWG = new(sync.WaitGroup)
 		r.Progress = mpb.New(mpb.WithWaitGroup(r.ProgressWG))
+		r.DryRun = c.Bool("dry-run")
 
 		argsSize := len(c.Args()) - 1
 		sourceArgs := c.Args()[:argsSize]
@@ -236,6 +240,10 @@ func (r *RunSftp) copyRemoteToRemote(src remoteCopySource, dst *TargetConnectMap
 }
 
 func resolveRemoteCopyPath(client *TargetConnectMap, path string) (string, error) {
+	if err := ensureTargetConnectAvailable(client); err != nil {
+		return "", err
+	}
+
 	switch {
 	case path == "~":
 		return client.Connect.Getwd()
@@ -253,6 +261,10 @@ func resolveRemoteCopyPath(client *TargetConnectMap, path string) (string, error
 }
 
 func (r *RunSftp) isRemoteCopyTargetDir(dst *TargetConnectMap, rawPath, resolvedPath string, defaultIsDir bool) (bool, error) {
+	if err := ensureTargetConnectAvailable(dst); err != nil {
+		return false, err
+	}
+
 	if defaultIsDir || strings.HasSuffix(rawPath, "/") {
 		return true, nil
 	}
@@ -275,6 +287,13 @@ func (r *RunSftp) isRemoteCopyTargetDir(dst *TargetConnectMap, rawPath, resolved
 }
 
 func (r *RunSftp) copyRemoteDirToRemote(srcClient *SftpConnect, dst *TargetConnectMap, sourcePath, targetPath string) error {
+	if err := ensureSFTPClientAvailable(srcClient); err != nil {
+		return err
+	}
+	if err := ensureTargetConnectAvailable(dst); err != nil {
+		return err
+	}
+
 	walker := srcClient.Connect.Walk(sourcePath)
 	baseDir := filepath.Dir(sourcePath)
 
@@ -293,6 +312,13 @@ func (r *RunSftp) copyRemoteDirToRemote(srcClient *SftpConnect, dst *TargetConne
 		}
 
 		if walker.Stat().IsDir() {
+			if r.DryRun {
+				r.printAction(dst.Output, "mkdir", fmt.Sprintf("%s:%s", dst.Output.Server, dstCurrentPath))
+				if r.Permission {
+					r.printAction(dst.Output, "chmod", fmt.Sprintf("%s:%s", dst.Output.Server, dstCurrentPath))
+				}
+				continue
+			}
 			if err := dst.Connect.MkdirAll(dstCurrentPath); err != nil {
 				return err
 			}
@@ -313,6 +339,21 @@ func (r *RunSftp) copyRemoteDirToRemote(srcClient *SftpConnect, dst *TargetConne
 }
 
 func (r *RunSftp) copyRemoteFileToRemote(srcClient *SftpConnect, dst *TargetConnectMap, sourcePath, targetPath string, mode os.FileMode) error {
+	if err := ensureSFTPClientAvailable(srcClient); err != nil {
+		return err
+	}
+	if err := ensureTargetConnectAvailable(dst); err != nil {
+		return err
+	}
+
+	if r.DryRun {
+		r.printAction(dst.Output, "copy", fmt.Sprintf("%s:%s -> %s:%s", srcClient.Output.Server, sourcePath, dst.Output.Server, targetPath))
+		if r.Permission {
+			r.printAction(dst.Output, "chmod", fmt.Sprintf("%s:%s", dst.Output.Server, targetPath))
+		}
+		return nil
+	}
+
 	srcFile, err := srcClient.Connect.Open(sourcePath)
 	if err != nil {
 		return err
@@ -336,7 +377,7 @@ func (r *RunSftp) copyRemoteFileToRemote(srcClient *SftpConnect, dst *TargetConn
 
 	rd := io.TeeReader(srcFile, dstFile)
 	r.ProgressWG.Add(1)
-	dst.Output.ProgressPrinter(size, rd, sourcePath)
+	dst.Output.ProgressPrinter(size, rd, fmt.Sprintf("%s:%s -> %s:%s", srcClient.Output.Server, sourcePath, dst.Output.Server, targetPath))
 
 	if r.Permission {
 		if err := dst.Connect.Chmod(targetPath, mode); err != nil {

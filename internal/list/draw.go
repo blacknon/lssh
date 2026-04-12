@@ -5,7 +5,6 @@
 package list
 
 import (
-	"fmt"
 	"strings"
 
 	runewidth "github.com/mattn/go-runewidth"
@@ -99,7 +98,7 @@ func (l *ListInfo) draw() {
 
 	// View List
 	for listKey, listValue := range viewList {
-		paddingData := fmt.Sprintf("%-1000s", listValue)
+		paddingData := padDisplayWidth(listValue, 1000)
 		// Set cursor color
 		cursorColor := l.Term.Color
 		cursorBackColor := l.Term.BackgroundColor

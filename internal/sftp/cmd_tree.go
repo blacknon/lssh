@@ -64,11 +64,7 @@ func (r *RunSftp) tree(args []string) (err error) {
 
 			}
 		} else {
-			for server, client := range r.Client {
-				// sftp target host
-				targetmap[server] = &TargetConnectMap{}
-				targetmap[server].SftpConnect = *client
-			}
+			targetmap = r.createConnectedTargetMapAll()
 
 			pathList = []string{}
 			for _, arg := range argData {
@@ -152,6 +148,10 @@ func (r *RunSftp) executeRemoteTree(c *cli.Context, clients map[string]*TargetCo
 }
 
 func (r *RunSftp) buildRemoteDirTree(client *TargetConnectMap, options *cli.Context) (trees []gotree.Tree, err error) {
+	if err = ensureTargetConnectAvailable(client); err != nil {
+		return
+	}
+
 	for _, path := range client.Path {
 		stat, statErr := client.Connect.Stat(path)
 		if statErr != nil {
@@ -170,6 +170,10 @@ func (r *RunSftp) buildRemoteDirTree(client *TargetConnectMap, options *cli.Cont
 }
 
 func (r *RunSftp) buildRemoteDirNode(client *TargetConnectMap, dir string, options *cli.Context) (dirTree gotree.Tree) {
+	if err := ensureTargetConnectAvailable(client); err != nil {
+		return gotree.New(dir)
+	}
+
 	dirName := filepath.Base(dir)
 	if dirName == "." || dirName == "/" || dirName == string(os.PathSeparator) {
 		dirName = dir

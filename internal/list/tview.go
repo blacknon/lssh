@@ -5,6 +5,7 @@
 package list
 
 import (
+	"fmt"
 	"regexp"
 	"sort"
 	"strings"
@@ -13,6 +14,40 @@ import (
 	"github.com/gdamore/tcell/v2"
 	"github.com/rivo/tview"
 )
+
+func (l *ListInfo) viewWithTview() {
+	_, _, _ = l.selectWithTview()
+}
+
+func (l *ListInfo) selectWithTview() (selected []string, ok bool, err error) {
+	app := tview.NewApplication()
+	selector := NewTviewSelector(app, l.Prompt, l.DataList, l.NameList, l.MultiFlag)
+	selector.list.Keyword = l.Keyword
+	selector.list.CursorLine = l.CursorLine
+	selector.list.SelectName = append([]string(nil), l.SelectName...)
+	selector.list.getFilterText()
+	selector.Refresh()
+	ok = false
+	selector.SetDoneFunc(func(selected []string) {
+		l.SelectName = append([]string(nil), selected...)
+		l.Keyword = selector.list.Keyword
+		l.CursorLine = selector.list.CursorLine
+		ok = true
+		app.Stop()
+	})
+	selector.SetCancelFunc(func() {
+		l.Keyword = selector.list.Keyword
+		l.CursorLine = selector.list.CursorLine
+		l.SelectName = append([]string(nil), selector.list.SelectName...)
+		app.Stop()
+	})
+
+	if err := app.SetRoot(selector, true).SetFocus(selector.FocusTarget()).Run(); err != nil {
+		return nil, false, fmt.Errorf("tview selector error: %w", err)
+	}
+
+	return append([]string(nil), l.SelectName...), ok, nil
+}
 
 // TviewSelector is a tview-based selector that mirrors the classic list UI.
 type TviewSelector struct {
@@ -55,16 +90,19 @@ func NewTviewSelector(app *tview.Application, prompt string, data conf.Config, n
 		app:  app,
 		list: l,
 	}
+	s.SetBackgroundColor(tcell.ColorDefault)
 
 	s.prompt = tview.NewTextView().
 		SetDynamicColors(true).
 		SetWrap(false)
 	s.prompt.SetBorder(false)
+	s.prompt.SetBackgroundColor(tcell.ColorDefault)
 
 	s.table = tview.NewTable().
 		SetBorders(false).
 		SetSelectable(true, false)
 	s.table.SetBorder(false)
+	s.table.SetBackgroundColor(tcell.ColorDefault)
 	s.table.SetSelectedStyle(tcell.StyleDefault.
 		Foreground(selectorCursorFG).
 		Background(selectorCursorBG))

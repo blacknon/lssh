@@ -11,7 +11,7 @@ require (
 	github.com/acarl005/stripansi v0.0.0-20180116102854-5a71ef0e047d
 	github.com/armon/go-socks5 v0.0.0-20160902184237-e75332964ef5 // indirect
 	github.com/blacknon/crypto11 v1.6.2-0.20260315101107-fd111b1d25ce // indirect
-	github.com/blacknon/go-sshlib v0.1.29
+	github.com/blacknon/go-sshlib v0.1.31
 	github.com/blacknon/go-x11auth v0.1.0 // indirect
 	github.com/blacknon/tvxterm v0.1.1
 	github.com/c-bata/go-prompt v0.2.6
@@ -33,16 +33,16 @@ require (
 	github.com/pkg/errors v0.9.1 // indirect
 	github.com/pkg/sftp v1.13.10
 	github.com/pkg/term v1.2.0-beta.2 // indirect
-	github.com/pmezard/go-difflib v1.0.0 // indirect
+	github.com/pmezard/go-difflib v1.0.0
 	github.com/stretchr/testify v1.11.1
 	github.com/thales-e-security/pool v0.0.2 // indirect
 	github.com/urfave/cli v1.22.17
 	github.com/vbauerster/mpb v3.4.0+incompatible
-	golang.org/x/crypto v0.49.0
-	golang.org/x/net v0.52.0
-	golang.org/x/sys v0.42.0
-	golang.org/x/term v0.41.0 // indirect
-	gopkg.in/yaml.v3 v3.0.1 // indirect
+	golang.org/x/crypto v0.50.0
+	golang.org/x/net v0.53.0
+	golang.org/x/sys v0.43.0
+	golang.org/x/term v0.42.0 // indirect
+	gopkg.in/yaml.v3 v3.0.1
 )
 
 require (
@@ -56,22 +56,29 @@ require (
 
 require (
 	code.rocketnine.space/tslocum/cbind v0.1.5 // indirect
+	github.com/absfs/absfs v1.0.0 // indirect
+	github.com/absfs/smbfs v0.9.1 // indirect
 	github.com/clipperhouse/uax29/v2 v2.7.0 // indirect
 	github.com/cpuguy83/go-md2man/v2 v2.0.7 // indirect
 	github.com/creack/pty v1.1.24 // indirect
 	github.com/cyphar/filepath-securejoin v0.6.1 // indirect
 	github.com/gdamore/encoding v1.0.1 // indirect
+	github.com/geoffgarside/ber v1.2.0 // indirect
 	github.com/go-git/go-billy/v5 v5.8.0 // indirect
 	github.com/google/uuid v1.6.0 // indirect
+	github.com/hanwen/go-fuse/v2 v2.9.0 // indirect
 	github.com/hashicorp/golang-lru/v2 v2.0.7 // indirect
+	github.com/hirochachacha/go-smb2 v1.1.0 // indirect
 	github.com/lucasb-eyer/go-colorful v1.2.0 // indirect
 	github.com/rasky/go-xdr v0.0.0-20170124162913-1a41d1a06c93 // indirect
 	github.com/rivo/uniseg v0.4.7 // indirect
 	github.com/russross/blackfriday/v2 v2.1.0 // indirect
 	github.com/willscott/go-nfs v0.0.3 // indirect
 	github.com/willscott/go-nfs-client v0.0.0-20251022144359-801f10d98886 // indirect
-	golang.org/x/text v0.35.0 // indirect
+	golang.org/x/text v0.36.0 // indirect
 )
 
 // replace
 replace github.com/c-bata/go-prompt v0.2.6 => github.com/blacknon/go-prompt v0.2.7
+
+replace github.com/kevinburke/ssh_config => ./internal/ssh_config

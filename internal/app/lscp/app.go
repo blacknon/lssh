@@ -65,10 +65,13 @@ USAGE:
 		cli.StringSliceFlag{Name: "host,H", Usage: "connect servernames"},
 		cli.BoolFlag{Name: "list,l", Usage: "print server list from config"},
 		cli.StringFlag{Name: "file,F", Value: defConf, Usage: "config file path"},
+		cli.StringFlag{Name: "generate-lssh-conf", Usage: "print generated lssh config from OpenSSH config to stdout (`~/.ssh/config` by default)."},
 		cli.IntFlag{Name: "parallel,P", Value: 1, Usage: "parallel file copy count per host"},
 		cli.BoolFlag{Name: "permission,p", Usage: "copy file permission"},
+		cli.BoolFlag{Name: "dry-run", Usage: "show copy actions without modifying files"},
 		cli.BoolFlag{Name: "help,h", Usage: "print this help"},
 	}
+	app.Flags = append(app.Flags, common.ControlMasterOverrideFlags()...)
 	app.EnableBashCompletion = true
 	app.HideHelp = true
 
@@ -81,6 +84,14 @@ USAGE:
 
 		hosts := c.StringSlice("host")
 		confpath := c.String("file")
+		controlMasterOverride, controlMasterErr := common.GetControlMasterOverride(c)
+		if controlMasterErr != nil {
+			return controlMasterErr
+		}
+
+		if handled, err := conf.HandleGenerateConfigMode(c.String("generate-lssh-conf"), os.Stdout); handled {
+			return err
+		}
 
 		// check count args
 		if len(c.Args()) < 2 {
@@ -111,7 +122,10 @@ USAGE:
 		check.CheckTypeError(isFromInRemote, isFromInLocal, isToRemote, len(hosts))
 
 		// Get config data
-		data := conf.Read(confpath)
+		data, err := conf.ReadWithFallback(confpath, os.Stderr)
+		if err != nil {
+			return err
+		}
 
 		// Get Server Name List (and sort List)
 		names := conf.GetNameList(data)
@@ -200,6 +214,7 @@ USAGE:
 
 		// scp struct
 		scp := new(scp.Scp)
+		scp.ControlMasterOverride = controlMasterOverride
 
 		// set from info
 		for _, from := range fromArgs {
@@ -237,6 +252,7 @@ USAGE:
 		scp.Parallel = c.Int("parallel") > 1
 		scp.ParallelNum = c.Int("parallel")
 		scp.Permission = c.Bool("permission")
+		scp.DryRun = c.Bool("dry-run")
 		scp.Config = data
 
 		// print from

@@ -76,7 +76,12 @@ jobs:
             ext=".exe"
           fi
 
-          for cmd in lssh lscp lsftp lsmon lsshell; do
+          cmds="lssh lscp lsftp lssync lsdiff lsmon lsshell lsmux lspipe"
+          if [ "${GOOS}" != "windows" ]; then
+            cmds="${cmds} lsshfs"
+          fi
+
+          for cmd in ${cmds}; do
             go build -o "dist/bin/${cmd}${ext}" "./cmd/${cmd}"
           done
 
@@ -105,19 +110,37 @@ jobs:
             case "$1" in
               full) echo "Full lssh suite with SSH, transfer, monitoring, and parallel shell tools." ;;
               core) echo "Core SSH client package for the lssh suite." ;;
-              transfer) echo "Transfer tools package for the lssh suite, including lscp and lsftp." ;;
+              transfer)
+                if [ "$GOOS" = "windows" ]; then
+                  echo "Transfer and diff tools package for the lssh suite, including lscp, lsftp, lssync, and lsdiff."
+                else
+                  echo "Transfer, diff, and mount tools package for the lssh suite, including lscp, lsftp, lssync, lsdiff, and lsshfs."
+                fi
+                ;;
               monitor) echo "Monitoring tools package for the lssh suite, including lsmon." ;;
-              sysadmin) echo "Sysadmin tools package for the lssh suite, including lsshell." ;;
+              sysadmin) echo "Sysadmin tools package for the lssh suite, including lsshell, lsmux, and lspipe." ;;
             esac
           }
 
           package_binaries() {
             case "$1" in
-              full) echo "lssh lscp lsftp lsmon lsshell" ;;
+              full)
+                if [ "$GOOS" = "windows" ]; then
+                  echo "lssh lscp lsftp lssync lsdiff lsmon lsshell lsmux lspipe"
+                else
+                  echo "lssh lscp lsftp lssync lsdiff lsshfs lsmon lsshell lsmux lspipe"
+                fi
+                ;;
               core) echo "lssh" ;;
-              transfer) echo "lscp lsftp" ;;
+              transfer)
+                if [ "$GOOS" = "windows" ]; then
+                  echo "lscp lsftp lssync lsdiff"
+                else
+                  echo "lscp lsftp lssync lsdiff lsshfs"
+                fi
+                ;;
               monitor) echo "lsmon" ;;
-              sysadmin) echo "lsshell" ;;
+              sysadmin) echo "lsshell lsmux lspipe" ;;
             esac
           }
 

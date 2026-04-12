@@ -1,0 +1,19 @@
+_lsftp_completion() {
+    local cur prev
+    COMPREPLY=()
+    cur="${COMP_WORDS[COMP_CWORD]}"
+    prev="${COMP_WORDS[COMP_CWORD-1]}"
+
+    local opts="--file -F --generate-lssh-conf --auto-reconnect --enable-control-master --disable-control-master --help -h --version -v"
+
+    case "${prev}" in
+        --file|-F|--generate-lssh-conf)
+            COMPREPLY=($(compgen -f -- "${cur}"))
+            return
+            ;;
+    esac
+
+    COMPREPLY=($(compgen -W "${opts}" -- "${cur}"))
+}
+
+complete -F _lsftp_completion lsftp

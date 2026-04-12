@@ -20,5 +20,8 @@
 /lsmon
 /lsmux
 /lsshell
+/lsshfs
 /lssync
+/lsdiff
+/lspipe
 *.exe

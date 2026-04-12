@@ -134,22 +134,10 @@ func shouldPreserveSourceName(sourcePath string, sourceIsDir bool, rawDestinatio
 		return targetExistsAsDir || hasTrailingSlash(rawDestination, separator)
 	}
 
-	if hasTrailingSlash(rawDestination, separator) {
-		return true
-	}
-
-	if !targetExistsAsDir {
-		return false
-	}
-
-	// For sync, an explicit destination like /tmp/hoge should be treated as the
-	// sync root when it already matches the source directory name, avoiding
-	// /tmp/hoge/hoge.
-	if baseName(sourcePath, separator) == baseName(resolvedDestination, separator) {
-		return false
-	}
-
-	return true
+	// For sync, a single directory source is treated as "sync the contents into
+	// the destination root", not "nest the source directory under destination".
+	// This keeps repeated syncs stable for existing targets like /tmp/hoge2.
+	return false
 }
 
 func relativePath(fs FileSystem, base, current string) (string, error) {

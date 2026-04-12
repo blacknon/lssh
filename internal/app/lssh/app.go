@@ -90,6 +90,7 @@ USAGE:
 		// common option
 		cli.StringSliceFlag{Name: "host,H", Usage: "connect `servername`."},
 		cli.StringFlag{Name: "file,F", Value: defConf, Usage: "config `filepath`."},
+		cli.StringFlag{Name: "generate-lssh-conf", Usage: "print generated lssh config from OpenSSH config to stdout (`~/.ssh/config` by default)."},
 
 		// port forward (with dynamic forward) option
 		cli.StringSliceFlag{Name: "L", Usage: "Local port forward mode.Specify a `[bind_address:]port:remote_address:port`. Only single connection works."},
@@ -99,6 +100,8 @@ USAGE:
 		cli.StringFlag{Name: "r", Usage: "HTTP Reverse Dynamic port forward mode. Specify a `port`. Only single connection works."},
 		cli.StringFlag{Name: "M", Usage: "NFS Dynamic forward mode. Specify a `port:/path/to/remote`. Only single connection works."},
 		cli.StringFlag{Name: "m", Usage: "NFS Reverse Dynamic forward mode. Specify a `port:/path/to/local`. Only single connection works."},
+		cli.StringFlag{Name: "S", Usage: "SMB Dynamic forward mode. Specify a `port:/path/to/remote`. Only single connection works."},
+		cli.StringFlag{Name: "s", Usage: "SMB Reverse Dynamic forward mode. Specify a `port:/path/to/local`. Only single connection works."},
 		// tunnel device option (like `ssh -w local:remote`)
 		cli.StringFlag{Name: "tunnel", Usage: "Enable tunnel device. Specify `${local}:${remote}` (use 'any' to request next available)."},
 
@@ -120,6 +123,7 @@ USAGE:
 		// Background (like ssh -f)
 		cli.BoolFlag{Name: "f", Usage: "Run in background after forwarding/connection (ssh -f like)."},
 	}
+	app.Flags = append(app.Flags, common.ControlMasterOverrideFlags()...)
 	app.EnableBashCompletion = true
 	app.HideHelp = true
 
@@ -133,9 +137,20 @@ USAGE:
 
 		hosts := c.StringSlice("host")
 		confpath := c.String("file")
+		controlMasterOverride, controlMasterErr := common.GetControlMasterOverride(c)
+		if controlMasterErr != nil {
+			return controlMasterErr
+		}
+
+		if handled, err := conf.HandleGenerateConfigMode(c.String("generate-lssh-conf"), os.Stdout); handled {
+			return err
+		}
 
 		// Get config data
-		data := conf.Read(confpath)
+		data, configErr := conf.ReadWithFallback(confpath, os.Stderr)
+		if configErr != nil {
+			return configErr
+		}
 
 		// Set `exec command` or `shell` flag
 		isMulti := false
@@ -216,9 +231,19 @@ USAGE:
 				forwardConfig.NFSReverseDynamicForwardPort = port
 				forwardConfig.NFSReverseDynamicForwardPath = common.GetFullPath(path)
 			}
+			if smbReverseForwarding := c.String("s"); smbReverseForwarding != "" {
+				port, path, parseErr := common.ParseNFSForwardPortPath(smbReverseForwarding)
+				if parseErr != nil {
+					fmt.Fprintf(os.Stderr, "Error: %s\n", parseErr)
+					os.Exit(1)
+				}
+				forwardConfig.SMBReverseDynamicForwardPort = port
+				forwardConfig.SMBReverseDynamicForwardPath = common.GetFullPath(path)
+			}
 
 			run := &sshcmd.Run{
 				Conf:                          data,
+				ControlMasterOverride:         controlMasterOverride,
 				PortForward:                   forwards,
 				DynamicPortForward:            c.String("D"),
 				HTTPDynamicPortForward:        c.String("d"),
@@ -226,7 +251,10 @@ USAGE:
 				HTTPReverseDynamicPortForward: forwardConfig.HTTPReverseDynamicPortForward,
 				NFSReverseDynamicForwardPort:  forwardConfig.NFSReverseDynamicForwardPort,
 				NFSReverseDynamicForwardPath:  forwardConfig.NFSReverseDynamicForwardPath,
+				SMBReverseDynamicForwardPort:  forwardConfig.SMBReverseDynamicForwardPort,
+				SMBReverseDynamicForwardPath:  forwardConfig.SMBReverseDynamicForwardPath,
 			}
+			forwardConfig.ControlMasterOverride = controlMasterOverride
 			if nfsForwarding := c.String("M"); nfsForwarding != "" {
 				port, path, parseErr := common.ParseNFSForwardPortPath(nfsForwarding)
 				if parseErr != nil {
@@ -235,6 +263,15 @@ USAGE:
 				}
 				run.NFSDynamicForwardPort = port
 				run.NFSDynamicForwardPath = path
+			}
+			if smbForwarding := c.String("S"); smbForwarding != "" {
+				port, path, parseErr := common.ParseNFSForwardPortPath(smbForwarding)
+				if parseErr != nil {
+					fmt.Fprintf(os.Stderr, "Error: %s\n", parseErr)
+					os.Exit(1)
+				}
+				run.SMBDynamicForwardPort = port
+				run.SMBDynamicForwardPath = path
 			}
 			if t := c.String("tunnel"); t != "" {
 				local, remote, parseErr := common.ParseTunnelSpec(t)
@@ -305,6 +342,7 @@ USAGE:
 		r := new(sshcmd.Run)
 		r.ServerList = selected
 		r.Conf = data
+		r.ControlMasterOverride = controlMasterOverride
 		switch {
 		case c.Bool("pshell") == true && !c.Bool("not-execute"):
 			r.Mode = "pshell"
@@ -381,6 +419,17 @@ USAGE:
 			r.NFSDynamicForwardPort = port
 			r.NFSDynamicForwardPath = path
 		}
+		smbForwarding := c.String("S")
+		if smbForwarding != "" {
+			port, path, err := common.ParseNFSForwardPortPath(smbForwarding)
+			if err != nil {
+				fmt.Fprintf(os.Stderr, "Error: %s\n", err)
+				os.Exit(1)
+			}
+
+			r.SMBDynamicForwardPort = port
+			r.SMBDynamicForwardPath = path
+		}
 
 		// Set NFS Reverse Forwarding
 		nfsReverseForwarding := c.String("m")
@@ -395,6 +444,17 @@ USAGE:
 
 			r.NFSReverseDynamicForwardPort = port
 			r.NFSReverseDynamicForwardPath = path
+		}
+		smbReverseForwarding := c.String("s")
+		if smbReverseForwarding != "" {
+			port, path, err := common.ParseNFSForwardPortPath(smbReverseForwarding)
+			if err != nil {
+				fmt.Fprintf(os.Stderr, "Error: %s\n", err)
+				os.Exit(1)
+			}
+
+			r.SMBReverseDynamicForwardPort = port
+			r.SMBReverseDynamicForwardPath = common.GetFullPath(path)
 		}
 
 		// if err

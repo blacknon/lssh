@@ -7,12 +7,12 @@ package main
 import (
 	"os"
 
-	"github.com/blacknon/lssh/internal/common"
 	"github.com/blacknon/lssh/internal/app/lsftp"
+	"github.com/blacknon/lssh/internal/common"
 )
 
 func main() {
 	app := lsftp.Lsftp()
-	args := common.ParseArgs(app.Flags, os.Args)
+	args := common.ParseArgs(app.Flags, common.NormalizeGenerateLSSHConfArgs(os.Args))
 	app.Run(args)
 }

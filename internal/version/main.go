@@ -4,7 +4,7 @@ import "fmt"
 
 const (
 	SuiteName = "lssh-suite"
-	Number    = "0.8.0"
+	Number    = "0.9.0"
 )
 
 type Maturity string
@@ -60,6 +60,9 @@ func ForCommand(name string) Info {
 	case "lssync":
 		info.Domain = Transfer
 		info.Maturity = Beta
+	case "lsshfs":
+		info.Domain = Transfer
+		info.Maturity = Beta
 
 	// Monitor
 	case "lsmon":
@@ -73,6 +76,12 @@ func ForCommand(name string) Info {
 	case "lsmux":
 		info.Domain = Sysadmin
 		info.Maturity = Beta
+	case "lsdiff":
+		info.Domain = Sysadmin
+		info.Maturity = Beta
+	case "lspipe":
+		info.Domain = Sysadmin
+		info.Maturity = Alpha
 	}
 
 	return info

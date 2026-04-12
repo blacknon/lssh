@@ -50,8 +50,9 @@ type SessionFactory func(server string, cols, rows int) (*RemoteSession, error)
 func NewSessionFactory(cfg conf.Config, command []string, options SessionOptions) SessionFactory {
 	return func(server string, cols, rows int) (*RemoteSession, error) {
 		run := &sshcmd.Run{
-			ServerList: []string{server},
-			Conf:       cfg,
+			ServerList:            []string{server},
+			Conf:                  cfg,
+			ControlMasterOverride: options.ControlMasterOverride,
 			PortForward: append([]*conf.PortForward(nil),
 				options.PortForward...,
 			),
@@ -59,6 +60,8 @@ func NewSessionFactory(cfg conf.Config, command []string, options SessionOptions
 			HTTPReverseDynamicPortForward: options.HTTPReverseDynamicPortForward,
 			NFSReverseDynamicForwardPort:  options.NFSReverseDynamicForwardPort,
 			NFSReverseDynamicForwardPath:  options.NFSReverseDynamicForwardPath,
+			SMBReverseDynamicForwardPort:  options.SMBReverseDynamicForwardPort,
+			SMBReverseDynamicForwardPath:  options.SMBReverseDynamicForwardPath,
 			X11:                           options.X11,
 			X11Trusted:                    options.X11Trusted,
 			IsBashrc:                      options.IsBashrc,
