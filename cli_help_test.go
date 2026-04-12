@@ -71,7 +71,7 @@ func TestCLIAppsKeepLoadBearingHelpMetadata(t *testing.T) {
 		for _, flag := range app.Flags {
 			flags = append(flags, flag.String())
 		}
-		check(t, app.Name, app.Usage, app.Version, flags, []string{"list-mounts", "foreground", "enable-control-master"}, "(beta/transfer)")
+		check(t, app.Name, app.Usage, app.Version, flags, []string{"list-mounts", "foreground", "debug", "enable-control-master"}, "(beta/transfer)")
 	}
 	{
 		app := app_lspipe.Lspipe()

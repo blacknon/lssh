@@ -54,6 +54,22 @@ type mountConn interface {
 	CheckClientAlive() error
 }
 
+func (r *Runner) debugEnabled() bool {
+	switch os.Getenv("LSSHFS_DEBUG") {
+	case "1", "true", "TRUE", "yes", "YES", "on", "ON":
+		return true
+	default:
+		return false
+	}
+}
+
+func (r *Runner) debugf(format string, args ...interface{}) {
+	if !r.debugEnabled() {
+		return
+	}
+	_, _ = fmt.Fprintf(r.Stderr, "DEBUG lsshfs: "+format+"\n", args...)
+}
+
 func (r *Runner) Run() error {
 	if r.Stdout == nil {
 		r.Stdout = os.Stdout
@@ -84,6 +100,7 @@ func (r *Runner) Run() error {
 	if err != nil {
 		return err
 	}
+	r.debugf("start host=%s remote_path=%s mountpoint=%s goos=%s backend=%s", r.Host, r.RemotePath, r.MountPoint, r.GOOS, backend)
 
 	mountpoint, err := normalizeMountPoint(r.GOOS, r.MountPoint)
 	if err != nil {
@@ -102,6 +119,7 @@ func (r *Runner) Run() error {
 		return err
 	}
 	defer connect.Close()
+	r.debugf("ssh connection established host=%s", r.Host)
 
 	record := MountRecord{
 		Host:       r.Host,
@@ -115,24 +133,30 @@ func (r *Runner) Run() error {
 		return err
 	}
 	defer removeMountRecord(r.MountPoint)
+	r.debugf("mount record written mountpoint=%s", r.MountPoint)
 
 	var cleanupOnce sync.Once
 	cleanup := func() {
 		cleanupOnce.Do(func() {
+			r.debugf("cleanup start mountpoint=%s", r.MountPoint)
 			if commands, err := unmountCommands(r.GOOS, r.MountPoint); err == nil {
 				for _, command := range commands {
+					r.debugf("cleanup command name=%s args=%v", command.Name, command.Args)
 					if err := r.runCommand(command); err == nil {
+						r.debugf("cleanup command succeeded name=%s", command.Name)
 						break
 					}
 				}
 			}
 			_ = connect.Close()
+			r.debugf("cleanup complete mountpoint=%s", r.MountPoint)
 		})
 	}
 
 	serveErrCh := make(chan error, 1)
 	switch backend {
 	case BackendFUSE:
+		r.debugf("starting FUSE forward mountpoint=%s remote_path=%s", r.MountPoint, r.RemotePath)
 		go func() {
 			serveErrCh <- connect.FUSEForward(r.MountPoint, r.RemotePath)
 		}()
@@ -168,6 +192,7 @@ func (r *Runner) Run() error {
 		select {
 		case err := <-serveErrCh:
 			if err != nil {
+				r.debugf("serve loop exited before mount became active err=%v", err)
 				cleanup()
 				return err
 			}
@@ -177,11 +202,14 @@ func (r *Runner) Run() error {
 	}
 
 	if err := r.waitForMountActive(r.GOOS, r.MountPoint, defaultMountActiveTimeout); err != nil {
+		r.debugf("mount did not become active mountpoint=%s err=%v", r.MountPoint, err)
 		cleanup()
 		return err
 	}
+	r.debugf("mount active mountpoint=%s", r.MountPoint)
 
 	if r.ReadyNotifier != nil {
+		r.debugf("notify ready mountpoint=%s", r.MountPoint)
 		r.ReadyNotifier()
 	}
 
@@ -201,11 +229,13 @@ func (r *Runner) Run() error {
 	for {
 		select {
 		case err := <-serveErrCh:
+			r.debugf("serve loop exited mountpoint=%s err=%v", r.MountPoint, err)
 			cleanup()
 			return err
 		case <-ticker.C:
 			if err := connect.CheckClientAlive(); err != nil {
 				aliveFailures++
+				r.debugf("alive check failed count=%d limit=%d err=%v", aliveFailures, r.aliveFailureLimit, err)
 				if aliveFailures >= r.aliveFailureLimit {
 					fmt.Fprintf(r.Stderr, "Information   : ssh connection lost, unmounting %s\n", r.MountPoint)
 					cleanup()
@@ -214,7 +244,9 @@ func (r *Runner) Run() error {
 				continue
 			}
 			aliveFailures = 0
+			r.debugf("alive check ok mountpoint=%s", r.MountPoint)
 		case <-sigCh:
+			r.debugf("signal received mountpoint=%s", r.MountPoint)
 			cleanup()
 			return nil
 		}
@@ -240,15 +272,19 @@ func (r *Runner) mountWithRetry(spec CommandSpec, serveErrCh <-chan error) error
 	var lastErr error
 
 	for i := 0; i < defaultMountRetryCount; i++ {
+		r.debugf("mount attempt=%d name=%s args=%v", i+1, spec.Name, spec.Args)
 		if err := r.runCommand(spec); err == nil {
+			r.debugf("mount attempt=%d succeeded", i+1)
 			return nil
 		} else {
 			lastErr = err
+			r.debugf("mount attempt=%d failed err=%v", i+1, err)
 		}
 
 		select {
 		case err := <-serveErrCh:
 			if err != nil {
+				r.debugf("serve loop exited during mount retry err=%v", err)
 				return err
 			}
 			return nil
@@ -270,5 +306,6 @@ func (r *Runner) runCommand(spec CommandSpec) error {
 	cmd.Stdin = os.Stdin
 	cmd.Stdout = r.Stdout
 	cmd.Stderr = r.Stderr
+	r.debugf("run command name=%s args=%v", spec.Name, spec.Args)
 	return cmd.Run()
 }

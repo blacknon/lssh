@@ -75,6 +75,7 @@ USAGE:
 		cli.StringSliceFlag{Name: "host,H", Usage: "connect `servername`."},
 		cli.StringFlag{Name: "file,F", Value: defConf, Usage: "config `filepath`."},
 		cli.StringFlag{Name: "generate-lssh-conf", Usage: "print generated lssh config from OpenSSH config to stdout (`~/.ssh/config` by default)."},
+		cli.BoolFlag{Name: "debug", Usage: "enable debug logging for lsshfs and go-sshlib."},
 		cli.BoolFlag{Name: "rw", Usage: "mount as read-write (current default behavior)."},
 		cli.BoolFlag{Name: "unmount", Usage: "unmount the specified mountpoint and stop the background process."},
 		cli.BoolFlag{Name: "list-mounts", Usage: "list active lsshfs mount records."},
@@ -85,6 +86,11 @@ USAGE:
 	app.Flags = append(app.Flags, common.ControlMasterOverrideFlags()...)
 
 	app.Action = func(c *cli.Context) error {
+		if c.Bool("debug") {
+			_ = os.Setenv("GO_SSHLIB_DEBUG", "1")
+			_ = os.Setenv("LSSHFS_DEBUG", "1")
+		}
+
 		if c.Bool("help") {
 			cli.ShowAppHelp(c)
 			os.Exit(0)
