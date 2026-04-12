@@ -33,12 +33,10 @@ func (c *Connect) FUSEForward(mountpoint, basepoint string) (err error) {
 	}
 	defer client.Close()
 
-	homepoint, err := client.RealPath(".")
+	basepoint, err = resolveRemoteBasepoint(client, basepoint)
 	if err != nil {
 		return err
 	}
-
-	basepoint = getRemoteAbsPath(homepoint, basepoint)
 	remoteFS := chroot.New(&SFTPFS{Client: client}, basepoint)
 
 	return serveFUSEMount(mountpoint, newBillyPathFS(remoteFS, "sshlib-sftp:"+basepoint))

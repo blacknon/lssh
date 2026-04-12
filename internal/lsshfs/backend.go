@@ -5,7 +5,9 @@
 package lsshfs
 
 import (
+	"crypto/rand"
 	"bufio"
+	"encoding/hex"
 	"fmt"
 	"net"
 	"os"
@@ -30,6 +32,11 @@ const defaultSMBShareName = "share"
 type CommandSpec struct {
 	Name string
 	Args []string
+}
+
+type SMBCredentials struct {
+	Username string
+	Password string
 }
 
 func backendForGOOS(goos string) (Backend, error) {
@@ -70,7 +77,7 @@ func NormalizeMountPoint(goos, mountpoint string) (string, error) {
 	return normalizeMountPoint(goos, mountpoint)
 }
 
-func mountCommand(goos, mountpoint string, port int, shareName string) (CommandSpec, error) {
+func mountCommand(goos, mountpoint string, port int, shareName string, creds *SMBCredentials) (CommandSpec, error) {
 	switch goos {
 	case "darwin":
 		return CommandSpec{
@@ -86,18 +93,33 @@ func mountCommand(goos, mountpoint string, port int, shareName string) (CommandS
 		if shareName == "" {
 			shareName = defaultSMBShareName
 		}
+		args := []string{
+			"use",
+			mountpoint,
+			fmt.Sprintf(`\\127.0.0.1\%s`, shareName),
+		}
+		if creds != nil && creds.Username != "" {
+			args = append(args, creds.Password, "/user:"+creds.Username)
+		}
 		return CommandSpec{
 			Name: "net",
-			Args: []string{
-				"use",
-				mountpoint,
-				fmt.Sprintf(`\\127.0.0.1\%s`, shareName),
-				"/persistent:no",
-			},
+			Args: append(args, "/persistent:no"),
 		}, nil
 	default:
 		return CommandSpec{}, fmt.Errorf("mount command is not defined for %s", goos)
 	}
+}
+
+func generateSMBCredentials() (*SMBCredentials, error) {
+	buf := make([]byte, 16)
+	if _, err := rand.Read(buf); err != nil {
+		return nil, err
+	}
+
+	return &SMBCredentials{
+		Username: "lsshfs",
+		Password: hex.EncodeToString(buf),
+	}, nil
 }
 
 func unmountCommands(goos, mountpoint string) ([]CommandSpec, error) {
@@ -175,6 +197,19 @@ func isMountActive(goos, mountpoint string) (bool, error) {
 			return false, err
 		}
 		return strings.Contains(string(out), " on "+mountpoint+" "), nil
+	case "windows":
+		target := mountpoint
+		if regexp.MustCompile(`^[A-Za-z]:$`).MatchString(target) {
+			target += `\`
+		}
+		_, err := os.Stat(target)
+		if err == nil {
+			return true, nil
+		}
+		if os.IsNotExist(err) {
+			return false, nil
+		}
+		return false, err
 	default:
 		return false, nil
 	}

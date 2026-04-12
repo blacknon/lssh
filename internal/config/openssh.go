@@ -9,6 +9,7 @@ import (
 	"io"
 	"os"
 	"os/exec"
+	"os/user"
 	"path/filepath"
 	"regexp"
 	"strconv"
@@ -108,7 +109,7 @@ func loadOpenSSHConfigEntries(path, command string) ([]openSSHConfigEntry, error
 		}
 
 		if serverConfig.User == "" {
-			serverConfig.User = os.Getenv("USER")
+			serverConfig.User = currentUsername()
 		}
 
 		keys := getOpenSSHIdentityFiles(cfg, host)
@@ -225,6 +226,21 @@ func loadOpenSSHConfigEntries(path, command string) ([]openSSHConfigEntry, error
 	}
 
 	return entries, nil
+}
+
+func currentUsername() string {
+	if value := strings.TrimSpace(os.Getenv("USER")); value != "" {
+		return value
+	}
+	if value := strings.TrimSpace(os.Getenv("USERNAME")); value != "" {
+		return value
+	}
+	if u, err := user.Current(); err == nil {
+		if value := strings.TrimSpace(u.Username); value != "" {
+			return value
+		}
+	}
+	return ""
 }
 
 func normalizeOpenSSHIdentityFile(path string) string {
