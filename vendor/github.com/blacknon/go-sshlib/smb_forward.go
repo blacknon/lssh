@@ -33,12 +33,10 @@ func (c *Connect) SMBForward(address, port, shareName, basepoint string) (err er
 	}
 	defer client.Close()
 
-	homepoint, err := client.RealPath(".")
+	basepoint, err = resolveAndValidateRemoteDir(client, basepoint)
 	if err != nil {
 		return err
 	}
-
-	basepoint = getRemoteAbsPath(homepoint, basepoint)
 	remoteFS := chroot.New(&SFTPFS{Client: client}, basepoint)
 
 	return serveSMB(address, port, defaultSMBShareName(shareName), newAbsBillyFS(remoteFS), nil)

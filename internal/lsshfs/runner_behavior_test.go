@@ -78,6 +78,12 @@ func TestRunnerRunWaitsForMountBeforeReady(t *testing.T) {
 			}
 			return nil
 		},
+		probeMountedFS: func(goos, mountpoint string, timeout time.Duration) error {
+			if readyCalled {
+				t.Fatal("ready notifier called before mounted filesystem probe")
+			}
+			return nil
+		},
 		ReadyNotifier: func() {
 			readyCalled = true
 			close(done)
@@ -146,6 +152,9 @@ func TestRunnerRunUnmountsOnDisconnect(t *testing.T) {
 		waitForMountActive: func(goos, mountpoint string, timeout time.Duration) error {
 			return nil
 		},
+		probeMountedFS: func(goos, mountpoint string, timeout time.Duration) error {
+			return nil
+		},
 		execCommand: func(name string, args ...string) *exec.Cmd {
 			commands = append(commands, name+" "+strings.Join(args, " "))
 			return exec.Command("sh", "-c", "true")
@@ -163,70 +172,45 @@ func TestRunnerRunUnmountsOnDisconnect(t *testing.T) {
 	}
 }
 
-func TestRunnerRunWaitsForSMBMountBeforeReady(t *testing.T) {
-	cacheDir := t.TempDir()
-	t.Setenv("XDG_CACHE_HOME", cacheDir)
-
-	conn := &fakeMountConn{}
-	readyCalled := false
-	waitCalled := false
-	sigCh := make(chan os.Signal, 1)
-
+func TestRunnerRunReturnsUnsupportedOnWindows(t *testing.T) {
 	runner := &Runner{
 		Host:       "web01",
 		RemotePath: "/srv/data",
 		MountPoint: "Z:",
 		ReadWrite:  true,
 		GOOS:       "windows",
-		createConnect: func(r *Runner) (mountConn, error) {
-			return conn, nil
-		},
-		waitForMountActive: func(goos, mountpoint string, timeout time.Duration) error {
-			waitCalled = true
-			if readyCalled {
-				t.Fatal("ready notifier called before windows NFS mount became active")
-			}
-			return nil
-		},
-		ReadyNotifier: func() {
-			readyCalled = true
-			sigCh <- syscall.SIGTERM
-		},
-		signalCh: sigCh,
-		execCommand: func(name string, args ...string) *exec.Cmd {
-			return exec.Command("sh", "-c", "true")
-		},
 	}
 
-	if err := runner.Run(); err != nil {
+	err := runner.Run()
+	if err == nil || !strings.Contains(strings.ToLower(err.Error()), "does not support windows") {
 		t.Fatalf("Run() error = %v", err)
-	}
-	if !waitCalled || !readyCalled {
-		t.Fatalf("waitCalled=%v readyCalled=%v", waitCalled, readyCalled)
 	}
 }
 
-func TestRunnerRunWindowsRequiresMountCommand(t *testing.T) {
+func TestRunnerRunReturnsErrorWhenMountedFilesystemProbeFails(t *testing.T) {
 	t.Setenv("XDG_CACHE_HOME", t.TempDir())
-	origPath := os.Getenv("PATH")
-	t.Cleanup(func() { _ = os.Setenv("PATH", origPath) })
-	if err := os.Setenv("PATH", t.TempDir()); err != nil {
-		t.Fatalf("Setenv: %v", err)
-	}
 
+	done := make(chan struct{})
 	runner := &Runner{
 		Host:       "web01",
 		RemotePath: "/srv/data",
-		MountPoint: "Z:",
+		MountPoint: t.TempDir(),
 		ReadWrite:  true,
-		GOOS:       "windows",
+		GOOS:       "linux",
 		createConnect: func(r *Runner) (mountConn, error) {
-			return &fakeMountConn{}, nil
+			return &fakeMountConn{fuseBlock: done}, nil
+		},
+		waitForMountActive: func(goos, mountpoint string, timeout time.Duration) error {
+			return nil
+		},
+		probeMountedFS: func(goos, mountpoint string, timeout time.Duration) error {
+			close(done)
+			return errors.New("probe timeout")
 		},
 	}
 
 	err := runner.Run()
-	if err == nil || !strings.Contains(err.Error(), "windows nfs client is not installed") {
+	if err == nil || !strings.Contains(err.Error(), "probe timeout") {
 		t.Fatalf("Run() error = %v", err)
 	}
 }
