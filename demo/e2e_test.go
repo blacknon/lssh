@@ -181,7 +181,7 @@ func testDemoProxyAndForwarding(t *testing.T, demoDir string) {
 	})
 
 	t.Run("lsshfs mounts remote path locally and can unmount it", func(t *testing.T) {
-		startDemoLsshfsMount(t, demoDir, "@KeyAuth:/home/demo", "/home/demo/mnt/lsshfs", "/tmp/lsshfs-demo.log")
+		startDemoLsshfsMount(t, demoDir, "@KeyAuth:/home/demo", "/home/demo/mnt/lsshfs", "/tmp/lsshfs-demo.log", "/tmp/lsshfs-demo.pid")
 
 		assertClientCommandContains(t, demoDir,
 			"grep -F '/home/demo/mnt/lsshfs' /proc/mounts && grep -F '/home/demo/mnt/lsshfs' <(lsshfs --list-mounts)",
@@ -196,7 +196,7 @@ func testDemoProxyAndForwarding(t *testing.T, demoDir string) {
 	})
 
 	t.Run("lsshfs mounted directory can be traversed without hanging", func(t *testing.T) {
-		startDemoLsshfsMount(t, demoDir, "@KeyAuth:/home/demo", "/home/demo/mnt/lsshfs", "/tmp/lsshfs-demo-interaction.log")
+		startDemoLsshfsMount(t, demoDir, "@KeyAuth:/home/demo", "/home/demo/mnt/lsshfs", "/tmp/lsshfs-demo-interaction.log", "/tmp/lsshfs-demo-interaction.pid")
 		t.Cleanup(func() {
 			_, _ = runClientCommand(demoDir, "lsshfs --unmount /home/demo/mnt/lsshfs")
 		})
@@ -209,7 +209,7 @@ func testDemoProxyAndForwarding(t *testing.T, demoDir string) {
 
 	t.Run("lsshfs rejects missing remote paths", func(t *testing.T) {
 		output, err := runClientCommand(demoDir,
-			"mkdir -p /home/demo/mnt/lsshfs-missing && lsshfs @KeyAuth:/home/demo/does-not-exist /home/demo/mnt/lsshfs-missing",
+			"mkdir -p /home/demo/mnt/lsshfs-missing && lsshfs --foreground @KeyAuth:/__lssh_missing__/does-not-exist /home/demo/mnt/lsshfs-missing",
 		)
 		if err == nil {
 			t.Fatalf("expected lsshfs missing path mount to fail\noutput:\n%s", output)
@@ -429,11 +429,16 @@ func runClientCommand(demoDir, command string) (string, error) {
 	return string(output), nil
 }
 
-func startDemoLsshfsMount(t *testing.T, demoDir, remotePath, mountPoint, logPath string) {
+func startDemoLsshfsMount(t *testing.T, demoDir, remotePath, mountPoint, logPath, pidPath string) {
 	t.Helper()
 
+	stopClientForward(t, demoDir, pidPath)
+	t.Cleanup(func() {
+		stopClientForward(t, demoDir, pidPath)
+	})
+
 	runClientCommandOrFail(t, demoDir,
-		fmt.Sprintf("mkdir -p %s && lsshfs %s %s >%s 2>&1", mountPoint, remotePath, mountPoint, logPath),
+		fmt.Sprintf("mkdir -p %s && nohup lsshfs --foreground %s %s >%s 2>&1 & echo $! > %s", mountPoint, remotePath, mountPoint, logPath, pidPath),
 	)
 
 	deadline := time.Now().Add(20 * time.Second)
