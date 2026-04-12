@@ -2,6 +2,10 @@
 _lsftp() {
     _arguments -s \
         '(-F --file)'{-F,--file}'[Specify config file path]:config file:_files' \
+        '--generate-lssh-conf[Print generated lssh config from OpenSSH config]:OpenSSH config:_files' \
+        '--auto-reconnect[Automatically reconnect disconnected hosts before commands]' \
+        '--enable-control-master[Temporarily enable ControlMaster for this command execution]' \
+        '--disable-control-master[Temporarily disable ControlMaster for this command execution]' \
         '(-h --help)'{-h,--help}'[Print this help]' \
         '(-v --version)'{-v,--version}'[Print the version]'
 }

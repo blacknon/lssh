@@ -18,6 +18,7 @@ USAGE:
 OPTIONS:
     --host servername, -H servername            connect servername.
     --file filepath, -F filepath                config filepath. (default: "/Users/blacknon/.lssh.conf")
+    --generate-lssh-conf ~/.ssh/config          print generated lssh config from OpenSSH config to stdout (~/.ssh/config by default).
     -L [bind_address:]port:remote_address:port  Local port forward mode.Specify a [bind_address:]port:remote_address:port. Only single connection works.
     -R [bind_address:]port:remote_address:port  Remote port forward mode.Specify a [bind_address:]port:remote_address:port. If only one port is specified, it will operate as Reverse Dynamic Forward. Only single connection works.
     -D port                                     Dynamic port forward mode(Socks5). Specify a port. Only single connection works.
@@ -25,6 +26,8 @@ OPTIONS:
     -r port                                     HTTP Reverse Dynamic port forward mode. Specify a port. Only single connection works.
     -M port:/path/to/remote                     NFS Dynamic forward mode. Specify a port:/path/to/remote. Only single connection works.
     -m port:/path/to/local                      NFS Reverse Dynamic forward mode. Specify a port:/path/to/local. Only single connection works.
+    -S port:/path/to/remote                     SMB Dynamic forward mode. Specify a port:/path/to/remote. Only single connection works.
+    -s port:/path/to/local                      SMB Reverse Dynamic forward mode. Specify a port:/path/to/local. Only single connection works.
     --tunnel ${local}:${remote}                 Enable tunnel device. Specify ${local}:${remote} (use 'any' to request next available).
     -w                                          Displays the server header when in command execution mode.
     -W                                          Not displays the server header when in command execution mode.
@@ -41,13 +44,15 @@ OPTIONS:
     --list, -l                                  print server list from config.
     --help, -h                                  print this help
     -f                                          Run in background after forwarding/connection (ssh -f like).
+    --enable-control-master                     temporarily enable ControlMaster for this command execution
+    --disable-control-master                    temporarily disable ControlMaster for this command execution
     --version, -v                               print the version
 
 COPYRIGHT:
     blacknon(blacknon@orebibou.com)
 
 VERSION:
-    lssh-suite 0.8.0 (stable/core)
+    lssh-suite 0.9.0 (stable/core)
 
 USAGE:
     # connect ssh
@@ -66,10 +71,10 @@ USAGE:
 
 ## OverView
 
-### terminal log
+### connect Terminal
 
-You can record terminal session logs while connected to a host.
-If needed, timestamps can also be included in the log output, which is useful when reviewing command history or troubleshooting interactive work later.
+Terminal connections work as naturally as with the standard `ssh` command, so you can move from familiar interactive sessions to `lssh` without changing how you work.
+Unlike many tools in this space, full-screen applications such as `vim` and `htop` generally work as expected, and shell prompts stay intact without the display glitches that often disrupt interactive sessions.
 
 ### command execution
 
@@ -107,6 +112,12 @@ When a command is given, piped `stdin` is copied to each pane, and `--hold` keep
 lssh -P --hold hostname
 ```
 
+### terminal log
+
+You can record terminal session logs while connected to a host.
+If needed, timestamps can also be included in the log output, which is useful when reviewing command history or troubleshooting interactive work later.
+
+
 ### pre_cmd / post_cmd
 
 <p align="center">
@@ -118,7 +129,7 @@ These options are useful for changing the local terminal state only while the SS
 
 For example, if your terminal supports OSC escape sequences, you can switch the terminal theme or colors when connecting to a host and restore them after disconnecting.
 
-`~/.lssh.conf` example.
+`~/.lssh.toml` example.
 
 ```toml
 [server.theme]
@@ -134,11 +145,27 @@ pre_cmd = 'printf "\e]10;#ffffff\a\e]11;#503000\a"'  # change foreground/backgro
 post_cmd = 'printf "\e]10;#ffffff\a\e]11;#000000\a"' # restore local colors
 ```
 
+YAML version:
+
+```yaml
+server:
+  theme:
+    addr: "192.168.100.10"
+    user: "demo"
+    pre_cmd: 'printf "\033]50;SetProfile=Remote\a"'
+    post_cmd: 'printf "\033]50;SetProfile=Default\a"'
+  color:
+    addr: "192.168.100.11"
+    user: "demo"
+    pre_cmd: 'printf "\e]10;#ffffff\a\e]11;#503000\a"'
+    post_cmd: 'printf "\e]10;#ffffff\a\e]11;#000000\a"'
+```
+
 ### ssh-agent
 
 `lssh` supports `ssh-agent`, so you can use keys already loaded into your agent without specifying a private key file for each host.
 
-`~/.lssh.conf` example.
+`~/.lssh.toml` example.
 
 ```toml
 [server.agent]
@@ -146,6 +173,17 @@ addr = "192.168.100.20"
 user = "demo"
 ssh_agent = true
 note = "use keys from ssh-agent"
+```
+
+YAML version:
+
+```yaml
+server:
+  agent:
+    addr: "192.168.100.20"
+    user: "demo"
+    ssh_agent: true
+    note: "use keys from ssh-agent"
 ```
 
 ### forwarding
@@ -159,11 +197,12 @@ The following forwarding features are available
 - HTTP Reverse Dynamic forward (`-r`)
 - NFS Dynamic forward (`-M`)
 - NFS Reverse Dynamic forward (`-m`)
+- SMB Dynamic forward (`-S`)
+- SMB Reverse Dynamic forward (`-s`)
 - Tunnel device (`--tunnel`)
 - x11 forward (`-X`, `-Y`)
 
-When using NFS forward, lssh starts the NFS server and begins listening on the specified port.
-After that, the forwarded PATH can be used as a mount point on the local machine or the remote machine.
+When using NFS or SMB forward, lssh starts the corresponding server and begins listening on the specified port.
 
 #### if use command line option
 
@@ -196,6 +235,12 @@ lssh -M 2049:/path/to/remote
 # Note: required mount process after forward.
 lssh -m 2049:/path/to/local
 
+# SMB dynamic forward
+lssh -S 1445:/path/to/remote
+
+# SMB reverse dynamic forward
+lssh -s 1445:/path/to/local
+
 # tunnel device
 lssh --tunnel 0:0
 
@@ -211,7 +256,7 @@ lssh -Y
 
 #### if use config file
 
-`~/.lssh.conf` examples.
+`~/.lssh.toml` examples.
 
 ```toml
 # local port forwarding
@@ -255,6 +300,16 @@ nfs_dynamic_forward_path = "/path/to/remote"
 nfs_reverse_dynamic_forward = "2049"
 nfs_reverse_dynamic_forward_path = "/path/to/local"
 
+# SMB dynamic forward
+[server.smb-dynamic]
+smb_dynamic_forward = "1445"
+smb_dynamic_forward_path = "/path/to/remote"
+
+# SMB reverse dynamic forward
+[server.smb-reverse-dynamic]
+smb_reverse_dynamic_forward = "1445"
+smb_reverse_dynamic_forward_path = "/path/to/local"
+
 # x11 forwarding
 [server.x11]
 x11 = true
@@ -264,8 +319,47 @@ x11 = true
 x11_trusted = true
 ```
 
-Tunnel device forwarding is available from the command line with `--tunnel`.
+YAML version:
 
+```yaml
+server:
+  forward-local:
+    port_forward: "local"
+    port_forward_local: "8080"
+    port_forward_remote: "localhost:80"
+  forward-remote:
+    port_forward: "remote"
+    port_forward_local: "80"
+    port_forward_remote: "localhost:8080"
+  forwards:
+    port_forwards:
+      - "L:8080:localhost:80"
+      - "R:80:localhost:8080"
+  dynamic:
+    dynamic_port_forward: "10080"
+  http-dynamic:
+    http_dynamic_port_forward: "18080"
+  http-reverse-dynamic:
+    http_reverse_dynamic_port_forward: "18080"
+  nfs-dynamic:
+    nfs_dynamic_forward: "2049"
+    nfs_dynamic_forward_path: "/path/to/remote"
+  nfs-reverse-dynamic:
+    nfs_reverse_dynamic_forward: "2049"
+    nfs_reverse_dynamic_forward_path: "/path/to/local"
+  smb-dynamic:
+    smb_dynamic_forward: "1445"
+    smb_dynamic_forward_path: "/path/to/remote"
+  smb-reverse-dynamic:
+    smb_reverse_dynamic_forward: "1445"
+    smb_reverse_dynamic_forward_path: "/path/to/local"
+  x11:
+    x11: true
+  x11-trusted:
+    x11_trusted: true
+```
+
+Tunnel device forwarding is available from the command line with `--tunnel`.
 
 
 ### local bashrc
@@ -278,7 +372,7 @@ You can connect using a local bashrc file (if the ssh login shell is bash), with
 
 If you need to transfer a large bashrc, you can enable compression during transfer by setting `local_rc_compress = true`.
 
-`~/.lssh.conf` example.
+`~/.lssh.toml` example.
 
 ```toml
 [server.localrc]
@@ -296,7 +390,44 @@ local_rc_file = [
 ]
 ```
 
+YAML version:
+
+```yaml
+server:
+  localrc:
+    addr: "192.168.100.104"
+    key: "/path/to/private_key"
+    note: "Use local bashrc files."
+    local_rc: "yes"
+    local_rc_compress: true
+    local_rc_file:
+      - "~/dotfiles/.bashrc"
+      - "~/dotfiles/bash_prompt"
+      - "~/dotfiles/sh_alias"
+      - "~/dotfiles/sh_export"
+      - "~/dotfiles/sh_function"
+```
+
 #### Tips
+
+Internally, `local_rc` works by starting `bash` with `--rcfile` and giving it rc content generated from your local files. That means the settings are applied only to the shell process created for that SSH session, instead of being written to a persistent file on the remote host.
+
+The behavior is conceptually similar to the following:
+
+```bash
+ssh user@remote 'bash --rcfile /dev/fd/0 -i' < ~/.bashrc
+```
+
+In practice, large rc payloads can fail if they are sent as-is, so `lssh` can compress the transferred content before sending it and expand it only inside the session startup path. The idea is conceptually similar to:
+
+```bash
+zip -j - ~/.bashrc ~/.bash_profile | ssh user@remote '
+  unzip -p /dev/stdin | bash --rcfile /dev/fd/0 -i
+'
+```
+
+Because the rc content is streamed into the session and used only for the shell being launched, there is no need to copy `~/.bashrc` or other files onto the remote server as persistent files. Once the session ends, the transferred content is gone as well, so the remote host is not polluted with extra config files or temporary artifacts.
+
 
 ##### Use local vimrc & tmux.conf
 

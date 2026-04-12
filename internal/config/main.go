@@ -36,22 +36,23 @@ import (
 	"github.com/blacknon/lssh/internal/common"
 	"log"
 	"os"
+	"path/filepath"
 	"strings"
 	"time"
 )
 
 // Config is Struct that stores the entire configuration file.
 type Config struct {
-	Log      LogConfig
-	Mux      MuxConfig
-	Shell    ShellConfig
-	Include  map[string]IncludeConfig
-	Includes IncludesConfig
-	Common   ServerConfig
-	Server   map[string]ServerConfig
-	Proxy    map[string]ProxyConfig
+	Log      LogConfig                `toml:"log" yaml:"log"`
+	Mux      MuxConfig                `toml:"mux" yaml:"mux"`
+	Shell    ShellConfig              `toml:"shell" yaml:"shell"`
+	Include  map[string]IncludeConfig `toml:"include" yaml:"include"`
+	Includes IncludesConfig           `toml:"includes" yaml:"includes"`
+	Common   ServerConfig             `toml:"common" yaml:"common"`
+	Server   map[string]ServerConfig  `toml:"server" yaml:"server"`
+	Proxy    map[string]ProxyConfig   `toml:"proxy" yaml:"proxy"`
 
-	SSHConfig map[string]OpenSSHConfig
+	SSHConfig map[string]OpenSSHConfig `toml:"sshconfig" yaml:"sshconfig"`
 }
 
 // ReduceCommon reduce common setting (in .lssh.conf servers)
@@ -65,7 +66,12 @@ func (c *Config) ReduceCommon() {
 // ReadOpenSSHConfig read OpenSSH config file and append to Config.Server.
 func (c *Config) ReadOpenSSHConfig() {
 	if len(c.SSHConfig) == 0 {
-		openSSHServerConfig, err := getOpenSSHConfig("~/.ssh/config", "")
+		defaultPath := defaultOpenSSHConfigCandidate()
+		if defaultPath == "" || !common.IsExist(defaultPath) {
+			return
+		}
+
+		openSSHServerConfig, err := getOpenSSHConfig(defaultPath, "")
 		if err == nil {
 			// append data
 			for key, value := range openSSHServerConfig {
@@ -74,7 +80,7 @@ func (c *Config) ReadOpenSSHConfig() {
 			}
 		}
 	} else {
-		for _, sc := range c.SSHConfig {
+		for _, sc := range c.activeOpenSSHConfigs() {
 			openSSHServerConfig, err := getOpenSSHConfig(sc.Path, sc.Command)
 			if err == nil {
 				// append data
@@ -86,6 +92,13 @@ func (c *Config) ReadOpenSSHConfig() {
 			}
 		}
 	}
+}
+
+func defaultOpenSSHConfigCandidate() string {
+	if home, err := os.UserHomeDir(); err == nil && home != "" {
+		return filepath.Join(home, ".ssh", "config")
+	}
+	return "~/.ssh/config"
 }
 
 // ReadIncludeFiles read include files and append to Config.Server.

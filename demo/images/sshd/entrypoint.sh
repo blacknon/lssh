@@ -26,6 +26,12 @@ fi
 # PasswordAuthentication still controls whether SSH password login is allowed.
 echo "${SSH_USER}:${SSH_PASSWORD}" | chpasswd
 
+install -d -m 755 -o "${SSH_USER}" -g "${SSH_USER}" "/home/${SSH_USER}/demo-sync"
+rm -rf "/home/${SSH_USER}/demo-sync/local-one-way" "/home/${SSH_USER}/demo-sync/bidirectional-remote"
+cp -a /etc/lssh-demo-sync/local-one-way "/home/${SSH_USER}/demo-sync/local-one-way"
+cp -a /etc/lssh-demo-sync/bidirectional-remote "/home/${SSH_USER}/demo-sync/bidirectional-remote"
+chown -R "${SSH_USER}:${SSH_USER}" "/home/${SSH_USER}/demo-sync"
+
 if [[ "${ENABLE_PUBKEY_AUTH}" == "true" && -n "${AUTHORIZED_KEY}" ]]; then
     install -d -m 700 -o "${SSH_USER}" -g "${SSH_USER}" "/home/${SSH_USER}/.ssh"
     printf '%s\n' "${AUTHORIZED_KEY}" >"/home/${SSH_USER}/.ssh/authorized_keys"

@@ -40,6 +40,7 @@ func (r *RunSftp) put(args []string) {
 	app.EnableBashCompletion = true
 	app.Flags = []cli.Flag{
 		cli.IntFlag{Name: "parallel,P", Value: 1, Usage: "parallel file copy count per host"},
+		cli.BoolFlag{Name: "dry-run", Usage: "show put actions without modifying files"},
 	}
 
 	// action
@@ -56,6 +57,7 @@ func (r *RunSftp) put(args []string) {
 		// Create Progress
 		r.ProgressWG = new(sync.WaitGroup)
 		r.Progress = mpb.New(mpb.WithWaitGroup(r.ProgressWG))
+		r.DryRun = c.Bool("dry-run")
 
 		// set path
 		argsSize := len(c.Args()) - 1
@@ -264,6 +266,10 @@ func (r *RunSftp) put(args []string) {
 }
 
 func (r *RunSftp) pushData(client *TargetConnectMap, isMultiple bool, root string, rootIsDir bool, path string) (err error) {
+	if err = ensureTargetConnectAvailable(client); err != nil {
+		return
+	}
+
 	for _, target := range client.Path {
 		target = strings.TrimSpace(target)
 		targetList := []string{}
@@ -310,8 +316,20 @@ func (r *RunSftp) pushData(client *TargetConnectMap, isMultiple bool, root strin
 				shouldTreatRemotePutDestinationAsDir(t, targetExistsAsDir, rootIsDir, isMultiple),
 			)
 			if fInfo.IsDir() { // directory
-				client.Connect.Mkdir(rpath)
+				if r.DryRun {
+					r.printAction(client.Output, "mkdir", fmt.Sprintf("%s:%s", client.Output.Server, rpath))
+				} else {
+					client.Connect.Mkdir(rpath)
+				}
 			} else { //file
+				if r.DryRun {
+					r.printAction(client.Output, "copy", fmt.Sprintf("local:%s -> %s:%s", path, client.Output.Server, rpath))
+					if r.Permission {
+						r.printAction(client.Output, "chmod", fmt.Sprintf("%s:%s", client.Output.Server, rpath))
+					}
+					continue
+				}
+
 				// open local file
 				localfile, err := os.Open(path)
 				if err != nil {
@@ -324,7 +342,7 @@ func (r *RunSftp) pushData(client *TargetConnectMap, isMultiple bool, root strin
 				size := lstat.Size()
 
 				// copy file
-				err = r.pushFile(client, localfile, rpath, size)
+				err = r.pushFile(client, localfile, path, rpath, size)
 				if err != nil {
 					return err
 				}
@@ -332,7 +350,11 @@ func (r *RunSftp) pushData(client *TargetConnectMap, isMultiple bool, root strin
 
 			// set mode
 			if r.Permission {
-				client.Connect.Chmod(rpath, fInfo.Mode())
+				if r.DryRun {
+					r.printAction(client.Output, "chmod", fmt.Sprintf("%s:%s", client.Output.Server, rpath))
+				} else {
+					client.Connect.Chmod(rpath, fInfo.Mode())
+				}
 			}
 		}
 	}
@@ -341,7 +363,16 @@ func (r *RunSftp) pushData(client *TargetConnectMap, isMultiple bool, root strin
 }
 
 // pushfile put file to path.
-func (r *RunSftp) pushFile(client *TargetConnectMap, localfile io.Reader, path string, size int64) (err error) {
+func (r *RunSftp) pushFile(client *TargetConnectMap, localfile io.Reader, sourcePath, path string, size int64) (err error) {
+	if err = ensureTargetConnectAvailable(client); err != nil {
+		return
+	}
+
+	if r.DryRun {
+		r.printAction(client.Output, "copy", fmt.Sprintf("local:%s -> %s:%s", sourcePath, client.Output.Server, path))
+		return nil
+	}
+
 	// mkdir all
 	dir := pathpkg.Dir(path)
 	err = client.Connect.MkdirAll(dir)
@@ -366,7 +397,7 @@ func (r *RunSftp) pushFile(client *TargetConnectMap, localfile io.Reader, path s
 
 	// copy to data
 	r.ProgressWG.Add(1)
-	client.Output.ProgressPrinter(size, rd, path)
+	client.Output.ProgressPrinter(size, rd, fmt.Sprintf("local:%s -> %s:%s", sourcePath, client.Output.Server, path))
 
 	return
 }

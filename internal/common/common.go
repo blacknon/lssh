@@ -35,6 +35,40 @@ import (
 
 var characterRunes = []rune("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789")
 
+func ControlMasterOverrideFlags() []cli.Flag {
+	return []cli.Flag{
+		cli.BoolFlag{
+			Name:  "enable-control-master",
+			Usage: "temporarily enable ControlMaster for this command execution",
+		},
+		cli.BoolFlag{
+			Name:  "disable-control-master",
+			Usage: "temporarily disable ControlMaster for this command execution",
+		},
+	}
+}
+
+func GetControlMasterOverride(c *cli.Context) (*bool, error) {
+	enable := c.Bool("enable-control-master")
+	disable := c.Bool("disable-control-master")
+
+	if enable && disable {
+		return nil, errors.New("cannot use --enable-control-master and --disable-control-master together")
+	}
+
+	if enable {
+		value := true
+		return &value, nil
+	}
+
+	if disable {
+		value := false
+		return &value, nil
+	}
+
+	return nil, nil
+}
+
 // enum
 const (
 	ARCHIVE_NONE = iota
@@ -470,18 +504,24 @@ func ParseForwardSpec(value string) (localNetwork, local, remoteNetwork, remote 
 	return
 }
 
-// ParseNFSForwardPortPath
-func ParseNFSForwardPortPath(value string) (port, path string, err error) {
-	data := strings.Split(value, ":")
-	if len(data) != 2 {
+// ParseForwardPathPair parses `<left>:<path>` style arguments used by
+// filesystem forwarding options.
+func ParseForwardPathPair(value string) (left, path string, err error) {
+	data := strings.SplitN(value, ":", 2)
+	if len(data) != 2 || data[0] == "" || data[1] == "" {
 		err = errors.New("Could not parse.")
 		return
 	}
 
-	port = data[0]
+	left = data[0]
 	path = data[1]
 
 	return
+}
+
+// ParseNFSForwardPortPath parses `port:/path` style NFS/SMB forwarding args.
+func ParseNFSForwardPortPath(value string) (port, path string, err error) {
+	return ParseForwardPathPair(value)
 }
 
 // ParseTunnelSpec parses a tunnel specification string of the form
@@ -657,17 +697,36 @@ func GetDefaultConfigPath() (path string) {
 	// get home dir
 	home := usr.HomeDir
 
-	// get config path
-	homeConfigPath := filepath.Join(home, ".lssh.conf")
-	xdgConfigPath := filepath.Join(xdgConfigHome, "lssh", "lssh.conf")
-
-	if _, err := os.Stat(homeConfigPath); os.IsExist(err) {
-		return homeConfigPath
+	candidates := GetDefaultConfigCandidates(home, xdgConfigHome)
+	for _, candidate := range candidates {
+		if candidate != "" && IsExist(candidate) {
+			return candidate
+		}
 	}
 
-	if _, err := os.Stat(xdgConfigPath); os.IsExist(err) {
-		return xdgConfigPath
+	if len(candidates) > 0 {
+		return candidates[0]
 	}
 
-	return homeConfigPath
+	return filepath.Join(home, ".lssh.toml")
+}
+
+func GetDefaultConfigCandidates(home, xdgConfigHome string) []string {
+	candidates := []string{
+		filepath.Join(home, ".lssh.toml"),
+		filepath.Join(home, ".lssh.yaml"),
+		filepath.Join(home, ".lssh.yml"),
+		filepath.Join(home, ".lssh.conf"),
+	}
+
+	if xdgConfigHome != "" {
+		candidates = append(candidates,
+			filepath.Join(xdgConfigHome, "lssh", "lssh.toml"),
+			filepath.Join(xdgConfigHome, "lssh", "lssh.yaml"),
+			filepath.Join(xdgConfigHome, "lssh", "lssh.yml"),
+			filepath.Join(xdgConfigHome, "lssh", "lssh.conf"),
+		)
+	}
+
+	return candidates
 }

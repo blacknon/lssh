@@ -31,6 +31,10 @@ type Scp struct {
 	// ssh Run
 	Run *sshl.Run
 
+	// ControlMasterOverride temporarily overrides the config value for this
+	// command execution.
+	ControlMasterOverride *bool
+
 	// From and To data
 	From ScpInfo
 	To   ScpInfo
@@ -40,6 +44,7 @@ type Scp struct {
 
 	// copy with permission flag
 	Permission bool
+	DryRun     bool
 
 	// send parallel flag
 	Parallel    bool
@@ -48,6 +53,17 @@ type Scp struct {
 	// progress bar
 	Progress   *mpb.Progress
 	ProgressWG *sync.WaitGroup
+}
+
+func (cp *Scp) printAction(printer *output.Output, action, target string) {
+	if printer != nil {
+		ow := printer.NewWriter()
+		fmt.Fprintf(ow, "[DRY-RUN] %s: %s\n", action, target)
+		ow.Close()
+		return
+	}
+
+	fmt.Fprintf(os.Stderr, "[DRY-RUN] %s: %s\n", action, target)
 }
 
 type ScpInfo struct {
@@ -87,6 +103,7 @@ func (cp *Scp) Start() {
 	cp.Run = new(sshl.Run)
 	cp.Run.ServerList = slist
 	cp.Run.Conf = cp.Config
+	cp.Run.ControlMasterOverride = cp.ControlMasterOverride
 	cp.Run.CreateAuthMethodMap()
 
 	// Create Progress bar struct
@@ -230,8 +247,20 @@ func (cp *Scp) pushPath(ftp *sftp.Client, ow io.Writer, output *output.Output, r
 	)
 
 	if fInfo.IsDir() { // directory
-		ftp.Mkdir(rpath)
+		if cp.DryRun {
+			cp.printAction(output, "mkdir", fmt.Sprintf("%s:%s", output.Server, rpath))
+		} else {
+			ftp.Mkdir(rpath)
+		}
 	} else { //file
+		if cp.DryRun {
+			cp.printAction(output, "copy", fmt.Sprintf("local:%s -> %s:%s", p, output.Server, rpath))
+			if cp.Permission {
+				cp.printAction(output, "chmod", fmt.Sprintf("%s:%s", output.Server, rpath))
+			}
+			return nil
+		}
+
 		// open local file
 		lf, err := os.Open(p)
 		if err != nil {
@@ -244,7 +273,7 @@ func (cp *Scp) pushPath(ftp *sftp.Client, ow io.Writer, output *output.Output, r
 		lstat, _ := os.Lstat(p)
 		size := lstat.Size()
 
-		err = cp.pushFile(lf, ftp, output, rpath, size)
+		err = cp.pushFile(lf, ftp, output, p, rpath, size)
 		if err != nil {
 			fmt.Fprintf(ow, "%s\n", err)
 			return err
@@ -253,14 +282,23 @@ func (cp *Scp) pushPath(ftp *sftp.Client, ow io.Writer, output *output.Output, r
 
 	// set mode
 	if cp.Permission {
-		ftp.Chmod(rpath, fInfo.Mode())
+		if cp.DryRun {
+			cp.printAction(output, "chmod", fmt.Sprintf("%s:%s", output.Server, rpath))
+		} else {
+			ftp.Chmod(rpath, fInfo.Mode())
+		}
 	}
 
 	return
 }
 
 // pushfile put file to path.
-func (cp *Scp) pushFile(lf io.Reader, ftp *sftp.Client, output *output.Output, path string, size int64) (err error) {
+func (cp *Scp) pushFile(lf io.Reader, ftp *sftp.Client, output *output.Output, sourcePath, path string, size int64) (err error) {
+	if cp.DryRun {
+		cp.printAction(output, "copy", fmt.Sprintf("local:%s -> %s:%s", sourcePath, output.Server, path))
+		return nil
+	}
+
 	// get output writer
 	ow := output.NewWriter()
 	defer ow.Close()
@@ -297,7 +335,7 @@ func (cp *Scp) pushFile(lf io.Reader, ftp *sftp.Client, output *output.Output, p
 	defer pr.Close()
 
 	cp.ProgressWG.Add(1)
-	go output.ProgressPrinter(size, pr, path)
+	go output.ProgressPrinter(size, pr, fmt.Sprintf("local:%s -> %s:%s", sourcePath, output.Server, path))
 
 	_, err = io.Copy(io.MultiWriter(rf, pw), lf)
 	closeErr := pw.Close()
@@ -376,6 +414,11 @@ func (cp *Scp) viaPushPath(paths []string, fclient *ScpConnect, tclients []*ScpC
 			go func() {
 				tclient.Output.Create(tclient.Server)
 				for task := range tasks {
+					if cp.DryRun {
+						cp.printAction(tclient.Output, "copy", fmt.Sprintf("%s:%s -> %s:%s", sclient.Server, task.path, tclient.Output.Server, task.path))
+						continue
+					}
+
 					file, err := sclient.Connect.Open(task.path)
 					if err != nil {
 						tow := tclient.Output.NewWriter()
@@ -384,7 +427,7 @@ func (cp *Scp) viaPushPath(paths []string, fclient *ScpConnect, tclients []*ScpC
 						continue
 					}
 
-					cp.pushFile(file, tclient.Connect, tclient.Output, task.path, task.size)
+					cp.pushFile(file, tclient.Connect, tclient.Output, task.path, task.path, task.size)
 					file.Close()
 				}
 
@@ -418,7 +461,11 @@ func (cp *Scp) viaPushPath(paths []string, fclient *ScpConnect, tclients []*ScpC
 			stat := walker.Stat()
 			if stat.IsDir() { // is directory
 				for _, tc := range tclients {
-					tc.Connect.Mkdir(p)
+					if cp.DryRun {
+						cp.printAction(tc.Output, "mkdir", fmt.Sprintf("%s:%s", tc.Output.Server, p))
+					} else {
+						tc.Connect.Mkdir(p)
+					}
 				}
 			} else { // is file
 				for _, tc := range tclients {
@@ -489,9 +536,13 @@ func (cp *Scp) pullPath(client *ScpConnect) {
 	destinationIsDir := shouldTreatLocalDestinationAsDir(destinationRoot, len(cp.From.Server) > 1 || len(cp.From.Path) > 1)
 	if len(cp.From.Server) > 1 {
 		destinationRoot = filepath.Join(destinationRoot, client.Server)
-		if err := os.MkdirAll(destinationRoot, 0755); err != nil {
-			fmt.Fprintf(ow, "Error: %s\n", err)
-			return
+		if cp.DryRun {
+			cp.printAction(client.Output, "mkdir", fmt.Sprintf("local:%s", destinationRoot))
+		} else {
+			if err := os.MkdirAll(destinationRoot, 0755); err != nil {
+				fmt.Fprintf(ow, "Error: %s\n", err)
+				return
+			}
 		}
 	}
 
@@ -529,6 +580,15 @@ func (cp *Scp) pullPath(client *ScpConnect) {
 					continue
 				}
 
+				if cp.DryRun {
+					rf.Close()
+					cp.printAction(wclient.Output, "copy", fmt.Sprintf("%s:%s -> local:%s", wclient.Output.Server, task.remotePath, task.localPath))
+					if cp.Permission {
+						cp.printAction(wclient.Output, "chmod", fmt.Sprintf("local:%s", task.localPath))
+					}
+					continue
+				}
+
 				// open local file
 				lf, err := os.OpenFile(task.localPath, os.O_RDWR|os.O_CREATE, 0644)
 				if err != nil {
@@ -550,7 +610,7 @@ func (cp *Scp) pullPath(client *ScpConnect) {
 				rd := io.TeeReader(rf, lf)
 
 				cp.ProgressWG.Add(1)
-				client.Output.ProgressPrinter(task.size, rd, task.remotePath)
+				client.Output.ProgressPrinter(task.size, rd, fmt.Sprintf("%s:%s -> local:%s", wclient.Output.Server, task.remotePath, task.localPath))
 
 				rf.Close()
 				lf.Close()
@@ -596,7 +656,14 @@ func (cp *Scp) pullPath(client *ScpConnect) {
 
 				stat := walker.Stat()
 				if stat.IsDir() { // create dir
-					os.MkdirAll(lpath, 0755)
+					if cp.DryRun {
+						cp.printAction(client.Output, "mkdir", fmt.Sprintf("local:%s", lpath))
+						if cp.Permission {
+							cp.printAction(client.Output, "chmod", fmt.Sprintf("local:%s", lpath))
+						}
+					} else {
+						os.MkdirAll(lpath, 0755)
+					}
 				} else { // create file
 					tasks <- pullTask{
 						remotePath: p,

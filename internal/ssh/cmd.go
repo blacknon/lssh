@@ -142,6 +142,12 @@ func (r *Run) cmd() (err error) {
 			if r.NFSDynamicForwardPath != "" {
 				config.NFSDynamicForwardPath = r.NFSDynamicForwardPath
 			}
+			if r.SMBDynamicForwardPort != "" {
+				config.SMBDynamicForwardPort = r.SMBDynamicForwardPort
+			}
+			if r.SMBDynamicForwardPath != "" {
+				config.SMBDynamicForwardPath = r.SMBDynamicForwardPath
+			}
 
 			// OverWrite nfs reverse dynamic forwarding
 			if r.NFSReverseDynamicForwardPort != "" {
@@ -151,6 +157,12 @@ func (r *Run) cmd() (err error) {
 			// OverWrite nfs reverse dynamic path
 			if r.NFSReverseDynamicForwardPath != "" {
 				config.NFSReverseDynamicForwardPath = r.NFSReverseDynamicForwardPath
+			}
+			if r.SMBReverseDynamicForwardPort != "" {
+				config.SMBReverseDynamicForwardPort = r.SMBReverseDynamicForwardPort
+			}
+			if r.SMBReverseDynamicForwardPath != "" {
+				config.SMBReverseDynamicForwardPath = r.SMBReverseDynamicForwardPath
 			}
 
 			// OverWrite local bashrc use
@@ -210,6 +222,16 @@ func (r *Run) cmd() (err error) {
 			if config.NFSReverseDynamicForwardPort != "" && config.NFSReverseDynamicForwardPath != "" {
 				r.printNFSReverseDynamicForward(config.NFSReverseDynamicForwardPort, config.NFSReverseDynamicForwardPath)
 				go c.NFSReverseForward("localhost", config.NFSReverseDynamicForwardPort, config.NFSReverseDynamicForwardPath)
+			}
+
+			if config.SMBDynamicForwardPort != "" && config.SMBDynamicForwardPath != "" {
+				r.printSMBDynamicForward(config.SMBDynamicForwardPort, config.SMBDynamicForwardPath)
+				go c.SMBForward("localhost", config.SMBDynamicForwardPort, "", config.SMBDynamicForwardPath)
+			}
+
+			if config.SMBReverseDynamicForwardPort != "" && config.SMBReverseDynamicForwardPath != "" {
+				r.printSMBReverseDynamicForward(config.SMBReverseDynamicForwardPort, config.SMBReverseDynamicForwardPath)
+				go c.SMBReverseForward("localhost", config.SMBReverseDynamicForwardPort, "", config.SMBReverseDynamicForwardPath)
 			}
 
 			// if tty

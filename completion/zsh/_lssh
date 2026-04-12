@@ -3,6 +3,7 @@ _lssh() {
     _arguments -C -s \
         '(-H --host)'{-H,--host}'[Connect to server by name]:server:_hosts' \
         '(-f --file)'{-f,--file}'+[Specify config file path]:config file:_files' \
+        '--generate-lssh-conf[Print generated lssh config from OpenSSH config]:OpenSSH config:_files' \
         '*-L[Local port forward mode. Specify bind_address]:local port forwarding:->forward' \
         '*-R[Remote port forward mode. Specify bind_address]:remote port forwarding:->forward' \
         '-D+[Dynamic port forward mode (Socks5). Specify a port]:dynamic port forwarding:->dynforward' \
@@ -10,6 +11,8 @@ _lssh() {
         '-r[HTTP reverse dynamic forward mode. Specify a port]:port:_ports' \
         '-M[NFS dynamic forward mode. Specify port:/path/to/remote]:port/path:_files' \
         '-m[NFS reverse dynamic forward mode. Specify port:/path/to/local]:port/path:_files' \
+        '-S[SMB dynamic forward mode. Specify port:/path/to/remote]:port/path:_files' \
+        '-s[SMB reverse dynamic forward mode. Specify port:/path/to/local]:port/path:_files' \
         '-w[Display the server header when in command execution mode]' \
         '-W[Do not display the server header when in command execution mode]' \
         '(-N --not-execute)'{-N,--not-execute}'[Do not execute remote command or shell]' \
@@ -17,9 +20,14 @@ _lssh() {
         '-Y[Enable trusted X11 forwarding to ${DISPLAY}]' \
         '(-t --term)'{-t,--term}'[Run specified command in terminal]' \
         '(-p --parallel)'{-p,--parallel}'[Run command in parallel mode]' \
+        '-P[Run shell or command in mux UI]' \
+        '--hold[Keep command panes after remote command exits]' \
+        '--allow-layout-change[Allow opening new pages or panes even in command mode]' \
         '--localrc[Use local bashrc shell]' \
         '--not-localrc[Do not use local bashrc shell]' \
         '(-l --list)'{-l,--list}'[Print server list from config]' \
+        '--enable-control-master[Temporarily enable ControlMaster for this command execution]' \
+        '--disable-control-master[Temporarily disable ControlMaster for this command execution]' \
         '(-h --help)'{-h,--help}'[Print help]' \
         '(-v --version)'{-v,--version}'[Print version]'
 

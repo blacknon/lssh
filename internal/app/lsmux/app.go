@@ -54,6 +54,7 @@ USAGE:
 	app.Flags = []cli.Flag{
 		cli.StringSliceFlag{Name: "host,H", Usage: "connect `servername`."},
 		cli.StringFlag{Name: "file,F", Value: defConf, Usage: "config `filepath`."},
+		cli.StringFlag{Name: "generate-lssh-conf", Usage: "print generated lssh config from OpenSSH config to stdout (`~/.ssh/config` by default)."},
 		cli.StringSliceFlag{Name: "R", Usage: "Remote port forward mode.Specify a `[bind_address:]port:remote_address:port`. If only one port is specified, it will operate as Reverse Dynamic Forward."},
 		cli.StringFlag{Name: "r", Usage: "HTTP Reverse Dynamic port forward mode. Specify a `port`."},
 		cli.StringFlag{Name: "m", Usage: "NFS Reverse Dynamic forward mode. Specify a `port:/path/to/local`."},
@@ -62,6 +63,7 @@ USAGE:
 		cli.BoolFlag{Name: "list,l", Usage: "print server list from config."},
 		cli.BoolFlag{Name: "help,h", Usage: "print this help"},
 	}
+	app.Flags = append(app.Flags, common.ControlMasterOverrideFlags()...)
 
 	app.Action = func(c *cli.Context) error {
 		if c.Bool("help") {
@@ -69,7 +71,18 @@ USAGE:
 			os.Exit(0)
 		}
 
-		data := conf.Read(c.String("file"))
+		if handled, err := conf.HandleGenerateConfigMode(c.String("generate-lssh-conf"), os.Stdout); handled {
+			return err
+		}
+		controlMasterOverride, controlMasterErr := common.GetControlMasterOverride(c)
+		if controlMasterErr != nil {
+			return controlMasterErr
+		}
+
+		data, err := conf.ReadWithFallback(c.String("file"), os.Stderr)
+		if err != nil {
+			return err
+		}
 		names := conf.GetNameList(data)
 		sort.Strings(names)
 
@@ -85,12 +98,11 @@ USAGE:
 		if len(initialHosts) > 0 && !check.ExistServer(initialHosts, names) {
 			return fmt.Errorf("input server not found from list")
 		}
-		forwardConfig := mux.SessionOptions{}
+		forwardConfig := mux.SessionOptions{
+			ControlMasterOverride: controlMasterOverride,
+		}
 
-		var (
-			forwards []*conf.PortForward
-			err      error
-		)
+		var forwards []*conf.PortForward
 		for _, forwardargs := range c.StringSlice("R") {
 			f := new(conf.PortForward)
 			f.Mode = "R"

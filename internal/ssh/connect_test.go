@@ -57,3 +57,55 @@ func TestGetProxyRouteUsesHopPorts(t *testing.T) {
 		t.Fatalf("route[2] = %#v, want http hop to deep_http_proxy:8888", route[2])
 	}
 }
+
+func TestEffectiveServerConfigControlMasterOverride(t *testing.T) {
+	t.Parallel()
+
+	cfg := conf.Config{
+		Server: map[string]conf.ServerConfig{
+			"demo": {
+				ControlMaster:  true,
+				ControlPersist: 30,
+			},
+		},
+	}
+
+	disable := false
+	run := &Run{
+		Conf:                  cfg,
+		ControlMasterOverride: &disable,
+	}
+
+	got := run.effectiveServerConfig("demo", false)
+	if got.ControlMaster {
+		t.Fatalf("ControlMaster = true, want false")
+	}
+	if got.ControlPersist != 0 {
+		t.Fatalf("ControlPersist = %d, want 0", got.ControlPersist)
+	}
+}
+
+func TestEffectiveServerConfigForceDirectDisablesControlMaster(t *testing.T) {
+	t.Parallel()
+
+	enable := true
+	run := &Run{
+		Conf: conf.Config{
+			Server: map[string]conf.ServerConfig{
+				"demo": {
+					ControlMaster:  false,
+					ControlPersist: 15,
+				},
+			},
+		},
+		ControlMasterOverride: &enable,
+	}
+
+	got := run.effectiveServerConfig("demo", true)
+	if got.ControlMaster {
+		t.Fatalf("ControlMaster = true, want false for direct connection")
+	}
+	if got.ControlPersist != 0 {
+		t.Fatalf("ControlPersist = %d, want 0 for direct connection", got.ControlPersist)
+	}
+}

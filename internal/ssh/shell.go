@@ -7,6 +7,7 @@ package ssh
 import (
 	"errors"
 	"fmt"
+	"io"
 	"log"
 	"os"
 	"os/user"
@@ -64,6 +65,12 @@ func (r *Run) shell() (err error) {
 	if r.NFSDynamicForwardPath != "" {
 		config.NFSDynamicForwardPath = r.NFSDynamicForwardPath
 	}
+	if r.SMBDynamicForwardPort != "" {
+		config.SMBDynamicForwardPort = r.SMBDynamicForwardPort
+	}
+	if r.SMBDynamicForwardPath != "" {
+		config.SMBDynamicForwardPath = r.SMBDynamicForwardPath
+	}
 
 	// OverWrite nfs reverse dynamic forwarding
 	if r.NFSReverseDynamicForwardPort != "" {
@@ -73,6 +80,12 @@ func (r *Run) shell() (err error) {
 	// OverWrite nfs reverse dynamic path
 	if r.NFSReverseDynamicForwardPath != "" {
 		config.NFSReverseDynamicForwardPath = r.NFSReverseDynamicForwardPath
+	}
+	if r.SMBReverseDynamicForwardPort != "" {
+		config.SMBReverseDynamicForwardPort = r.SMBReverseDynamicForwardPort
+	}
+	if r.SMBReverseDynamicForwardPath != "" {
+		config.SMBReverseDynamicForwardPath = r.SMBReverseDynamicForwardPath
 	}
 
 	// OverWrite local bashrc use
@@ -95,11 +108,29 @@ func (r *Run) shell() (err error) {
 	r.printHTTPDynamicPortForward(config.HTTPDynamicPortForward)
 	r.printNFSDynamicForward(config.NFSDynamicForwardPort, config.NFSDynamicForwardPath)
 	r.printNFSReverseDynamicForward(config.NFSReverseDynamicForwardPort, config.NFSReverseDynamicForwardPath)
+	r.printSMBDynamicForward(config.SMBDynamicForwardPort, config.SMBDynamicForwardPath)
+	r.printSMBReverseDynamicForward(config.SMBReverseDynamicForwardPort, config.SMBReverseDynamicForwardPath)
 	r.printProxy(server)
 
 	connect, err := r.CreateSshConnect(server)
 	if err != nil {
 		return
+	}
+
+	if connect.IsControlClient() {
+		if validateErr := validateControlMasterClient(connect); validateErr != nil {
+			if isControlMasterRemoteExit255(validateErr) {
+				if connect.ControlPath != "" {
+					_ = os.Remove(connect.ControlPath)
+				}
+				connect, err = r.CreateSshConnect(server)
+				if err != nil {
+					return
+				}
+			} else {
+				return validateErr
+			}
+		}
 	}
 
 	// Print connection info (Local rc, ControlMaster state, etc.).
@@ -160,6 +191,14 @@ func (r *Run) shell() (err error) {
 	// NFS Reverse Dynamic Forwarding
 	if config.NFSReverseDynamicForwardPort != "" && config.NFSReverseDynamicForwardPath != "" {
 		go connect.NFSReverseForward("localhost", config.NFSReverseDynamicForwardPort, config.NFSReverseDynamicForwardPath)
+	}
+
+	if config.SMBDynamicForwardPort != "" && config.SMBDynamicForwardPath != "" {
+		go connect.SMBForward("localhost", config.SMBDynamicForwardPort, "", config.SMBDynamicForwardPath)
+	}
+
+	if config.SMBReverseDynamicForwardPort != "" && config.SMBReverseDynamicForwardPath != "" {
+		go connect.SMBReverseForward("localhost", config.SMBReverseDynamicForwardPort, "", config.SMBReverseDynamicForwardPath)
 	}
 
 	// If started as daemonized child, notify parent that forwarding is ready
@@ -311,9 +350,7 @@ func localrcShell(connect *sshlib.Connect, session *ssh.Session, localrcPath []s
 
 	}
 
-	connect.CmdShell(session, cmd)
-
-	return
+	return connect.CmdShell(session, cmd)
 }
 
 func localrcArchiveMode(compress bool) int {
@@ -322,4 +359,22 @@ func localrcArchiveMode(compress bool) int {
 	}
 
 	return common.ARCHIVE_NONE
+}
+
+func validateControlMasterClient(connect *sshlib.Connect) error {
+	if connect == nil || !connect.IsControlClient() {
+		return nil
+	}
+
+	clone := *connect
+	clone.Stdin = nil
+	clone.Stdout = io.Discard
+	clone.Stderr = io.Discard
+	clone.TTY = false
+
+	return clone.Command("true")
+}
+
+func isControlMasterRemoteExit255(err error) bool {
+	return err != nil && strings.Contains(err.Error(), "sshlib: remote command exited with status 255")
 }

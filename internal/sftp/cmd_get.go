@@ -47,6 +47,7 @@ func (r *RunSftp) get(args []string) {
 	app.EnableBashCompletion = true
 	app.Flags = []cli.Flag{
 		cli.IntFlag{Name: "parallel,P", Value: 1, Usage: "parallel file copy count per host"},
+		cli.BoolFlag{Name: "dry-run", Usage: "show get actions without modifying files"},
 	}
 
 	// action
@@ -63,6 +64,7 @@ func (r *RunSftp) get(args []string) {
 		// Create Progress
 		r.ProgressWG = new(sync.WaitGroup)
 		r.Progress = mpb.New(mpb.WithWaitGroup(r.ProgressWG))
+		r.DryRun = c.Bool("dry-run")
 
 		// set pathlist
 		argsSize := len(c.Args()) - 1
@@ -282,6 +284,10 @@ func (r *RunSftp) get(args []string) {
 }
 
 func (r *RunSftp) enqueuePullTasks(ctx context.Context, client *TargetConnectMap, path, targetpath string, isdir bool, enqueue func(task pullTask) error) error {
+	if err := ensureTargetConnectAvailable(client); err != nil {
+		return err
+	}
+
 	ow := client.Output.NewWriter()
 	defer ow.Close()
 
@@ -344,13 +350,20 @@ func (r *RunSftp) enqueuePullTasks(ctx context.Context, client *TargetConnectMap
 			localpath := resolveLocalGetDestinationPath(targetpath, relpath, taskIsDir)
 
 			if stat.IsDir() {
-				err := os.MkdirAll(localpath, 0755)
-				if err != nil {
-					fmt.Fprintf(ow, "Error: %s\n", err)
-					continue
-				}
-				if r.Permission {
-					_ = os.Chmod(localpath, stat.Mode())
+				if r.DryRun {
+					r.printAction(client.Output, "mkdir", fmt.Sprintf("local:%s", localpath))
+					if r.Permission {
+						r.printAction(client.Output, "chmod", fmt.Sprintf("local:%s", localpath))
+					}
+				} else {
+					err := os.MkdirAll(localpath, 0755)
+					if err != nil {
+						fmt.Fprintf(ow, "Error: %s\n", err)
+						continue
+					}
+					if r.Permission {
+						_ = os.Chmod(localpath, stat.Mode())
+					}
 				}
 				continue
 			}
@@ -371,6 +384,10 @@ func (r *RunSftp) enqueuePullTasks(ctx context.Context, client *TargetConnectMap
 
 // pullData
 func (r *RunSftp) pullData(ctx context.Context, client *TargetConnectMap, task pullTask) (err error) {
+	if err = ensureTargetConnectAvailable(client); err != nil {
+		return
+	}
+
 	filePerm := GeneratePermWithUmask([]string{"0", "6", "6", "6"}, r.LocalUmask)
 	ow := client.Output.NewWriter()
 	defer ow.Close()
@@ -379,6 +396,14 @@ func (r *RunSftp) pullData(ctx context.Context, client *TargetConnectMap, task p
 	case <-ctx.Done():
 		return ctx.Err()
 	default:
+	}
+
+	if r.DryRun {
+		r.printAction(client.Output, "copy", fmt.Sprintf("%s:%s -> local:%s", client.Output.Server, task.remotePath, task.localPath))
+		if r.Permission {
+			r.printAction(client.Output, "chmod", fmt.Sprintf("local:%s", task.localPath))
+		}
+		return nil
 	}
 
 	err = os.MkdirAll(filepath.Dir(task.localPath), 0755)
@@ -404,7 +429,7 @@ func (r *RunSftp) pullData(ctx context.Context, client *TargetConnectMap, task p
 	rd := io.TeeReader(remotefile, localfile)
 
 	r.ProgressWG.Add(1)
-	client.Output.ProgressPrinter(task.size, rd, task.remotePath)
+	client.Output.ProgressPrinter(task.size, rd, fmt.Sprintf("%s:%s -> local:%s", client.Output.Server, task.remotePath, task.localPath))
 
 	if r.Permission {
 		_ = os.Chmod(task.localPath, task.mode)

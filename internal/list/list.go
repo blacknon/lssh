@@ -9,15 +9,11 @@ list package creates a TUI list based on the contents specified in a structure, 
 package list
 
 import (
-	"bytes"
-	"fmt"
-	"os"
 	"regexp"
 	"strings"
-	"text/tabwriter"
 
 	conf "github.com/blacknon/lssh/internal/config"
-	termbox "github.com/nsf/termbox-go"
+	runewidth "github.com/mattn/go-runewidth"
 )
 
 // TODO(blacknon):
@@ -56,6 +52,8 @@ type ListArrayInfo struct {
 	Connect string
 	Note    string
 }
+
+const listColumnGap = 2
 
 // arrayContains returns that arr contains str.
 func arrayContains(arr []string, str string) bool {
@@ -117,30 +115,55 @@ func (l *ListInfo) allToggle(allFlag bool) {
 	}
 }
 
-// getText is create view text (use text/tabwriter)
-func (l *ListInfo) getText() {
-	buffer := &bytes.Buffer{}
-	tabWriterBuffer := new(tabwriter.Writer)
-	tabWriterBuffer.Init(buffer, 0, 4, 8, ' ', 0)
-	fmt.Fprintln(tabWriterBuffer, "ServerName \tConnect Information \tNote \t")
-
-	// Create list table
-	for _, key := range l.NameList {
-		name := convNewline(key, "")
-		conInfo := convNewline(l.DataList.Server[key].User+"@"+l.DataList.Server[key].Addr, "")
-		note := convNewline(l.DataList.Server[key].Note, "")
-
-		fmt.Fprintln(tabWriterBuffer, name+"\t"+conInfo+"\t"+note)
+func padDisplayWidth(str string, width int) string {
+	padding := width - runewidth.StringWidth(str)
+	if padding <= 0 {
+		return str
 	}
 
-	tabWriterBuffer.Flush()
-	line, err := buffer.ReadString('\n')
-	for err == nil {
-		line = convNewline(line, "")
+	return str + strings.Repeat(" ", padding)
+}
 
-		str := strings.Replace(line, "\t", " ", -1)
-		l.DataText = append(l.DataText, str)
-		line, err = buffer.ReadString('\n')
+func formatListRow(columns []string, widths []int) string {
+	formatted := make([]string, 0, len(columns))
+	for i, column := range columns {
+		if i == len(columns)-1 {
+			formatted = append(formatted, column)
+			continue
+		}
+
+		formatted = append(formatted, padDisplayWidth(column, widths[i])+strings.Repeat(" ", listColumnGap))
+	}
+
+	return strings.Join(formatted, "")
+}
+
+// getText is create view text with display-width aware columns.
+func (l *ListInfo) getText() {
+	rows := []ListArrayInfo{{
+		Name:    "ServerName",
+		Connect: "Connect Information",
+		Note:    "Note",
+	}}
+
+	for _, key := range l.NameList {
+		rows = append(rows, ListArrayInfo{
+			Name:    convNewline(key, ""),
+			Connect: convNewline(l.DataList.Server[key].User+"@"+l.DataList.Server[key].Addr, ""),
+			Note:    convNewline(l.DataList.Server[key].Note, ""),
+		})
+	}
+
+	widths := []int{0, 0, 0}
+	for _, row := range rows {
+		widths[0] = max(widths[0], runewidth.StringWidth(row.Name))
+		widths[1] = max(widths[1], runewidth.StringWidth(row.Connect))
+		widths[2] = max(widths[2], runewidth.StringWidth(row.Note))
+	}
+
+	l.DataText = l.DataText[:0]
+	for _, row := range rows {
+		l.DataText = append(l.DataText, formatListRow([]string{row.Name, row.Connect, row.Note}, widths))
 	}
 }
 
@@ -188,16 +211,7 @@ func (l *ListInfo) View() {
 		return
 	}
 
-	if err := termbox.Init(); err != nil {
-		fmt.Fprintln(os.Stderr, "termbox init error:", err)
-		return
-	}
-	defer termbox.Close()
-
-	// enable termbox mouse input
-	termbox.SetInputMode(termbox.InputMouse)
-
-	l.keyEvent()
+	l.viewWithTview()
 }
 
 // convNewline is newline replace to nlcode

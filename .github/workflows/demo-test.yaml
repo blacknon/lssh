@@ -24,4 +24,4 @@ jobs:
       - name: Run demo e2e test
         env:
           LSSH_RUN_DEMO_E2E: "1"
-        run: go test -v ./demo -run TestDemoDockerComposeE2E
+        run: sudo modprobe fuse && go test -v ./demo -run TestDemoDockerComposeE2E

@@ -16,14 +16,24 @@ import (
 
 // ExistServer returns true if inputServer exists in nameList.
 func ExistServer(inputServer []string, nameList []string) bool {
-	for _, nv := range nameList {
-		for _, iv := range inputServer {
+	if len(inputServer) == 0 {
+		return false
+	}
+
+	for _, iv := range inputServer {
+		found := false
+		for _, nv := range nameList {
 			if nv == iv {
-				return true
+				found = true
+				break
 			}
 		}
+		if !found {
+			return false
+		}
 	}
-	return false
+
+	return true
 }
 
 // ParseScpPath parses remote or local path string.

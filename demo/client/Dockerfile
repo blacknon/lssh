@@ -6,6 +6,9 @@ COPY . .
 RUN GO111MODULE=on go build -mod=vendor -o /out/lssh ./cmd/lssh && \
     GO111MODULE=on go build -mod=vendor -o /out/lscp ./cmd/lscp && \
     GO111MODULE=on go build -mod=vendor -o /out/lsftp ./cmd/lsftp && \
+    GO111MODULE=on go build -mod=vendor -o /out/lssync ./cmd/lssync && \
+    GO111MODULE=on go build -mod=vendor -o /out/lsdiff ./cmd/lsdiff && \
+    GO111MODULE=on go build -mod=vendor -o /out/lsshfs ./cmd/lsshfs && \
     GO111MODULE=on go build -mod=vendor -o /out/lsshell ./cmd/lsshell && \
     GO111MODULE=on go build -mod=vendor -o /out/lsmon ./cmd/lsmon && \
     GO111MODULE=on go build -mod=vendor -o /out/lsmux ./cmd/lsmux
@@ -17,6 +20,7 @@ RUN apt-get update && \
       bash \
       ca-certificates \
       curl \
+      fuse3 \
       gzip \
       iproute2 \
       iputils-ping \
@@ -25,6 +29,7 @@ RUN apt-get update && \
       netcat-openbsd \
       openssh-client \
       procps \
+      smbclient \
       sshpass \
       tmux \
       vim && \
@@ -35,17 +40,22 @@ RUN useradd -m -s /bin/bash demo
 COPY --from=builder /out/lssh /usr/local/bin/lssh
 COPY --from=builder /out/lscp /usr/local/bin/lscp
 COPY --from=builder /out/lsftp /usr/local/bin/lsftp
+COPY --from=builder /out/lssync /usr/local/bin/lssync
+COPY --from=builder /out/lsdiff /usr/local/bin/lsdiff
+COPY --from=builder /out/lsshfs /usr/local/bin/lsshfs
 COPY --from=builder /out/lsshell /usr/local/bin/lsshell
 COPY --from=builder /out/lsmon /usr/local/bin/lsmon
 COPY --from=builder /out/lsmux /usr/local/bin/lsmux
 COPY demo/client/entrypoint.sh /usr/local/bin/demo-client-entrypoint.sh
 COPY demo/client/lssh-bastion.sh /usr/local/bin/demo-lssh-bastion.sh
+COPY demo/client/setup-sync-fixtures.sh /usr/local/bin/demo-client-sync-fixtures.sh
 COPY demo/client/home/ /home/demo/
 
 RUN chown -R demo:demo /home/demo && \
     chmod 700 /home/demo/.ssh && \
     chmod 600 /home/demo/.ssh/demo_lssh_ed25519 /home/demo/.lssh.conf && \
-    chmod +x /usr/local/bin/demo-client-entrypoint.sh /usr/local/bin/demo-lssh-bastion.sh && \
+    chmod +x /usr/local/bin/demo-client-entrypoint.sh /usr/local/bin/demo-lssh-bastion.sh /usr/local/bin/demo-client-sync-fixtures.sh && \
+    /usr/local/bin/demo-client-sync-fixtures.sh && \
     chmod +x /home/demo/bin/demo-check.sh /home/demo/.demo_localrc/bin/update_lvim /home/demo/.demo_localrc/bin/update_ltmux
 
 WORKDIR /home/demo

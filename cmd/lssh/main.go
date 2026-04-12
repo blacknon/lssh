@@ -13,6 +13,6 @@ import (
 
 func main() {
 	app := lssh.Lssh()
-	args := common.ParseArgs(app.Flags, os.Args)
+	args := common.ParseArgs(app.Flags, common.NormalizeGenerateLSSHConfArgs(os.Args))
 	app.Run(args)
 }

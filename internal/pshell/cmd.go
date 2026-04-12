@@ -60,6 +60,7 @@ func checkBuildInCommand(cmd string) (isBuildInCmd bool) {
 		"%history",
 		"%out", "%outlist", "%outexec",
 		"%get", "%put", "%sync",
+		"%status", "%reconnect",
 		"%save",
 		"%set": // parsent build-in command.
 		isBuildInCmd = true
@@ -105,7 +106,8 @@ func (s *shell) run(pline pipeLine, in *io.PipeReader, out *io.PipeWriter, ch ch
 	switch command {
 	// exit or quit
 	case "exit", "quit":
-		os.Exit(0)
+		s.exit(0, "")
+		return
 
 	// clear
 	case "clear":
@@ -162,6 +164,12 @@ func (s *shell) run(pline pipeLine, in *io.PipeReader, out *io.PipeWriter, ch ch
 	// %sync local:/path... remote:/path
 	case "%sync":
 		s.buildin_sync(pline.Args, out, ch)
+		return
+	case "%status":
+		s.buildin_status(out, ch)
+		return
+	case "%reconnect":
+		s.buildin_reconnect(pline.Args, out, ch)
 		return
 	}
 
@@ -245,6 +253,9 @@ func expandRemotePath(client *pkgsftp.Client, path string) ([]string, error) {
 func (s *shell) openSFTPClient(conn *sConnect) (*pkgsftp.Client, func(), error) {
 	if conn == nil || conn.Connect == nil {
 		return nil, func() {}, fmt.Errorf("sftp unavailable")
+	}
+	if !conn.Connected {
+		return nil, func() {}, fmt.Errorf("host %s is disconnected; use %%reconnect", conn.Name)
 	}
 
 	if conn.Connect.Client != nil {
@@ -450,6 +461,78 @@ func copyLocalPath(client *pkgsftp.Client, localPath, remoteBase string, forceDi
 	})
 }
 
+func parseDryRunFlag(args []string) (bool, []string) {
+	filtered := make([]string, 0, len(args))
+	dryRun := false
+
+	for _, arg := range args {
+		if arg == "--dry-run" {
+			dryRun = true
+			continue
+		}
+		filtered = append(filtered, arg)
+	}
+
+	return dryRun, filtered
+}
+
+func (s *shell) buildin_status(out *io.PipeWriter, ch chan<- bool) {
+	stdout := setOutput(out)
+	s.checkKeepalive(true)
+	for _, conn := range s.Connects {
+		if conn == nil {
+			continue
+		}
+		state := "connected"
+		if !conn.Connected {
+			state = "disconnected"
+		}
+		if conn.LastError != "" {
+			fmt.Fprintf(stdout, "%s\t%s\t%s\n", conn.Name, state, conn.LastError)
+		} else {
+			fmt.Fprintf(stdout, "%s\t%s\n", conn.Name, state)
+		}
+	}
+	if out != nil {
+		out.CloseWithError(io.ErrClosedPipe)
+	}
+	ch <- true
+}
+
+func (s *shell) buildin_reconnect(args []string, out *io.PipeWriter, ch chan<- bool) {
+	stdout := setOutput(out)
+	targets := args[1:]
+	if len(targets) == 0 {
+		for _, conn := range s.Connects {
+			if conn != nil && !conn.Connected {
+				targets = append(targets, conn.Name)
+			}
+		}
+	}
+
+	if len(targets) == 0 {
+		fmt.Fprintln(stdout, "No disconnected hosts.")
+		if out != nil {
+			out.CloseWithError(io.ErrClosedPipe)
+		}
+		ch <- true
+		return
+	}
+
+	for _, name := range targets {
+		if err := s.reconnect(name); err != nil {
+			fmt.Fprintf(stdout, "%s\treconnect failed\t%s\n", name, err)
+			continue
+		}
+		fmt.Fprintf(stdout, "%s\treconnected\n", name)
+	}
+
+	if out != nil {
+		out.CloseWithError(io.ErrClosedPipe)
+	}
+	ch <- true
+}
+
 func (s *shell) buildin_get(args []string, out *io.PipeWriter, ch chan<- bool) {
 	stdout := setOutput(out)
 	progressWG := new(sync.WaitGroup)
@@ -463,8 +546,10 @@ func (s *shell) buildin_get(args []string, out *io.PipeWriter, ch chan<- bool) {
 		ch <- true
 	}()
 
+	dryRun, args := parseDryRunFlag(args)
+
 	if len(args) != 3 {
-		_, _ = io.WriteString(stdout, "%get remote local\n")
+		_, _ = io.WriteString(stdout, "%get [--dry-run] remote local\n")
 		return
 	}
 
@@ -527,6 +612,14 @@ func (s *shell) buildin_get(args []string, out *io.PipeWriter, ch chan<- bool) {
 			}
 
 			for _, path := range remotePaths {
+				if dryRun {
+					target := targetBase
+					if forceDir {
+						target = filepath.Join(targetBase, filepath.Base(path))
+					}
+					fmt.Fprintf(stdout, "[DRY-RUN] copy: %s:%s -> local:%s\n", conn.Name, path, target)
+					continue
+				}
 				if err := copyRemotePath(client, path, targetBase, forceDir, conn.Output); err != nil {
 					fmt.Fprintf(stdout, "Error: %s: %s\n", conn.Name, err)
 					return
@@ -549,6 +642,8 @@ func (s *shell) buildin_put(args []string, out *io.PipeWriter, ch chan<- bool) {
 		ch <- true
 	}()
 
+	dryRun, args := parseDryRunFlag(args)
+
 	connects, args, err := s.resolveTargetedConnects(args)
 	if err != nil {
 		fmt.Fprintf(stdout, "Error: %s\n", err)
@@ -556,7 +651,7 @@ func (s *shell) buildin_put(args []string, out *io.PipeWriter, ch chan<- bool) {
 	}
 
 	if len(args) < 3 {
-		_, _ = io.WriteString(stdout, "%put local... remote\n")
+		_, _ = io.WriteString(stdout, "%put [--dry-run] local... remote\n")
 		return
 	}
 
@@ -603,6 +698,11 @@ func (s *shell) buildin_put(args []string, out *io.PipeWriter, ch chan<- bool) {
 
 				copyAsDir := forceDir || sourceInfo.IsDir()
 				for _, target := range targets {
+					if dryRun {
+						fmt.Fprintf(stdout, "[DRY-RUN] copy: local:%s -> %s:%s\n", sourcePath, conn.Name, target)
+						continue
+					}
+
 					if targetInfo, err := client.Lstat(target); err == nil && targetInfo.IsDir() {
 						if err := copyLocalPath(client, sourcePath, target, true, conn.Output); err != nil {
 							fmt.Fprintf(stdout, "Error: %s: %s\n", conn.Name, err)
@@ -643,7 +743,7 @@ func (s *shell) buildin_sync(args []string, out *io.PipeWriter, ch chan<- bool) 
 	parsed, err := lsync.ParseCommandArgs(args)
 	if err != nil {
 		fmt.Fprintf(stdout, "Error: %s\n", err)
-		_, _ = io.WriteString(stdout, "%sync [--delete] [-p] [-P num] (local|remote):source... (local|remote):target\n")
+		_, _ = io.WriteString(stdout, "%sync [--delete] [--dry-run] [-p] [-P num] (local|remote):source... (local|remote):target\n")
 		return
 	}
 
@@ -686,15 +786,15 @@ func (s *shell) buildin_sync(args []string, out *io.PipeWriter, ch chan<- bool) 
 
 	switch {
 	case !isSourceRemote && targetSpec.IsRemote:
-		if err := s.syncLocalToRemote(connects, sourceSpecs, targetSpec, parallelNum, parsed.Delete, parsed.Permission, progress, progressWG); err != nil {
+		if err := s.syncLocalToRemote(connects, sourceSpecs, targetSpec, parallelNum, parsed.Delete, parsed.Permission, parsed.DryRun, progress, progressWG); err != nil {
 			fmt.Fprintf(stdout, "Error: %s\n", err)
 		}
 	case isSourceRemote && !targetSpec.IsRemote:
-		if err := s.syncRemoteToLocal(connects, sourceSpecs, targetSpec, parallelNum, parsed.Delete, parsed.Permission, progress, progressWG); err != nil {
+		if err := s.syncRemoteToLocal(connects, sourceSpecs, targetSpec, parallelNum, parsed.Delete, parsed.Permission, parsed.DryRun, progress, progressWG); err != nil {
 			fmt.Fprintf(stdout, "Error: %s\n", err)
 		}
 	case isSourceRemote && targetSpec.IsRemote:
-		if err := s.syncRemoteToRemote(connects, sourceSpecs, targetSpec, parallelNum, parsed.Delete, parsed.Permission, progress, progressWG); err != nil {
+		if err := s.syncRemoteToRemote(connects, sourceSpecs, targetSpec, parallelNum, parsed.Delete, parsed.Permission, parsed.DryRun, progress, progressWG); err != nil {
 			fmt.Fprintf(stdout, "Error: %s\n", err)
 		}
 	}
@@ -740,7 +840,7 @@ func (s *shell) syncRemoteSourceGroups(base []*sConnect, specs []lsync.PathSpec)
 	return pathsByServer, connByServer, nil
 }
 
-func (s *shell) syncLocalToRemote(base []*sConnect, sourceSpecs []lsync.PathSpec, targetSpec lsync.PathSpec, parallelNum int, deleteExtra, permission bool, progress *mpb.Progress, progressWG *sync.WaitGroup) error {
+func (s *shell) syncLocalToRemote(base []*sConnect, sourceSpecs []lsync.PathSpec, targetSpec lsync.PathSpec, parallelNum int, deleteExtra, permission, dryRun bool, progress *mpb.Progress, progressWG *sync.WaitGroup) error {
 	localFS, err := lsync.NewLocalFS()
 	if err != nil {
 		return err
@@ -778,9 +878,12 @@ func (s *shell) syncLocalToRemote(base []*sConnect, sourceSpecs []lsync.PathSpec
 			}
 			err = lsync.ApplyPlan(context.Background(), localFS, remoteFS, plan, lsync.ApplyOptions{
 				Delete:      deleteExtra,
+				DryRun:      dryRun,
 				Permission:  permission,
 				ParallelNum: parallelNum,
 				Output:      conn.Output,
+				SourceLabel: "local",
+				TargetLabel: conn.Name,
 			})
 		}()
 		if err != nil {
@@ -791,7 +894,7 @@ func (s *shell) syncLocalToRemote(base []*sConnect, sourceSpecs []lsync.PathSpec
 	return nil
 }
 
-func (s *shell) syncRemoteToLocal(base []*sConnect, sourceSpecs []lsync.PathSpec, targetSpec lsync.PathSpec, parallelNum int, deleteExtra, permission bool, progress *mpb.Progress, progressWG *sync.WaitGroup) error {
+func (s *shell) syncRemoteToLocal(base []*sConnect, sourceSpecs []lsync.PathSpec, targetSpec lsync.PathSpec, parallelNum int, deleteExtra, permission, dryRun bool, progress *mpb.Progress, progressWG *sync.WaitGroup) error {
 	localFS, err := lsync.NewLocalFS()
 	if err != nil {
 		return err
@@ -829,9 +932,12 @@ func (s *shell) syncRemoteToLocal(base []*sConnect, sourceSpecs []lsync.PathSpec
 			}
 			err = lsync.ApplyPlan(context.Background(), remoteFS, localFS, plan, lsync.ApplyOptions{
 				Delete:      deleteExtra,
+				DryRun:      dryRun,
 				Permission:  permission,
 				ParallelNum: parallelNum,
 				Output:      conn.Output,
+				SourceLabel: server,
+				TargetLabel: "local",
 			})
 		}()
 		if err != nil {
@@ -842,7 +948,7 @@ func (s *shell) syncRemoteToLocal(base []*sConnect, sourceSpecs []lsync.PathSpec
 	return nil
 }
 
-func (s *shell) syncRemoteToRemote(base []*sConnect, sourceSpecs []lsync.PathSpec, targetSpec lsync.PathSpec, parallelNum int, deleteExtra, permission bool, progress *mpb.Progress, progressWG *sync.WaitGroup) error {
+func (s *shell) syncRemoteToRemote(base []*sConnect, sourceSpecs []lsync.PathSpec, targetSpec lsync.PathSpec, parallelNum int, deleteExtra, permission, dryRun bool, progress *mpb.Progress, progressWG *sync.WaitGroup) error {
 	pathsByServer, connByServer, err := s.syncRemoteSourceGroups(base, sourceSpecs)
 	if err != nil {
 		return err
@@ -899,9 +1005,12 @@ func (s *shell) syncRemoteToRemote(base []*sConnect, sourceSpecs []lsync.PathSpe
 			}
 			err = lsync.ApplyPlan(context.Background(), sourceFS, targetFS, plan, lsync.ApplyOptions{
 				Delete:      deleteExtra,
+				DryRun:      dryRun,
 				Permission:  permission,
 				ParallelNum: parallelNum,
 				Output:      conn.Output,
+				SourceLabel: sourceConn.Name,
+				TargetLabel: conn.Name,
 			})
 		}()
 		if err != nil {
@@ -1056,6 +1165,26 @@ func (s *shell) executeRemotePipeLine(pline pipeLine, in *io.PipeReader, out *io
 
 	// runCount tracks total goroutines writing to exit channel
 	runCount := 0
+
+	active := make([]*sConnect, 0, len(connects))
+	for _, c := range connects {
+		if c == nil {
+			continue
+		}
+		if !c.Connected {
+			fmt.Fprintf(os.Stderr, "%s is disconnected. Use %%reconnect.\n", c.Name)
+			continue
+		}
+		active = append(active, c)
+	}
+	connects = active
+	if len(connects) == 0 {
+		if out != nil {
+			out.CloseWithError(io.ErrClosedPipe)
+		}
+		ch <- true
+		return
+	}
 
 	for _, c := range connects {
 		if c == nil || c.Connect == nil {
