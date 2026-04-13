@@ -1,0 +1,8 @@
+package conf
+
+type ProvidersConfig struct {
+	Paths             []string `toml:"paths" yaml:"paths"`
+	Timeout           string   `toml:"timeout" yaml:"timeout"`
+	InventoryCacheTTL string   `toml:"inventory_cache_ttl" yaml:"inventory_cache_ttl"`
+	FailOpen          bool     `toml:"fail_open" yaml:"fail_open"`
+}

@@ -121,9 +121,9 @@ func applyMatchMetadata(c *Config, md toml.MetaData) {
 
 func collectDefinedMatchKeys(md toml.MetaData, serverName, branchName string) map[string]bool {
 	keys := []string{
-		"addr", "port", "user", "pass", "passes", "key", "keycmd", "keycmdpass", "keypass",
-		"keys", "cert", "certs", "certkey", "certkeypass", "certpkcs11", "agentauth",
-		"ssh_agent", "ssh_agent_key", "pkcs11", "pkcs11provider", "pkcs11pin", "pre_cmd",
+		"addr", "port", "user", "pass", "pass_ref", "passes", "key", "key_ref", "keycmd", "keycmdpass", "keycmdpass_ref", "keypass", "keypass_ref",
+		"keys", "cert", "cert_ref", "certs", "certkey", "certkey_ref", "certkeypass", "certkeypass_ref", "certpkcs11", "agentauth",
+		"ssh_agent", "ssh_agent_key", "pkcs11", "pkcs11provider", "pkcs11pin", "pkcs11pin_ref", "pre_cmd",
 		"post_cmd", "proxy_type", "proxy", "proxy_cmd", "local_rc", "local_rc_file",
 		"local_rc_compress", "local_rc_decode_cmd", "local_rc_uncompress_cmd", "port_forward",
 		"port_forward_local", "port_forward_remote", "port_forwards", "dynamic_port_forward",
@@ -212,9 +212,9 @@ func applyYAMLMatchMetadata(data []byte, c *Config) error {
 
 func collectDefinedYAMLMatchKeys(branchNode *yaml.Node) map[string]bool {
 	keys := []string{
-		"addr", "port", "user", "pass", "passes", "key", "keycmd", "keycmdpass", "keypass",
-		"keys", "cert", "certs", "certkey", "certkeypass", "certpkcs11", "agentauth",
-		"ssh_agent", "ssh_agent_key", "pkcs11", "pkcs11provider", "pkcs11pin", "pre_cmd",
+		"addr", "port", "user", "pass", "pass_ref", "passes", "key", "key_ref", "keycmd", "keycmdpass", "keycmdpass_ref", "keypass", "keypass_ref",
+		"keys", "cert", "cert_ref", "certs", "certkey", "certkey_ref", "certkeypass", "certkeypass_ref", "certpkcs11", "agentauth",
+		"ssh_agent", "ssh_agent_key", "pkcs11", "pkcs11provider", "pkcs11pin", "pkcs11pin_ref", "pre_cmd",
 		"post_cmd", "proxy_type", "proxy", "proxy_cmd", "local_rc", "local_rc_file",
 		"local_rc_compress", "local_rc_decode_cmd", "local_rc_uncompress_cmd", "port_forward",
 		"port_forward_local", "port_forward_remote", "port_forwards", "dynamic_port_forward",

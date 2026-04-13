@@ -25,3 +25,7 @@
 /lsdiff
 /lspipe
 *.exe
+
+# provider
+/provider-inventory-*
+/provider-secret-*

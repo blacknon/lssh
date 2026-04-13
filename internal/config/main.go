@@ -43,14 +43,16 @@ import (
 
 // Config is Struct that stores the entire configuration file.
 type Config struct {
-	Log      LogConfig                `toml:"log" yaml:"log"`
-	Mux      MuxConfig                `toml:"mux" yaml:"mux"`
-	Shell    ShellConfig              `toml:"shell" yaml:"shell"`
-	Include  map[string]IncludeConfig `toml:"include" yaml:"include"`
-	Includes IncludesConfig           `toml:"includes" yaml:"includes"`
-	Common   ServerConfig             `toml:"common" yaml:"common"`
-	Server   map[string]ServerConfig  `toml:"server" yaml:"server"`
-	Proxy    map[string]ProxyConfig   `toml:"proxy" yaml:"proxy"`
+	Log       LogConfig                         `toml:"log" yaml:"log"`
+	Mux       MuxConfig                         `toml:"mux" yaml:"mux"`
+	Shell     ShellConfig                       `toml:"shell" yaml:"shell"`
+	Providers ProvidersConfig                   `toml:"providers" yaml:"providers"`
+	Include   map[string]IncludeConfig          `toml:"include" yaml:"include"`
+	Includes  IncludesConfig                    `toml:"includes" yaml:"includes"`
+	Common    ServerConfig                      `toml:"common" yaml:"common"`
+	Server    map[string]ServerConfig           `toml:"server" yaml:"server"`
+	Proxy     map[string]ProxyConfig            `toml:"proxy" yaml:"proxy"`
+	Provider  map[string]map[string]interface{} `toml:"provider" yaml:"provider"`
 
 	SSHConfig map[string]OpenSSHConfig `toml:"sshconfig" yaml:"sshconfig"`
 }
@@ -149,6 +151,17 @@ func (c *Config) ReadIncludeFiles() {
 				setValue := serverConfigReduct(setCommon, value)
 				c.Server[key] = setValue
 			}
+
+			if len(includeConf.Provider) > 0 {
+				if c.Provider == nil {
+					c.Provider = map[string]map[string]interface{}{}
+				}
+				for key, value := range includeConf.Provider {
+					c.Provider[key] = value
+				}
+			}
+
+			c.Providers = mergeProvidersConfig(c.Providers, includeConf.Providers)
 		}
 	}
 }
@@ -222,6 +235,12 @@ func Read(confPath string) (c Config) {
 	// for append includes to include.path
 	c.ReadIncludeFiles()
 
+	// Load inventory providers after includes and OpenSSH config are merged.
+	if err := c.ReadInventoryProviders(); err != nil {
+		log.Println(err)
+		os.Exit(1)
+	}
+
 	// resolve conditional server overrides after all sources have been merged
 	if err := c.ResolveConditionalMatches(); err != nil {
 		log.Println(err)
@@ -243,7 +262,7 @@ func Read(confPath string) (c Config) {
 // Passes having a value. No checking a validity of each fields.
 func checkFormatServerConfAuth(c ServerConfig) (ok bool) {
 	ok = false
-	if c.Pass != "" || c.Key != "" || c.Cert != "" {
+	if c.Pass != "" || c.PassRef != "" || c.Key != "" || c.KeyRef != "" || c.Cert != "" || c.CertRef != "" {
 		ok = true
 	}
 
@@ -258,7 +277,7 @@ func checkFormatServerConfAuth(c ServerConfig) (ok bool) {
 		}
 	}
 
-	if len(c.Keys) > 0 || len(c.Passes) > 0 {
+	if len(c.Keys) > 0 || len(c.Passes) > 0 || c.CertKeyRef != "" || c.PKCS11PINRef != "" {
 		ok = true
 	}
 

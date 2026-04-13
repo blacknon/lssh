@@ -3,134 +3,81 @@
 lssh
 ====
 
-<p align="center">
-  <img src="./images/lssh_macosx.gif" width="33%" />
-  <img src="./images/lssh_linux.gif" width="33%" />
-  <img src="./images/lssh_windows.gif" width="33%" />
-</p>
+<strong><code>ls</code> + <code>ssh</code> = <code>lssh</code></strong>
 
-`lssh` is a TUI-first SSH client for operators who work across multiple servers.
+![lssh demo](./images/demo.gif)
 
-Choose hosts from an interactive selector, connect immediately, run commands in parallel, reuse your local bashrc on remote shells without leaving files behind, and use advanced forwarding including NFS and SMB based mounts.
+TUI list pick host, and enter SSH hosts from your existing config.
+Open a shell, or run the same command on multiple hosts.
 
-## Why start with `lssh`
+- works with your existing SSH config
+- interactive host selection
+- parallel command execution
 
-### Pick servers from a TUI, then connect or run in parallel
+## Install
 
-`lssh` reads your server inventory from TOML and opens a TUI selector when you do not specify `-H`.
-You can filter by typing, select one or more hosts, and then either open an interactive SSH session or run the same command on all selected hosts.
-
-It is especially useful when your visible target list should change depending on where you are running from.
-With conditional `match` rules, you can show, hide, or override hosts by local network, OS, terminal, environment variables, and more.
-
-Examples:
-
-```bash
-# open the selector, then connect to one host
-lssh
-
-# open the selector, then run a command on the selected host
-lssh hostname
-
-# select multiple hosts and run the same command in parallel
-lssh -p uname -a
-```
-
-### Use your local bashrc without leaving files on the remote host
-
-`lssh` can send your local shell startup files such as `.bashrc`, aliases, helper functions, or generated wrappers into the remote shell session without permanently placing those files on the server.
-
-That means you can keep using your local workflow on SSH targets while avoiding configuration drift on the remote side.
-This is handy when you want your prompt, aliases, helper commands, or even wrappers for tools like `vim` and `tmux`, but you do not want to "pollute" each server with personal dotfiles.
-
-For the detailed setup, see [`local bashrc`](./cmd/lssh/README.md#local-bashrc).
-
-### Mount your local directory on a remote server
-
-`lssh` can expose a local directory to a remote server over NFS reverse forwarding, so you can use local files and tools in remote workflows without copying them onto the host.
-
-Beyond interactive SSH login, `lssh` also supports:
-
-- NFS & SMB reverse forwarding for mounting a local directory on a remote server
-- SSH local / remote port forwarding
-- SOCKS5 and HTTP dynamic forwarding
-- X11 forwarding
-- Multi-stage proxy routes over SSH, HTTP, SOCKS5, and `ProxyCommand`
-
-For examples, see [`forwarding`](./cmd/lssh/README.md#forwarding) and the shared configuration docs in [`docs/`](./docs/README.md).
-
-## Try it quickly
-
-### 1. Install
-
-Use whichever path is easiest for you:
+### Homebrew
 
 ```bash
 brew install blacknon/lssh/lssh
 ```
 
+### Go
+
 ```bash
 go install github.com/blacknon/lssh/cmd/lssh@latest
 ```
 
-Prebuilt packages and the full suite are also available on GitHub Releases.
-See the install details in [`docs/install.md`](./docs/install.md).
-Shell completion installers for `bash`, `zsh`, and `fish` are also included.
+For more installation details, including other options and platform-specific notes, see [docs/install.md](./docs/install.md).
 
-### 2. Create a minimal config
+## Quick start
 
-Create `~/.lssh.toml`:
-
-```toml
-[common]
-user = "demo"
-key = "~/.ssh/id_rsa"
-
-[server.dev]
-addr = "192.168.100.10"
-note = "development"
-
-[server.stg]
-addr = "192.168.100.20"
-note = "staging"
-```
-
-Or write the same config as YAML in `~/.lssh.yaml`:
-
-```yaml
-common:
-  user: "demo"
-  key: "~/.ssh/id_rsa"
-
-server:
-  dev:
-    addr: "192.168.100.10"
-    note: "development"
-  stg:
-    addr: "192.168.100.20"
-    note: "staging"
-```
-
-If you already keep hosts in `~/.ssh/config`, you can generate a starter file:
+If you already have `~/.ssh/config`, just run:
 
 ```bash
-lssh --generate-lssh-conf > ~/.lssh.toml
-```
-
-### 3. Start with these commands
-
-```bash
-# choose from the TUI and open a shell
 lssh
-
-# choose from the TUI and run a command
-lssh hostname
-
-# choose multiple hosts and run in parallel
-lssh -p 'uptime'
 ```
 
-If you want a ready-to-run local playground, see [`demo/README.md`](./demo/README.md).
+## Basic workflow
+
+lssh is built for a simple workflow:
+
+1. list hosts from SSH config
+2. pick one or more hosts
+3. open a shell or run a command
+
+## Examples
+
+Open the interactive host picker:
+
+```bash
+lssh
+lssh -P # mux
+```
+
+Connect to a specific host:
+
+```bash
+lssh -H my-server
+```
+
+Run the same command on multiple hosts:
+
+```bash
+lssh uname -a
+```
+
+Run a command after selecting hosts interactively:
+
+```bash
+# output stdout
+lssh -p uptime -a
+lssh -p tail -f /var/log/syslog
+
+# output mux
+lssh -P htop
+lssh -P tail -f /var/log/syslog
+```
 
 ## Demo
 
@@ -187,15 +134,33 @@ backend: 172.31.1.33"]
     deep_socks_proxy -. via proxy .->  over_deep_http_ssh
 ```
 
-
 Want to try `lssh` quickly with a ready-to-run local playground?
 Start with [`demo/README.md`](./demo/README.md).
 
+## OpenSSH config and lssh config
 
-## What else is in the suite
+lssh supports both your existing OpenSSH config and its own `lssh` config format.
 
-You can use `lssh` for most day-to-day SSH work, and switch to the other commands when you need a more specialized workflow.
-Each tool uses the same TUI-based host selection flow.
+If you want to get started quickly, you can keep using `~/.ssh/config` as-is. If you want more advanced host metadata and workflow-oriented settings, you can use an `lssh` config instead.
+
+You can also generate an `lssh` config from your existing SSH config:
+
+```bash
+lssh --generate-lssh-conf > ~/.lssh.toml
+```
+
+And even after moving to `lssh` config, you can still point it at your existing OpenSSH config to load hosts from there:
+
+```toml
+[sshconfig.default]
+path = "~/.ssh/config"
+```
+
+For more details about config formats and settings, see [docs/configuration.md](./docs/configuration.md).
+
+## Tools in the lssh suite
+
+The lssh project includes multiple tools for SSH-centered workflows.
 
 | Command | Category | Maturity | Supported OS | About | README |
 | --- | --- | --- | --- | --- | --- |
@@ -210,8 +175,6 @@ Each tool uses the same TUI-based host selection flow.
 | `lspipe` | `sysadmin` | `alpha` | Linux / macOS / Windows (`--mkfifo` is Unix-only) | A persistent pipe-oriented runner that keeps a selected host set in the background and lets you reuse it from local shell pipelines. Session-based execution works on Windows, but FIFO bridge features are Unix-only. | [cmd/lspipe/README.md](./cmd/lspipe/README.md) |
 | `lsmon` | `monitor` | `beta` | Linux / macOS / Windows | A multi-host monitoring TUI that shows CPU, memory, disk, network, and process information over SSH, and can open a terminal to the selected host without requiring agents on the remote hosts. | [cmd/lsmon/README.md](./cmd/lsmon/README.md) |
 
-If all you need is SSH access, start with `lssh`.
-When you later need file transfer, sync, monitoring, or a pane UI, the rest of the suite is there.
 
 ## Docs
 
