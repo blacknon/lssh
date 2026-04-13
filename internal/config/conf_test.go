@@ -83,8 +83,11 @@ func TestCheckFormatServerConfAuth(t *testing.T) {
 	}
 	tds := []TestData{
 		{desc: "Password", c: ServerConfig{Pass: "Password"}, expect: true},
+		{desc: "Password ref", c: ServerConfig{PassRef: "onepassword:op://vault/item/password"}, expect: true},
 		{desc: "Secret key file", c: ServerConfig{Key: "/tmp/key.pem"}, expect: true},
+		{desc: "Secret key ref", c: ServerConfig{KeyRef: "onepassword:op://vault/item/key"}, expect: true},
 		{desc: "Cert file", c: ServerConfig{Cert: "/tmp/key.crt"}, expect: true},
+		{desc: "Cert ref", c: ServerConfig{CertRef: "onepassword:op://vault/item/cert"}, expect: true},
 		{desc: "Agent auth", c: ServerConfig{AgentAuth: true}, expect: true},
 		// {desc: "File exists", c: ServerConfig{PKCS11Provider: "/path/to/providor"}, expect: true},
 		{desc: "Key files", c: ServerConfig{Keys: []string{"/tmp/key.pem", "/tmp/key2.pem"}}, expect: true},

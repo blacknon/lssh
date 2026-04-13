@@ -7,7 +7,7 @@
 # ====================
 [tasks.full_build]
 description = "Build binary files all"
-depends = ["core_build", "transfer_build", "monitor_build", "sysadmin_build"]
+depends = ["core_build", "transfer_build", "monitor_build", "sysadmin_build", "provider_build"]
 
 [tasks.full_install]
 description = "Install binary files all"
@@ -16,6 +16,7 @@ depends = [
     "transfer_install",
     "monitor_install",
     "sysadmin_install",
+    "provider_install",
 ]
 
 [tasks.completion_install]
@@ -54,7 +55,7 @@ run = """
 
 [tasks.full_test]
 description = "Run go test for all"
-depends = ["core_test", "transfer_test", "monitor_test", "sysadmin_test"]
+depends = ["core_test", "transfer_test", "monitor_test", "sysadmin_test", "provider_test"]
 
 # Tasks(go module)
 # ====================
@@ -64,6 +65,62 @@ depends = []
 run = """
     go mod tidy
     go mod vendor
+"""
+
+# Tasks(Provider)
+# Note: Providerは、inventory/secret provider executableを対象とするタスク。
+# ====================
+[tasks.provider_build]
+description = "Build provider binaries"
+depends = ["provider_clean", "go_mod"]
+run = """
+    go build -o provider-inventory-aws-ec2 ./provider/inventory/provider-inventory-aws-ec2
+    go build -o provider-inventory-gcp-compute ./provider/inventory/provider-inventory-gcp-compute
+    go build -o provider-inventory-proxmox ./provider/inventory/provider-inventory-proxmox
+    go build -o provider-secret-onepassword ./provider/secret/provider-secret-onepassword
+    go build -o provider-secret-bitwarden ./provider/secret/provider-secret-bitwarden
+    go build -o provider-secret-os-keychain ./provider/secret/provider-secret-os-keychain
+    go build -o provider-secret-custom-script ./provider/secret/provider-secret-custom-script
+"""
+
+[tasks.provider_clean]
+description = "Clean provider binaries"
+depends = []
+run = """
+    rm -f provider-inventory-aws-ec2
+    rm -f provider-inventory-gcp-compute
+    rm -f provider-inventory-proxmox
+    rm -f provider-secret-onepassword
+    rm -f provider-secret-bitwarden
+    rm -f provider-secret-os-keychain
+    rm -f provider-secret-custom-script
+"""
+
+[tasks.provider_install]
+description = "Install provider binaries into ~/.config/lssh/providers"
+depends = ["provider_build"]
+run = """
+    mkdir -p "$HOME/.config/lssh/providers"
+    cp provider-inventory-aws-ec2 "$HOME/.config/lssh/providers/provider-inventory-aws-ec2"
+    cp provider-inventory-gcp-compute "$HOME/.config/lssh/providers/provider-inventory-gcp-compute"
+    cp provider-inventory-proxmox "$HOME/.config/lssh/providers/provider-inventory-proxmox"
+    cp provider-secret-onepassword "$HOME/.config/lssh/providers/provider-secret-onepassword"
+    cp provider-secret-bitwarden "$HOME/.config/lssh/providers/provider-secret-bitwarden"
+    cp provider-secret-os-keychain "$HOME/.config/lssh/providers/provider-secret-os-keychain"
+    cp provider-secret-custom-script "$HOME/.config/lssh/providers/provider-secret-custom-script"
+"""
+
+[tasks.provider_test]
+description = "Run go test for provider packages"
+depends = ["go_mod"]
+run = """
+    go test -v ./provider/inventory/provider-inventory-aws-ec2
+    go test -v ./provider/inventory/provider-inventory-gcp-compute
+    go test -v ./provider/inventory/provider-inventory-proxmox
+    go test -v ./provider/secret/provider-secret-onepassword
+    go test -v ./provider/secret/provider-secret-bitwarden
+    go test -v ./provider/secret/provider-secret-os-keychain
+    go test -v ./provider/secret/provider-secret-custom-script
 """
 
 # Tasks(core)
