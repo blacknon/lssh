@@ -603,6 +603,7 @@ You can also specify and read another path.
 In addition to the path, server config items can be specified and applied collectively.
 You can also add `when.*` conditions to each `[sshconfig.<name>]` block.
 The available condition keys are the same as `server.<name>.match.<branch>.when.*`.
+If you want to rewrite settings for imported hosts themselves, use `[sshconfig.<name>.match.<branch>]`.
 
 ```toml
 [sshconfig.default]
@@ -635,6 +636,29 @@ sshconfig:
       local_ip_in:
         - "172.31.0.0/24"
 ```
+
+`when.*` decides whether the whole `sshconfig.<name>` block is enabled.
+`match.*` rewrites settings for each imported host after it is loaded.
+
+```toml
+[sshconfig.default]
+path = "~/.ssh/config"
+
+[sshconfig.default.match.web]
+name_in = ["web-*"]
+user_in = ["ubuntu"]
+pre_cmd = 'printf "\033]50;SetProfile=Remote\a"'
+note = "matched web"
+```
+
+`sshconfig.<name>.match.<branch>` supports these condition keys:
+
+- `name_in`, `name_not_in`
+- `user_in`, `user_not_in`
+- `addr_in`, `addr_not_in`
+- `port_in`, `port_not_in`
+
+These branches are applied in ascending `priority` order, and later matches overwrite earlier values.
 
 You can also generate a starter `~/.lssh.toml` from any suite command and write
 it with shell redirection:

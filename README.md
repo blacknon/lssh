@@ -5,9 +5,11 @@ lssh
 
 <strong><code>ls</code> + <code>ssh</code> = <code>lssh</code></strong>
 
-![lssh demo](./images/demo.gif)
+<p align="center">
+<img src="./images/demo.gif" width="720" />
+</p>
 
-TUI list pick host, and enter SSH hosts from your existing config.
+Pick SSH hosts from your existing config in a TUI.
 Open a shell, or run the same command on multiple hosts.
 
 - works with your existing SSH config
@@ -32,10 +34,18 @@ For more installation details, including other options and platform-specific not
 
 ## Quick start
 
-If you already have `~/.ssh/config`, just run:
+Already using `~/.ssh/config`?
+
+Just run:
 
 ```bash
 lssh
+```
+
+Want to generate an `lssh` config from your existing SSH config?
+
+```bash id="w2e9m1"
+lssh --generate-lssh-conf > ~/.lssh.toml
 ```
 
 ## Basic workflow
@@ -52,7 +62,6 @@ Open the interactive host picker:
 
 ```bash
 lssh
-lssh -P # mux
 ```
 
 Connect to a specific host:
@@ -61,78 +70,27 @@ Connect to a specific host:
 lssh -H my-server
 ```
 
-Run the same command on multiple hosts:
+Pick hosts and run a command:
 
 ```bash
-lssh uname -a
-```
-
-Run a command after selecting hosts interactively:
-
-```bash
-# output stdout
-lssh -p uptime -a
 lssh -p tail -f /var/log/syslog
-
-# output mux
-lssh -P htop
-lssh -P tail -f /var/log/syslog
 ```
+
+Open the mux workflow:
+
+```bash
+lssh -P
+```
+
+Open the mux workflow and run a command:
+
+```bash
+lssh -P 'htop'
+```
+
+For more details about config formats and settings, see [cmd/lssh/README.md](./cmd/lssh/README.md).
 
 ## Demo
-
-```mermaid
-flowchart LR
-    client["client
-frontend
-172.31.0.10"]
-    password_ssh["password_ssh
-frontend
-172.31.0.21"]
-    key_ssh["key_ssh
-frontend
-172.31.0.22"]
-    over_proxy_ssh["over_proxy_ssh
-backend
-172.31.1.41"]
-    deep_proxy_ssh["deep_proxy_ssh
-deepback
-172.31.2.51"]
-    deep_http_proxy["deep_http_proxy
-deepback: 172.31.2.61
-finalback: 172.31.3.61"]
-    deep_socks_proxy["deep_socks_proxy
-deepback: 172.31.2.62
-finalback: 172.31.3.62"]
-    over_deep_http_ssh["over_deep_http_ssh
-finalback
-172.31.3.71"]
-
-    ssh_proxy["ssh_proxy
-frontend: 172.31.0.31
-backend: 172.31.1.31"]
-    http_proxy["http_proxy
-frontend: 172.31.0.32
-backend: 172.31.1.32"]
-    socks_proxy["socks_proxy
-frontend: 172.31.0.33
-backend: 172.31.1.33"]
-
-    client --> password_ssh
-    client --> key_ssh
-    client --> ssh_proxy
-    client -. via proxy .-> http_proxy
-    client -. via proxy .-> socks_proxy
-
-    ssh_proxy --> over_proxy_ssh
-    http_proxy -. via proxy .->  over_proxy_ssh
-    socks_proxy -. via proxy .->  over_proxy_ssh
-    over_proxy_ssh --> deep_proxy_ssh
-    over_proxy_ssh -. via proxy .->  deep_http_proxy
-    over_proxy_ssh -. via proxy .->  deep_socks_proxy
-    deep_http_proxy -. via proxy .->  over_deep_http_ssh
-    deep_socks_proxy -. via proxy .->  over_deep_http_ssh
-```
 
 Want to try `lssh` quickly with a ready-to-run local playground?
 Start with [`demo/README.md`](./demo/README.md).

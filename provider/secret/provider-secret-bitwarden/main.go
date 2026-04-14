@@ -48,9 +48,15 @@ func decodeParams(raw interface{}, out interface{}) error {
 
 func getSecret(params providerapi.SecretGetParams) (string, error) {
 	secretID, field := splitBitwardenRef(params.Ref)
-	accessToken := providerbuiltin.String(params.Config, "token")
+	accessToken, err := providerbuiltin.ResolveConfigValue(params.Config, "token")
+	if err != nil {
+		return "", err
+	}
 	if accessToken == "" {
-		accessToken = providerbuiltin.String(params.Config, "session")
+		accessToken, err = providerbuiltin.ResolveConfigValue(params.Config, "session")
+		if err != nil {
+			return "", err
+		}
 	}
 	if accessToken == "" {
 		return "", fmt.Errorf("provider.bitwarden.token is required for SDK authentication")
@@ -93,24 +99,25 @@ func splitBitwardenRef(ref string) (string, string) {
 }
 
 func bitwardenEndpoints(config map[string]interface{}) (*string, *string) {
-	if server := providerbuiltin.String(config, "server"); server != "" {
+	server, err := providerbuiltin.ResolveConfigValue(config, "server")
+	if err == nil && server != "" {
 		base := strings.TrimRight(server, "/")
 		apiURL := base + "/api"
 		identityURL := base + "/identity"
-		if v := providerbuiltin.String(config, "api_url"); v != "" {
+		if v, err := providerbuiltin.ResolveConfigValue(config, "api_url"); err == nil && v != "" {
 			apiURL = v
 		}
-		if v := providerbuiltin.String(config, "identity_url"); v != "" {
+		if v, err := providerbuiltin.ResolveConfigValue(config, "identity_url"); err == nil && v != "" {
 			identityURL = v
 		}
 		return &apiURL, &identityURL
 	}
 
 	var apiURL, identityURL *string
-	if v := providerbuiltin.String(config, "api_url"); v != "" {
+	if v, err := providerbuiltin.ResolveConfigValue(config, "api_url"); err == nil && v != "" {
 		apiURL = &v
 	}
-	if v := providerbuiltin.String(config, "identity_url"); v != "" {
+	if v, err := providerbuiltin.ResolveConfigValue(config, "identity_url"); err == nil && v != "" {
 		identityURL = &v
 	}
 	return apiURL, identityURL

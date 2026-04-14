@@ -29,4 +29,10 @@ keypass_ref = "onepassword:op://Infra/prod/key/passphrase"
 - `providers.paths` is intended to list provider executable files.
 - Uses the official 1Password Go SDK.
 - `token` is required and should be a 1Password service account token.
+- You can provide the token in one of these forms:
+  - `token = "ops_xxx"`
+  - `token_env = "OP_SERVICE_ACCOUNT_TOKEN"`
+  - `token_source = "~/.config/lssh/provider-onepassword.env"`
+- When `token_source` is used, the file is parsed as an env file like `KEY=value` or `export KEY=value`.
+- `token_source_env` can be used to select the variable name inside the source file. If omitted, `TOKEN` is used.
 - Secret refs use the normal 1Password secret reference format such as `op://Vault/item/field`.

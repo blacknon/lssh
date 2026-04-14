@@ -83,14 +83,8 @@ func (c *Config) ReadOpenSSHConfig() {
 		}
 	} else {
 		for _, sc := range c.activeOpenSSHConfigs() {
-			openSSHServerConfig, err := getOpenSSHConfig(sc.Path, sc.Command)
-			if err == nil {
-				// append data
-				for key, value := range openSSHServerConfig {
-					setCommon := serverConfigReduct(c.Common, sc.ServerConfig)
-					value = serverConfigReduct(setCommon, value)
-					c.Server[key] = value
-				}
+			if err := c.readConfiguredOpenSSHConfig(sc); err != nil {
+				continue
 			}
 		}
 	}

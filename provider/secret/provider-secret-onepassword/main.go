@@ -47,7 +47,10 @@ func decodeParams(raw interface{}, out interface{}) error {
 }
 
 func getSecret(params providerapi.SecretGetParams) (string, error) {
-	token := providerbuiltin.String(params.Config, "token")
+	token, err := providerbuiltin.ResolveConfigValue(params.Config, "token")
+	if err != nil {
+		return "", err
+	}
 	if token == "" {
 		return "", fmt.Errorf("provider.onepassword.token is required for SDK authentication")
 	}
