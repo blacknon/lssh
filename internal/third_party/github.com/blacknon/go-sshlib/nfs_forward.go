@@ -1,0 +1,75 @@
+// Copyright (c) 2026 Blacknon. All rights reserved.
+// Use of this source code is governed by an MIT license
+// that can be found in the LICENSE file.
+
+package sshlib
+
+import (
+	"net"
+	"strings"
+
+	osfs "github.com/go-git/go-billy/v5/osfs"
+	nfs "github.com/willscott/go-nfs"
+	nfshelper "github.com/willscott/go-nfs/helpers"
+)
+
+func (c *Connect) NFSForward(address, port, basepoint string) (err error) {
+	// create listener
+	listener, err := net.Listen("tcp", net.JoinHostPort(address, port))
+	if err != nil {
+		return
+	}
+	defer listener.Close()
+
+	client, err := c.newSFTPClient()
+	if err != nil {
+		return
+	}
+	defer client.Close()
+
+	basepoint, err = resolveAndValidateRemoteDir(client, basepoint)
+	if err != nil {
+		return
+	}
+
+	sftpfsPlusChange := NewChangeSFTPFS(client, basepoint)
+
+	handler := nfshelper.NewNullAuthHandler(sftpfsPlusChange)
+	cacheHelper := nfshelper.NewCachingHandler(handler, 1024)
+
+	// listen
+	err = nfs.Serve(listener, cacheHelper)
+
+	return
+}
+
+// NFSReverseForward is Start NFS Server and forward port to remote server.
+// This port is forawrd GO-NFS Server.
+func (c *Connect) NFSReverseForward(address, port, sharepoint string) (err error) {
+	// create listener
+	listener, err := c.Listen("tcp", net.JoinHostPort(address, port))
+	if err != nil {
+		return
+	}
+	defer listener.Close()
+
+	bfs := osfs.New(sharepoint)
+	bfsPlusChange := NewChangeOSFS(bfs)
+
+	handler := nfshelper.NewNullAuthHandler(bfsPlusChange)
+	cacheHelper := nfshelper.NewCachingHandler(handler, 1024)
+
+	// listen
+	err = nfs.Serve(listener, cacheHelper)
+
+	return
+}
+
+func getRemoteAbsPath(wdpath, path string) (result string) {
+	result = strings.Replace(path, "~", wdpath, 1)
+	if !strings.HasPrefix(result, "/") {
+		result = wdpath + "/" + result
+	}
+
+	return result
+}

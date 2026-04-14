@@ -25,6 +25,7 @@ OPTIONS:
     --host servername, -H servername    connect servername.
     --file filepath, -F filepath        config filepath. (default: "/Users/blacknon/.lssh.conf")
     --generate-lssh-conf ~/.ssh/config  print generated lssh config from OpenSSH config to stdout (~/.ssh/config by default).
+    --mount-option option               append local mount option (repeatable).
     --debug                             enable debug logging for lsshfs and go-sshlib.
     --rw                                mount as read-write (current default behavior).
     --unmount                           unmount the specified mountpoint and stop the background process.
@@ -81,3 +82,19 @@ lsshfs --list-mounts
 - On macOS, the local mount is created with `mount_nfs`.
 - On Windows, `lsshfs` is not supported in `0.9.0`.
 - The default config search order is `~/.lssh.toml`, `~/.lssh.yaml`, `~/.lssh.yml`, then `~/.lssh.conf`.
+
+### mount options
+
+You can append local mount options from config or CLI. This is mainly useful on macOS when you want to tune `mount_nfs` behavior without changing the backend.
+
+```toml
+[lsshfs]
+mount_options = ["nobrowse"]
+
+[lsshfs.darwin]
+mount_options = ["nolocks"]
+```
+
+```bash
+lsshfs --mount-option nobrowse @web01:/srv/data ./mnt/web01
+```

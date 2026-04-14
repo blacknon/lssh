@@ -60,6 +60,8 @@ lssh is built for a simple workflow:
 
 Open the interactive host picker:
 
+<img src="./images/example_lssh.gif" width="360" />
+
 ```bash
 lssh
 ```
@@ -70,17 +72,23 @@ Connect to a specific host:
 lssh -H my-server
 ```
 
+<img src="./images/example_lssh_parallel.gif" width="360" />
+
 Pick hosts and run a command:
 
 ```bash
 lssh -p tail -f /var/log/syslog
 ```
 
+<img src="./images/example_lssh_mux.gif" width="360" />
+
 Open the mux workflow:
 
 ```bash
 lssh -P
 ```
+
+<img src="./images/example_lssh_mux_command.gif" width="360" />
 
 Open the mux workflow and run a command:
 

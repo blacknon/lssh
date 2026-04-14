@@ -33,6 +33,7 @@ type Runner struct {
 	RemotePath            string
 	MountPoint            string
 	ReadWrite             bool
+	MountOptions          []string
 	GOOS                  string
 	ControlMasterOverride *bool
 	ReadyNotifier         func()
@@ -184,7 +185,7 @@ func (r *Runner) Run() error {
 		go func() {
 			serveErrCh <- connect.NFSForward("127.0.0.1", strconv.Itoa(port), r.RemotePath)
 		}()
-		spec, err := mountCommand(r.GOOS, r.MountPoint, port, "", nil)
+		spec, err := mountCommand(r.GOOS, r.MountPoint, port, "", nil, r.MountOptions)
 		if err != nil {
 			cleanup()
 			return err

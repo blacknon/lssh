@@ -25,13 +25,13 @@ import (
 )
 
 var (
-	loadMountRecordFn    = mountfs.LoadMountRecord
-	removeMountRecordFn  = mountfs.RemoveMountRecord
-	unmountCommandsFn    = mountfs.UnmountCommands
-	normalizeMountPtFn   = mountfs.NormalizeMountPoint
-	stateFilePathFn      = mountfs.StateFilePath
-	execCommandFn        = exec.Command
-	osExecutableFn       = os.Executable
+	loadMountRecordFn   = mountfs.LoadMountRecord
+	removeMountRecordFn = mountfs.RemoveMountRecord
+	unmountCommandsFn   = mountfs.UnmountCommands
+	normalizeMountPtFn  = mountfs.NormalizeMountPoint
+	stateFilePathFn     = mountfs.StateFilePath
+	execCommandFn       = exec.Command
+	osExecutableFn      = os.Executable
 )
 
 const backgroundReadyTimeout = 15 * time.Second
@@ -83,6 +83,7 @@ USAGE:
 		cli.StringSliceFlag{Name: "host,H", Usage: "connect `servername`."},
 		cli.StringFlag{Name: "file,F", Value: defConf, Usage: "config `filepath`."},
 		cli.StringFlag{Name: "generate-lssh-conf", Usage: "print generated lssh config from OpenSSH config to stdout (`~/.ssh/config` by default)."},
+		cli.StringSliceFlag{Name: "mount-option", Usage: "append local mount option (repeatable)."},
 		cli.BoolFlag{Name: "debug", Usage: "enable debug logging for lsshfs and go-sshlib."},
 		cli.BoolFlag{Name: "rw", Usage: "mount as read-write (current default behavior)."},
 		cli.BoolFlag{Name: "unmount", Usage: "unmount the specified mountpoint and stop the background process."},
@@ -199,6 +200,7 @@ USAGE:
 			Host:                  selectedHost,
 			RemotePath:            remotePath,
 			MountPoint:            c.Args()[1],
+			MountOptions:          lsshfsMountOptions(data, runtime.GOOS, c.StringSlice("mount-option")),
 			ReadWrite:             c.Bool("rw") || !c.IsSet("rw"),
 			GOOS:                  runtime.GOOS,
 			ControlMasterOverride: controlMasterOverride,
@@ -211,6 +213,23 @@ USAGE:
 	}
 
 	return app
+}
+
+func lsshfsMountOptions(cfg conf.Config, goos string, cliOptions []string) []string {
+	options := make([]string, 0)
+	options = append(options, cfg.Lsshfs.MountOptions...)
+
+	switch goos {
+	case "darwin":
+		options = append(options, cfg.Lsshfs.Darwin.MountOptions...)
+	case "linux":
+		options = append(options, cfg.Lsshfs.Linux.MountOptions...)
+	case "windows":
+		options = append(options, cfg.Lsshfs.Windows.MountOptions...)
+	}
+
+	options = append(options, cliOptions...)
+	return mountfs.NormalizeMountOptions(options)
 }
 
 func spawnBackgroundProcess(selectedHost string, appendHostFlag bool) error {

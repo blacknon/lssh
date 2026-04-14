@@ -3,6 +3,8 @@ package lsshfs
 import (
 	"reflect"
 	"testing"
+
+	conf "github.com/blacknon/lssh/internal/config"
 )
 
 func TestInsertHostFlagBeforePositionalArgs(t *testing.T) {
@@ -22,5 +24,22 @@ func TestInsertHostFlagAfterExistingOptions(t *testing.T) {
 
 	if !reflect.DeepEqual(got, want) {
 		t.Fatalf("insertHostFlag() = %#v, want %#v", got, want)
+	}
+}
+
+func TestLsshfsMountOptions(t *testing.T) {
+	cfg := conf.Config{
+		Lsshfs: conf.LsshfsConfig{
+			MountOptions: []string{"nobrowse"},
+			Darwin: conf.LsshfsPlatformConfig{
+				MountOptions: []string{"nolocks,locallocks"},
+			},
+		},
+	}
+
+	got := lsshfsMountOptions(cfg, "darwin", []string{"noowners"})
+	want := []string{"nobrowse", "nolocks", "locallocks", "noowners"}
+	if !reflect.DeepEqual(got, want) {
+		t.Fatalf("lsshfsMountOptions() = %#v, want %#v", got, want)
 	}
 }
