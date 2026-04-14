@@ -9,8 +9,7 @@ import (
 	"bytes"
 	"fmt"
 	"io"
-	"os/exec"
-	libpath "path"
+	"os"
 	"path/filepath"
 	"runtime"
 	"sort"
@@ -77,6 +76,8 @@ func runCompleteCommand(c *sConnect, command string) (*bytes.Buffer, error) {
 
 	return buf, nil
 }
+
+var runCompleteCommandFn = runCompleteCommand
 
 // TODO(blacknon): `!!`や"`:$`についても実装を行う
 // TODO(blacknon): `!command`だとまとめてパイプ経由でデータを渡すことになっているが、`!!command`で個別のローカルコマンドにデータを渡すように実装する
@@ -190,22 +191,17 @@ func (s *shell) Completer(t prompt.Document) []prompt.Suggest {
 			suggest := s.getBuildInCommandSuggest(c, t, targetConns, num, char)
 			return prompt.FilterHasPrefix(suggest, t.GetWordBeforeCursor(), false)
 
-		default:
-			switch {
-			case contains([]string{"/"}, char): // char is slach or
-				s.PathComplete = s.GetPathCompleteForConnects(targetConns, !checkLocalCommand(c), t.GetWordBeforeCursor())
-			case contains([]string{" ", ":"}, char) && strings.Count(t.CurrentLineBeforeCursor(), " ") == 1:
-				s.PathComplete = s.GetPathCompleteForConnects(targetConns, !checkLocalCommand(c), t.GetWordBeforeCursor())
-			}
+	default:
+		switch {
+		case strings.Contains(wordBeforeCursor, "/"):
+			s.PathComplete = s.GetPathCompleteForConnects(targetConns, !checkLocalCommand(c), wordBeforeCursor)
+			case strings.Count(t.CurrentLineBeforeCursor(), " ") >= 1:
+				s.PathComplete = s.GetPathCompleteForConnects(targetConns, !checkLocalCommand(c), wordBeforeCursor)
+		case contains([]string{" ", ":"}, char) && strings.Count(t.CurrentLineBeforeCursor(), " ") == 1:
+			s.PathComplete = s.GetPathCompleteForConnects(targetConns, !checkLocalCommand(c), wordBeforeCursor)
+		}
 
-			// get last slash place
-			word := wordBeforeCursor
-			sp := strings.LastIndex(word, "/")
-			if len(word) > 0 {
-				word = word[sp+1:]
-			}
-
-			return prompt.FilterHasPrefix(s.PathComplete, word, false)
+		return prompt.FilterHasPrefix(s.PathComplete, pathCompletionFilterWord(wordBeforeCursor), false)
 		}
 	}
 
@@ -357,56 +353,24 @@ func filterConnectedConnects(connects []*sConnect) []*sConnect {
 }
 
 func filterLiveRemoteCompletionConnects(connects []*sConnect) []*sConnect {
-	filtered := make([]*sConnect, 0, len(connects))
-	for _, conn := range filterConnectedConnects(connects) {
-		if conn.Connect.IsControlClient() {
-			continue
-		}
-		filtered = append(filtered, conn)
-	}
-
-	return filtered
+	return filterConnectedConnects(connects)
 }
 
 // GetLocalhostCommandComplete
 func (s *shell) GetLocalhostCommandComplete() (suggest []prompt.Suggest) {
-	// bash complete command. use `compgen`.
-	compCmd := []string{"compgen", "-c"}
-	command := strings.Join(compCmd, " ")
-
-	// get local machine command complete
-	local, _ := exec.Command("bash", "-c", command).Output()
-	rd := strings.NewReader(string(local))
-	sc := bufio.NewScanner(rd)
-	for sc.Scan() {
-		s := prompt.Suggest{
-			Text:        sc.Text(),
-			Description: "Command. from:localhost",
-		}
-		suggest = append(suggest, s)
-	}
-
-	return suggest
+	return localCommandSuggests()
 }
 
 // GetCommandComplete get command list remote machine.
 // mode ... command/path
 // data ... Value being entered
 func (s *shell) GetCommandComplete() {
-	// bash complete command. use `compgen`.
-	compCmd := []string{"compgen", "-c"}
-	command := strings.Join(compCmd, " ")
-
-	// get local machine command complete
-	local, _ := exec.Command("bash", "-c", command).Output()
-	rd := strings.NewReader(string(local))
-	sc := bufio.NewScanner(rd)
-	for sc.Scan() {
-		suggest := prompt.Suggest{
-			Text:        "+" + sc.Text(),
-			Description: "Command. from:localhost",
-		}
-		s.CmdComplete = append(s.CmdComplete, suggest)
+	command := "compgen -c"
+	for _, suggest := range localCommandSuggests() {
+		s.CmdComplete = append(s.CmdComplete, prompt.Suggest{
+			Text:        "+" + suggest.Text,
+			Description: suggest.Description,
+		})
 	}
 
 	// get remote machine command complete
@@ -419,7 +383,7 @@ func (s *shell) GetCommandComplete() {
 			continue
 		}
 
-		buf, err := runCompleteCommand(c, command)
+		buf, err := runCompleteCommandFn(c, command)
 		if err != nil {
 			continue
 		}
@@ -459,8 +423,7 @@ func (s *shell) GetPathComplete(remote bool, word string) (p []prompt.Suggest) {
 }
 
 func (s *shell) GetPathCompleteForConnects(connects []*sConnect, remote bool, word string) (p []prompt.Suggest) {
-	compCmd := []string{"compgen", "-f", word}
-	command := strings.Join(compCmd, " ")
+	command := remotePathCompleteCommand(word)
 
 	switch {
 	case remote: // is remote machine
@@ -486,7 +449,7 @@ func (s *shell) GetPathCompleteForConnects(connects []*sConnect, remote bool, wo
 					return
 				}
 
-				buf, err := runCompleteCommand(con, command)
+				buf, err := runCompleteCommandFn(con, command)
 				if err != nil {
 					exit <- true
 					return
@@ -497,7 +460,7 @@ func (s *shell) GetPathCompleteForConnects(connects []*sConnect, remote bool, wo
 				for sc.Scan() {
 					sm.Lock()
 
-					path := libpath.Base(sc.Text())
+					path := sc.Text()
 
 					m[path] = append(m[path], con.Name)
 					sm.Unlock()
@@ -518,7 +481,7 @@ func (s *shell) GetPathCompleteForConnects(connects []*sConnect, remote bool, wo
 
 			// create suggest
 			suggest := prompt.Suggest{
-				Text:        path,
+				Text:        pathCompletionText(path),
 				Description: "remote path. from:" + h,
 			}
 
@@ -527,23 +490,172 @@ func (s *shell) GetPathCompleteForConnects(connects []*sConnect, remote bool, wo
 		}
 
 	case !remote: // is local machine
-		if runtime.GOOS != "windows" {
-			sgt, _ := exec.Command("bash", "-c", command).Output()
-			rd := strings.NewReader(string(sgt))
-			sc := bufio.NewScanner(rd)
-			for sc.Scan() {
-				suggest := prompt.Suggest{
-					Text: filepath.Base(sc.Text()),
-					// Text:        sc.Text(),
-					Description: "local path.",
-				}
-				p = append(p, suggest)
-			}
-		}
+		p = append(p, localPathSuggests(word)...)
 	}
 
 	sort.SliceStable(p, func(i, j int) bool { return p[i].Text < p[j].Text })
 	return
+}
+
+func localCommandSuggests() []prompt.Suggest {
+	pathEnv := os.Getenv("PATH")
+	if pathEnv == "" {
+		return nil
+	}
+
+	seen := map[string]struct{}{}
+	suggests := make([]prompt.Suggest, 0)
+	for _, dir := range filepath.SplitList(pathEnv) {
+		if dir == "" {
+			continue
+		}
+
+		entries, err := os.ReadDir(dir)
+		if err != nil {
+			continue
+		}
+
+		for _, entry := range entries {
+			name := entry.Name()
+			if name == "" {
+				continue
+			}
+			if _, ok := seen[name]; ok {
+				continue
+			}
+			if !isExecutableEntry(dir, entry) {
+				continue
+			}
+
+			seen[name] = struct{}{}
+			suggests = append(suggests, prompt.Suggest{
+				Text:        name,
+				Description: "Command. from:localhost",
+			})
+		}
+	}
+
+	sort.SliceStable(suggests, func(i, j int) bool { return suggests[i].Text < suggests[j].Text })
+	return suggests
+}
+
+func localPathSuggests(word string) []prompt.Suggest {
+	search := word
+	if search == "" {
+		search = "."
+	}
+
+	dir, prefix := filepath.Split(search)
+	if dir == "" {
+		dir = "."
+	}
+
+	textPrefix := dir
+	if textPrefix == "." {
+		textPrefix = ""
+	}
+
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		return nil
+	}
+
+	suggests := make([]prompt.Suggest, 0, len(entries))
+	for _, entry := range entries {
+		name := entry.Name()
+		if !strings.HasPrefix(name, prefix) {
+			continue
+		}
+
+		suggests = append(suggests, prompt.Suggest{
+			Text:        name,
+			Description: "local path. " + textPrefix + name,
+		})
+	}
+
+	sort.SliceStable(suggests, func(i, j int) bool { return suggests[i].Text < suggests[j].Text })
+	return suggests
+}
+
+func remotePathCompleteCommand(word string) string {
+	quoted := shellQuote(word)
+	return "for p in $(compgen -f -- " + quoted + "); do if [ -d \"$p\" ]; then p=${p%/}; printf '%s/\\n' \"$p\"; else printf '%s\\n' \"$p\"; fi; done"
+}
+
+func pathCompletionFilterWord(word string) string {
+	idx := strings.LastIndexAny(word, `/\`)
+	if idx >= 0 {
+		return word[idx+1:]
+	}
+
+	return word
+}
+
+func pathCompletionText(candidate string) string {
+	if candidate == "" {
+		return ""
+	}
+
+	trimmed := strings.Trim(candidate, `/\`)
+	if trimmed == "" {
+		return ""
+	}
+
+	idx := strings.LastIndexAny(trimmed, `/\`)
+	if idx >= 0 {
+		return trimmed[idx+1:]
+	}
+
+	return trimmed
+}
+
+func isExecutableEntry(dir string, entry os.DirEntry) bool {
+	if entry.IsDir() {
+		return false
+	}
+
+	if runtime.GOOS == "windows" {
+		ext := strings.ToLower(filepath.Ext(entry.Name()))
+		for _, candidate := range executableExtensions() {
+			if ext == candidate {
+				return true
+			}
+		}
+		return false
+	}
+
+	info, err := entry.Info()
+	if err != nil {
+		return false
+	}
+	mode := info.Mode()
+	if mode.IsRegular() && mode&0o111 != 0 {
+		return true
+	}
+
+	fullPath := filepath.Join(dir, entry.Name())
+	info, err = os.Stat(fullPath)
+	if err != nil {
+		return false
+	}
+	return info.Mode().IsRegular() && info.Mode()&0o111 != 0
+}
+
+func executableExtensions() []string {
+	pathExt := os.Getenv("PATHEXT")
+	if pathExt == "" {
+		return []string{".com", ".exe", ".bat", ".cmd"}
+	}
+
+	parts := filepath.SplitList(pathExt)
+	result := make([]string, 0, len(parts))
+	for _, part := range parts {
+		if part == "" {
+			continue
+		}
+		result = append(result, strings.ToLower(part))
+	}
+	return result
 }
 
 func parseLeadingTargetSelector(line string) (targets []string, command string, token string, inSelector bool) {

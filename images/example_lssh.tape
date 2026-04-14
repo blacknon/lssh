@@ -1,5 +1,5 @@
 # output
-Output demo.gif
+Output example_lssh.gif
 
 # Set
 Set Shell "zsh"
@@ -49,69 +49,3 @@ Type "exit"
 Enter
 Sleep 500ms
 Enter
-
-# parallel command
-Type "lssh -p hostname -a"
-Enter
-Sleep 500ms
-
-# select
-Type "gitla"
-Sleep 1000ms
-Ctrl+A
-Sleep 500ms
-Enter
-Sleep 2s
-
-# parallel Mux
-Type "lssh -P"
-Enter
-Sleep 1000ms
-
-# select
-Type "gitla"
-Sleep 1000ms
-Enter
-Sleep 2s
-Enter
-
-# gitlab
-## htop
-Type "htop"
-Enter
-Sleep 3s
-
-# create new pane
-Ctrl+A
-Sleep 500ms
-Type "-"
-
-# Select
-Type "gitla"
-Sleep 500ms
-Down 1
-Sleep 200ms
-Enter
-
-#
-Type "vim /etc/hosts"
-Sleep 500ms
-Enter
-Sleep 2s
-
-# Close lssh mux mode
-Ctrl+A
-Sleep 500ms
-Type "&"
-Sleep 2s
-Enter
-
-Type "lssh -P htop"
-Enter
-Sleep 500ms
-Type "gitla"
-Sleep 1000ms
-Ctrl+A
-Sleep 500ms
-Enter
-Sleep 2s

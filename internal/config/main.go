@@ -46,6 +46,7 @@ type Config struct {
 	Log       LogConfig                         `toml:"log" yaml:"log"`
 	Mux       MuxConfig                         `toml:"mux" yaml:"mux"`
 	Shell     ShellConfig                       `toml:"shell" yaml:"shell"`
+	Lsshfs    LsshfsConfig                      `toml:"lsshfs" yaml:"lsshfs"`
 	Providers ProvidersConfig                   `toml:"providers" yaml:"providers"`
 	Include   map[string]IncludeConfig          `toml:"include" yaml:"include"`
 	Includes  IncludesConfig                    `toml:"includes" yaml:"includes"`
