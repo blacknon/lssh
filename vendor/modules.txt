@@ -372,6 +372,9 @@ github.com/hirochachacha/go-smb2/internal/utf16le
 # github.com/ianlancetaylor/demangle v0.0.0-20251118225945-96ee0021ea0f
 ## explicit; go 1.13
 github.com/ianlancetaylor/demangle
+# github.com/jackpal/gateway v1.1.1
+## explicit; go 1.24.2
+github.com/jackpal/gateway
 # github.com/kballard/go-shellquote v0.0.0-20180428030007-95032a82bc51
 ## explicit
 github.com/kballard/go-shellquote
@@ -434,10 +437,14 @@ github.com/rivo/uniseg
 # github.com/russross/blackfriday/v2 v2.1.0
 ## explicit
 github.com/russross/blackfriday/v2
+# github.com/stretchr/objx v0.5.2
+## explicit; go 1.20
+github.com/stretchr/objx
 # github.com/stretchr/testify v1.11.1
 ## explicit; go 1.17
 github.com/stretchr/testify/assert
 github.com/stretchr/testify/assert/yaml
+github.com/stretchr/testify/mock
 # github.com/tetratelabs/wabin v0.0.0-20230304001439-f6f874872834
 ## explicit; go 1.18
 github.com/tetratelabs/wabin/binary
@@ -573,6 +580,7 @@ golang.org/x/net/internal/httpsfv
 golang.org/x/net/internal/socks
 golang.org/x/net/internal/timeseries
 golang.org/x/net/proxy
+golang.org/x/net/route
 golang.org/x/net/trace
 # golang.org/x/oauth2 v0.36.0
 ## explicit; go 1.25.0

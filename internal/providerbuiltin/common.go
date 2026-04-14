@@ -1,11 +1,13 @@
 package providerbuiltin
 
 import (
+	"bufio"
 	"encoding/json"
 	"fmt"
 	"io"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"strings"
 
 	"github.com/blacknon/lssh/internal/providerapi"
@@ -113,4 +115,84 @@ func RunWithEnv(env []string, name string, args ...string) ([]byte, error) {
 		return nil, err
 	}
 	return output, nil
+}
+
+func ResolveConfigValue(raw map[string]interface{}, key string) (string, error) {
+	if value := String(raw, key); value != "" {
+		return value, nil
+	}
+
+	if envName := String(raw, key+"_env"); envName != "" {
+		value := os.Getenv(envName)
+		if value == "" {
+			return "", fmt.Errorf("%s is set but environment variable %q is empty", key+"_env", envName)
+		}
+		return value, nil
+	}
+
+	if sourcePath := String(raw, key+"_source"); sourcePath != "" {
+		envName := String(raw, key+"_source_env")
+		if envName == "" {
+			envName = strings.ToUpper(strings.ReplaceAll(key, "-", "_"))
+		}
+		values, err := readEnvSourceFile(sourcePath)
+		if err != nil {
+			return "", err
+		}
+		value := values[envName]
+		if value == "" {
+			return "", fmt.Errorf("%s did not define %q", key+"_source", envName)
+		}
+		return value, nil
+	}
+
+	return "", nil
+}
+
+func readEnvSourceFile(path string) (map[string]string, error) {
+	fullPath := expandPath(path)
+	file, err := os.Open(fullPath)
+	if err != nil {
+		return nil, err
+	}
+	defer file.Close()
+
+	values := map[string]string{}
+	scanner := bufio.NewScanner(file)
+	for scanner.Scan() {
+		line := strings.TrimSpace(scanner.Text())
+		if line == "" || strings.HasPrefix(line, "#") {
+			continue
+		}
+		line = strings.TrimPrefix(line, "export ")
+		parts := strings.SplitN(line, "=", 2)
+		if len(parts) != 2 {
+			continue
+		}
+		key := strings.TrimSpace(parts[0])
+		value := strings.TrimSpace(parts[1])
+		value = strings.Trim(value, `"'`)
+		values[key] = value
+	}
+	if err := scanner.Err(); err != nil {
+		return nil, err
+	}
+	return values, nil
+}
+
+func expandPath(path string) string {
+	if path == "" {
+		return path
+	}
+	if path == "~" {
+		if home, err := os.UserHomeDir(); err == nil {
+			return home
+		}
+	}
+	if strings.HasPrefix(path, "~/") {
+		if home, err := os.UserHomeDir(); err == nil {
+			return filepath.Join(home, strings.TrimPrefix(path, "~/"))
+		}
+	}
+	return path
 }

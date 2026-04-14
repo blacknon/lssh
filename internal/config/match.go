@@ -1,22 +1,20 @@
 package conf
 
 import (
-	"bufio"
 	"fmt"
 	"log"
 	"net"
 	"net/netip"
 	"os"
-	"os/exec"
 	"os/user"
 	"path/filepath"
 	"reflect"
 	"runtime"
 	"sort"
-	"strconv"
 	"strings"
 
 	"github.com/BurntSushi/toml"
+	"github.com/jackpal/gateway"
 	"gopkg.in/yaml.v3"
 )
 
@@ -56,6 +54,7 @@ type namedOpenSSHConfig struct {
 }
 
 var detectMatchContext = buildMatchContext
+var discoverGateway = gateway.DiscoverGateway
 
 func decodeConfigFile(path string, c *Config) error {
 	switch strings.ToLower(filepath.Ext(path)) {
@@ -711,113 +710,16 @@ func getLocalIPs() ([]netip.Addr, error) {
 }
 
 func getDefaultGateways() ([]netip.Addr, error) {
-	switch runtime.GOOS {
-	case "linux":
-		return getLinuxDefaultGateways()
-	case "darwin":
-		return getDarwinDefaultGateways()
-	case "windows":
-		return getWindowsDefaultGateways()
-	default:
-		return nil, fmt.Errorf("gateway lookup is not supported on %s", runtime.GOOS)
-	}
-}
-
-func getLinuxDefaultGateways() ([]netip.Addr, error) {
-	f, err := os.Open("/proc/net/route")
-	if err != nil {
-		return nil, err
-	}
-	defer f.Close()
-
-	var gateways []netip.Addr
-	scanner := bufio.NewScanner(f)
-	first := true
-	for scanner.Scan() {
-		if first {
-			first = false
-			continue
-		}
-
-		fields := strings.Fields(scanner.Text())
-		if len(fields) < 3 || fields[1] != "00000000" {
-			continue
-		}
-
-		value, err := strconv.ParseUint(fields[2], 16, 32)
-		if err != nil {
-			continue
-		}
-
-		ip := net.IPv4(byte(value), byte(value>>8), byte(value>>16), byte(value>>24))
-		addr, ok := netip.AddrFromSlice(ip)
-		if ok {
-			gateways = append(gateways, addr.Unmap())
-		}
-	}
-
-	if err := scanner.Err(); err != nil {
-		return nil, err
-	}
-
-	if len(gateways) == 0 {
-		return nil, fmt.Errorf("default gateway not found")
-	}
-
-	return uniqueAddrs(gateways), nil
-}
-
-func getDarwinDefaultGateways() ([]netip.Addr, error) {
-	out, err := exec.Command("route", "-n", "get", "default").Output()
+	ip, err := discoverGateway()
 	if err != nil {
 		return nil, err
 	}
 
-	var gateways []netip.Addr
-	scanner := bufio.NewScanner(strings.NewReader(string(out)))
-	for scanner.Scan() {
-		line := strings.TrimSpace(scanner.Text())
-		if !strings.HasPrefix(line, "gateway:") {
-			continue
-		}
-		value := strings.TrimSpace(strings.TrimPrefix(line, "gateway:"))
-		addr, err := netip.ParseAddr(value)
-		if err == nil {
-			gateways = append(gateways, addr.Unmap())
-		}
-	}
-
-	if len(gateways) == 0 {
+	addr, ok := netip.AddrFromSlice(ip)
+	if !ok || !addr.IsValid() {
 		return nil, fmt.Errorf("default gateway not found")
 	}
-
-	return uniqueAddrs(gateways), nil
-}
-
-func getWindowsDefaultGateways() ([]netip.Addr, error) {
-	out, err := exec.Command("route", "print", "0.0.0.0").Output()
-	if err != nil {
-		return nil, err
-	}
-
-	var gateways []netip.Addr
-	scanner := bufio.NewScanner(strings.NewReader(string(out)))
-	for scanner.Scan() {
-		fields := strings.Fields(scanner.Text())
-		if len(fields) < 4 || fields[0] != "0.0.0.0" || fields[1] != "0.0.0.0" {
-			continue
-		}
-		addr, err := netip.ParseAddr(fields[2])
-		if err == nil {
-			gateways = append(gateways, addr.Unmap())
-		}
-	}
-
-	if len(gateways) == 0 {
-		return nil, fmt.Errorf("default gateway not found")
-	}
-
-	return uniqueAddrs(gateways), nil
+	return []netip.Addr{addr.Unmap()}, nil
 }
 
 func uniqueAddrs(values []netip.Addr) []netip.Addr {

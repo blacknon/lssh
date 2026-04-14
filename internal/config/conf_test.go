@@ -5,6 +5,8 @@
 package conf
 
 import (
+	"errors"
+	"net"
 	"net/netip"
 	"os"
 	"path/filepath"
@@ -134,6 +136,40 @@ func TestServerConfigReduct(t *testing.T) {
 	for _, v := range tds {
 		got := serverConfigReduct(v.perConfig, v.childConfig)
 		assert.Equal(t, v.expect, got, v.desc)
+	}
+}
+
+func TestGetDefaultGatewaysUsesGatewayPackage(t *testing.T) {
+	original := discoverGateway
+	t.Cleanup(func() { discoverGateway = original })
+
+	discoverGateway = func() (net.IP, error) {
+		return net.IPv4(192, 0, 2, 1), nil
+	}
+
+	got, err := getDefaultGateways()
+	if err != nil {
+		t.Fatalf("getDefaultGateways() error = %v", err)
+	}
+	if len(got) != 1 {
+		t.Fatalf("len(got) = %d, want 1", len(got))
+	}
+	if got[0] != netip.MustParseAddr("192.0.2.1") {
+		t.Fatalf("gateway = %s, want 192.0.2.1", got[0])
+	}
+}
+
+func TestGetDefaultGatewaysPropagatesError(t *testing.T) {
+	original := discoverGateway
+	t.Cleanup(func() { discoverGateway = original })
+
+	discoverGateway = func() (net.IP, error) {
+		return nil, errors.New("boom")
+	}
+
+	_, err := getDefaultGateways()
+	if err == nil || err.Error() != "boom" {
+		t.Fatalf("getDefaultGateways() error = %v, want boom", err)
 	}
 }
 
@@ -281,6 +317,56 @@ sshconfig:
 
 	assert.Equal(t, "~/.ssh/config", cfg.SSHConfig["extra"].Path)
 	assert.Equal(t, []string{"darwin"}, cfg.SSHConfig["extra"].When.OSIn)
+}
+
+func TestReadOpenSSHConfigMatchOverridesImportedHosts(t *testing.T) {
+	dir := t.TempDir()
+	sshConfigPath := filepath.Join(dir, "ssh_config")
+	configPath := filepath.Join(dir, "lssh.toml")
+
+	sshConfig := `
+Host web-01
+    HostName 192.0.2.10
+    User ubuntu
+    IdentityFile ~/.ssh/web-01
+
+Host db-01
+    HostName 192.0.2.20
+    User admin
+    IdentityFile ~/.ssh/db-01
+`
+	if err := os.WriteFile(sshConfigPath, []byte(sshConfig), 0o600); err != nil {
+		t.Fatalf("WriteFile ssh config failed: %v", err)
+	}
+
+	body := `
+[sshconfig.default]
+path = "` + sshConfigPath + `"
+
+[sshconfig.default.match.web]
+name_in = ["web-*"]
+user_in = ["ubuntu"]
+pre_cmd = "printf 'web\n'"
+note = "matched web"
+`
+	if err := os.WriteFile(configPath, []byte(body), 0o600); err != nil {
+		t.Fatalf("WriteFile lssh config failed: %v", err)
+	}
+
+	cfg := Read(configPath)
+
+	webName := sshConfigPath + ":web-01"
+	if got := cfg.Server[webName].PreCmd; got != "printf 'web\n'" {
+		t.Fatalf("PreCmd = %q, want %q", got, "printf 'web\n'")
+	}
+	if got := cfg.Server[webName].Note; got != "matched web" {
+		t.Fatalf("Note = %q, want %q", got, "matched web")
+	}
+
+	dbName := sshConfigPath + ":db-01"
+	if got := cfg.Server[dbName].PreCmd; got != "" {
+		t.Fatalf("db PreCmd = %q, want empty", got)
+	}
 }
 
 func TestResolveConditionalMatchesMergeByPriority(t *testing.T) {
