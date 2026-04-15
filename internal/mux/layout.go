@@ -89,6 +89,10 @@ func (p *pane) focusPrimitive() tview.Primitive {
 }
 
 func (n *layoutNode) split(target *pane, next *pane, direction int) bool {
+	return n.splitLayout(target, &layoutNode{pane: next}, direction)
+}
+
+func (n *layoutNode) splitLayout(target *pane, next *layoutNode, direction int) bool {
 	if n == nil {
 		return false
 	}
@@ -98,12 +102,12 @@ func (n *layoutNode) split(target *pane, next *pane, direction int) bool {
 		n.direction = direction
 		n.children = []*layoutNode{
 			{pane: current},
-			{pane: next},
+			next,
 		}
 		return true
 	}
 	for _, child := range n.children {
-		if child.split(target, next, direction) {
+		if child.splitLayout(target, next, direction) {
 			return true
 		}
 	}

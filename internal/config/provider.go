@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"log"
 	"os"
 	"os/exec"
 	"path"
@@ -31,6 +32,9 @@ func mergeProvidersConfig(base, override ProvidersConfig) ProvidersConfig {
 	if override.FailOpen {
 		result.FailOpen = true
 	}
+	if override.DebugLog != "" {
+		result.DebugLog = override.DebugLog
+	}
 	return result
 }
 
@@ -39,13 +43,8 @@ func (c *Config) ReadInventoryProviders() error {
 		return nil
 	}
 
-	names := make([]string, 0, len(c.Provider))
-	for name := range c.Provider {
-		names = append(names, name)
-	}
-	sort.Strings(names)
-
-	for _, name := range names {
+	for _, item := range c.activeProviders() {
+		name := item.name
 		raw := c.Provider[name]
 		if !providerEnabled(raw) || !providerHasCapability(raw, "inventory") {
 			continue
@@ -57,6 +56,7 @@ func (c *Config) ReadInventoryProviders() error {
 			Config:   raw,
 		}, &result); err != nil {
 			if providerFailOpen(c.Providers, raw) {
+				log.Printf("provider %q inventory failed but fail_open=true: %v", name, err)
 				continue
 			}
 			return err
@@ -89,6 +89,104 @@ func (c *Config) ReadInventoryProviders() error {
 	}
 
 	return nil
+}
+
+type namedProviderConfig struct {
+	name string
+}
+
+func (c *Config) activeProviders() []namedProviderConfig {
+	if len(c.Provider) == 0 {
+		return nil
+	}
+
+	reqs, err := c.validateProviderWhens()
+	if err != nil {
+		log.Println(err)
+		os.Exit(1)
+	}
+
+	ctx := matchContext{}
+	if reqs.needLocalIP || reqs.needGateway || reqs.needUsername || reqs.needHostname || reqs.needOS || reqs.needTerm || reqs.needEnv {
+		ctx = detectMatchContext(reqs)
+	}
+
+	names := make([]string, 0, len(c.Provider))
+	for name := range c.Provider {
+		names = append(names, name)
+	}
+	sort.Strings(names)
+
+	result := make([]namedProviderConfig, 0, len(names))
+	for _, name := range names {
+		raw := c.Provider[name]
+		when, err := providerWhen(raw)
+		if err != nil {
+			log.Printf("provider.%s.when: %v", name, err)
+			os.Exit(1)
+		}
+		if when.Empty() || whenMatches(when, "provider", name, ctx) {
+			result = append(result, namedProviderConfig{name: name})
+		}
+	}
+
+	return result
+}
+
+func (c *Config) validateProviderWhens() (matchRequirements, error) {
+	reqs := matchRequirements{}
+
+	for name, raw := range c.Provider {
+		when, err := providerWhen(raw)
+		if err != nil {
+			return reqs, fmt.Errorf("provider.%s.when: %w", name, err)
+		}
+		if when.Empty() {
+			continue
+		}
+
+		if err := validateMatchNetworkList(when.LocalIPIn, "local_ip_in", "provider", name); err != nil {
+			return reqs, err
+		}
+		if err := validateMatchNetworkList(when.LocalIPNotIn, "local_ip_not_in", "provider", name); err != nil {
+			return reqs, err
+		}
+		if err := validateMatchNetworkList(when.GatewayIn, "gateway_in", "provider", name); err != nil {
+			return reqs, err
+		}
+		if err := validateMatchNetworkList(when.GatewayNotIn, "gateway_not_in", "provider", name); err != nil {
+			return reqs, err
+		}
+
+		reqs.needLocalIP = reqs.needLocalIP || len(when.LocalIPIn) > 0 || len(when.LocalIPNotIn) > 0
+		reqs.needGateway = reqs.needGateway || len(when.GatewayIn) > 0 || len(when.GatewayNotIn) > 0
+		reqs.needUsername = reqs.needUsername || len(when.UsernameIn) > 0 || len(when.UsernameNotIn) > 0
+		reqs.needHostname = reqs.needHostname || len(when.HostnameIn) > 0 || len(when.HostnameNotIn) > 0
+		reqs.needOS = reqs.needOS || len(when.OSIn) > 0 || len(when.OSNotIn) > 0
+		reqs.needTerm = reqs.needTerm || len(when.TermIn) > 0 || len(when.TermNotIn) > 0
+		reqs.needEnv = reqs.needEnv || len(when.EnvIn) > 0 || len(when.EnvNotIn) > 0 || len(when.EnvValueIn) > 0 || len(when.EnvValueNotIn) > 0
+	}
+
+	return reqs, nil
+}
+
+func providerWhen(raw map[string]interface{}) (ServerMatchWhen, error) {
+	when := ServerMatchWhen{}
+	if raw == nil {
+		return when, nil
+	}
+	rawWhen, ok := raw["when"]
+	if !ok || rawWhen == nil {
+		return when, nil
+	}
+	whenMap, ok := rawWhen.(map[string]interface{})
+	if !ok {
+		return when, fmt.Errorf("must be a table")
+	}
+	if err := decodeTaggedMap(whenMap, &when, "toml"); err != nil {
+		return when, err
+	}
+	return when, nil
 }
 
 func (c *Config) ResolveSecretRef(ref, server, field string) (string, error) {
@@ -159,20 +257,29 @@ func (c *Config) callProvider(name, method string, params interface{}, out inter
 	var stderr bytes.Buffer
 	cmd.Stdout = &stdout
 	cmd.Stderr = &stderr
+	debugLogPath := providerDebugLogPath(c.Providers, raw)
 
 	if err := cmd.Run(); err != nil {
-		if stderr.Len() > 0 {
-			return fmt.Errorf("%w: %s", err, strings.TrimSpace(stderr.String()))
+		writeProviderDebugLog(debugLogPath, name, method, path, input, stdout.Bytes(), stderr.Bytes(), err)
+		if stdout.Len() > 0 {
+			var resp providerapi.Response
+			if decodeErr := json.Unmarshal(stdout.Bytes(), &resp); decodeErr == nil && resp.Error != nil {
+				return fmt.Errorf("provider %q: %s", name, resp.Error.Message)
+			}
 		}
-		return err
+		if stderr.Len() > 0 {
+			return fmt.Errorf("provider %q: %w: %s", name, err, strings.TrimSpace(stderr.String()))
+		}
+		return fmt.Errorf("provider %q: %w", name, err)
 	}
+	writeProviderDebugLog(debugLogPath, name, method, path, input, stdout.Bytes(), stderr.Bytes(), nil)
 
 	var resp providerapi.Response
 	if err := json.Unmarshal(stdout.Bytes(), &resp); err != nil {
-		return fmt.Errorf("decode response from %q: %w", path, err)
+		return fmt.Errorf("provider %q decode response from %q: %w", name, path, err)
 	}
 	if resp.Error != nil {
-		return fmt.Errorf("%s", resp.Error.Message)
+		return fmt.Errorf("provider %q: %s", name, resp.Error.Message)
 	}
 	if out == nil || len(resp.Result) == 0 {
 		return nil
@@ -182,10 +289,75 @@ func (c *Config) callProvider(name, method string, params interface{}, out inter
 
 func providerServerDefaults(raw map[string]interface{}) (ServerConfig, error) {
 	cfg := ServerConfig{}
-	if err := decodeTaggedMap(raw, &cfg, "toml"); err != nil {
+	if err := decodeTaggedMap(providerServerDefaultMap(raw), &cfg, "toml"); err != nil {
 		return cfg, err
 	}
 	return cfg, nil
+}
+
+func providerServerDefaultMap(raw map[string]interface{}) map[string]interface{} {
+	if raw == nil {
+		return nil
+	}
+
+	filtered := make(map[string]interface{}, len(raw))
+	for key, value := range raw {
+		filtered[key] = value
+	}
+
+	for _, key := range providerReservedKeys(raw) {
+		delete(filtered, key)
+	}
+
+	return filtered
+}
+
+func providerReservedKeys(raw map[string]interface{}) []string {
+	keys := map[string]struct{}{
+		"plugin":       {},
+		"capabilities": {},
+		"enabled":      {},
+		"fail_open":    {},
+		"timeout":      {},
+		"debug_log":    {},
+		"match":        {},
+	}
+
+	switch providerString(raw, "plugin") {
+	case "provider-inventory-proxmox":
+		for _, key := range []string{
+			"host", "scheme", "port", "insecure",
+			"token_id", "token_id_env", "token_id_source", "token_id_source_env",
+			"token_secret", "token_secret_env", "token_secret_source", "token_secret_source_env",
+			"username", "user", "password", "password_env", "password_source", "password_source_env",
+			"server_name_template", "note_template", "addr_template", "node_addr_prefix",
+			"include_stopped", "include_templates", "vm_types", "statuses", "os_families",
+		} {
+			keys[key] = struct{}{}
+		}
+	case "provider-inventory-aws-ec2":
+		for _, key := range []string{
+			"regions", "region", "profile",
+			"shared_config_files", "shared_credentials_files",
+			"include_tags", "server_name_template", "note_template",
+		} {
+			keys[key] = struct{}{}
+		}
+	case "provider-inventory-gcp-compute":
+		for _, key := range []string{
+			"project", "zone", "credentials_file", "endpoint", "scopes",
+			"server_name_template", "note_template",
+		} {
+			keys[key] = struct{}{}
+		}
+	}
+
+	result := make([]string, 0, len(keys))
+	for key := range keys {
+		result = append(result, key)
+	}
+	sort.Strings(result)
+	return result
 }
 
 type providerInventoryMatchWhen struct {
@@ -198,11 +370,13 @@ type providerInventoryMatchWhen struct {
 }
 
 type providerInventoryMatch struct {
-	Name     string
-	Priority int
-	Config   ServerConfig
-	When     providerInventoryMatchWhen
-	order    int
+	Name         string
+	Priority     int
+	Config       ServerConfig
+	When         providerInventoryMatchWhen
+	NoteTemplate string
+	NoteAppend   string
+	order        int
 }
 
 func providerInventoryMatches(raw map[string]interface{}) ([]providerInventoryMatch, error) {
@@ -249,11 +423,13 @@ func providerInventoryMatches(raw map[string]interface{}) ([]providerInventoryMa
 		}
 
 		result = append(result, providerInventoryMatch{
-			Name:     name,
-			Priority: priority,
-			Config:   cfg,
-			When:     when,
-			order:    idx + 1,
+			Name:         name,
+			Priority:     priority,
+			Config:       cfg,
+			When:         when,
+			NoteTemplate: providerString(branchMap, "note_template"),
+			NoteAppend:   providerString(branchMap, "note_append"),
+			order:        idx + 1,
 		})
 	}
 
@@ -319,9 +495,37 @@ func applyProviderInventoryMatches(providerName, serverName string, meta map[str
 	for _, match := range matches {
 		if providerInventoryMatchApplies(match.When, providerName, serverName, meta) {
 			current = serverConfigReduct(current, match.Config)
+			current.Note = applyProviderInventoryNoteTemplate(current.Note, providerName, serverName, meta, match)
 		}
 	}
 	return current
+}
+
+func applyProviderInventoryNoteTemplate(currentNote, providerName, serverName string, meta map[string]string, match providerInventoryMatch) string {
+	if match.NoteTemplate != "" {
+		currentNote = renderProviderInventoryNoteTemplate(match.NoteTemplate, currentNote, providerName, serverName, meta)
+	}
+	if match.NoteAppend != "" {
+		currentNote += renderProviderInventoryNoteTemplate(match.NoteAppend, currentNote, providerName, serverName, meta)
+	}
+	return currentNote
+}
+
+func renderProviderInventoryNoteTemplate(template, currentNote, providerName, serverName string, meta map[string]string) string {
+	if template == "" {
+		return ""
+	}
+
+	result := template
+	replacements := []string{
+		"${note}", currentNote,
+		"${provider}", providerName,
+		"${server}", serverName,
+	}
+	for key, value := range meta {
+		replacements = append(replacements, "${meta:"+key+"}", value)
+	}
+	return strings.NewReplacer(replacements...).Replace(result)
 }
 
 func providerInventoryMatchApplies(when providerInventoryMatchWhen, providerName, serverName string, meta map[string]string) bool {
@@ -432,6 +636,67 @@ func providerTimeout(global ProvidersConfig, raw map[string]interface{}) time.Du
 		return 5 * time.Second
 	}
 	return d
+}
+
+func providerDebugLogPath(global ProvidersConfig, raw map[string]interface{}) string {
+	value := providerString(raw, "debug_log")
+	if value == "" {
+		value = global.DebugLog
+	}
+	if value == "" {
+		return ""
+	}
+	return providerExpandPath(value)
+}
+
+func writeProviderDebugLog(debugLogPath, name, method, executablePath string, input, stdout, stderr []byte, runErr error) {
+	if debugLogPath == "" {
+		return
+	}
+
+	if err := os.MkdirAll(filepath.Dir(debugLogPath), 0o755); err != nil {
+		log.Printf("provider %q debug log mkdir failed: %v", name, err)
+		return
+	}
+
+	file, err := os.OpenFile(debugLogPath, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0o600)
+	if err != nil {
+		log.Printf("provider %q debug log open failed: %v", name, err)
+		return
+	}
+	defer file.Close()
+
+	_, _ = fmt.Fprintf(file, "[%s] provider=%s method=%s executable=%s\n", time.Now().Format(time.RFC3339), name, method, executablePath)
+	_, _ = fmt.Fprintf(file, "request=%s\n", bytes.TrimSpace(input))
+	if len(stdout) > 0 {
+		_, _ = fmt.Fprintf(file, "stdout=%s\n", bytes.TrimSpace(stdout))
+	}
+	if len(stderr) > 0 {
+		_, _ = fmt.Fprintf(file, "stderr=%s\n", bytes.TrimSpace(stderr))
+	}
+	if runErr != nil {
+		_, _ = fmt.Fprintf(file, "error=%v\n", runErr)
+	}
+	_, _ = fmt.Fprintln(file)
+}
+
+func providerExpandPath(value string) string {
+	if value == "" {
+		return ""
+	}
+	if value == "~" {
+		if home, err := os.UserHomeDir(); err == nil {
+			value = home
+		}
+	} else if strings.HasPrefix(value, "~/") {
+		if home, err := os.UserHomeDir(); err == nil {
+			value = filepath.Join(home, strings.TrimPrefix(value, "~/"))
+		}
+	}
+	if abs, err := filepath.Abs(value); err == nil {
+		return abs
+	}
+	return value
 }
 
 func providerString(raw map[string]interface{}, key string) string {

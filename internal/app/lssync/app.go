@@ -156,6 +156,10 @@ USAGE:
 			fromServer = append(fromServer, explicitSourceHosts...)
 			toServer = append(toServer, targetSpec.Hosts...)
 		case isFromInRemote && isToRemote:
+			if len(names) == 0 {
+				fmt.Fprintln(os.Stderr, "No servers matched the current config conditions.")
+				os.Exit(1)
+			}
 			fromList := new(list.ListInfo)
 			fromList.Prompt = "lssync(from)>>"
 			fromList.NameList = names
@@ -164,7 +168,7 @@ USAGE:
 			fromList.View()
 			fromServer = fromList.SelectName
 			if len(fromServer) == 0 || fromServer[0] == "ServerName" {
-				fmt.Fprintln(os.Stderr, "Server not selected.")
+				fmt.Fprintln(os.Stderr, "Selection cancelled.")
 				os.Exit(1)
 			}
 
@@ -176,10 +180,14 @@ USAGE:
 			toList.View()
 			toServer = toList.SelectName
 			if len(toServer) == 0 || toServer[0] == "ServerName" {
-				fmt.Fprintln(os.Stderr, "Server not selected.")
+				fmt.Fprintln(os.Stderr, "Selection cancelled.")
 				os.Exit(1)
 			}
 		default:
+			if len(names) == 0 {
+				fmt.Fprintln(os.Stderr, "No servers matched the current config conditions.")
+				os.Exit(1)
+			}
 			l := new(list.ListInfo)
 			l.Prompt = "lssync>>"
 			l.NameList = names
@@ -188,7 +196,7 @@ USAGE:
 			l.View()
 			selected = l.SelectName
 			if len(selected) == 0 || selected[0] == "ServerName" {
-				fmt.Fprintln(os.Stderr, "Server not selected.")
+				fmt.Fprintln(os.Stderr, "Selection cancelled.")
 				os.Exit(1)
 			}
 

@@ -60,6 +60,8 @@ USAGE:
 		cli.StringFlag{Name: "m", Usage: "NFS Reverse Dynamic forward mode. Specify a `port:/path/to/local`."},
 		cli.BoolFlag{Name: "hold", Usage: "keep command panes after remote command exits."},
 		cli.BoolFlag{Name: "allow-layout-change", Usage: "allow opening new pages/panes even in command mode."},
+		cli.BoolFlag{Name: "localrc", Usage: "use local bashrc shell."},
+		cli.BoolFlag{Name: "not-localrc", Usage: "not use local bashrc shell."},
 		cli.BoolFlag{Name: "list,l", Usage: "print server list from config."},
 		cli.BoolFlag{Name: "help,h", Usage: "print this help"},
 	}
@@ -100,6 +102,8 @@ USAGE:
 		}
 		forwardConfig := mux.SessionOptions{
 			ControlMasterOverride: controlMasterOverride,
+			IsBashrc:              c.Bool("localrc"),
+			IsNotBashrc:           c.Bool("not-localrc"),
 		}
 
 		var forwards []*conf.PortForward

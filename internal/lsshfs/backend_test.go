@@ -160,8 +160,13 @@ func TestUnmountCommands(t *testing.T) {
 			target: "/mnt/test",
 			want: []CommandSpec{
 				{Name: "fusermount3", Args: []string{"-u", "/mnt/test"}},
+				{Name: "fusermount3", Args: []string{"-u", "-z", "/mnt/test"}},
 				{Name: "fusermount", Args: []string{"-u", "/mnt/test"}},
+				{Name: "fusermount", Args: []string{"-u", "-z", "/mnt/test"}},
 				{Name: "umount", Args: []string{"/mnt/test"}},
+				{Name: "umount", Args: []string{"-l", "/mnt/test"}},
+				{Name: "umount", Args: []string{"-f", "/mnt/test"}},
+				{Name: "umount", Args: []string{"-l", "-f", "/mnt/test"}},
 			},
 		},
 		{
@@ -169,6 +174,8 @@ func TestUnmountCommands(t *testing.T) {
 			target: "/mnt/test",
 			want: []CommandSpec{
 				{Name: "umount", Args: []string{"/mnt/test"}},
+				{Name: "umount", Args: []string{"-f", "/mnt/test"}},
+				{Name: "diskutil", Args: []string{"unmount", "force", "/mnt/test"}},
 			},
 		},
 		{

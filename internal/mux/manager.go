@@ -423,25 +423,40 @@ func (m *Manager) addPanesToCurrentPage(hosts []string, direction int) error {
 	if m.currentPage == nil {
 		return m.createPage(hosts)
 	}
-	if len(hosts) > 1 {
-		for _, host := range hosts {
-			p := m.newPendingPane(host)
-			m.currentPage.panes = append(m.currentPage.panes, p)
-			m.currentPage.focus = p
-			m.startPaneConnect(m.currentPage, p)
-		}
-		m.currentPage.layout = buildBalancedLayout(m.currentPage.panes, direction)
+	if len(hosts) == 0 {
 		return nil
 	}
 
+	newPanes := make([]*pane, 0, len(hosts))
 	for _, host := range hosts {
 		p := m.newPendingPane(host)
-		if !m.currentPage.layout.split(m.currentPage.focus, p, direction) {
-			if p.term != nil {
-				_ = p.term.Close()
+		newPanes = append(newPanes, p)
+	}
+
+	if m.currentPage.layout == nil {
+		if len(newPanes) == 1 {
+			m.currentPage.layout = &layoutNode{pane: newPanes[0]}
+		} else {
+			m.currentPage.layout = buildBalancedLayout(newPanes, direction)
+		}
+	} else {
+		var nextLayout *layoutNode
+		if len(newPanes) == 1 {
+			nextLayout = &layoutNode{pane: newPanes[0]}
+		} else {
+			nextLayout = buildBalancedLayout(newPanes, direction)
+		}
+		if !m.currentPage.layout.splitLayout(m.currentPage.focus, nextLayout, direction) {
+			for _, p := range newPanes {
+				if p.term != nil {
+					_ = p.term.Close()
+				}
 			}
 			return fmt.Errorf("focused pane not found")
 		}
+	}
+
+	for _, p := range newPanes {
 		m.currentPage.panes = append(m.currentPage.panes, p)
 		m.currentPage.focus = p
 		m.startPaneConnect(m.currentPage, p)

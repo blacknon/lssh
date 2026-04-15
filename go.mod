@@ -54,9 +54,7 @@ require (
 	github.com/blacknon/go-sshproc v0.1.1
 	github.com/blacknon/mview v0.1.5
 	github.com/c9s/goprocinfo v0.0.0-20210130143923-c95fcf8c64a8
-	github.com/cyphar/filepath-securejoin v0.6.1
 	github.com/gdamore/tcell/v2 v2.9.0
-	github.com/go-git/go-billy/v5 v5.8.0
 	github.com/jackpal/gateway v1.1.1
 	github.com/rivo/tview v0.0.0-20241227133733-17b7edb88c57
 	google.golang.org/api v0.275.0
@@ -86,11 +84,13 @@ require (
 	github.com/clipperhouse/uax29/v2 v2.7.0 // indirect
 	github.com/cpuguy83/go-md2man/v2 v2.0.7 // indirect
 	github.com/creack/pty v1.1.24 // indirect
+	github.com/cyphar/filepath-securejoin v0.6.1 // indirect
 	github.com/dylibso/observe-sdk/go v0.0.0-20240828172851-9145d8ad07e1 // indirect
 	github.com/extism/go-sdk v1.7.1 // indirect
 	github.com/felixge/httpsnoop v1.0.4 // indirect
 	github.com/gdamore/encoding v1.0.1 // indirect
 	github.com/geoffgarside/ber v1.2.0 // indirect
+	github.com/go-git/go-billy/v5 v5.8.0 // indirect
 	github.com/go-logr/logr v1.4.3 // indirect
 	github.com/go-logr/stdr v1.2.2 // indirect
 	github.com/gobwas/glob v0.2.3 // indirect

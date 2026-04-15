@@ -151,6 +151,10 @@ USAGE:
 				selected = hosts
 			}
 		} else {
+			if len(names) == 0 {
+				fmt.Fprintln(os.Stderr, "No servers matched the current config conditions.")
+				os.Exit(1)
+			}
 			// View List And Get Select Line
 			l := new(list.ListInfo)
 			l.Prompt = "lsmon>>"
@@ -160,6 +164,10 @@ USAGE:
 
 			l.View()
 			selected = l.SelectName
+			if len(selected) == 0 {
+				fmt.Fprintln(os.Stderr, "Selection cancelled.")
+				os.Exit(1)
+			}
 			if selected[0] == "ServerName" {
 				fmt.Fprintln(os.Stderr, "Server not selected.")
 				os.Exit(1)
