@@ -68,6 +68,7 @@ func decodeConfigFile(path string, c *Config) error {
 	}
 
 	applyMatchMetadata(c, md)
+	applyProviderMatchMetadata(c, md)
 	return nil
 }
 
@@ -83,6 +84,11 @@ func decodeYAMLConfigFile(path string, c *Config) error {
 
 	return applyYAMLMatchMetadata(data, c)
 }
+
+const (
+	providerMatchOrderKey           = "__lssh_match_order"
+	providerMatchPriorityDefinedKey = "__lssh_match_priority_defined"
+)
 
 func applyMatchMetadata(c *Config, md toml.MetaData) {
 	order := 0
@@ -115,6 +121,51 @@ func applyMatchMetadata(c *Config, md toml.MetaData) {
 
 		serverConf.Match[branchName] = matchConf
 		c.Server[serverName] = serverConf
+	}
+}
+
+func applyProviderMatchMetadata(c *Config, md toml.MetaData) {
+	order := 0
+	for _, key := range md.Keys() {
+		if len(key) < 4 || key[0] != "provider" || key[2] != "match" {
+			continue
+		}
+
+		providerName := key[1]
+		branchName := key[3]
+
+		providerConf, ok := c.Provider[providerName]
+		if !ok {
+			continue
+		}
+
+		matchRaw, ok := providerConf["match"]
+		if !ok {
+			continue
+		}
+
+		matchMap, ok := matchRaw.(map[string]interface{})
+		if !ok {
+			continue
+		}
+
+		branchRaw, ok := matchMap[branchName]
+		if !ok {
+			continue
+		}
+
+		branchMap, ok := branchRaw.(map[string]interface{})
+		if !ok {
+			continue
+		}
+
+		if _, exists := branchMap[providerMatchOrderKey]; !exists {
+			order++
+			branchMap[providerMatchOrderKey] = order
+		}
+		if md.IsDefined("provider", providerName, "match", branchName, "priority") {
+			branchMap[providerMatchPriorityDefinedKey] = true
+		}
 	}
 }
 
@@ -161,6 +212,10 @@ func applyYAMLMatchMetadata(data []byte, c *Config) error {
 		return nil
 	}
 
+	if err := applyYAMLProviderMatchMetadata(root, c); err != nil {
+		return err
+	}
+
 	serversNode := yamlMapValue(root, "server")
 	if serversNode == nil || serversNode.Kind != yaml.MappingNode {
 		return nil
@@ -204,6 +259,67 @@ func applyYAMLMatchMetadata(data []byte, c *Config) error {
 		}
 
 		c.Server[serverName] = serverConf
+	}
+
+	return nil
+}
+
+func applyYAMLProviderMatchMetadata(root *yaml.Node, c *Config) error {
+	providersNode := yamlMapValue(root, "provider")
+	if providersNode == nil || providersNode.Kind != yaml.MappingNode {
+		return nil
+	}
+
+	order := 0
+	for i := 0; i+1 < len(providersNode.Content); i += 2 {
+		providerName := providersNode.Content[i].Value
+		providerNode := providersNode.Content[i+1]
+		if providerNode.Kind != yaml.MappingNode {
+			continue
+		}
+
+		matchNode := yamlMapValue(providerNode, "match")
+		if matchNode == nil || matchNode.Kind != yaml.MappingNode {
+			continue
+		}
+
+		providerConf, ok := c.Provider[providerName]
+		if !ok {
+			continue
+		}
+
+		matchRaw, ok := providerConf["match"]
+		if !ok {
+			continue
+		}
+
+		matchMap, ok := matchRaw.(map[string]interface{})
+		if !ok {
+			continue
+		}
+
+		for j := 0; j+1 < len(matchNode.Content); j += 2 {
+			branchName := matchNode.Content[j].Value
+			branchNode := matchNode.Content[j+1]
+
+			branchRaw, ok := matchMap[branchName]
+			if !ok {
+				continue
+			}
+
+			branchMap, ok := branchRaw.(map[string]interface{})
+			if !ok {
+				continue
+			}
+
+			if _, exists := branchMap[providerMatchOrderKey]; !exists {
+				order++
+				branchMap[providerMatchOrderKey] = order
+			}
+			if yamlMapHasKey(branchNode, "priority") {
+				branchMap[providerMatchPriorityDefinedKey] = true
+			}
+		}
 	}
 
 	return nil

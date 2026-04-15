@@ -23,21 +23,40 @@ func main() {
 	}
 
 	switch req.Method {
+	case providerapi.MethodPluginDescribe:
+		_ = providerbuiltin.WriteResponse(req, providerapi.PluginDescribeResult{
+			Name:            "provider-inventory-proxmox",
+			Capabilities:    []string{"inventory"},
+			Methods:         []string{providerapi.MethodPluginDescribe, providerapi.MethodHealthCheck, providerapi.MethodInventoryList},
+			ProtocolVersion: providerapi.Version,
+		}, nil)
 	case providerapi.MethodInventoryList:
 		var params providerapi.InventoryListParams
 		if err := decodeParams(req.Params, &params); err != nil {
-			_ = providerbuiltin.WriteError(err.Error())
+			_ = providerbuiltin.WriteErrorResponse(req, "invalid_params", err.Error())
 			os.Exit(1)
 		}
 
 		servers, err := listProxmox(params.Config)
 		if err != nil {
-			_ = providerbuiltin.WriteError(err.Error())
+			_ = providerbuiltin.WriteErrorResponse(req, "inventory_failed", err.Error())
 			os.Exit(1)
 		}
-		_ = providerbuiltin.WriteResult(providerapi.InventoryListResult{Servers: servers})
+		_ = providerbuiltin.WriteResponse(req, providerapi.InventoryListResult{Servers: servers}, nil)
+	case providerapi.MethodHealthCheck:
+		var params providerapi.HealthCheckParams
+		if err := decodeParams(req.Params, &params); err != nil {
+			_ = providerbuiltin.WriteErrorResponse(req, "invalid_params", err.Error())
+			os.Exit(1)
+		}
+		result, err := proxmoxHealthCheck(params.Config)
+		if err != nil {
+			_ = providerbuiltin.WriteErrorResponse(req, "health_check_failed", err.Error())
+			os.Exit(1)
+		}
+		_ = providerbuiltin.WriteResponse(req, result, nil)
 	default:
-		_ = providerbuiltin.WriteError(fmt.Sprintf("unsupported method %q", req.Method))
+		_ = providerbuiltin.WriteErrorResponse(req, "unsupported_method", fmt.Sprintf("unsupported method %q", req.Method))
 		os.Exit(1)
 	}
 }
@@ -439,6 +458,28 @@ func proxmoxBool(config map[string]interface{}, key string) bool {
 		}
 	}
 	return false
+}
+
+func proxmoxHealthCheck(config map[string]interface{}) (providerapi.HealthCheckResult, error) {
+	baseURL, err := proxmoxBaseURL(config)
+	if err != nil {
+		return providerapi.HealthCheckResult{}, err
+	}
+
+	client := proxmoxHTTPClient(config)
+	headers, err := proxmoxAuthHeaders(client, baseURL, config)
+	if err != nil {
+		return providerapi.HealthCheckResult{}, err
+	}
+
+	if _, err := proxmoxAPIGet(client, baseURL, "/version", headers); err != nil {
+		return providerapi.HealthCheckResult{}, err
+	}
+
+	return providerapi.HealthCheckResult{
+		OK:      true,
+		Message: "proxmox inventory provider can access the API",
+	}, nil
 }
 
 func stringSet(values []string) map[string]bool {

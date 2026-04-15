@@ -18,63 +18,191 @@ Typical sources include:
 - CMDB-like systems
 - internal infrastructure APIs
 
-The provider should return enough metadata for downstream matching and templating, but should stay focused on discovery rather than connection execution.
+## Inventory JSON API
 
-## What Inventory Providers Should Do
+Inventory providers use the common provider envelope described in [../README.md](../README.md).
 
-- Discover targets from an external system.
-- Convert those targets into `server`-like records.
-- Attach metadata used by:
-  - `provider.<name>.match.*`
-  - `note_template` and `note_append`
-  - template fields such as `addr_template` or `server_name_template`
-- Support filtering that is native to the inventory source when it improves performance or clarity.
-- Return useful errors when authentication, permissions, or API access fail.
+### Required Methods
 
-## What Inventory Providers Should Not Do
+- `inventory.list`
 
-- Resolve secret references that belong in `secret` providers.
-- Implicitly choose a different transport model without making that design explicit.
-- Depend on local helper commands unless there is no reasonable API/SDK path.
-- Hardcode command-specific assumptions for `lssh`, `lscp`, `lsshfs`, and other callers.
+### Recommended Methods
 
-## Output Expectations
+- `plugin.describe`
+- `health.check`
 
-An inventory provider should aim to return:
+## `inventory.list`
 
-- stable server names
-- connectable address information when available
-- metadata that helps later matching
-- notes or source hints when those improve operator understanding
+Request:
 
-The most important requirement is that the returned data be predictable enough for users to write durable `match` rules around it.
+```json
+{
+  "version": "v1",
+  "method": "inventory.list",
+  "params": {
+    "provider": "proxmox",
+    "config": {}
+  }
+}
+```
 
-## Filtering Strategy
+Current required request fields:
 
-Filtering can exist at multiple layers.
+- `provider`
+- `config`
 
-- In the provider itself
-  - Useful when the upstream API can narrow results efficiently.
-- In `provider.<name>.when`
-  - Useful when the whole provider should be skipped based on client-side conditions.
-- In `provider.<name>.match.*`
-  - Useful when the inventory result is valid, but SSH-side fields need per-target adjustment.
+Recommended future-compatible request fields:
 
-As a rule:
+- `context`
+  - optional client-side context if inventory evaluation ever needs it
+- `cursor`
+  - optional pagination token
+- `limit`
+  - optional max result size
 
-- use provider-native filters for inventory size and API efficiency
-- use `when` to decide whether the provider should run at all
-- use `match` to customize the generated hosts
+Result:
 
-## Design Notes For New Inventory Providers
+```json
+{
+  "servers": [
+    {
+      "name": "pve:sv-pve01:vm-gitlab-runner1",
+      "config": {
+        "addr": "vm-gitlab-runner1.blckn",
+        "note": "proxmox sv-pve01 vmid=10001"
+      },
+      "meta": {
+        "node": "sv-pve01",
+        "vmid": "10001",
+        "type": "qemu",
+        "status": "running"
+      }
+    }
+  ]
+}
+```
 
-When designing a new inventory provider, it helps to answer these questions first:
+### `servers[]` Fields
 
-1. What is the authoritative source of target truth?
-2. What target identifiers are stable over time?
-3. Which metadata fields are useful for `match` and human-readable notes?
-4. Can the address be determined directly, or must it be templated?
-5. Which filters belong at the API layer, and which belong in config?
-6. What failure modes should be surfaced clearly to users?
+- `name`
+  - required stable server name
+- `config`
+  - optional `server`-compatible config fragment
+- `meta`
+  - optional string map for matching, templating, and connector decisions
 
-Keeping those decisions explicit tends to make the provider easier to configure and easier to debug.
+Recommended future-compatible fields:
+
+- `id`
+  - stable upstream resource identifier
+- `labels`
+  - optional string map for user-facing tags
+- `connector`
+  - optional connector hint only if a future connector contract needs it
+
+## Inventory Metadata Guidance
+
+Inventory metadata is especially important because it may be consumed by:
+
+- `provider.<name>.match.*`
+- note templates
+- future connector providers
+
+When multiple `provider.<name>.match.*` branches match the same generated host, they are applied:
+
+- first by smaller `priority`
+- then by declaration order in the config file
+
+This matches the ordering model used by `server.<name>.match.*`.
+
+Good metadata fields are:
+
+- stable
+- string-oriented
+- directly useful for matching
+- clearly sourced from the upstream system
+
+Examples:
+
+- `instance_id`
+- `region`
+- `zone`
+- `node`
+- `vmid`
+- `status`
+- `os_family`
+
+## Partial Success Behavior
+
+Inventory providers may encounter partial failures.
+
+Examples:
+
+- one VM detail call fails but the rest of inventory is still usable
+- one zone or region is unavailable
+- optional metadata enrichment fails
+
+Recommended behavior:
+
+- return `result` if the overall inventory is still usable
+- attach `warnings` in the response envelope when supported
+- write diagnostic details to stderr for current compatibility
+- return `error` only when the provider cannot produce a meaningful inventory result
+
+## Current Plugin Fit
+
+Current inventory plugins already fit the core shape of this API well.
+
+They currently:
+
+- implement `inventory.list`
+- implement `plugin.describe`
+- implement `health.check`
+- return `servers[].name`
+- return `servers[].config`
+- return `servers[].meta`
+
+They do not yet:
+
+- return protocol-level `warnings`
+
+## Migration Guidance For Existing Plugins
+
+### `provider-inventory-aws-ec2`
+
+Current fit:
+
+- good fit for `inventory.list`
+- metadata already useful for future connector use
+
+Recommended updates:
+
+- add `plugin.describe`
+- add `health.check`
+- define stable warning/error codes
+
+### `provider-inventory-gcp-compute`
+
+Current fit:
+
+- good fit for `inventory.list`
+- metadata already useful for match rules
+
+Recommended updates:
+
+- add `plugin.describe`
+- add `health.check`
+- define stable warning/error codes
+
+### `provider-inventory-proxmox`
+
+Current fit:
+
+- good fit for `inventory.list`
+- already demonstrates partial enrichment and metadata-driven filtering
+
+Recommended updates:
+
+- add `plugin.describe`
+- add `health.check`
+- move non-fatal stderr warnings into protocol `warnings` when the core supports them

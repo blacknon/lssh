@@ -19,21 +19,44 @@ func main() {
 	}
 
 	switch req.Method {
+	case providerapi.MethodPluginDescribe:
+		_ = providerbuiltin.WriteResponse(req, providerapi.PluginDescribeResult{
+			Name:            "provider-secret-bitwarden",
+			Capabilities:    []string{"secret"},
+			Methods:         []string{providerapi.MethodPluginDescribe, providerapi.MethodHealthCheck, providerapi.MethodSecretGet},
+			ProtocolVersion: providerapi.Version,
+		}, nil)
 	case providerapi.MethodSecretGet:
 		var params providerapi.SecretGetParams
 		if err := decodeParams(req.Params, &params); err != nil {
-			_ = providerbuiltin.WriteError(err.Error())
+			_ = providerbuiltin.WriteErrorResponse(req, "invalid_params", err.Error())
 			os.Exit(1)
 		}
 
 		value, err := getSecret(params)
 		if err != nil {
-			_ = providerbuiltin.WriteError(err.Error())
+			_ = providerbuiltin.WriteErrorResponse(req, "secret_get_failed", err.Error())
 			os.Exit(1)
 		}
-		_ = providerbuiltin.WriteResult(providerapi.SecretGetResult{Value: value})
+		resultType := "text"
+		if field := splitBitwardenField(params.Ref); field == "password" || field == "value" || field == "" {
+			resultType = "password"
+		}
+		_ = providerbuiltin.WriteResponse(req, providerapi.SecretGetResult{Value: value, Type: resultType}, nil)
+	case providerapi.MethodHealthCheck:
+		var params providerapi.HealthCheckParams
+		if err := decodeParams(req.Params, &params); err != nil {
+			_ = providerbuiltin.WriteErrorResponse(req, "invalid_params", err.Error())
+			os.Exit(1)
+		}
+		result, err := bitwardenHealthCheck(params.Config)
+		if err != nil {
+			_ = providerbuiltin.WriteErrorResponse(req, "health_check_failed", err.Error())
+			os.Exit(1)
+		}
+		_ = providerbuiltin.WriteResponse(req, result, nil)
 	default:
-		_ = providerbuiltin.WriteError(fmt.Sprintf("unsupported method %q", req.Method))
+		_ = providerbuiltin.WriteErrorResponse(req, "unsupported_method", fmt.Sprintf("unsupported method %q", req.Method))
 		os.Exit(1)
 	}
 }
@@ -98,6 +121,11 @@ func splitBitwardenRef(ref string) (string, string) {
 	return ref, "value"
 }
 
+func splitBitwardenField(ref string) string {
+	_, field := splitBitwardenRef(ref)
+	return field
+}
+
 func bitwardenEndpoints(config map[string]interface{}) (*string, *string) {
 	server, err := providerbuiltin.ResolveConfigValue(config, "server")
 	if err == nil && server != "" {
@@ -121,4 +149,36 @@ func bitwardenEndpoints(config map[string]interface{}) (*string, *string) {
 		identityURL = &v
 	}
 	return apiURL, identityURL
+}
+
+func bitwardenHealthCheck(config map[string]interface{}) (providerapi.HealthCheckResult, error) {
+	accessToken, err := providerbuiltin.ResolveConfigValue(config, "token")
+	if err != nil {
+		return providerapi.HealthCheckResult{}, err
+	}
+	if accessToken == "" {
+		accessToken, err = providerbuiltin.ResolveConfigValue(config, "session")
+		if err != nil {
+			return providerapi.HealthCheckResult{}, err
+		}
+	}
+	if accessToken == "" {
+		return providerapi.HealthCheckResult{}, fmt.Errorf("provider.bitwarden.token is required for SDK authentication")
+	}
+
+	apiURL, identityURL := bitwardenEndpoints(config)
+	client, err := sdk.NewBitwardenClient(apiURL, identityURL)
+	if err != nil {
+		return providerapi.HealthCheckResult{}, err
+	}
+	defer client.Close()
+
+	if err := client.AccessTokenLogin(accessToken, nil); err != nil {
+		return providerapi.HealthCheckResult{}, err
+	}
+
+	return providerapi.HealthCheckResult{
+		OK:      true,
+		Message: "bitwarden secret provider authenticated successfully",
+	}, nil
 }

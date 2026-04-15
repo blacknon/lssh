@@ -95,6 +95,101 @@ key = "~/.ssh/aws-web.pem"
 	}
 }
 
+func TestReadInventoryProvidersMatchRespectsPriorityThenDeclarationOrderTOML(t *testing.T) {
+	dir := t.TempDir()
+	providerPath := filepath.Join(dir, "lssh-provider-fake-inventory")
+	script := `#!/bin/sh
+cat >/dev/null
+printf '%s' '{"version":"v1","result":{"servers":[{"name":"aws:web-1","config":{"addr":"10.0.0.10"}}]}}'
+`
+	if err := os.WriteFile(providerPath, []byte(script), 0o755); err != nil {
+		t.Fatalf("write provider: %v", err)
+	}
+
+	configPath := filepath.Join(dir, "lssh.toml")
+	body := `
+[providers]
+paths = ["` + providerPath + `"]
+
+[provider.aws]
+plugin = "lssh-provider-fake-inventory"
+capabilities = ["inventory"]
+user = "ubuntu"
+key = "~/.ssh/test.pem"
+
+[provider.aws.match.second]
+priority = 1
+name_in = ["aws:web-*"]
+addr = "10.0.0.52"
+
+[provider.aws.match.first]
+priority = 1
+name_in = ["aws:web-*"]
+addr = "10.0.0.51"
+`
+	if err := os.WriteFile(configPath, []byte(body), 0o600); err != nil {
+		t.Fatalf("write config: %v", err)
+	}
+
+	cfg := Read(configPath)
+	server, ok := cfg.Server["aws:web-1"]
+	if !ok {
+		t.Fatalf("inventory server not loaded: %#v", cfg.Server)
+	}
+	if server.Addr != "10.0.0.51" {
+		t.Fatalf("addr = %q, want 10.0.0.51", server.Addr)
+	}
+}
+
+func TestReadInventoryProvidersMatchRespectsPriorityThenDeclarationOrderYAML(t *testing.T) {
+	dir := t.TempDir()
+	providerPath := filepath.Join(dir, "lssh-provider-fake-inventory")
+	script := `#!/bin/sh
+cat >/dev/null
+printf '%s' '{"version":"v1","result":{"servers":[{"name":"aws:web-1","config":{"addr":"10.0.0.10"}}]}}'
+`
+	if err := os.WriteFile(providerPath, []byte(script), 0o755); err != nil {
+		t.Fatalf("write provider: %v", err)
+	}
+
+	configPath := filepath.Join(dir, "lssh.yaml")
+	body := `
+providers:
+  paths:
+    - ` + providerPath + `
+provider:
+  aws:
+    plugin: lssh-provider-fake-inventory
+    capabilities:
+      - inventory
+    user: ubuntu
+    key: ~/.ssh/test.pem
+    match:
+      second:
+        priority: 1
+        name_in:
+          - aws:web-*
+        addr: 10.0.0.52
+      first:
+        priority: 1
+        name_in:
+          - aws:web-*
+        addr: 10.0.0.51
+`
+	if err := os.WriteFile(configPath, []byte(body), 0o600); err != nil {
+		t.Fatalf("write config: %v", err)
+	}
+
+	cfg := Read(configPath)
+	server, ok := cfg.Server["aws:web-1"]
+	if !ok {
+		t.Fatalf("inventory server not loaded: %#v", cfg.Server)
+	}
+	if server.Addr != "10.0.0.51" {
+		t.Fatalf("addr = %q, want 10.0.0.51", server.Addr)
+	}
+}
+
 func TestResolveSecretRef(t *testing.T) {
 	dir := t.TempDir()
 	providerPath := filepath.Join(dir, "lssh-provider-fake-secret")

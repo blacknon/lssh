@@ -7,119 +7,319 @@ The `provider` directory contains external provider implementations used by `lss
 Providers are grouped by capability:
 
 - [`inventory`](./inventory/README.md): generate `server` entries from cloud or API inventories
-- [`connecter`](./connecter/README.md): define or mediate how a resolved `server` can actually be connected
+- [`connector`](./connector/README.md): define or mediate how a resolved `server` can actually be connected
 - [`secret`](./secret/README.md): resolve `*_ref` values just before connect
 
 Each provider is a standalone executable that communicates with `lssh` over JSON via stdin/stdout.
 
 A single provider implementation may support one capability or multiple capabilities.
-For example, one executable may expose only `inventory`, while another may expose both `inventory` and `connecter`.
+For example, one executable may expose only `inventory`, while another may expose both `inventory` and `connector`.
 
-## Design Overview
+## Design Goals
 
-The provider layer exists to keep `lssh` itself small while allowing environment-specific behavior to be added outside the core commands.
+The provider protocol should be:
 
-The high-level split is:
+- extensible
+  - new methods and optional fields can be added without breaking older plugins
+- integrated
+  - `inventory`, `connector`, and `secret` use one common JSON envelope
+- capability-oriented
+  - each plugin can declare what it supports at runtime
+- debuggable
+  - errors should be machine-readable and helpful to users
+- backward-compatible
+  - current `inventory.list` and `secret.get` plugins should be migratable with small changes
 
-- `inventory`
-  - Expands dynamic infrastructure into `server` candidates.
-  - Examples: cloud instances, Proxmox guests, virtual machines discovered from an API.
-- `connecter`
-  - Describes how `lssh` should connect to an already resolved server.
-  - Intended for cases where the target is not a normal SSH host, or where only part of the command set is available.
-- `secret`
-  - Resolves credentials or secure values as late as possible, ideally just before use.
+## Unified JSON Protocol
 
-These categories are intentionally separate.
+### Transport
 
-- `inventory` answers: "what targets exist?"
-- `connecter` answers: "how can this target be used?"
-- `secret` answers: "how do we obtain the sensitive values needed to use it?"
+- `lssh` sends exactly one JSON request to provider stdin
+- the provider writes exactly one JSON response to stdout
+- human-oriented logs should go to stderr
+- the provider process exit code should still indicate success or failure
+  - but stdout should contain a JSON response even on provider-reported errors when possible
 
-Keeping them separate avoids mixing target discovery, auth resolution, and transport behavior into one provider type.
+### Common Request Envelope
 
-At the same time, the capability split is a design boundary, not necessarily a binary-per-capability rule.
-If it improves implementation clarity, one provider executable may implement multiple capability families as long as the runtime contract stays explicit.
+```json
+{
+  "version": "v1",
+  "id": "optional-request-id",
+  "method": "inventory.list",
+  "params": {}
+}
+```
 
-## Shared Principles
+Fields:
 
-All provider types should follow these design principles:
+- `version`
+  - protocol version string
+- `id`
+  - optional request id for tracing and future multiplexing
+- `method`
+  - provider method name
+- `params`
+  - method-specific object
 
-- Keep the contract small and explicit.
-  - Providers should expose only the minimum data needed for the caller to decide the next step.
-- Prefer API or SDK based access over shelling out to local commands.
-  - This is especially important for cloud and on-prem inventory/connecter providers.
-- Return structured data first.
-  - `lssh` should avoid parsing human-oriented output when machine-readable fields are available.
-- Be capability-driven.
-  - A provider should clearly indicate what it can and cannot do.
-- Fail in a debuggable way.
-  - Errors should help the user identify whether the problem is credentials, network reachability, permissions, or provider-side limitations.
-- Preserve cross-command consistency.
-  - Shared provider behavior should work predictably across `lssh`, `lscp`, `lsftp`, `lssync`, `lsshfs`, `lsmux`, and related commands.
+### Common Response Envelope
 
-## Expected Boundaries
+```json
+{
+  "version": "v1",
+  "id": "optional-request-id",
+  "result": {},
+  "error": null,
+  "warnings": []
+}
+```
 
-### Inventory Provider Boundary
+Fields:
 
-An inventory provider should focus on discovery and metadata attachment.
+- `version`
+  - protocol version string
+- `id`
+  - optional echo of request id
+- `result`
+  - method-specific result object
+- `error`
+  - machine-readable error object
+- `warnings`
+  - optional non-fatal warnings
 
-It should:
+Exactly one of `result` or `error` should be set.
 
-- enumerate candidate targets
-- attach metadata that can be consumed by `match`, `when`, templates, and notes
-- avoid making assumptions about which command will use the target
+### Common Error Object
 
-It should not:
+```json
+{
+  "code": "auth_failed",
+  "message": "token is invalid",
+  "details": {
+    "provider": "proxmox"
+  },
+  "retryable": false
+}
+```
 
-- decide the final transport behavior for unrelated commands
-- fetch secrets that belong in `secret`
-- silently embed connector-specific behavior into generic `server` fields unless that behavior is clearly documented
+Recommended fields:
 
-### Connecter Provider Boundary
+- `code`
+  - stable machine-readable error code
+- `message`
+  - human-readable summary
+- `details`
+  - optional method-specific structured details
+- `retryable`
+  - optional hint for retry behavior
 
-A connecter provider is intended for cases where "SSH to host:port" is not enough to describe the actual connection model.
+### Common Warning Object
 
-Examples:
+```json
+{
+  "code": "partial_data",
+  "message": "guest ostype could not be fetched for qemu/10082"
+}
+```
 
-- API-backed exec/session access
-- serial/console style access
-- environments where command execution is possible but file transfer is not
-- environments where shell login is possible but mount or SFTP is not
+Warnings are optional and should be used for partial success cases where returning `error` would be too strong.
 
-Its primary role is to describe capabilities and the connection path, not to rediscover inventory.
+## Common Methods
 
-In practice, a connecter provider may still depend on metadata originally produced by `inventory`.
-That dependency is acceptable as long as:
+### `plugin.describe`
 
-- the inventory-side metadata contract is explicit
-- the connecter-side behavior remains capability-oriented
-- the provider does not blur discovery and transport into undocumented side effects
+This method is the recommended runtime entry point for capability discovery.
 
-### Secret Provider Boundary
+Request:
 
-A secret provider should resolve a secret reference into a usable value close to execution time.
+```json
+{
+  "version": "v1",
+  "method": "plugin.describe",
+  "params": {}
+}
+```
 
-It should:
+Result:
 
-- resolve credentials, tokens, passwords, keys, or related values
-- keep secret handling localized
-- avoid leaking provider-specific secret semantics into unrelated config handling
+```json
+{
+  "name": "provider-inventory-proxmox",
+  "capabilities": ["inventory"],
+  "methods": ["plugin.describe", "health.check", "inventory.list"],
+  "protocol_version": "v1"
+}
+```
 
-It should not:
+Recommended result fields:
 
-- enumerate hosts
-- decide transport behavior
-- act as a general-purpose command runner
+- `name`
+- `capabilities`
+  - one or more of `inventory`, `connector`, `secret`
+- `methods`
+  - supported method names
+- `protocol_version`
+- `plugin_version`
+  - optional plugin build/version string
 
-## Recommended Evolution
+### `health.check`
 
-Current provider types already cover discovery and secret resolution well.
-If `connecter` is added in the future, the recommended rollout is:
+This method is recommended for preflight checks and diagnostics.
 
-1. Define the capability model first.
-2. Add documentation and config shape before runtime behavior.
-3. Start with read-only capability discovery.
-4. Introduce command-specific execution paths only after the supported/unsupported matrix is clear.
+Request:
 
-This keeps the implementation grounded in user-visible behavior instead of growing an overly broad abstraction too early.
+```json
+{
+  "version": "v1",
+  "method": "health.check",
+  "params": {
+    "provider": "proxmox",
+    "config": {}
+  }
+}
+```
+
+Result:
+
+```json
+{
+  "ok": true,
+  "message": "configuration looks valid"
+}
+```
+
+Recommended result fields:
+
+- `ok`
+- `message`
+- `checks`
+  - optional list of individual check results
+
+## Capability Boundaries
+
+### Inventory
+
+- discovers candidate targets
+- returns stable names, config fragments, and metadata
+- may be consumed later by `connector`
+
+### Connector
+
+- describes how a resolved target can actually be used
+- may depend on metadata produced by `inventory`
+- must not silently reimplement inventory discovery as an undocumented side effect
+
+### Secret
+
+- resolves secret references close to execution time
+- should not discover targets or define transport behavior
+
+## Compatibility Notes
+
+The current repository already has a minimal shared provider protocol in code:
+
+- request envelope with `version`, `method`, `params`
+- response envelope with `version`, `result`, `error`
+- implemented methods:
+  - `inventory.list`
+  - `secret.get`
+
+However, the current implementation does not yet expose the full recommended protocol above.
+
+Missing or partial pieces today:
+
+- no implemented `connector` methods
+- no core-side use of `plugin.describe`
+- no core-side use of `health.check`
+- `warnings` exist in the protocol shape but are not yet produced by current inventory/secret plugins
+
+## Current Plugin Fit And Migration Plan
+
+### Inventory Plugins
+
+Current plugins:
+
+- `provider-inventory-aws-ec2`
+- `provider-inventory-gcp-compute`
+- `provider-inventory-proxmox`
+
+Current fit:
+
+- already aligned with the common JSON envelope
+- already aligned with `inventory.list`
+- already return `servers[].name`, `servers[].config`, `servers[].meta`
+- partially aligned with the future design because metadata is already exposed
+
+Gaps:
+
+- no structured warning return
+  - warnings currently go to stderr in the Proxmox plugin
+- no explicit result pagination or cursor support
+
+Recommended migration:
+
+1. Add `plugin.describe` to each inventory plugin.
+2. Add `health.check` with cheap auth/config validation where possible.
+3. Keep `inventory.list` as-is for backward compatibility.
+4. Add optional `warnings` support for partial-success cases.
+5. Add optional pagination only if a provider needs it later.
+
+### Secret Plugins
+
+Current plugins:
+
+- `provider-secret-onepassword`
+- `provider-secret-bitwarden`
+- `provider-secret-os-keychain`
+- `provider-secret-custom-script`
+
+Current fit:
+
+- already aligned with the common JSON envelope
+- already aligned with `secret.get`
+- already accept provider config plus a reference string
+
+Gaps:
+
+- `SecretGetResult.type` is mostly unused
+- provider-specific error codes are now partially structured, but not yet normalized across all backends
+
+Recommended migration:
+
+1. Add `plugin.describe` to each secret plugin.
+2. Add `health.check` where backend login/config can be validated safely.
+3. Start populating `error.code` for stable failure classes.
+4. Populate `result.type` when the backend can identify a value type.
+
+Special note:
+
+- `provider-secret-os-keychain`
+  - currently shells out to the macOS `security` command
+  - outwardly it still follows the provider JSON contract
+  - if stricter backend abstraction is needed later, the internal implementation can be revisited without changing the outer protocol
+- `provider-secret-custom-script`
+  - already follows the provider JSON contract as an `lssh` plugin
+  - internally it delegates to an external command through env vars and stdout
+  - this is acceptable as an explicit escape hatch, but it should remain documented as a special-case backend
+
+### Connector Plugins
+
+Current fit:
+
+- no connector plugins exist yet
+
+Recommended migration:
+
+1. Implement `plugin.describe` first.
+2. Add a read-only connector method for capability discovery.
+3. Add operation-specific preparation methods after the capability model is stable.
+
+## Recommended Next Protocol Steps
+
+To evolve the current implementation without breaking existing users:
+
+1. Keep `inventory.list` and `secret.get` unchanged.
+2. Add `plugin.describe` to all plugins.
+3. Implement `health.check` in core and providers.
+4. Extend the response envelope with optional `warnings`, `details`, and `id`.
+5. Design `connector` methods after the runtime capability discovery path is in place.

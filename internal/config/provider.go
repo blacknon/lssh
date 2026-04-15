@@ -390,15 +390,9 @@ func providerInventoryMatches(raw map[string]interface{}) ([]providerInventoryMa
 		return nil, fmt.Errorf("match must be a table")
 	}
 
-	names := make([]string, 0, len(matchMap))
-	for name := range matchMap {
-		names = append(names, name)
-	}
-	sort.Strings(names)
-
-	result := make([]providerInventoryMatch, 0, len(names))
-	for idx, name := range names {
-		branchMap, ok := matchMap[name].(map[string]interface{})
+	result := make([]providerInventoryMatch, 0, len(matchMap))
+	for name, branch := range matchMap {
+		branchMap, ok := branch.(map[string]interface{})
 		if !ok {
 			return nil, fmt.Errorf("match.%s must be a table", name)
 		}
@@ -429,7 +423,7 @@ func providerInventoryMatches(raw map[string]interface{}) ([]providerInventoryMa
 			When:         when,
 			NoteTemplate: providerString(branchMap, "note_template"),
 			NoteAppend:   providerString(branchMap, "note_append"),
-			order:        idx + 1,
+			order:        providerMatchOrder(branchMap),
 		})
 	}
 
@@ -437,10 +431,25 @@ func providerInventoryMatches(raw map[string]interface{}) ([]providerInventoryMa
 		if result[i].Priority != result[j].Priority {
 			return result[i].Priority < result[j].Priority
 		}
-		return result[i].order < result[j].order
+		if result[i].order != result[j].order {
+			return result[i].order < result[j].order
+		}
+		return result[i].Name < result[j].Name
 	})
 
 	return result, nil
+}
+
+func providerMatchOrder(branchMap map[string]interface{}) int {
+	if branchMap == nil {
+		return 0
+	}
+	if raw, ok := branchMap[providerMatchOrderKey]; ok {
+		if value, ok := asInt64(raw); ok {
+			return int(value)
+		}
+	}
+	return 0
 }
 
 func decodeProviderInventoryWhen(raw interface{}) (providerInventoryMatchWhen, error) {

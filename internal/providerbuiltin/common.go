@@ -38,6 +38,25 @@ func WriteResult(v interface{}) error {
 	return err
 }
 
+func WriteResponse(req providerapi.Request, result interface{}, warnings []providerapi.Warning) error {
+	data, err := json.Marshal(struct {
+		Version  string                `json:"version"`
+		ID       string                `json:"id,omitempty"`
+		Result   interface{}           `json:"result,omitempty"`
+		Warnings []providerapi.Warning `json:"warnings,omitempty"`
+	}{
+		Version:  providerapi.Version,
+		ID:       req.ID,
+		Result:   result,
+		Warnings: warnings,
+	})
+	if err != nil {
+		return err
+	}
+	_, err = os.Stdout.Write(data)
+	return err
+}
+
 func WriteError(message string) error {
 	data, err := json.Marshal(struct {
 		Version string             `json:"version"`
@@ -45,6 +64,23 @@ func WriteError(message string) error {
 	}{
 		Version: providerapi.Version,
 		Error:   &providerapi.Error{Message: message},
+	})
+	if err != nil {
+		return err
+	}
+	_, err = os.Stdout.Write(data)
+	return err
+}
+
+func WriteErrorResponse(req providerapi.Request, code, message string) error {
+	data, err := json.Marshal(struct {
+		Version string             `json:"version"`
+		ID      string             `json:"id,omitempty"`
+		Error   *providerapi.Error `json:"error"`
+	}{
+		Version: providerapi.Version,
+		ID:      req.ID,
+		Error:   &providerapi.Error{Code: code, Message: message},
 	})
 	if err != nil {
 		return err

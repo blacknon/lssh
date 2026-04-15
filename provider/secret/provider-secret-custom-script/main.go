@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"strings"
 
 	"github.com/blacknon/lssh/internal/providerapi"
@@ -19,22 +20,23 @@ func main() {
 	}
 
 	switch req.Method {
+	case providerapi.MethodPluginDescribe:
+		_ = providerbuiltin.WriteResponse(req, providerapi.PluginDescribeResult{
+			Name:            "provider-secret-custom-script",
+			Capabilities:    []string{"secret"},
+			Methods:         []string{providerapi.MethodPluginDescribe, providerapi.MethodHealthCheck, providerapi.MethodSecretGet},
+			ProtocolVersion: providerapi.Version,
+		}, nil)
 	case providerapi.MethodSecretGet:
 		var params providerapi.SecretGetParams
 		if err := decodeParams(req.Params, &params); err != nil {
-			_ = providerbuiltin.WriteError(err.Error())
+			_ = providerbuiltin.WriteErrorResponse(req, "invalid_params", err.Error())
 			os.Exit(1)
 		}
 
-		command := providerbuiltin.StringSlice(params.Config, "command")
-		if len(command) == 0 {
-			path := providerbuiltin.String(params.Config, "path")
-			if path != "" {
-				command = []string{path}
-			}
-		}
-		if len(command) == 0 {
-			_ = providerbuiltin.WriteError("custom-script provider requires command or path")
+		command, err := customScriptCommand(params.Config)
+		if err != nil {
+			_ = providerbuiltin.WriteErrorResponse(req, "invalid_config", err.Error())
 			os.Exit(1)
 		}
 
@@ -47,13 +49,25 @@ func main() {
 		)
 		output, err := cmd.Output()
 		if err != nil {
-			_ = providerbuiltin.WriteError(err.Error())
+			_ = providerbuiltin.WriteErrorResponse(req, "secret_get_failed", err.Error())
 			os.Exit(1)
 		}
 
-		_ = providerbuiltin.WriteResult(providerapi.SecretGetResult{Value: strings.TrimRight(string(output), "\n")})
+		_ = providerbuiltin.WriteResponse(req, providerapi.SecretGetResult{Value: strings.TrimRight(string(output), "\n")}, nil)
+	case providerapi.MethodHealthCheck:
+		var params providerapi.HealthCheckParams
+		if err := decodeParams(req.Params, &params); err != nil {
+			_ = providerbuiltin.WriteErrorResponse(req, "invalid_params", err.Error())
+			os.Exit(1)
+		}
+		result, err := customScriptHealthCheck(params.Config)
+		if err != nil {
+			_ = providerbuiltin.WriteErrorResponse(req, "health_check_failed", err.Error())
+			os.Exit(1)
+		}
+		_ = providerbuiltin.WriteResponse(req, result, nil)
 	default:
-		_ = providerbuiltin.WriteError(fmt.Sprintf("unsupported method %q", req.Method))
+		_ = providerbuiltin.WriteErrorResponse(req, "unsupported_method", fmt.Sprintf("unsupported method %q", req.Method))
 		os.Exit(1)
 	}
 }
@@ -64,4 +78,38 @@ func decodeParams(raw interface{}, out interface{}) error {
 		return err
 	}
 	return json.Unmarshal(data, out)
+}
+
+func customScriptCommand(config map[string]interface{}) ([]string, error) {
+	command := providerbuiltin.StringSlice(config, "command")
+	if len(command) > 0 {
+		return command, nil
+	}
+
+	if path := providerbuiltin.String(config, "path"); path != "" {
+		return []string{path}, nil
+	}
+
+	return nil, fmt.Errorf("custom-script provider requires command or path")
+}
+
+func customScriptHealthCheck(config map[string]interface{}) (providerapi.HealthCheckResult, error) {
+	command, err := customScriptCommand(config)
+	if err != nil {
+		return providerapi.HealthCheckResult{}, err
+	}
+
+	target := command[0]
+	if strings.Contains(target, string(filepath.Separator)) {
+		if _, err := os.Stat(target); err != nil {
+			return providerapi.HealthCheckResult{}, err
+		}
+	} else if _, err := exec.LookPath(target); err != nil {
+		return providerapi.HealthCheckResult{}, err
+	}
+
+	return providerapi.HealthCheckResult{
+		OK:      true,
+		Message: "custom-script secret provider command is available",
+	}, nil
 }
