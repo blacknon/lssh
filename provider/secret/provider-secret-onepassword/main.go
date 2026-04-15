@@ -5,11 +5,22 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"strings"
 
 	onepassword "github.com/1password/onepassword-sdk-go"
 	"github.com/blacknon/lssh/internal/providerapi"
 	"github.com/blacknon/lssh/internal/providerbuiltin"
 )
+
+const (
+	onePasswordAuthModeAuto           = "auto"
+	onePasswordAuthModeServiceAccount = "service_account"
+	onePasswordAuthModeCLI            = "cli"
+)
+
+var runOnePasswordCLI = func(config map[string]interface{}, args ...string) ([]byte, error) {
+	return providerbuiltin.Run(onePasswordCLIPath(config), args...)
+}
 
 func main() {
 	req, err := providerbuiltin.ReadRequest()
@@ -66,14 +77,35 @@ func decodeParams(raw interface{}, out interface{}) error {
 }
 
 func getSecret(params providerapi.SecretGetParams) (string, error) {
-	token, err := providerbuiltin.ResolveConfigValue(params.Config, "token")
+	mode, err := onePasswordAuthMode(params.Config)
 	if err != nil {
 		return "", err
 	}
-	if token == "" {
-		return "", fmt.Errorf("provider.onepassword.token is required for SDK authentication")
-	}
 
+	switch mode {
+	case onePasswordAuthModeServiceAccount:
+		token, err := onePasswordToken(params.Config)
+		if err != nil {
+			return "", err
+		}
+		return getSecretWithSDK(token, params.Ref)
+	case onePasswordAuthModeCLI:
+		return getSecretWithCLI(params.Config, params.Ref)
+	case onePasswordAuthModeAuto:
+		token, err := providerbuiltin.ResolveConfigValue(params.Config, "token")
+		if err != nil {
+			return "", err
+		}
+		if token != "" {
+			return getSecretWithSDK(token, params.Ref)
+		}
+		return getSecretWithCLI(params.Config, params.Ref)
+	default:
+		return "", fmt.Errorf("unsupported auth_mode %q", mode)
+	}
+}
+
+func getSecretWithSDK(token, ref string) (string, error) {
 	client, err := onepassword.NewClient(
 		context.Background(),
 		onepassword.WithServiceAccountToken(token),
@@ -83,29 +115,115 @@ func getSecret(params providerapi.SecretGetParams) (string, error) {
 		return "", err
 	}
 
-	return client.Secrets().Resolve(context.Background(), params.Ref)
+	return client.Secrets().Resolve(context.Background(), ref)
 }
 
 func onePasswordHealthCheck(config map[string]interface{}) (providerapi.HealthCheckResult, error) {
-	token, err := providerbuiltin.ResolveConfigValue(config, "token")
+	mode, err := onePasswordAuthMode(config)
 	if err != nil {
 		return providerapi.HealthCheckResult{}, err
 	}
-	if token == "" {
-		return providerapi.HealthCheckResult{}, fmt.Errorf("provider.onepassword.token is required for SDK authentication")
-	}
 
-	_, err = onepassword.NewClient(
+	switch mode {
+	case onePasswordAuthModeServiceAccount:
+		token, err := onePasswordToken(config)
+		if err != nil {
+			return providerapi.HealthCheckResult{}, err
+		}
+		if err := onePasswordSDKHealthCheck(token); err != nil {
+			return providerapi.HealthCheckResult{}, err
+		}
+		return providerapi.HealthCheckResult{
+			OK:      true,
+			Message: "onepassword secret provider initialized successfully with service account auth",
+		}, nil
+	case onePasswordAuthModeCLI:
+		if err := onePasswordCLIHealthCheck(config); err != nil {
+			return providerapi.HealthCheckResult{}, err
+		}
+		return providerapi.HealthCheckResult{
+			OK:      true,
+			Message: "onepassword secret provider can use the op CLI session",
+		}, nil
+	case onePasswordAuthModeAuto:
+		token, err := providerbuiltin.ResolveConfigValue(config, "token")
+		if err != nil {
+			return providerapi.HealthCheckResult{}, err
+		}
+		if token != "" {
+			if err := onePasswordSDKHealthCheck(token); err != nil {
+				return providerapi.HealthCheckResult{}, err
+			}
+			return providerapi.HealthCheckResult{
+				OK:      true,
+				Message: "onepassword secret provider initialized successfully with service account auth",
+			}, nil
+		}
+		if err := onePasswordCLIHealthCheck(config); err != nil {
+			return providerapi.HealthCheckResult{}, err
+		}
+		return providerapi.HealthCheckResult{
+			OK:      true,
+			Message: "onepassword secret provider can use the op CLI session",
+		}, nil
+	default:
+		return providerapi.HealthCheckResult{}, fmt.Errorf("unsupported auth_mode %q", mode)
+	}
+}
+
+func onePasswordSDKHealthCheck(token string) error {
+	_, err := onepassword.NewClient(
 		context.Background(),
 		onepassword.WithServiceAccountToken(token),
 		onepassword.WithIntegrationInfo("lssh", "provider-secret-onepassword"),
 	)
 	if err != nil {
-		return providerapi.HealthCheckResult{}, err
+		return err
 	}
 
-	return providerapi.HealthCheckResult{
-		OK:      true,
-		Message: "onepassword secret provider initialized successfully",
-	}, nil
+	return nil
+}
+
+func onePasswordCLIHealthCheck(config map[string]interface{}) error {
+	_, err := runOnePasswordCLI(config, "whoami")
+	return err
+}
+
+func getSecretWithCLI(config map[string]interface{}, ref string) (string, error) {
+	output, err := runOnePasswordCLI(config, "read", ref)
+	if err != nil {
+		return "", err
+	}
+	return strings.TrimRight(string(output), "\n"), nil
+}
+
+func onePasswordToken(config map[string]interface{}) (string, error) {
+	token, err := providerbuiltin.ResolveConfigValue(config, "token")
+	if err != nil {
+		return "", err
+	}
+	if token == "" {
+		return "", fmt.Errorf("provider.onepassword.token is required for service account authentication")
+	}
+	return token, nil
+}
+
+func onePasswordAuthMode(config map[string]interface{}) (string, error) {
+	mode := strings.ToLower(providerbuiltin.String(config, "auth_mode"))
+	if mode == "" {
+		return onePasswordAuthModeAuto, nil
+	}
+	switch mode {
+	case onePasswordAuthModeAuto, onePasswordAuthModeServiceAccount, onePasswordAuthModeCLI:
+		return mode, nil
+	default:
+		return "", fmt.Errorf("provider.onepassword.auth_mode must be one of auto, service_account, cli")
+	}
+}
+
+func onePasswordCLIPath(config map[string]interface{}) string {
+	if path := providerbuiltin.String(config, "op_path"); path != "" {
+		return path
+	}
+	return "op"
 }
