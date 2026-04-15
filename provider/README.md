@@ -12,6 +12,9 @@ Providers are grouped by capability:
 
 Each provider is a standalone executable that communicates with `lssh` over JSON via stdin/stdout.
 
+A single provider implementation may support one capability or multiple capabilities.
+For example, one executable may expose only `inventory`, while another may expose both `inventory` and `connecter`.
+
 ## Design Overview
 
 The provider layer exists to keep `lssh` itself small while allowing environment-specific behavior to be added outside the core commands.
@@ -34,6 +37,9 @@ These categories are intentionally separate.
 - `secret` answers: "how do we obtain the sensitive values needed to use it?"
 
 Keeping them separate avoids mixing target discovery, auth resolution, and transport behavior into one provider type.
+
+At the same time, the capability split is a design boundary, not necessarily a binary-per-capability rule.
+If it improves implementation clarity, one provider executable may implement multiple capability families as long as the runtime contract stays explicit.
 
 ## Shared Principles
 
@@ -82,6 +88,13 @@ Examples:
 - environments where shell login is possible but mount or SFTP is not
 
 Its primary role is to describe capabilities and the connection path, not to rediscover inventory.
+
+In practice, a connecter provider may still depend on metadata originally produced by `inventory`.
+That dependency is acceptable as long as:
+
+- the inventory-side metadata contract is explicit
+- the connecter-side behavior remains capability-oriented
+- the provider does not blur discovery and transport into undocumented side effects
 
 ### Secret Provider Boundary
 
