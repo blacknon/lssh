@@ -122,14 +122,26 @@ run = """
 description = "Install provider binaries into ~/.config/lssh/providers"
 depends = ["provider_build"]
 run = """
+    install_binary() {
+        src="$1"
+        dst="$2"
+        dir="$(dirname "$dst")"
+        tmp="$dir/.$(basename "$dst").tmp.$$"
+
+        cp "$src" "$tmp"
+        xattr -d com.apple.provenance "$tmp" 2>/dev/null || true
+        codesign --force --sign - "$tmp"
+        mv -f "$tmp" "$dst"
+    }
+
     mkdir -p "$HOME/.config/lssh/providers"
-    cp provider-inventory-aws-ec2 "$HOME/.config/lssh/providers/provider-inventory-aws-ec2"
-    cp provider-inventory-gcp-compute "$HOME/.config/lssh/providers/provider-inventory-gcp-compute"
-    cp provider-inventory-proxmox "$HOME/.config/lssh/providers/provider-inventory-proxmox"
-    cp provider-secret-onepassword "$HOME/.config/lssh/providers/provider-secret-onepassword"
-    cp provider-secret-bitwarden "$HOME/.config/lssh/providers/provider-secret-bitwarden"
-    cp provider-secret-os-keychain "$HOME/.config/lssh/providers/provider-secret-os-keychain"
-    cp provider-secret-custom-script "$HOME/.config/lssh/providers/provider-secret-custom-script"
+    install_binary provider-inventory-aws-ec2 "$HOME/.config/lssh/providers/provider-inventory-aws-ec2"
+    install_binary provider-inventory-gcp-compute "$HOME/.config/lssh/providers/provider-inventory-gcp-compute"
+    install_binary provider-inventory-proxmox "$HOME/.config/lssh/providers/provider-inventory-proxmox"
+    install_binary provider-secret-onepassword "$HOME/.config/lssh/providers/provider-secret-onepassword"
+    install_binary provider-secret-bitwarden "$HOME/.config/lssh/providers/provider-secret-bitwarden"
+    install_binary provider-secret-os-keychain "$HOME/.config/lssh/providers/provider-secret-os-keychain"
+    install_binary provider-secret-custom-script "$HOME/.config/lssh/providers/provider-secret-custom-script"
 """
 
 [tasks.provider_test]
@@ -166,7 +178,19 @@ run = """
 description = "Install binary file only lssh"
 depends = ["core_build"]
 run = """
-    cp lssh /usr/local/bin/lssh
+    install_binary() {
+        src="$1"
+        dst="$2"
+        dir="$(dirname "$dst")"
+        tmp="$dir/.$(basename "$dst").tmp.$$"
+
+        cp "$src" "$tmp"
+        xattr -d com.apple.provenance "$tmp" 2>/dev/null || true
+        codesign --force --sign - "$tmp"
+        mv -f "$tmp" "$dst"
+    }
+
+    install_binary lssh /usr/local/bin/lssh
 """
 
 [tasks.core_test]
@@ -206,11 +230,23 @@ run = """
 description = "Install binary file only lscp, lsftp, lssync, lsdiff, and lsshfs"
 depends = ["transfer_build"]
 run = """
-    cp lscp /usr/local/bin/lscp
-    cp lsftp /usr/local/bin/lsftp
-    cp lssync /usr/local/bin/lssync
-    cp lsdiff /usr/local/bin/lsdiff
-    cp lsshfs /usr/local/bin/lsshfs
+    install_binary() {
+        src="$1"
+        dst="$2"
+        dir="$(dirname "$dst")"
+        tmp="$dir/.$(basename "$dst").tmp.$$"
+
+        cp "$src" "$tmp"
+        xattr -d com.apple.provenance "$tmp" 2>/dev/null || true
+        codesign --force --sign - "$tmp"
+        mv -f "$tmp" "$dst"
+    }
+
+    install_binary lscp /usr/local/bin/lscp
+    install_binary lsftp /usr/local/bin/lsftp
+    install_binary lssync /usr/local/bin/lssync
+    install_binary lsdiff /usr/local/bin/lsdiff
+    install_binary lsshfs /usr/local/bin/lsshfs
 """
 
 [tasks.transfer_test]
@@ -249,7 +285,19 @@ run = """
 description = "Install binary file only lsmon"
 depends = ["monitor_build"]
 run = """
-    cp lsmon /usr/local/bin/lsmon
+    install_binary() {
+        src="$1"
+        dst="$2"
+        dir="$(dirname "$dst")"
+        tmp="$dir/.$(basename "$dst").tmp.$$"
+
+        cp "$src" "$tmp"
+        xattr -d com.apple.provenance "$tmp" 2>/dev/null || true
+        codesign --force --sign - "$tmp"
+        mv -f "$tmp" "$dst"
+    }
+
+    install_binary lsmon /usr/local/bin/lsmon
 """
 
 [tasks.monitor_test]
@@ -285,9 +333,21 @@ run = """
 description = "Install binary files only lsshell, lsmux, and lspipe"
 depends = ["sysadmin_build"]
 run = """
-    cp lsshell /usr/local/bin/lsshell
-    cp lsmux /usr/local/bin/lsmux
-    cp lspipe /usr/local/bin/lspipe
+    install_binary() {
+        src="$1"
+        dst="$2"
+        dir="$(dirname "$dst")"
+        tmp="$dir/.$(basename "$dst").tmp.$$"
+
+        cp "$src" "$tmp"
+        xattr -d com.apple.provenance "$tmp" 2>/dev/null || true
+        codesign --force --sign - "$tmp"
+        mv -f "$tmp" "$dst"
+    }
+
+    install_binary lsshell /usr/local/bin/lsshell
+    install_binary lsmux /usr/local/bin/lsmux
+    install_binary lspipe /usr/local/bin/lspipe
 """
 
 [tasks.sysadmin_test]

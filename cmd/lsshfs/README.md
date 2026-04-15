@@ -11,6 +11,7 @@ It reuses the same host selection and SSH config flow as `lssh`, but exposes the
 - Windows is not supported in `0.9.0`
 
 The command runs in the background by default and automatically unmounts when the SSH connection is lost.
+If a normal unmount fails, `lsshfs` also tries stronger fallback commands to reduce stale mounts and Finder impact on macOS.
 
 ## Usage
 

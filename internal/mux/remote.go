@@ -69,6 +69,12 @@ func NewSessionFactory(cfg conf.Config, command []string, options SessionOptions
 		}
 		run.CreateAuthMethodMap()
 		serverConf := cfg.Server[server]
+		if options.IsBashrc {
+			serverConf.LocalRcUse = "yes"
+		}
+		if options.IsNotBashrc {
+			serverConf.LocalRcUse = "no"
+		}
 		forwardConf := run.PrepareParallelForwardConfig(server)
 		notices := []string{}
 		if options.ParallelInfo != nil {

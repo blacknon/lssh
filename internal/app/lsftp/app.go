@@ -94,6 +94,11 @@ USAGE:
 		sort.Strings(names)
 
 		// create select list
+		if len(names) == 0 {
+			fmt.Fprintln(os.Stderr, "No servers matched the current config conditions.")
+			os.Exit(1)
+		}
+
 		l := new(list.ListInfo)
 		l.Prompt = "lsftp>>"
 		l.NameList = names
@@ -106,7 +111,7 @@ USAGE:
 
 		// Check selected
 		if len(selected) == 0 {
-			fmt.Fprintln(os.Stderr, "Server config is not set.")
+			fmt.Fprintln(os.Stderr, "Selection cancelled.")
 			os.Exit(1)
 		}
 		if selected[0] == "ServerName" {

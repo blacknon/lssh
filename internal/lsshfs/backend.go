@@ -160,12 +160,19 @@ func unmountCommands(goos, mountpoint string) ([]CommandSpec, error) {
 	case "linux":
 		return []CommandSpec{
 			{Name: "fusermount3", Args: []string{"-u", mountpoint}},
+			{Name: "fusermount3", Args: []string{"-u", "-z", mountpoint}},
 			{Name: "fusermount", Args: []string{"-u", mountpoint}},
+			{Name: "fusermount", Args: []string{"-u", "-z", mountpoint}},
 			{Name: "umount", Args: []string{mountpoint}},
+			{Name: "umount", Args: []string{"-l", mountpoint}},
+			{Name: "umount", Args: []string{"-f", mountpoint}},
+			{Name: "umount", Args: []string{"-l", "-f", mountpoint}},
 		}, nil
 	case "darwin":
 		return []CommandSpec{
 			{Name: "umount", Args: []string{mountpoint}},
+			{Name: "umount", Args: []string{"-f", mountpoint}},
+			{Name: "diskutil", Args: []string{"unmount", "force", mountpoint}},
 		}, nil
 	case "windows":
 		return []CommandSpec{

@@ -5,4 +5,5 @@ type ProvidersConfig struct {
 	Timeout           string   `toml:"timeout" yaml:"timeout"`
 	InventoryCacheTTL string   `toml:"inventory_cache_ttl" yaml:"inventory_cache_ttl"`
 	FailOpen          bool     `toml:"fail_open" yaml:"fail_open"`
+	DebugLog          string   `toml:"debug_log" yaml:"debug_log"`
 }

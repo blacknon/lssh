@@ -148,6 +148,10 @@ USAGE:
 
 		// remote to remote scp
 		case isFromInRemote && isToRemote:
+			if len(names) == 0 {
+				fmt.Fprintln(os.Stderr, "No servers matched the current config conditions.")
+				os.Exit(1)
+			}
 			// View From list
 			from_l := new(list.ListInfo)
 			from_l.Prompt = "lscp(from)>>"
@@ -159,7 +163,7 @@ USAGE:
 
 			// Check selected
 			if len(fromServer) == 0 {
-				fmt.Fprintln(os.Stderr, "Server config is not set.")
+				fmt.Fprintln(os.Stderr, "Selection cancelled.")
 				os.Exit(1)
 			}
 			if fromServer[0] == "ServerName" {
@@ -176,7 +180,7 @@ USAGE:
 			to_l.View()
 			toServer = to_l.SelectName
 			if len(toServer) == 0 {
-				fmt.Fprintln(os.Stderr, "Server config is not set.")
+				fmt.Fprintln(os.Stderr, "Selection cancelled.")
 				os.Exit(1)
 			}
 
@@ -186,6 +190,10 @@ USAGE:
 			}
 
 		default:
+			if len(names) == 0 {
+				fmt.Fprintln(os.Stderr, "No servers matched the current config conditions.")
+				os.Exit(1)
+			}
 			// View List And Get Select Line
 			l := new(list.ListInfo)
 			l.Prompt = "lscp>>"
@@ -197,7 +205,7 @@ USAGE:
 			selected = l.SelectName
 			// Check selected
 			if len(selected) == 0 {
-				fmt.Fprintln(os.Stderr, "Server config is not set.")
+				fmt.Fprintln(os.Stderr, "Selection cancelled.")
 				os.Exit(1)
 			}
 			if selected[0] == "ServerName" {

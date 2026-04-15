@@ -197,6 +197,9 @@ func ensureSession(c *cli.Context, config conf.Config, name string) error {
 func resolveCreateHosts(c *cli.Context, config conf.Config) ([]string, error) {
 	names := conf.GetNameList(config)
 	sort.Strings(names)
+	if len(names) == 0 {
+		return nil, fmt.Errorf("no servers matched the current config conditions")
+	}
 
 	hosts := c.StringSlice("create-host")
 	if len(hosts) > 0 {
@@ -212,7 +215,7 @@ func resolveCreateHosts(c *cli.Context, config conf.Config) ([]string, error) {
 		return nil, err
 	}
 	if !ok || len(selected) == 0 {
-		return nil, fmt.Errorf("server not selected")
+		return nil, fmt.Errorf("selection cancelled")
 	}
 	if !check.ExistServer(selected, names) {
 		return nil, fmt.Errorf("input server not found from list")

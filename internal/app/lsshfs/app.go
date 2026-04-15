@@ -179,6 +179,9 @@ USAGE:
 		case len(flagHosts) == 1:
 			selectedHost = flagHosts[0]
 		default:
+			if len(names) == 0 {
+				return fmt.Errorf("no servers matched the current config conditions")
+			}
 			l := new(list.ListInfo)
 			l.Prompt = "lsshfs>>"
 			l.NameList = names
@@ -186,7 +189,7 @@ USAGE:
 			l.MultiFlag = false
 			l.View()
 			if len(l.SelectName) == 0 || l.SelectName[0] == "ServerName" {
-				return fmt.Errorf("server not selected")
+				return fmt.Errorf("selection cancelled")
 			}
 			selectedHost = l.SelectName[0]
 		}
