@@ -3,6 +3,7 @@ package ssh
 import (
 	"fmt"
 	"os"
+	"path/filepath"
 
 	"github.com/blacknon/go-sshlib"
 	conf "github.com/blacknon/lssh/internal/config"
@@ -101,4 +102,43 @@ func (r *Run) resolveSecretFile(server, field, literal, ref string) (string, fun
 			fmt.Fprintln(os.Stderr, err)
 		}
 	}, nil
+}
+
+func (r *Run) resolveSecretFilePersistent(server, field, literal, ref string) (string, error) {
+	if ref == "" {
+		return literal, nil
+	}
+
+	value, err := r.Conf.ResolveSecretRef(ref, server, field)
+	if err != nil {
+		return "", err
+	}
+
+	// Existing file paths can be returned directly by the provider.
+	if value != "" && value[0] == '/' {
+		return value, nil
+	}
+
+	file, err := os.CreateTemp("", fmt.Sprintf("lssh-provider-secret-controlpersist-%s-*", filepath.Base(field)))
+	if err != nil {
+		return "", err
+	}
+	if _, err := file.WriteString(value); err != nil {
+		_ = file.Close()
+		_ = os.Remove(file.Name())
+		return "", err
+	}
+	if err := file.Close(); err != nil {
+		_ = os.Remove(file.Name())
+		return "", err
+	}
+	if err := os.Chmod(file.Name(), 0o600); err != nil {
+		_ = os.Remove(file.Name())
+		return "", err
+	}
+
+	// ControlPersist detached masters rebuild auth methods in another process.
+	// Keep the temp file on disk long enough for the spawned master to read it;
+	// go-sshlib removes transient key files after rebuilding the signer.
+	return file.Name(), nil
 }

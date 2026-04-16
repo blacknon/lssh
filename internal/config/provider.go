@@ -675,10 +675,13 @@ func writeProviderDebugLog(debugLogPath, name, method, executablePath string, in
 	}
 	defer file.Close()
 
+	sanitizedInput := sanitizeProviderDebugJSON(method, input, true)
+	sanitizedStdout := sanitizeProviderDebugJSON(method, stdout, false)
+
 	_, _ = fmt.Fprintf(file, "[%s] provider=%s method=%s executable=%s\n", time.Now().Format(time.RFC3339), name, method, executablePath)
-	_, _ = fmt.Fprintf(file, "request=%s\n", bytes.TrimSpace(input))
-	if len(stdout) > 0 {
-		_, _ = fmt.Fprintf(file, "stdout=%s\n", bytes.TrimSpace(stdout))
+	_, _ = fmt.Fprintf(file, "request=%s\n", bytes.TrimSpace(sanitizedInput))
+	if len(sanitizedStdout) > 0 {
+		_, _ = fmt.Fprintf(file, "stdout=%s\n", bytes.TrimSpace(sanitizedStdout))
 	}
 	if len(stderr) > 0 {
 		_, _ = fmt.Fprintf(file, "stderr=%s\n", bytes.TrimSpace(stderr))
@@ -687,6 +690,69 @@ func writeProviderDebugLog(debugLogPath, name, method, executablePath string, in
 		_, _ = fmt.Fprintf(file, "error=%v\n", runErr)
 	}
 	_, _ = fmt.Fprintln(file)
+}
+
+func sanitizeProviderDebugJSON(method string, data []byte, isRequest bool) []byte {
+	if len(bytes.TrimSpace(data)) == 0 {
+		return data
+	}
+
+	var payload interface{}
+	if err := json.Unmarshal(data, &payload); err != nil {
+		return data
+	}
+
+	sanitized := sanitizeProviderDebugValue(method, payload, nil, isRequest)
+	marshaled, err := json.Marshal(sanitized)
+	if err != nil {
+		return data
+	}
+
+	return marshaled
+}
+
+func sanitizeProviderDebugValue(method string, value interface{}, path []string, isRequest bool) interface{} {
+	switch typed := value.(type) {
+	case map[string]interface{}:
+		sanitized := make(map[string]interface{}, len(typed))
+		for key, item := range typed {
+			nextPath := append(path, key)
+			if shouldRedactProviderDebugField(method, nextPath, isRequest) {
+				sanitized[key] = "<redacted>"
+				continue
+			}
+			sanitized[key] = sanitizeProviderDebugValue(method, item, nextPath, isRequest)
+		}
+		return sanitized
+	case []interface{}:
+		sanitized := make([]interface{}, len(typed))
+		for i, item := range typed {
+			sanitized[i] = sanitizeProviderDebugValue(method, item, path, isRequest)
+		}
+		return sanitized
+	default:
+		return value
+	}
+}
+
+func shouldRedactProviderDebugField(method string, path []string, isRequest bool) bool {
+	if len(path) == 0 {
+		return false
+	}
+
+	last := path[len(path)-1]
+	switch last {
+	case "token", "token_secret", "password", "pass", "passphrase", "secret",
+		"client_secret", "access_key", "secret_access_key", "session_token",
+		"keypass", "certkeypass", "pin":
+		return true
+	}
+
+	if method == providerapi.MethodSecretGet && !isRequest && len(path) >= 2 && path[0] == "result" && last == "value" {
+		return true
+	}
+
+	return false
 }
 
 func providerExpandPath(value string) string {

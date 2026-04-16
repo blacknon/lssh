@@ -338,11 +338,66 @@ printf '%s' 'debug note' >&2
 	if !strings.Contains(got, `"method":"inventory.list"`) {
 		t.Fatalf("debug log missing request: %q", got)
 	}
-	if !strings.Contains(got, `"servers":[{"name":"aws:web-1"`) {
+	if !strings.Contains(got, `"name":"aws:web-1"`) {
 		t.Fatalf("debug log missing stdout: %q", got)
 	}
 	if !strings.Contains(got, "stderr=debug note") {
 		t.Fatalf("debug log missing stderr: %q", got)
+	}
+}
+
+func TestCallProviderDebugLogRedactsSecretConfigAndResult(t *testing.T) {
+	dir := t.TempDir()
+	providerPath := filepath.Join(dir, "lssh-provider-fake-secret")
+	debugLogPath := filepath.Join(dir, "logs", "provider-debug.log")
+	script := `#!/bin/sh
+cat >/dev/null
+printf '%s' '{"version":"v1","result":{"value":"super-secret-password"}}'
+`
+	if err := os.WriteFile(providerPath, []byte(script), 0o755); err != nil {
+		t.Fatalf("write provider: %v", err)
+	}
+
+	cfg := Config{
+		Providers: ProvidersConfig{Paths: []string{providerPath}, DebugLog: debugLogPath},
+		Provider: map[string]map[string]interface{}{
+			"onepassword": {
+				"plugin":       "lssh-provider-fake-secret",
+				"capabilities": []interface{}{"secret"},
+				"token":        "ops_example_token",
+				"auth_mode":    "service_account",
+			},
+		},
+	}
+
+	var result providerapi.SecretGetResult
+	if err := cfg.callProvider("onepassword", providerapi.MethodSecretGet, providerapi.SecretGetParams{
+		Provider: "onepassword",
+		Config:   cfg.Provider["onepassword"],
+		Ref:      "op://vault/item/password",
+		Server:   "demo",
+		Field:    "pass",
+	}, &result); err != nil {
+		t.Fatalf("callProvider() error = %v", err)
+	}
+
+	data, err := os.ReadFile(debugLogPath)
+	if err != nil {
+		t.Fatalf("ReadFile() error = %v", err)
+	}
+
+	got := string(data)
+	if strings.Contains(got, "ops_example_token") {
+		t.Fatalf("debug log leaked provider token: %q", got)
+	}
+	if strings.Contains(got, "super-secret-password") {
+		t.Fatalf("debug log leaked secret value: %q", got)
+	}
+	if !strings.Contains(got, `"token":"<redacted>"`) {
+		t.Fatalf("debug log missing redacted token: %q", got)
+	}
+	if !strings.Contains(got, `"value":"<redacted>"`) {
+		t.Fatalf("debug log missing redacted secret result: %q", got)
 	}
 }
 

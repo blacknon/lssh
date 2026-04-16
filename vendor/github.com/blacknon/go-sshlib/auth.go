@@ -39,8 +39,9 @@ type ControlPersistAuthMethod struct {
 
 	Password string
 
-	KeyPath string
-	KeyPass string
+	KeyPath   string
+	KeyPass   string
+	Transient bool
 
 	PKCS11Provider string
 	PKCS11PIN      string
@@ -56,8 +57,9 @@ type controlPersistAuthMethodDefinition struct {
 
 	Password string
 
-	KeyPath string
-	KeyPass string
+	KeyPath   string
+	KeyPass   string
+	Transient bool
 
 	PKCS11Provider string
 	PKCS11PIN      string
@@ -78,6 +80,7 @@ func (a *ControlPersistAuth) resolved() ([]controlPersistAuthMethodDefinition, e
 				Password:       method.Password,
 				KeyPath:        method.KeyPath,
 				KeyPass:        method.KeyPass,
+				Transient:      method.Transient,
 				PKCS11Provider: method.PKCS11Provider,
 				PKCS11PIN:      method.PKCS11PIN,
 			})
@@ -112,6 +115,11 @@ func createControlPersistAuthMethodsWithPrompt(definitions []controlPersistAuthM
 		return nil, err
 	}
 
+	transientKeyPaths := make([]string, 0, len(definitions))
+	defer func() {
+		cleanupControlPersistTransientFiles(transientKeyPaths)
+	}()
+
 	authMethods := make([]ssh.AuthMethod, 0, len(definitions))
 	for _, persistAuth := range definitions {
 		switch persistAuth.Type {
@@ -121,6 +129,9 @@ func createControlPersistAuthMethodsWithPrompt(definitions []controlPersistAuthM
 			auth, err := CreateAuthMethodPublicKey(persistAuth.KeyPath, persistAuth.KeyPass)
 			if err != nil {
 				return nil, err
+			}
+			if persistAuth.Transient {
+				transientKeyPaths = append(transientKeyPaths, persistAuth.KeyPath)
 			}
 			authMethods = append(authMethods, auth)
 		case "pkcs11":
@@ -135,6 +146,27 @@ func createControlPersistAuthMethodsWithPrompt(definitions []controlPersistAuthM
 	}
 
 	return authMethods, nil
+}
+
+func cleanupControlPersistTransientFiles(paths []string) {
+	if len(paths) == 0 {
+		return
+	}
+
+	seen := make(map[string]struct{}, len(paths))
+	for _, path := range paths {
+		if path == "" {
+			continue
+		}
+
+		absPath := getAbsPath(path)
+		if _, ok := seen[absPath]; ok {
+			continue
+		}
+		seen[absPath] = struct{}{}
+
+		_ = os.Remove(absPath)
+	}
 }
 
 func validateControlPersistAuthDefinitions(definitions []controlPersistAuthMethodDefinition) error {
@@ -221,6 +253,17 @@ func CreateAuthMethodPassword(password string) (auth ssh.AuthMethod) {
 // CreateAuthMethodPublicKey returns ssh.AuthMethod generated from PublicKey.
 // If you have not specified a passphrase, please specify a empty character("").
 func CreateAuthMethodPublicKey(key, password string) (auth ssh.AuthMethod, err error) {
+	return createAuthMethodPublicKey(key, password, false)
+}
+
+// CreateAuthMethodPublicKeyTransient returns ssh.AuthMethod generated from PublicKey.
+// The serialized ControlPersist definition is marked as transient, so detached
+// helpers remove the key file after rebuilding the signer in memory.
+func CreateAuthMethodPublicKeyTransient(key, password string) (auth ssh.AuthMethod, err error) {
+	return createAuthMethodPublicKey(key, password, true)
+}
+
+func createAuthMethodPublicKey(key, password string, transient bool) (auth ssh.AuthMethod, err error) {
 	signer, err := CreateSignerPublicKey(key, password)
 	if err != nil {
 		return
@@ -228,9 +271,10 @@ func CreateAuthMethodPublicKey(key, password string) (auth ssh.AuthMethod, err e
 
 	auth = ssh.PublicKeys(signer)
 	registerControlPersistAuthMethod(auth, controlPersistAuthMethodDefinition{
-		Type:    "publickey",
-		KeyPath: key,
-		KeyPass: password,
+		Type:      "publickey",
+		KeyPath:   key,
+		KeyPass:   password,
+		Transient: transient,
 	})
 	return
 }
