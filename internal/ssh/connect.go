@@ -126,7 +126,20 @@ func (r *Run) buildControlPersistAuthMethodsFromConfig(name string, c conf.Serve
 
 	// single key
 	if c.Key != "" || c.KeyRef != "" {
-		am, err := r.createPublicKeyAuthMethod(name, c)
+		keyPath, err := r.resolveSecretFilePersistent(name, "key", c.Key, c.KeyRef)
+		if err != nil {
+			return nil, err
+		}
+		keyPass, err := r.resolveLiteralOrRef(name, "keypass", c.KeyPass, c.KeyPassRef)
+		if err != nil {
+			return nil, err
+		}
+		createPublicKeyAuth := sshlib.CreateAuthMethodPublicKey
+		if c.KeyRef != "" {
+			createPublicKeyAuth = sshlib.CreateAuthMethodPublicKeyTransient
+		}
+
+		am, err := createPublicKeyAuth(keyPath, keyPass)
 		if err != nil {
 			return nil, err
 		}

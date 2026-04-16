@@ -172,7 +172,7 @@ github.com/bitwarden/sdk-go/internal/cinterface
 # github.com/blacknon/crypto11 v1.6.2-0.20260315101107-fd111b1d25ce
 ## explicit; go 1.25.1
 github.com/blacknon/crypto11
-# github.com/blacknon/go-sshlib v0.1.32
+# github.com/blacknon/go-sshlib v0.1.32 => ../go-sshlib
 ## explicit; go 1.25.1
 github.com/blacknon/go-sshlib
 # github.com/blacknon/go-sshproc v0.1.1
@@ -736,4 +736,5 @@ gopkg.in/yaml.v3
 # mvdan.cc/sh v2.6.4+incompatible
 ## explicit
 mvdan.cc/sh/syntax
+# github.com/blacknon/go-sshlib => ../go-sshlib
 # github.com/kevinburke/ssh_config => ./internal/ssh_config
