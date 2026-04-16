@@ -2,8 +2,6 @@ module github.com/blacknon/lssh
 
 go 1.25.1
 
-replace github.com/blacknon/go-sshlib => ../go-sshlib
-
 // require
 require (
 	github.com/Azure/go-ansiterm v0.0.0-20250102033503-faa5f7b0171c // indirect
@@ -13,7 +11,7 @@ require (
 	github.com/acarl005/stripansi v0.0.0-20180116102854-5a71ef0e047d
 	github.com/armon/go-socks5 v0.0.0-20160902184237-e75332964ef5 // indirect
 	github.com/blacknon/crypto11 v1.6.2-0.20260315101107-fd111b1d25ce // indirect
-	github.com/blacknon/go-sshlib v0.1.32
+	github.com/blacknon/go-sshlib v0.1.33
 	github.com/blacknon/go-x11auth v0.1.0 // indirect
 	github.com/blacknon/tvxterm v0.1.1
 	github.com/c-bata/go-prompt v0.2.6
