@@ -164,6 +164,11 @@ type ServerConfig struct {
 	// ignore this server from selection / execution targets
 	Ignore bool `toml:"ignore" yaml:"ignore"`
 
+	// Runtime-only provider metadata for provider-generated servers.
+	ProviderName   string            `toml:"-" yaml:"-"`
+	ProviderPlugin string            `toml:"-" yaml:"-"`
+	ProviderMeta   map[string]string `toml:"-" yaml:"-"`
+
 	// Conditional overrides under [server.<name>.match.<branch>]
 	Match map[string]ServerMatchConfig `toml:"match" yaml:"match"`
 }

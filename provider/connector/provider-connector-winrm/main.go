@@ -1,0 +1,228 @@
+package main
+
+import (
+	"encoding/json"
+	"fmt"
+	"os"
+	"strings"
+
+	"github.com/blacknon/lssh/internal/providerapi"
+	"github.com/blacknon/lssh/internal/providerbuiltin"
+	"github.com/blacknon/lssh/provider/connector/provider-connector-winrm/winrmlib"
+)
+
+func main() {
+	req, err := providerbuiltin.ReadRequest()
+	if err != nil {
+		_ = providerbuiltin.WriteError(err.Error())
+		os.Exit(1)
+	}
+
+	switch req.Method {
+	case providerapi.MethodPluginDescribe:
+		_ = providerbuiltin.WriteResponse(req, providerapi.PluginDescribeResult{
+			Name:            "provider-connector-winrm",
+			Capabilities:    []string{"connector"},
+			Methods:         []string{providerapi.MethodPluginDescribe, providerapi.MethodHealthCheck, providerapi.MethodConnectorDescribe, providerapi.MethodConnectorPrepare},
+			ProtocolVersion: providerapi.Version,
+		}, nil)
+	case providerapi.MethodHealthCheck:
+		var params providerapi.HealthCheckParams
+		if err := decodeParams(req.Params, &params); err != nil {
+			_ = providerbuiltin.WriteErrorResponse(req, "invalid_params", err.Error())
+			os.Exit(1)
+		}
+		result, err := winrmHealthCheck(params.Config)
+		if err != nil {
+			_ = providerbuiltin.WriteErrorResponse(req, "health_check_failed", err.Error())
+			os.Exit(1)
+		}
+		_ = providerbuiltin.WriteResponse(req, result, nil)
+	case providerapi.MethodConnectorDescribe:
+		var params providerapi.ConnectorDescribeParams
+		if err := decodeParams(req.Params, &params); err != nil {
+			_ = providerbuiltin.WriteErrorResponse(req, "invalid_params", err.Error())
+			os.Exit(1)
+		}
+		result, err := winrmDescribe(params)
+		if err != nil {
+			_ = providerbuiltin.WriteErrorResponse(req, "connector_describe_failed", err.Error())
+			os.Exit(1)
+		}
+		_ = providerbuiltin.WriteResponse(req, result, nil)
+	case providerapi.MethodConnectorPrepare, providerapi.MethodTransportPrep:
+		var params providerapi.ConnectorPrepareParams
+		if err := decodeParams(req.Params, &params); err != nil {
+			_ = providerbuiltin.WriteErrorResponse(req, "invalid_params", err.Error())
+			os.Exit(1)
+		}
+		result, err := winrmPrepare(params)
+		if err != nil {
+			_ = providerbuiltin.WriteErrorResponse(req, "connector_prepare_failed", err.Error())
+			os.Exit(1)
+		}
+		_ = providerbuiltin.WriteResponse(req, result, nil)
+	default:
+		_ = providerbuiltin.WriteErrorResponse(req, "unsupported_method", fmt.Sprintf("unsupported method %q", req.Method))
+		os.Exit(1)
+	}
+}
+
+func decodeParams(raw interface{}, out interface{}) error {
+	data, err := json.Marshal(raw)
+	if err != nil {
+		return err
+	}
+	return json.Unmarshal(data, out)
+}
+
+func winrmHealthCheck(config map[string]interface{}) (providerapi.HealthCheckResult, error) {
+	if providerbuiltin.String(config, "addr") != "" {
+		if _, err := winrmlib.ConfigFromMaps(config, nil); err != nil {
+			return providerapi.HealthCheckResult{}, err
+		}
+	}
+	return providerapi.HealthCheckResult{
+		OK:      true,
+		Message: "winrm connector configuration looks valid",
+	}, nil
+}
+
+func winrmDescribe(params providerapi.ConnectorDescribeParams) (providerapi.ConnectorDescribeResult, error) {
+	addr := providerbuiltin.String(params.Target.Config, "addr")
+	if addr == "" {
+		addr = providerbuiltin.String(params.Config, "addr")
+	}
+	shellSupported := addr != "" && winrmInteractiveShellEnabled(params.Config, params.Target)
+	execSupported := addr != ""
+	capabilities := map[string]providerapi.ConnectorCapability{
+		"shell": {
+			Supported: shellSupported,
+			Reason:    unsupportedReason(shellSupported, "interactive shell support is disabled unless enable_shell=true"),
+			Requires:  []string{"winrm:credentials"},
+		},
+		"exec": {
+			Supported: execSupported,
+			Reason:    unsupportedReason(execSupported, "target addr is required for winrm exec"),
+			Requires:  []string{"winrm:credentials"},
+			Preferred: true,
+		},
+		"exec_pty": {
+			Supported: false,
+			Reason:    "winrm does not provide SSH-style PTY execution in the first implementation wave",
+		},
+		"upload": {
+			Supported: false,
+			Reason:    "winrm file transfer is deferred to a later implementation phase",
+		},
+		"download": {
+			Supported: false,
+			Reason:    "winrm file transfer is deferred to a later implementation phase",
+		},
+		"port_forward_local": {
+			Supported: false,
+			Reason:    "winrm does not provide native local port forwarding",
+		},
+		"port_forward_remote": {
+			Supported: false,
+			Reason:    "winrm does not provide native remote port forwarding",
+		},
+		"mount": {
+			Supported: false,
+			Reason:    "winrm does not provide mount semantics",
+		},
+		"agent_forward": {
+			Supported: false,
+			Reason:    "winrm does not provide agent forwarding",
+		},
+	}
+	return providerapi.ConnectorDescribeResult{Capabilities: capabilities}, nil
+}
+
+func winrmPrepare(params providerapi.ConnectorPrepareParams) (providerapi.ConnectorPrepareResult, error) {
+	cfg, err := winrmlib.ConfigFromMaps(params.Config, params.Target.Config)
+	if err != nil {
+		return providerapi.ConnectorPrepareResult{}, err
+	}
+
+	switch params.Operation.Name {
+	case "exec":
+		return providerapi.ConnectorPrepareResult{
+			Supported: true,
+			Plan: providerapi.ConnectorPlan{
+				Kind: "provider-managed",
+				Details: map[string]interface{}{
+					"connector": "winrm",
+					"addr":      cfg.Host,
+					"port":      cfg.Port,
+					"user":      cfg.User,
+					"transport": winrmTransport(params.Config, params.Target),
+					"command":   params.Operation.Command,
+				},
+			},
+		}, nil
+	case "shell":
+		supported := winrmInteractiveShellEnabled(params.Config, params.Target)
+		return providerapi.ConnectorPrepareResult{
+			Supported: supported,
+			Plan: providerapi.ConnectorPlan{
+				Kind: "provider-managed",
+				Details: map[string]interface{}{
+					"connector": "winrm",
+					"addr":      cfg.Host,
+					"port":      cfg.Port,
+					"user":      cfg.User,
+					"transport": winrmTransport(params.Config, params.Target),
+					"reason":    unsupportedReason(supported, "interactive shell support is disabled unless enable_shell=true"),
+				},
+			},
+		}, nil
+	default:
+		return providerapi.ConnectorPrepareResult{
+			Supported: false,
+			Plan: providerapi.ConnectorPlan{
+				Kind: "provider-managed",
+				Details: map[string]interface{}{
+					"connector": "winrm",
+					"reason":    fmt.Sprintf("operation %q is not supported by the winrm connector", params.Operation.Name),
+				},
+			},
+		}, nil
+	}
+}
+
+func winrmTransport(config map[string]interface{}, target providerapi.ConnectorTarget) string {
+	if transport := providerbuiltin.String(target.Config, "transport"); transport != "" {
+		return strings.ToLower(transport)
+	}
+	if transport := providerbuiltin.String(config, "transport"); transport != "" {
+		return strings.ToLower(transport)
+	}
+	if winrmBool(target.Config, "insecure") || winrmBool(config, "insecure") {
+		return "http"
+	}
+	return "https"
+}
+
+func winrmInteractiveShellEnabled(config map[string]interface{}, target providerapi.ConnectorTarget) bool {
+	if winrmBool(target.Config, "enable_shell") {
+		return true
+	}
+	return winrmBool(config, "enable_shell")
+}
+
+func winrmBool(raw map[string]interface{}, key string) bool {
+	switch strings.ToLower(providerbuiltin.String(raw, key)) {
+	case "1", "true", "yes", "on":
+		return true
+	default:
+		return false
+	}
+}
+
+func unsupportedReason(supported bool, reason string) string {
+	if supported {
+		return ""
+	}
+	return reason
+}

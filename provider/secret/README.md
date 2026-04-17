@@ -18,6 +18,18 @@ This keeps long-lived config files readable while avoiding direct storage of eve
 
 Secret providers use the common provider envelope described in [../README.md](../README.md).
 
+## Capability Source Of Truth
+
+For secret providers, plugin capabilities should also be owned by the plugin source.
+
+Recommended model:
+
+- the plugin executable declares `["secret"]` through `plugin.describe`
+- user config may restrict usage of that plugin
+- user config must not be treated as authoritative for unsupported provider categories
+
+This matches the same rule used for inventory and connector providers.
+
 ### Required Methods
 
 - `secret.get`

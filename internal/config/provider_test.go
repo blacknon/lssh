@@ -490,7 +490,7 @@ func TestActiveProvidersHonorsWhen(t *testing.T) {
 				},
 			},
 			"aws": {
-				"plugin":       "provider-inventory-aws-ec2",
+				"plugin":       "provider-mixed-aws-ec2",
 				"capabilities": []interface{}{"inventory"},
 				"when": map[string]interface{}{
 					"os_in": []interface{}{"linux"},

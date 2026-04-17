@@ -84,6 +84,9 @@ func (c *Config) ReadInventoryProviders() error {
 
 			merged := serverConfigReduct(base, generated)
 			merged = applyProviderInventoryMatches(name, server.Name, server.Meta, merged, matches)
+			merged.ProviderName = name
+			merged.ProviderPlugin = providerString(raw, "plugin")
+			merged.ProviderMeta = cloneProviderMeta(server.Meta)
 			c.Server[server.Name] = merged
 		}
 	}
@@ -343,7 +346,7 @@ func providerReservedKeys(raw map[string]interface{}) []string {
 		} {
 			keys[key] = struct{}{}
 		}
-	case "provider-inventory-aws-ec2":
+	case "provider-mixed-aws-ec2":
 		for _, key := range []string{
 			"regions", "region", "profile",
 			"shared_config_files", "shared_credentials_files",
@@ -818,6 +821,17 @@ func providerStringSlice(raw map[string]interface{}, key string) []string {
 	default:
 		return nil
 	}
+}
+
+func cloneProviderMeta(meta map[string]string) map[string]string {
+	if len(meta) == 0 {
+		return nil
+	}
+	cloned := make(map[string]string, len(meta))
+	for key, value := range meta {
+		cloned[key] = value
+	}
+	return cloned
 }
 
 func parseSecretRef(ref string) (string, string, error) {

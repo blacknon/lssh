@@ -3,7 +3,7 @@ Inventory Providers
 
 Inventory providers generate `server` entries dynamically from external systems.
 
-- [`provider-inventory-aws-ec2`](./provider-inventory-aws-ec2/README.md)
+- [`provider-mixed-aws-ec2`](../mixed/provider-mixed-aws-ec2/README.md)
 - [`provider-inventory-gcp-compute`](./provider-inventory-gcp-compute/README.md)
 - [`provider-inventory-proxmox`](./provider-inventory-proxmox/README.md)
 
@@ -100,6 +100,18 @@ Recommended future-compatible fields:
 - `connector`
   - optional connector hint only if a future connector contract needs it
 
+For multi-capability plugins, inventory should remain explicit even when connector behavior is also available.
+
+Recommended shape:
+
+- `inventory.list`
+  - still returns `servers[].config` and `servers[].meta`
+- `servers[].meta`
+  - contains stable upstream identity fields that later connector methods can consume
+- `servers[].connector`
+  - optional hint only
+  - should not replace `connector.describe`
+
 ## Inventory Metadata Guidance
 
 Inventory metadata is especially important because it may be consumed by:
@@ -131,6 +143,16 @@ Examples:
 - `vmid`
 - `status`
 - `os_family`
+
+For connector-aware inventories, especially AWS-like cases, the most important metadata is:
+
+- `instance_id`
+- `region`
+- `availability_zone`
+- `platform`
+- `private_ip`
+- `public_ip`
+- `tag.<TagName>`
 
 ## Partial Success Behavior
 
@@ -168,17 +190,37 @@ They do not yet:
 
 ## Migration Guidance For Existing Plugins
 
-### `provider-inventory-aws-ec2`
+### `provider-mixed-aws-ec2`
 
 Current fit:
 
 - good fit for `inventory.list`
 - metadata already useful for future connector use
 
+Planned direction:
+
+- keep evolving as a multi-capability AWS plugin
+- current plugin name
+  - `provider-mixed-aws-ec2`
+- current implemented plugin capabilities
+  - `["inventory"]`
+- planned plugin capabilities
+  - `["inventory", "connector"]`
+- planned connector role
+  - AWS SSM-based shell and command execution
+
+Current source layout:
+
+- `provider/mixed/provider-mixed-aws-ec2`
+
+The provider is documented here because the currently implemented behavior is still inventory-oriented even though the source layout is already mixed-capability ready.
+
 Recommended updates:
 
-- add `plugin.describe`
-- add `health.check`
+- keep `inventory.list`
+- preserve stable EC2 metadata for connector use
+- add `connector.describe`
+- later add `connector.prepare`
 - define stable warning/error codes
 
 ### `provider-inventory-gcp-compute`
