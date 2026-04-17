@@ -34,7 +34,12 @@ func (r *Run) RunConnectorShell(server string) error {
 
 	r.PrintSelectServer()
 
-	plan, err := r.Conf.PrepareConnector(server, providerapi.ConnectorOperation{Name: "shell"})
+	operation, err := r.connectorShellOperation()
+	if err != nil {
+		return err
+	}
+
+	plan, err := r.Conf.PrepareConnector(server, operation)
 	if err != nil {
 		return err
 	}
@@ -45,6 +50,14 @@ func (r *Run) RunConnectorShell(server string) error {
 	shellConfig, err := ssmconnector.ShellConfigFromPlan(plan.Plan)
 	if err != nil {
 		return err
+	}
+	if shellConfig.SessionAction == "detach" {
+		sessionID, err := ssmconnector.StartDetachedShell(context.Background(), shellConfig)
+		if err != nil {
+			return err
+		}
+		fmt.Fprintf(os.Stderr, "Detached Session:%s\n", sessionID)
+		return nil
 	}
 	return ssmconnector.StartShell(context.Background(), shellConfig)
 }
@@ -79,6 +92,23 @@ func (r *Run) RunConnectorCommand(server string, command []string, stdout, stder
 
 func (r *Run) runConnectorCommand(server string, stdout, stderr io.Writer) (int, error) {
 	return r.RunConnectorCommand(server, r.ExecCmd, stdout, stderr)
+}
+
+func (r *Run) connectorShellOperation() (providerapi.ConnectorOperation, error) {
+	options := map[string]interface{}{}
+	if r.ConnectorAttachSession != "" {
+		options["attach"] = true
+		options["session_id"] = r.ConnectorAttachSession
+	}
+	if r.ConnectorDetach {
+		options["detach"] = true
+	}
+
+	operation := providerapi.ConnectorOperation{Name: "shell"}
+	if len(options) > 0 {
+		operation.Options = options
+	}
+	return operation, nil
 }
 
 func connectorName(config conf.ServerConfig) string {

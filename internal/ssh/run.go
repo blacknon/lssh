@@ -127,6 +127,12 @@ type Run struct {
 	// Exec command
 	ExecCmd []string
 
+	// ConnectorAttachSession resumes a connector-managed shell session by id.
+	ConnectorAttachSession string
+
+	// ConnectorDetach starts a connector-managed shell session without attaching.
+	ConnectorDetach bool
+
 	// enable/disable print header in command mode
 	EnableHeader  bool
 	DisableHeader bool

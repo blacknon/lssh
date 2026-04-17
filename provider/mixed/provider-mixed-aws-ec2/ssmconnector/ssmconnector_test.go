@@ -50,3 +50,27 @@ func TestBuildStartSessionCommand(t *testing.T) {
 		t.Fatal("AWS_SHARED_CREDENTIALS_FILE is not set in command env")
 	}
 }
+
+func TestBuildResumeSessionCommand(t *testing.T) {
+	cmd := BuildStartSessionCommand(context.Background(), ShellConfig{
+		BaseConfig: BaseConfig{
+			Region: "ap-northeast-1",
+		},
+		SessionAction: "attach",
+		SessionID:     "session-123",
+	})
+
+	wantArgs := []string{
+		"aws", "ssm", "resume-session",
+		"--session-id", "session-123",
+		"--region", "ap-northeast-1",
+	}
+	if len(cmd.Args) != len(wantArgs) {
+		t.Fatalf("len(cmd.Args) = %d, want %d (%v)", len(cmd.Args), len(wantArgs), cmd.Args)
+	}
+	for i := range wantArgs {
+		if cmd.Args[i] != wantArgs[i] {
+			t.Fatalf("cmd.Args[%d] = %q, want %q", i, cmd.Args[i], wantArgs[i])
+		}
+	}
+}

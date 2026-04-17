@@ -28,7 +28,9 @@ type BaseConfig struct {
 
 type ShellConfig struct {
 	BaseConfig
-	DocumentName string
+	DocumentName  string
+	SessionAction string
+	SessionID     string
 }
 
 type CommandConfig struct {
@@ -42,8 +44,23 @@ type CommandConfig struct {
 func ShellConfigFromPlan(plan providerapi.ConnectorPlan) (ShellConfig, error) {
 	cfg := ShellConfig{BaseConfig: baseConfigFromPlan(plan)}
 	cfg.DocumentName = detailString(plan.Details, "document_name")
-	if cfg.InstanceID == "" || cfg.Region == "" {
-		return ShellConfig{}, fmt.Errorf("aws ssm shell plan is missing instance_id or region")
+	cfg.SessionAction = detailString(plan.Details, "session_action")
+	if cfg.SessionAction == "" {
+		cfg.SessionAction = "start"
+	}
+	cfg.SessionID = detailString(plan.Details, "session_id")
+
+	switch cfg.SessionAction {
+	case "attach":
+		if cfg.SessionID == "" || cfg.Region == "" {
+			return ShellConfig{}, fmt.Errorf("aws ssm attach plan is missing session_id or region")
+		}
+	case "detach", "start":
+		if cfg.InstanceID == "" || cfg.Region == "" {
+			return ShellConfig{}, fmt.Errorf("aws ssm shell plan is missing instance_id or region")
+		}
+	default:
+		return ShellConfig{}, fmt.Errorf("unsupported aws ssm session_action %q", cfg.SessionAction)
 	}
 	return cfg, nil
 }
@@ -65,6 +82,9 @@ func StartShell(ctx context.Context, cfg ShellConfig) error {
 }
 
 func StartShellWithIO(ctx context.Context, cfg ShellConfig, stdin io.Reader, stdout, stderr io.Writer) error {
+	if cfg.SessionAction == "detach" {
+		return fmt.Errorf("detached shell sessions must use StartDetachedShell")
+	}
 	cmd := BuildStartSessionCommand(ctx, cfg)
 	cmd.Stdin = stdin
 	cmd.Stdout = stdout
@@ -76,21 +96,60 @@ func StartShellWithIO(ctx context.Context, cfg ShellConfig, stdin io.Reader, std
 }
 
 func BuildStartSessionCommand(ctx context.Context, cfg ShellConfig) *exec.Cmd {
-	args := []string{
-		"ssm", "start-session",
-		"--target", cfg.InstanceID,
-		"--region", cfg.Region,
+	args := []string{}
+	switch cfg.SessionAction {
+	case "attach":
+		args = []string{
+			"ssm", "resume-session",
+			"--session-id", cfg.SessionID,
+			"--region", cfg.Region,
+		}
+	default:
+		args = []string{
+			"ssm", "start-session",
+			"--target", cfg.InstanceID,
+			"--region", cfg.Region,
+		}
 	}
 	if cfg.Profile != "" {
 		args = append(args, "--profile", cfg.Profile)
 	}
-	if cfg.DocumentName != "" {
+	if cfg.SessionAction != "attach" && cfg.DocumentName != "" {
 		args = append(args, "--document-name", cfg.DocumentName)
 	}
 
 	cmd := exec.CommandContext(ctx, "aws", args...)
 	cmd.Env = append(os.Environ(), shellEnvironment(cfg)...)
 	return cmd
+}
+
+func StartDetachedShell(ctx context.Context, cfg ShellConfig) (string, error) {
+	if cfg.SessionAction != "detach" {
+		return "", fmt.Errorf("detached shell requires session_action=detach")
+	}
+
+	awsCfg, err := loadAWSConfig(ctx, cfg.BaseConfig)
+	if err != nil {
+		return "", err
+	}
+
+	input := &ssm.StartSessionInput{
+		Target: aws.String(cfg.InstanceID),
+	}
+	if cfg.DocumentName != "" {
+		input.DocumentName = aws.String(cfg.DocumentName)
+	}
+
+	client := ssm.NewFromConfig(awsCfg)
+	out, err := client.StartSession(ctx, input)
+	if err != nil {
+		return "", fmt.Errorf("start detached ssm session: %w", err)
+	}
+	sessionID := aws.ToString(out.SessionId)
+	if sessionID == "" {
+		return "", fmt.Errorf("start detached ssm session returned empty session id")
+	}
+	return sessionID, nil
 }
 
 func RunCommand(ctx context.Context, cfg CommandConfig, stdout, stderr io.Writer) (int, error) {

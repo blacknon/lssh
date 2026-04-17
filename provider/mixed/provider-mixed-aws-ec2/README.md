@@ -61,6 +61,10 @@ key = "~/.ssh/aws-ubuntu.pem"
 - Available match metadata includes `region`, `zone`, `platform`, `instance_id`, `private_ip`, `public_ip`, and `tag.<TagName>`.
 - `connector.describe` requires `instance_id` and `region`, which are emitted by this inventory provider.
 - `connector.prepare` currently returns provider-managed AWS SSM plans for `shell`, `exec`, and `exec_pty`.
+- for `shell`, attach/detach are represented as operation options rather than separate subcommands.
+  - `attach=true` with `session_id=<id>` resumes an existing SSM session
+  - `detach=true` starts a shell session without attaching and returns a session id
+  - `attach` and `detach` are mutually exclusive
 - `ssm_require_online` defaults to `true`.
   - when enabled, the connector requires the target instance to be online in AWS Systems Manager
 - optional connector tuning keys:
@@ -68,6 +72,8 @@ key = "~/.ssh/aws-ubuntu.pem"
   - `ssm_interactive_command_document`
 - current runtime behavior:
   - `shell` is executed with `aws ssm start-session`
+    - attach uses `aws ssm resume-session`
+    - detach uses the AWS SDK `StartSession` API and returns the created session id
   - `exec` is executed with the AWS SDK via `SendCommand`
 - to use `shell`, the local machine must have:
   - AWS CLI

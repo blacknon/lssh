@@ -19,6 +19,7 @@ type MuxConfig struct {
 	ClosePane            string `toml:"close_pane" yaml:"close_pane"`
 	Broadcast            string `toml:"broadcast" yaml:"broadcast"`
 	Transfer             string `toml:"transfer" yaml:"transfer"`
+	DetachClient         string `toml:"detach_client" yaml:"detach_client"`
 	FocusBorderColor     string `toml:"focus_border_color" yaml:"focus_border_color"`
 	FocusTitleColor      string `toml:"focus_title_color" yaml:"focus_title_color"`
 	BroadcastBorderColor string `toml:"broadcast_border_color" yaml:"broadcast_border_color"`
@@ -26,6 +27,7 @@ type MuxConfig struct {
 	DoneBorderColor      string `toml:"done_border_color" yaml:"done_border_color"`
 	DoneTitleColor       string `toml:"done_title_color" yaml:"done_title_color"`
 	TransferEnabled      *bool  `toml:"transfer_enabled" yaml:"transfer_enabled"`
+	SocketPath           string `toml:"socket_path" yaml:"socket_path"`
 }
 
 // ApplyDefaults fills empty key bindings with tmux-like defaults.
@@ -68,6 +70,9 @@ func (m MuxConfig) ApplyDefaults() MuxConfig {
 	}
 	if m.Transfer == "" {
 		m.Transfer = "f"
+	}
+	if m.DetachClient == "" {
+		m.DetachClient = "d"
 	}
 	if m.FocusBorderColor == "" {
 		m.FocusBorderColor = "green"

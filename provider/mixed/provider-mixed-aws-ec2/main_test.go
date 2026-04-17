@@ -85,3 +85,67 @@ func TestAWSConnectorPrepareExec(t *testing.T) {
 		t.Fatalf("Plan.Details[connector] = %v, want aws-ssm", got)
 	}
 }
+
+func TestAWSConnectorPrepareShellAttach(t *testing.T) {
+	originalProbe := probeSSMTarget
+	defer func() { probeSSMTarget = originalProbe }()
+	probeSSMTarget = func(ctx context.Context, raw map[string]interface{}, target awsSSMTargetConfig) (awsSSMProbeResult, error) {
+		return awsSSMProbeResult{Managed: true, Online: true, Platform: "linux"}, nil
+	}
+
+	result, err := awsConnectorPrepare(providerapi.ConnectorPrepareParams{
+		Target: providerapi.ConnectorTarget{
+			Name: "aws:web-01",
+			Meta: map[string]string{
+				"instance_id": "i-0123456789abcdef0",
+				"region":      "ap-northeast-1",
+				"platform":    "linux",
+			},
+		},
+		Operation: providerapi.ConnectorOperation{
+			Name: "shell",
+			Options: map[string]interface{}{
+				"attach":     true,
+				"session_id": "session-123",
+			},
+		},
+	})
+	if err != nil {
+		t.Fatalf("awsConnectorPrepare() error = %v", err)
+	}
+	if got := result.Plan.Details["session_action"]; got != "attach" {
+		t.Fatalf("Plan.Details[session_action] = %v, want attach", got)
+	}
+	if got := result.Plan.Details["session_id"]; got != "session-123" {
+		t.Fatalf("Plan.Details[session_id] = %v, want session-123", got)
+	}
+}
+
+func TestAWSConnectorPrepareRejectsAttachDetachConflict(t *testing.T) {
+	originalProbe := probeSSMTarget
+	defer func() { probeSSMTarget = originalProbe }()
+	probeSSMTarget = func(ctx context.Context, raw map[string]interface{}, target awsSSMTargetConfig) (awsSSMProbeResult, error) {
+		return awsSSMProbeResult{Managed: true, Online: true, Platform: "linux"}, nil
+	}
+
+	_, err := awsConnectorPrepare(providerapi.ConnectorPrepareParams{
+		Target: providerapi.ConnectorTarget{
+			Name: "aws:web-01",
+			Meta: map[string]string{
+				"instance_id": "i-0123456789abcdef0",
+				"region":      "ap-northeast-1",
+				"platform":    "linux",
+			},
+		},
+		Operation: providerapi.ConnectorOperation{
+			Name: "shell",
+			Options: map[string]interface{}{
+				"attach": true,
+				"detach": true,
+			},
+		},
+	})
+	if err == nil {
+		t.Fatal("awsConnectorPrepare() error = nil, want non-nil")
+	}
+}

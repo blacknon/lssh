@@ -30,6 +30,12 @@ OPTIONS:
     -m port:/path/to/local                      NFS Reverse Dynamic forward mode. Specify a port:/path/to/local.
     --hold                                      keep command panes after remote command exits.
     --allow-layout-change                       allow opening new pages/panes even in command mode.
+    --session name                             persistent mux session name.
+    --socket-path path                         socket path for persistent mux sessions.
+    --attach                                   attach to an existing persistent mux session.
+    --detach                                   create or keep a persistent mux session without attaching.
+    --list-sessions                            list persistent mux sessions.
+    --kill-session                             kill the named persistent mux session.
     --enable-transfer                           enable file transfer UI even if disabled in config.
     --disable-transfer                          disable file transfer UI for this session.
     --list, -l                                  print server list from config.
@@ -127,7 +133,9 @@ page_list = "w"
 close_pane = "x"
 broadcast = "b"
 transfer = "f"
+detach_client = "d"
 transfer_enabled = true
+socket_path = "~/.cache/lssh/lsmux-<Name>.sock"
 focus_border_color = "green"
 focus_title_color = "green"
 broadcast_border_color = "yellow"
@@ -151,7 +159,9 @@ mux:
   close_pane: "x"
   broadcast: "b"
   transfer: "f"
+  detach_client: "d"
   transfer_enabled: true
+  socket_path: "~/.cache/lssh/lsmux-<Name>.sock"
   focus_border_color: "green"
   focus_title_color: "green"
   broadcast_border_color: "yellow"
@@ -175,7 +185,9 @@ Available `mux` settings:
 - `close_pane`: close the current pane. Default: `x`
 - `broadcast`: toggle broadcast input to all panes on the page. Default: `b`
 - `transfer`: open file transfer for the active pane. Default: `f`
+- `detach_client`: key used after the prefix to detach an attached persistent client. Default: `d`
 - `transfer_enabled`: allow the transfer UI in `lsmux`. Default: `true`
+- `socket_path`: unix socket path template for persistent sessions. `<Name>` is replaced with the session name.
 - `focus_border_color`, `focus_title_color`: colors for the focused pane. Default: `green`
 - `broadcast_border_color`, `broadcast_title_color`: colors for panes in broadcast mode. Default: `yellow`
 - `done_border_color`, `done_title_color`: colors for completed command panes. Default: `gray`
@@ -183,3 +195,30 @@ Available `mux` settings:
 These values only control the `lsmux` UI. Host connection settings such as `addr`, `user`, `key`, and proxy options continue to be defined in the regular `common` and `server.<name>` sections.
 
 If you use `lsmux` mainly as a bastion or observation workspace, set `transfer_enabled = false` or pass `--disable-transfer` so the file-transfer wizard cannot be opened during that session.
+
+### persistent sessions
+
+`lsmux` can keep a session alive in the background and let another terminal attach later.
+
+```shell
+# create and attach
+lsmux --session ops
+
+# create in background only
+lsmux --session ops --detach
+
+# attach later
+lsmux --attach --session ops
+
+# list sessions
+lsmux --list-sessions
+
+# kill a session
+lsmux --kill-session --session ops
+```
+
+Notes:
+
+- persistent sessions currently use a local socket and are supported on Unix-like systems
+- Windows keeps the normal foreground `lsmux` workflow, but attach/detach is not supported yet because a ConPTY-based backend is still needed
+- when attached, the default detach key is `Ctrl+A d`; this follows `mux.prefix` + `mux.detach_client`
