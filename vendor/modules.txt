@@ -165,10 +165,6 @@ github.com/aws/smithy-go/tracing
 github.com/aws/smithy-go/transport/http
 github.com/aws/smithy-go/transport/http/internal/io
 github.com/aws/smithy-go/waiter
-# github.com/bitwarden/sdk-go v1.0.2
-## explicit; go 1.21
-github.com/bitwarden/sdk-go
-github.com/bitwarden/sdk-go/internal/cinterface
 # github.com/blacknon/crypto11 v1.6.2-0.20260315101107-fd111b1d25ce
 ## explicit; go 1.25.1
 github.com/blacknon/crypto11

@@ -61,8 +61,6 @@ github.com/aws/aws-sdk-go-v2/service/sts v1.41.10 h1:p8ogvvLugcR/zLBXTXrTkj0RYBU
 github.com/aws/aws-sdk-go-v2/service/sts v1.41.10/go.mod h1:60dv0eZJfeVXfbT1tFJinbHrDfSJ2GZl4Q//OSSNAVw=
 github.com/aws/smithy-go v1.24.2 h1:FzA3bu/nt/vDvmnkg+R8Xl46gmzEDam6mZ1hzmwXFng=
 github.com/aws/smithy-go v1.24.2/go.mod h1:YE2RhdIuDbA5E5bTdciG9KrW3+TiEONeUWCqxX9i1Fc=
-github.com/bitwarden/sdk-go v1.0.2 h1:krk5et4sfksLDDcrYHcs8f3jL/TGcQ1EShw4CG21JSI=
-github.com/bitwarden/sdk-go v1.0.2/go.mod h1:RuYh+gqffp3h8wNUVWz1bvp2Pho10AFz+WIlI26iWY4=
 github.com/blacknon/crypto11 v1.6.2-0.20260315101107-fd111b1d25ce h1:e/O1bXnYwEqK13PATGXYYecK1m3X6lo8WJ/9ju9A13k=
 github.com/blacknon/crypto11 v1.6.2-0.20260315101107-fd111b1d25ce/go.mod h1:DK0nQEQvNRRg4/vN5CfNhvvUNTPbOQ2xAQ83qQFK20s=
 github.com/blacknon/go-prompt v0.2.7 h1:dVdTqVplKvpT/k4bB9BlbcBYl/k6amYX5tvjYBmuKkI=

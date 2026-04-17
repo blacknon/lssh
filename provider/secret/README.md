@@ -129,7 +129,7 @@ Recommended updates:
 Current fit:
 
 - good fit for `secret.get`
-- backend API use is aligned with the design direction
+- backend CLI use is aligned with the design direction
 
 Recommended updates:
 
