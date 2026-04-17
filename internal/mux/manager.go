@@ -56,6 +56,8 @@ type Manager struct {
 	nextPaneID int
 	stopOnce   sync.Once
 
+	transferEnabled bool
+
 	transferMu     sync.Mutex
 	transfers      []*transferJob
 	nextTransferID int
@@ -75,6 +77,7 @@ type SessionOptions struct {
 	IsBashrc                      bool
 	IsNotBashrc                   bool
 	ControlMasterOverride         *bool
+	TransferEnabled               *bool
 	ParallelInfo                  func(server string) []string
 }
 
@@ -136,6 +139,10 @@ func NewManager(cfg conf.Config, names []string, command []string, stdinData []b
 		status:                status,
 		nextPageID:            1,
 		nextPaneID:            1,
+	}
+	m.transferEnabled = cfg.Mux.IsTransferEnabled()
+	if options.TransferEnabled != nil {
+		m.transferEnabled = *options.TransferEnabled
 	}
 
 	m.app.SetInputCapture(m.captureInput)

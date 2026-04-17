@@ -182,6 +182,15 @@ shell:
       path: "/usr/bin/vimdiff"
 ```
 
+Mux UI:
+
+```toml
+[mux]
+prefix = "Ctrl+A"
+transfer = "f"
+transfer_enabled = false
+```
+
 HTTP / SOCKS5 / SSH proxy and `ProxyCommand`:
 
 ```toml

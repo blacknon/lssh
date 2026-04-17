@@ -25,6 +25,7 @@ type MuxConfig struct {
 	BroadcastTitleColor  string `toml:"broadcast_title_color" yaml:"broadcast_title_color"`
 	DoneBorderColor      string `toml:"done_border_color" yaml:"done_border_color"`
 	DoneTitleColor       string `toml:"done_title_color" yaml:"done_title_color"`
+	TransferEnabled      *bool  `toml:"transfer_enabled" yaml:"transfer_enabled"`
 }
 
 // ApplyDefaults fills empty key bindings with tmux-like defaults.
@@ -86,5 +87,13 @@ func (m MuxConfig) ApplyDefaults() MuxConfig {
 	if m.DoneTitleColor == "" {
 		m.DoneTitleColor = "gray"
 	}
+	if m.TransferEnabled == nil {
+		enabled := true
+		m.TransferEnabled = &enabled
+	}
 	return m
+}
+
+func (m MuxConfig) IsTransferEnabled() bool {
+	return m.TransferEnabled == nil || *m.TransferEnabled
 }

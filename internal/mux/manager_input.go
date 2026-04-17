@@ -273,6 +273,10 @@ func (m *Manager) baseHelp() string {
 }
 
 func (m *Manager) prefixHelp() string {
+	transferKey := m.conf.Mux.Transfer
+	if !m.transferEnabled {
+		transferKey = "disabled"
+	}
 	return fmt.Sprintf(
 		"[yellow]Prefix[-]: %s  [yellow]new-page[-]: %s  [yellow]new-pane[-]: %s  [yellow]split-h[-]: %s  [yellow]split-v[-]: %s  [yellow]transfer[-]: %s\n[yellow]next-pane[-]: %s  [yellow]next-page[-]: %s  [yellow]prev-page[-]: %s  [yellow]pages[-]: %s  [yellow]close[-]: %s  [yellow]broadcast[-]: %s  [yellow]quit[-]: %s",
 		m.conf.Mux.Prefix,
@@ -280,7 +284,7 @@ func (m *Manager) prefixHelp() string {
 		m.conf.Mux.NewPane,
 		m.conf.Mux.SplitHorizontal,
 		m.conf.Mux.SplitVertical,
-		m.conf.Mux.Transfer,
+		transferKey,
 		m.conf.Mux.NextPane,
 		m.conf.Mux.NextPage,
 		m.conf.Mux.PrevPage,
@@ -292,6 +296,10 @@ func (m *Manager) prefixHelp() string {
 }
 
 func (m *Manager) showTransfer() {
+	if !m.transferEnabled {
+		m.updateStatus("[red]transfer unavailable[-]: disabled by config or option")
+		return
+	}
 	if m.currentPage == nil || m.currentPage.focus == nil {
 		m.updateStatus("[red]transfer unavailable[-]: no active pane")
 		return
