@@ -30,6 +30,69 @@ The provider protocol should be:
 - backward-compatible
   - current `inventory.list` and `secret.get` plugins should be migratable with small changes
 
+## Two Capability Layers
+
+The word `capabilities` is used in two different layers and they should be kept separate.
+
+### 1. Plugin Capabilities
+
+These describe which provider categories a plugin implements.
+
+Examples:
+
+- `inventory`
+- `connector`
+- `secret`
+
+These are returned by `plugin.describe`.
+
+### 2. Connector Operation Capabilities
+
+These describe what a resolved target can actually do through a connector.
+
+Examples:
+
+- `shell`
+- `exec`
+- `exec_pty`
+- `upload`
+- `download`
+- `port_forward_local`
+- `port_forward_remote`
+- `mount`
+
+These are returned by `connector.describe`.
+
+This separation is important because `connector` alone does not tell the caller whether a target supports interactive shell, command execution, or file transfer.
+
+## Command Capability Requirements
+
+Each `cmd/*` command should decide support based on connector operation capabilities, not only on the presence of the `connector` provider category.
+
+Recommended mapping:
+
+| Command | Required operation capabilities | Notes |
+| --- | --- | --- |
+| `lssh` | `shell` | interactive login/session |
+| `lssh command...` | `exec` | non-interactive command execution |
+| `lsshell` | `exec` | parallel shell UI sends commands, but does not require connector-backed interactive shell |
+| `lsmux` | `shell` or `exec` | pane shells need `shell`; command panes need `exec` |
+| `lssh -P` | `shell` or `exec` | same runtime model as `lsmux` |
+| `lscp` | `upload`, `download` | exact direction depends on source/target |
+| `lsftp` | `upload`, `download` | interactive file transfer |
+| `lssync` | `upload`, `download` | bi-directional sync planning may require both |
+| `lsshfs` | `mount` | filesystem-like mount capability |
+| `lspipe` | `exec` | remote command execution with local piping |
+
+Notes:
+
+- `lsshell` is intentionally different from `lssh`.
+  - `lssh` needs connector-backed interactive shell support
+  - `lsshell` can still work with connectors that support only remote command execution
+- `lsmux` and `lssh -P` should choose capability by pane mode.
+  - shell panes use `shell`
+  - command panes use `exec`
+
 ## Unified JSON Protocol
 
 ### Transport
@@ -162,6 +225,28 @@ Recommended result fields:
 - `plugin_version`
   - optional plugin build/version string
 
+### Capability Source Of Truth
+
+Plugin capabilities should be owned by the plugin source itself.
+
+The recommended model is:
+
+- the plugin executable declares its supported provider categories via `plugin.describe`
+- user config may narrow usage of those categories
+- user config must not be treated as authoritative for unsupported categories
+
+In other words:
+
+- plugin source is the source of truth for supported provider categories
+- config is allowed to restrict usage
+- config should not be allowed to invent unsupported categories
+
+Recommended future core behavior:
+
+- call `plugin.describe`
+- compare configured plugin capabilities with runtime-declared plugin capabilities
+- reject or warn if config asks for unsupported categories
+
 ### `health.check`
 
 This method is recommended for preflight checks and diagnostics.
@@ -208,6 +293,7 @@ Recommended result fields:
 - describes how a resolved target can actually be used
 - may depend on metadata produced by `inventory`
 - must not silently reimplement inventory discovery as an undocumented side effect
+- may expose operation-level capabilities such as `shell`, `exec`, and `upload`
 
 ### Secret
 
@@ -239,9 +325,18 @@ Missing or partial pieces today:
 
 Current plugins:
 
-- `provider-inventory-aws-ec2`
+- `provider-mixed-aws-ec2`
 - `provider-inventory-gcp-compute`
 - `provider-inventory-proxmox`
+
+Planned connector-oriented plugins or families:
+
+- `provider-connector-telnet`
+- `provider-connector-winrm`
+- `provider-mixed-aws-ec2`
+  - planned multi-capability plugin
+  - intended to expose both `inventory` and `connector`
+  - intended to cover AWS EC2 inventory plus AWS SSM connector behavior
 
 Current fit:
 

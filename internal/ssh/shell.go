@@ -26,6 +26,10 @@ func (r *Run) shell() (err error) {
 	server := r.ServerList[0]
 	config := r.Conf.Server[server]
 
+	if r.usesConnector(server) {
+		return r.runConnectorShell(server)
+	}
+
 	// check count AuthMethod
 	if len(r.serverAuthMethodMap[server]) == 0 {
 		msg := fmt.Sprintf("Error: %s is No AuthMethod.\n", server)

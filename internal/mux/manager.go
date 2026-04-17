@@ -557,14 +557,21 @@ func (m *Manager) activatePane(targetPage *page, p *pane, session *RemoteSession
 		})
 	})
 	p.term.Attach(session.Backend)
-	if len(m.command) > 0 && len(m.stdinData) > 0 && session.Terminal != nil && session.Terminal.Stdin != nil {
+	var sessionInput io.WriteCloser
+	switch {
+	case session.Terminal != nil && session.Terminal.Stdin != nil:
+		sessionInput = session.Terminal.Stdin
+	case session.Input != nil:
+		sessionInput = session.Input
+	}
+	if len(m.command) > 0 && len(m.stdinData) > 0 && sessionInput != nil {
 		stdinData := append([]byte(nil), m.stdinData...)
 		go func(term io.WriteCloser, data []byte) {
 			if len(data) > 0 {
 				_, _ = term.Write(data)
 			}
 			_ = term.Close()
-		}(session.Terminal.Stdin, stdinData)
+		}(sessionInput, stdinData)
 	}
 	m.applyPaneStyle(p)
 }

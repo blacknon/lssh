@@ -251,6 +251,9 @@ func expandRemotePath(client *pkgsftp.Client, path string) ([]string, error) {
 }
 
 func (s *shell) openSFTPClient(conn *sConnect) (*pkgsftp.Client, func(), error) {
+	if conn != nil && conn.Connector {
+		return nil, func() {}, fmt.Errorf("sftp unavailable for connector-backed host %s", conn.Name)
+	}
 	if conn == nil || conn.Connect == nil {
 		return nil, func() {}, fmt.Errorf("sftp unavailable")
 	}
@@ -1185,9 +1188,21 @@ func (s *shell) executeRemotePipeLine(pline pipeLine, in *io.PipeReader, out *io
 		ch <- true
 		return
 	}
+	if in != nil {
+		for _, c := range connects {
+			if c != nil && c.Connector {
+				fmt.Fprintln(os.Stderr, "connector-backed hosts do not support piped stdin in lsshell yet")
+				if out != nil {
+					out.CloseWithError(io.ErrClosedPipe)
+				}
+				ch <- true
+				return
+			}
+		}
+	}
 
 	for _, c := range connects {
-		if c == nil || c.Connect == nil {
+		if c == nil {
 			continue
 		}
 
@@ -1205,6 +1220,31 @@ func (s *shell) executeRemotePipeLine(pline pipeLine, in *io.PipeReader, out *io
 			defer hw.CloseWithError(io.ErrClosedPipe)
 
 			ow = io.MultiWriter(w, hw)
+		}
+
+		if c.Connector {
+			runCount++
+			go func(conn *sConnect, outputWriter io.Writer, commandArgs []string) {
+				defer func() {
+					exit <- true
+					if stdout == os.Stdout {
+						exitOutput <- true
+					}
+				}()
+
+				if len(commandArgs) == 0 {
+					_, _ = io.WriteString(outputWriter, "connector execution requires a command\n")
+					return
+				}
+				if _, err := s.Run.RunConnectorCommand(conn.Name, append([]string(nil), commandArgs...), outputWriter, outputWriter); err != nil {
+					_, _ = fmt.Fprintf(outputWriter, "%s\n", err)
+					return
+				}
+			}(c, ow, args)
+			continue
+		}
+		if c.Connect == nil {
+			continue
 		}
 
 		stdinR, stdinW := io.Pipe()

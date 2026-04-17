@@ -37,7 +37,17 @@ func (s *shell) checkKeepalive(forceRemote bool) {
 
 	for _, client := range clients {
 		go func(client *sConnect) {
-			if client == nil || client.Connect == nil {
+			if client == nil {
+				ch <- true
+				return
+			}
+			if client.Connector {
+				client.Connected = true
+				client.LastError = ""
+				ch <- true
+				return
+			}
+			if client.Connect == nil {
 				ch <- true
 				return
 			}

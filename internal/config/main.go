@@ -173,6 +173,9 @@ func (c *Config) checkFormatServerConf() (ok bool) {
 		if v.Ignore {
 			continue
 		}
+		if c.ServerUsesConnector(k) {
+			continue
+		}
 
 		// Address Set Check
 		if v.Addr == "" {

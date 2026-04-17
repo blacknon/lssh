@@ -5,9 +5,11 @@
 package mux
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"os"
+	"os/exec"
 	"os/user"
 	"regexp"
 	"strings"
@@ -18,8 +20,11 @@ import (
 	sshlib "github.com/blacknon/go-sshlib"
 	"github.com/blacknon/lssh/internal/common"
 	conf "github.com/blacknon/lssh/internal/config"
+	"github.com/blacknon/lssh/internal/providerapi"
 	sshcmd "github.com/blacknon/lssh/internal/ssh"
+	ssmconnector "github.com/blacknon/lssh/provider/mixed/provider-mixed-aws-ec2/ssmconnector"
 	"github.com/blacknon/tvxterm"
+	"github.com/creack/pty"
 	"github.com/kballard/go-shellquote"
 	"github.com/pkg/sftp"
 )
@@ -32,6 +37,7 @@ type RemoteSession struct {
 
 	Connect  *sshlib.Connect
 	Terminal *sshlib.Terminal
+	Input    io.WriteCloser
 	Backend  *tvxterm.StreamBackend
 	LogPath  string
 }
@@ -81,6 +87,9 @@ func NewSessionFactory(cfg conf.Config, command []string, options SessionOptions
 			notices = options.ParallelInfo(server)
 		}
 
+		if cfg.ServerUsesConnector(server) {
+			return newConnectorRemoteSession(cfg, server, serverConf, notices, command, cols, rows)
+		}
 		connect, err := run.CreateSshConnect(server)
 		if err != nil {
 			return nil, err
@@ -285,6 +294,244 @@ func (w *terminalLogWriter) Close() error {
 	err := w.file.Close()
 	w.file = nil
 	return err
+}
+
+type nopWriteCloser struct {
+	io.Writer
+}
+
+func (n nopWriteCloser) Close() error {
+	return nil
+}
+
+func newConnectorRemoteSession(cfg conf.Config, server string, serverConf conf.ServerConfig, notices []string, command []string, cols, rows int) (*RemoteSession, error) {
+	switch connectorName(serverConf) {
+	case "aws-ssm":
+		return newAWSConnectorRemoteSession(cfg, server, serverConf, notices, command, cols, rows)
+	default:
+		return nil, fmt.Errorf("server %q connector %q is not supported in lsmux yet", server, connectorName(serverConf))
+	}
+}
+
+func connectorName(serverConf conf.ServerConfig) string {
+	if serverConf.ProviderPlugin == "provider-mixed-aws-ec2" {
+		return "aws-ssm"
+	}
+	return ""
+}
+
+func newAWSConnectorRemoteSession(cfg conf.Config, server string, serverConf conf.ServerConfig, notices []string, command []string, cols, rows int) (*RemoteSession, error) {
+	operation := providerapi.ConnectorOperation{Name: "shell"}
+	if len(command) > 0 {
+		operation = providerapi.ConnectorOperation{
+			Name:    "exec",
+			Command: append([]string(nil), command...),
+		}
+	}
+
+	prepared, err := cfg.PrepareConnector(server, operation)
+	if err != nil {
+		return nil, err
+	}
+	if !prepared.Supported {
+		reason := detailString(prepared.Plan.Details, "reason")
+		if reason == "" {
+			reason = "connector operation is not supported"
+		}
+		return nil, fmt.Errorf("%s", reason)
+	}
+
+	if len(command) == 0 {
+		return newAWSShellRemoteSession(cfg, server, serverConf, notices, prepared.Plan, cols, rows)
+	}
+	return newAWSExecRemoteSession(cfg, server, serverConf, notices, prepared.Plan)
+}
+
+func newAWSShellRemoteSession(cfg conf.Config, server string, serverConf conf.ServerConfig, notices []string, plan providerapi.ConnectorPlan, cols, rows int) (*RemoteSession, error) {
+	shellCfg, err := ssmconnector.ShellConfigFromPlan(plan)
+	if err != nil {
+		return nil, err
+	}
+	cmd := ssmconnector.BuildStartSessionCommand(context.Background(), shellCfg)
+	tty, err := pty.StartWithSize(cmd, &pty.Winsize{
+		Cols: uint16(maxInt(cols, 80)),
+		Rows: uint16(maxInt(rows, 24)),
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	outputReader, outputWriter := io.Pipe()
+	var logWriter *terminalLogWriter
+	logPath := ""
+	if cfg.Log.Enable {
+		logPath, err = buildMuxLogPath(cfg.Log, server)
+		if err != nil {
+			_ = outputWriter.CloseWithError(err)
+			_ = tty.Close()
+			_ = cmd.Process.Kill()
+			_ = cmd.Wait()
+			return nil, err
+		}
+		logWriter, err = newTerminalLogWriter(logPath, cfg.Log.Timestamp, cfg.Log.RemoveAnsiCode)
+		if err != nil {
+			_ = outputWriter.CloseWithError(err)
+			_ = tty.Close()
+			_ = cmd.Process.Kill()
+			_ = cmd.Wait()
+			return nil, err
+		}
+	}
+
+	var copyWG sync.WaitGroup
+	copyWG.Add(1)
+	go copyPipe(&copyWG, writerWithLog(outputWriter, logWriter), tty)
+
+	var waitErr error
+	waitDone := make(chan struct{})
+	go func() {
+		waitErr = cmd.Wait()
+		close(waitDone)
+	}()
+	go func() {
+		defer func() {
+			copyWG.Wait()
+		}()
+		<-waitDone
+		if waitErr != nil {
+			_ = outputWriter.CloseWithError(waitErr)
+			return
+		}
+		_ = outputWriter.Close()
+	}()
+
+	var closeOnce sync.Once
+	closeFn := func() error {
+		var closeErr error
+		closeOnce.Do(func() {
+			_ = outputWriter.Close()
+			if logWriter != nil {
+				_ = logWriter.Close()
+			}
+			if err := tty.Close(); closeErr == nil && err != nil {
+				closeErr = err
+			}
+			if cmd.Process != nil {
+				_ = cmd.Process.Kill()
+			}
+			<-waitDone
+			if closeErr == nil && waitErr != nil && !isExpectedProcessExit(waitErr) {
+				closeErr = waitErr
+			}
+		})
+		return closeErr
+	}
+
+	return &RemoteSession{
+		Server:  server,
+		Config:  serverConf,
+		Notices: append([]string(nil), notices...),
+		Input:   tty,
+		LogPath: logPath,
+		Backend: tvxterm.NewStreamBackend(
+			outputReader,
+			tty,
+			func(cols, rows int) error {
+				return pty.Setsize(tty, &pty.Winsize{
+					Cols: uint16(maxInt(cols, 1)),
+					Rows: uint16(maxInt(rows, 1)),
+				})
+			},
+			closeFn,
+		),
+	}, nil
+}
+
+func newAWSExecRemoteSession(cfg conf.Config, server string, serverConf conf.ServerConfig, notices []string, plan providerapi.ConnectorPlan) (*RemoteSession, error) {
+	commandCfg, err := ssmconnector.CommandConfigFromPlan(plan)
+	if err != nil {
+		return nil, err
+	}
+
+	outputReader, outputWriter := io.Pipe()
+	var logWriter *terminalLogWriter
+	logPath := ""
+	if cfg.Log.Enable {
+		logPath, err = buildMuxLogPath(cfg.Log, server)
+		if err != nil {
+			_ = outputWriter.CloseWithError(err)
+			return nil, err
+		}
+		logWriter, err = newTerminalLogWriter(logPath, cfg.Log.Timestamp, cfg.Log.RemoveAnsiCode)
+		if err != nil {
+			_ = outputWriter.CloseWithError(err)
+			return nil, err
+		}
+	}
+
+	writer := writerWithLog(outputWriter, logWriter)
+	ctx, cancel := context.WithCancel(context.Background())
+	go func() {
+		code, runErr := ssmconnector.RunCommand(ctx, commandCfg, writer, writer)
+		if runErr != nil {
+			_ = outputWriter.CloseWithError(runErr)
+			return
+		}
+		if code != 0 {
+			_ = outputWriter.CloseWithError(fmt.Errorf("exit status %d", code))
+			return
+		}
+		_ = outputWriter.Close()
+	}()
+
+	var closeOnce sync.Once
+	closeFn := func() error {
+		var closeErr error
+		closeOnce.Do(func() {
+			cancel()
+			_ = outputWriter.Close()
+			if logWriter != nil {
+				if err := logWriter.Close(); err != nil {
+					closeErr = err
+				}
+			}
+		})
+		return closeErr
+	}
+
+	return &RemoteSession{
+		Server:  server,
+		Config:  serverConf,
+		Notices: append([]string(nil), notices...),
+		Input:   nopWriteCloser{Writer: io.Discard},
+		LogPath: logPath,
+		Backend: tvxterm.NewStreamBackend(
+			outputReader,
+			nopWriteCloser{Writer: io.Discard},
+			func(cols, rows int) error { return nil },
+			closeFn,
+		),
+	}, nil
+}
+
+func detailString(details map[string]interface{}, key string) string {
+	if details == nil {
+		return ""
+	}
+	if value, ok := details[key]; ok && value != nil {
+		return fmt.Sprint(value)
+	}
+	return ""
+}
+
+func isExpectedProcessExit(err error) bool {
+	if err == nil {
+		return true
+	}
+	if exitErr, ok := err.(*exec.ExitError); ok && exitErr != nil {
+		return true
+	}
+	return false
 }
 
 func buildMuxLogPath(logConf conf.LogConfig, server string) (string, error) {

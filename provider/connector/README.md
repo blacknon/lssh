@@ -6,6 +6,11 @@ Connector providers are not implemented yet, but this directory is reserved for 
 This document uses `connector` as the provider category name.
 If older discussion or notes use the spelling `connecter`, they refer to the same design direction.
 
+Current prototype providers:
+
+- [`provider-connector-telnet`](./provider-connector-telnet/README.md)
+- [`provider-connector-winrm`](./provider-connector-winrm/README.md)
+
 ## Why A Separate Provider Type May Be Needed
 
 Some targets are not well described by ordinary SSH fields alone.
@@ -18,6 +23,13 @@ Examples:
 - AWS SSM
 
 These cases often differ by supported operations, not just by host/port/user values.
+
+The first intended connector families are:
+
+- telnet
+- winrm
+- serial console
+- aws ssm
 
 ## Role
 
@@ -60,12 +72,35 @@ The design does not require one executable per provider category.
 Both of these are valid:
 
 - separate executables
-  - `provider-inventory-aws-ec2`
+  - `provider-mixed-aws-ec2`
   - `provider-connector-aws-ssm`
 - one executable with multiple capabilities
   - a single provider binary that exposes both `inventory` and `connector`
 
 The important rule is that the runtime contract remains explicit.
+
+### Planned AWS EC2 + SSM Shape
+
+AWS SSM is the strongest current case for a multi-capability plugin.
+
+Planned direction:
+
+- current source today
+  - `provider/mixed/provider-mixed-aws-ec2`
+- current plugin name
+  - `provider-mixed-aws-ec2`
+- planned source location after connector support
+  - keep using `provider/mixed/provider-mixed-aws-ec2`
+- planned plugin capabilities
+  - `["inventory", "connector"]`
+
+Why a neutral location is preferred:
+
+- the plugin is no longer inventory-only
+- placing it only under `inventory/` or only under `connector/` would hide part of its role
+- AWS EC2 inventory and AWS SSM connector share one upstream identity model and metadata model
+
+Today the repository layout has already moved to the mixed provider location, while the implemented methods are still inventory-only.
 
 ## Connector JSON API
 
@@ -143,13 +178,35 @@ Recommended capability keys:
 
 - `shell`
 - `exec`
-- `pty_exec`
+- `exec_pty`
 - `upload`
 - `download`
 - `mount`
 - `port_forward_local`
 - `port_forward_remote`
 - `agent_forward`
+
+Recommended interpretation:
+
+- `shell`
+  - interactive login-like session
+- `exec`
+  - non-interactive command execution
+- `exec_pty`
+  - command execution with PTY allocation
+- `upload`
+  - local-to-remote file copy
+- `download`
+  - remote-to-local file copy
+- `mount`
+  - filesystem mount-like behavior
+
+This layer is different from plugin capabilities.
+
+- plugin capability `connector`
+  - means the plugin implements connector methods
+- connector operation capability `shell`
+  - means the resolved target supports shell access through that connector
 
 Each capability object should at minimum expose:
 
@@ -160,6 +217,294 @@ Optional fields may include:
 - `pty`
 - `reason`
 - `constraints`
+- `preferred`
+- `requires`
+
+Recommended optional fields for the first implementation wave:
+
+- `reason`
+  - short human-readable explanation when unsupported
+- `requires`
+  - prerequisites such as `["aws:ssm_agent"]` or `["winrm:https"]`
+- `constraints`
+  - structured limits such as max upload size or unsupported shell flavor
+- `preferred`
+  - whether this connector is the preferred path when multiple connectors are possible
+
+### Capability Source Of Truth
+
+Connector operation capabilities should be owned by the plugin source and returned by `connector.describe`.
+
+Recommended model:
+
+- plugin source declares what the target supports
+- user config may restrict how `lssh` uses those operations
+- user config must not create unsupported operations
+
+Examples:
+
+- a user may disable `upload` usage even if the connector supports it
+- a user must not be able to declare `mount` support for a WinRM connector that does not implement it
+
+## Current Command Mapping
+
+The current command-to-capability expectation is:
+
+| Command | Capability selection |
+| --- | --- |
+| `lssh` | `shell` |
+| `lssh command...` | `exec` |
+| `lsshell` | `exec` |
+| `lsmux` | `shell` for shell panes, `exec` for command panes |
+| `lssh -P` | same as `lsmux` |
+| `lscp` / `lsftp` / `lssync` | `upload` and/or `download` |
+| `lsshfs` | `mount` |
+| `lspipe` | `exec` |
+
+This means a connector can already be useful even if it does not implement interactive shell.
+For example:
+
+- WinRM may still serve `lsshell` and `lspipe` through `exec`
+- AWS SSM may serve `lsshell`, command panes, and plain `lssh`
+- Telnet is useful mainly for `lssh` and shell panes
+
+## Operation Model
+
+The first connector design should stay conservative.
+
+Recommended first-class operations are:
+
+- `shell`
+- `exec`
+- `exec_pty`
+
+Recommended second-phase operations are:
+
+- `upload`
+- `download`
+- `port_forward_local`
+- `port_forward_remote`
+
+Recommended later-phase operations are:
+
+- `mount`
+- `agent_forward`
+
+This ordering is intentional.
+For telnet, WinRM, and AWS SSM, the highest-confidence shared abstraction is session and command execution.
+File transfer support differs significantly and should not be over-generalized too early.
+
+## Connector-Specific Design
+
+### SSH Reference Model
+
+SSH is not a connector plugin target for the first wave, but it is the baseline comparison model.
+
+Expected operation capabilities:
+
+- `shell`
+  - supported
+- `exec`
+  - supported
+- `exec_pty`
+  - supported
+- `upload`
+  - supported
+- `download`
+  - supported
+- `port_forward_local`
+  - supported
+- `port_forward_remote`
+  - supported
+- `mount`
+  - conditionally supported through `sshfs`
+- `agent_forward`
+  - supported
+
+Why it matters:
+
+- SSH is the richest transport in the current `lssh` family
+- other connectors should be compared against this baseline rather than pretending they are equivalent
+
+### Telnet Connector
+
+Planned plugin shape:
+
+- plugin name
+  - `provider-connector-telnet`
+- plugin capabilities
+  - `["connector"]`
+
+Typical target inputs:
+
+- `target.config.addr`
+- `target.config.port`
+- `target.config.user`
+- optional target or provider config for prompt patterns and login sequencing
+
+Expected operation capabilities:
+
+- `shell`
+  - supported
+- `exec`
+  - unsupported as a distinct non-interactive primitive in the first design pass
+- `exec_pty`
+  - unsupported as a distinct capability
+- `upload`
+  - unsupported
+- `download`
+  - unsupported
+- `port_forward_local`
+  - unsupported
+- `port_forward_remote`
+  - unsupported
+- `mount`
+  - unsupported
+- `agent_forward`
+  - unsupported
+
+Important design notes:
+
+- telnet is line-oriented and session-oriented
+- command execution may still be emulated by sending input inside a shell session, but that should not be advertised as true `exec`
+- the connector should prefer honesty over convenience
+
+Recommended `connector.prepare` shape:
+
+- `shell`
+  - `plan.kind = "command"`
+  - local command plan launches a telnet session with structured arguments
+
+### WinRM Connector
+
+Planned plugin shape:
+
+- plugin name
+  - `provider-connector-winrm`
+- plugin capabilities
+  - `["connector"]`
+
+Typical target inputs:
+
+- `target.config.addr`
+- `target.config.port`
+- `target.config.user`
+- credentials from `secret` providers
+- transport metadata such as HTTP vs HTTPS
+
+Expected operation capabilities:
+
+- `shell`
+  - conditionally supported
+  - only if the implementation chooses to provide an interactive PowerShell-like session
+- `exec`
+  - supported
+- `exec_pty`
+  - unsupported in the first design pass
+- `upload`
+  - conditionally supported in a later phase
+- `download`
+  - conditionally supported in a later phase
+- `port_forward_local`
+  - unsupported
+- `port_forward_remote`
+  - unsupported
+- `mount`
+  - unsupported
+- `agent_forward`
+  - unsupported
+
+Important design notes:
+
+- WinRM's strongest fit is remote command execution
+- interactive shell support is possible but should be treated as distinct from SSH-quality TTY behavior
+- file transfer should not be claimed unless there is a deliberate native implementation path
+
+Recommended `connector.prepare` shape:
+
+- `exec`
+  - `plan.kind = "provider-managed"` or `plan.kind = "command"`
+- `shell`
+  - only if an explicit interactive session model is implemented
+
+### AWS SSM Connector
+
+Planned plugin shape:
+
+- plugin name
+  - `provider-mixed-aws-ec2`
+- plugin capabilities
+  - `["inventory", "connector"]`
+
+Typical target inputs:
+
+- inventory metadata from EC2
+  - `instance_id`
+  - `region`
+  - `platform`
+  - `availability_zone`
+- optional provider config
+  - AWS profile
+  - shared config files
+  - region overrides
+
+Expected operation capabilities:
+
+- `shell`
+  - supported for SSM-managed instances
+- `exec`
+  - supported
+- `exec_pty`
+  - supported when Session Manager interactive execution is available
+- `upload`
+  - unsupported in the first design pass
+- `download`
+  - unsupported in the first design pass
+- `port_forward_local`
+  - later-phase candidate
+- `port_forward_remote`
+  - unsupported in the first design pass
+- `mount`
+  - unsupported
+- `agent_forward`
+  - unsupported
+
+Important design notes:
+
+- AWS SSM should be modeled as a true connector, not as fake SSH
+- the connector should consume EC2 inventory metadata rather than re-discovering identity out of band
+- the first implementation should focus on shell and command execution
+- file transfer should stay out of scope unless a clear native AWS-backed approach is defined
+
+Recommended `connector.prepare` shape:
+
+- `shell`
+  - `plan.kind = "provider-managed"` or `plan.kind = "command"`
+  - command plan may describe an `aws ssm start-session`-style invocation
+- `exec`
+  - `plan.kind = "provider-managed"` or structured command plan for SendCommand/session-backed exec
+
+## Reference Capability Matrix
+
+This matrix is a design target, not an implementation status table.
+
+| Connector | shell | exec | exec_pty | upload | download | port_forward_local | port_forward_remote | mount | agent_forward |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| SSH | yes | yes | yes | yes | yes | yes | yes | conditional | yes |
+| Telnet | yes | no | no | no | no | no | no | no | no |
+| WinRM | conditional | yes | no | later | later | no | no | no | no |
+| AWS SSM | yes | yes | conditional | no | no | later | no | no | no |
+
+Recommended reading of the matrix:
+
+- `yes`
+  - should be modeled as supported in the first design
+- `no`
+  - should be modeled as unsupported
+- `conditional`
+  - requires target- or implementation-specific checks in `connector.describe`
+- `later`
+  - intentionally deferred from the first implementation wave
 
 ## `connector.prepare`
 
@@ -205,6 +550,17 @@ Result:
 The exact shape of `plan` is intentionally left open for now.
 The main design goal is to keep operation preparation explicit and structured rather than collapsing everything into opaque shell strings.
 
+Recommended `plan.kind` values for the first design pass:
+
+- `provider-managed`
+  - the provider itself owns execution lifecycle
+- `command`
+  - the provider returns a structured local command invocation plan
+- `builtin-ssh`
+  - the provider indicates that normal SSH transport may be used after connector resolution
+
+For the first implementation wave, `connector.describe` should come before `connector.prepare`.
+
 ## Why Capability Separation Matters
 
 Different `lssh` family commands need different things:
@@ -240,6 +596,32 @@ The recommendation is:
 - keep the config and method contracts separated
 - allow one binary to implement multiple capabilities when that reduces duplication
 - document the inventory metadata that the connector consumes
+
+Recommended AWS metadata contract for the first implementation:
+
+- `instance_id`
+- `region`
+- `availability_zone`
+- `platform`
+- `private_ip`
+- `public_ip`
+- `tag.Name`
+- `tag.<TagName>`
+
+Recommended AWS SSM operation capability defaults:
+
+- `shell`
+  - supported for SSM-managed instances
+- `exec`
+  - supported
+- `exec_pty`
+  - supported when session manager PTY-like session is available
+- `upload`
+  - not supported in the first design pass
+- `download`
+  - not supported in the first design pass
+
+This keeps the first connector scope focused on session and command execution rather than file transfer emulation.
 
 ## Current Fit And Migration Plan
 
