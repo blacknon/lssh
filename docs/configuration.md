@@ -188,7 +188,9 @@ Mux UI:
 [mux]
 prefix = "Ctrl+A"
 transfer = "f"
+detach_client = "d"
 transfer_enabled = false
+socket_path = "~/.cache/lssh/lsmux-<Name>.sock"
 ```
 
 HTTP / SOCKS5 / SSH proxy and `ProxyCommand`:
@@ -1027,6 +1029,9 @@ page_list = "w"
 close_pane = "x"
 broadcast = "b"
 transfer = "f"
+detach_client = "d"
+transfer_enabled = true
+socket_path = "~/.cache/lssh/lsmux-<Name>.sock"
 focus_border_color = "green"
 focus_title_color = "green"
 broadcast_border_color = "yellow"
@@ -1050,6 +1055,9 @@ Available `mux` settings:
 - `close_pane`: close the current pane. Default: `x`
 - `broadcast`: toggle broadcast input to all panes on the page. Default: `b`
 - `transfer`: open file transfer for the active pane. Default: `f`
+- `detach_client`: key used after the prefix to detach an attached persistent client. Default: `d`
+- `transfer_enabled`: allow the transfer UI in `lsmux`. Default: `true`
+- `socket_path`: unix socket path template for persistent sessions. `<Name>` is replaced with the session name.
 - `focus_border_color`, `focus_title_color`: colors for the focused pane. Default: `green`
 - `broadcast_border_color`, `broadcast_title_color`: colors for panes in broadcast mode. Default: `yellow`
 - `done_border_color`, `done_title_color`: colors for completed command panes. Default: `gray`

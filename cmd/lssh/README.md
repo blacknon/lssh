@@ -39,6 +39,14 @@ OPTIONS:
     -P                                          run shell or command in mux UI (lsmux compatible).
     --hold                                      keep command panes after remote command exits (with -P).
     --allow-layout-change                       allow opening new pages/panes even in command mode (with -P).
+    --mux-session name                          persistent mux session name (with -P).
+    --mux-socket-path path                      socket path for persistent mux session (with -P).
+    --mux-attach                                attach to an existing mux session (with -P).
+    --mux-detach                                create or keep a persistent mux session without attaching (with -P).
+    --mux-list-sessions                         list persistent mux sessions (with -P).
+    --mux-kill-session                          kill the named mux session (with -P).
+    --attach session-id                         attach to an existing connector session by session-id.
+    --detach                                    start a connector shell session without attaching when supported.
     --localrc                                   use local bashrc shell.
     --not-localrc                               not use local bashrc shell.
     --list, -l                                  print server list from config.
@@ -111,6 +119,32 @@ When a command is given, piped `stdin` is copied to each pane, and `--hold` keep
 ```sh
 lssh -P --hold hostname
 ```
+
+If you use `-P` as a long-lived workspace, you can keep the mux session alive in the background and attach later.
+
+```sh
+# create and attach
+lssh -P --mux-session ops
+
+# create in background only
+lssh -P --mux-session ops --mux-detach
+
+# attach later
+lssh -P --mux-attach --mux-session ops
+
+# list sessions
+lssh -P --mux-list-sessions
+
+# kill a session
+lssh -P --mux-kill-session --mux-session ops
+```
+
+Notes:
+
+- persistent `-P` sessions currently use a local socket and are supported on Unix-like systems
+- Windows keeps the normal foreground mux workflow, but attach/detach is not supported yet because a ConPTY-based backend is still needed
+- when attached, the default detach key is `Ctrl+A d`; this follows `mux.prefix` + `mux.detach_client`
+- `--enable-transfer` / `--disable-transfer` also apply in `-P` mode and can override `mux.transfer_enabled`
 
 ### terminal log
 
@@ -203,6 +237,25 @@ The following forwarding features are available
 - x11 forward (`-X`, `-Y`)
 
 When using NFS or SMB forward, lssh starts the corresponding server and begins listening on the specified port.
+
+### connector attach / detach
+
+Connector-backed shell sessions can expose attach / detach as ordinary command options.
+The current implementation is aimed at AWS SSM-backed hosts.
+
+```bash
+# attach to an existing connector session
+lssh --attach session-1234567890abcdef
+
+# start a detached connector shell session
+lssh --detach
+```
+
+Current restrictions:
+
+- `--attach` and `--detach` are mutually exclusive
+- connector attach / detach works only for single-host shell sessions
+- they cannot be combined with command execution, `-p`, `-P`, forwarding options, X11, localrc options, or `-f`
 
 #### if use command line option
 

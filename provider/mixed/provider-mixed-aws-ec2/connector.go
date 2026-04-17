@@ -109,6 +109,11 @@ func awsConnectorPrepare(params providerapi.ConnectorPrepareParams) (providerapi
 		return providerapi.ConnectorPrepareResult{}, err
 	}
 
+	sessionAction, sessionID, err := awsSSMSessionActionFromOperation(params.Operation)
+	if err != nil {
+		return providerapi.ConnectorPrepareResult{}, err
+	}
+
 	supported := probe.Managed && probe.Online
 	plan := providerapi.ConnectorPlan{
 		Kind: "provider-managed",
@@ -129,6 +134,10 @@ func awsConnectorPrepare(params providerapi.ConnectorPrepareParams) (providerapi
 	switch params.Operation.Name {
 	case "shell":
 		plan.Details["session_mode"] = "shell"
+		plan.Details["session_action"] = sessionAction
+		if sessionID != "" {
+			plan.Details["session_id"] = sessionID
+		}
 		if target.ShellDocumentName != "" {
 			plan.Details["document_name"] = target.ShellDocumentName
 		}
@@ -167,6 +176,36 @@ func awsConnectorPrepare(params providerapi.ConnectorPrepareParams) (providerapi
 		Supported: supported,
 		Plan:      plan,
 	}, nil
+}
+
+func awsSSMSessionActionFromOperation(operation providerapi.ConnectorOperation) (string, string, error) {
+	attach := awsOptionBool(operation.Options, "attach")
+	detach := awsOptionBool(operation.Options, "detach")
+	sessionID := strings.TrimSpace(awsOptionString(operation.Options, "session_id"))
+
+	if operation.Name != "shell" && (attach || detach || sessionID != "") {
+		return "", "", fmt.Errorf("attach/detach options are only supported for shell operations")
+	}
+	if attach && detach {
+		return "", "", fmt.Errorf("attach and detach cannot be used together")
+	}
+	if (attach || detach) && len(operation.Command) > 0 {
+		return "", "", fmt.Errorf("attach/detach options cannot be used with command arguments")
+	}
+	if attach {
+		if sessionID == "" {
+			return "", "", fmt.Errorf("attach requires session_id")
+		}
+		return "attach", sessionID, nil
+	}
+	if sessionID != "" {
+		return "", "", fmt.Errorf("session_id can only be used together with attach")
+	}
+	if detach {
+		return "detach", "", nil
+	}
+
+	return "start", "", nil
 }
 
 func awsSSMTargetFromParams(config map[string]interface{}, target providerapi.ConnectorTarget) (awsSSMTargetConfig, []string) {
@@ -301,4 +340,34 @@ func awsBool(raw map[string]interface{}, key string, def bool) bool {
 	default:
 		return def
 	}
+}
+
+func awsOptionBool(raw map[string]interface{}, key string) bool {
+	if raw == nil {
+		return false
+	}
+	value, ok := raw[key]
+	if !ok || value == nil {
+		return false
+	}
+	switch typed := value.(type) {
+	case bool:
+		return typed
+	case string:
+		normalized := strings.TrimSpace(strings.ToLower(typed))
+		return normalized == "1" || normalized == "true" || normalized == "yes" || normalized == "on"
+	default:
+		return false
+	}
+}
+
+func awsOptionString(raw map[string]interface{}, key string) string {
+	if raw == nil {
+		return ""
+	}
+	value, ok := raw[key]
+	if !ok || value == nil {
+		return ""
+	}
+	return fmt.Sprint(value)
 }

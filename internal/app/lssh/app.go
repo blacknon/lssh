@@ -12,11 +12,14 @@ import (
 	"regexp"
 	"runtime"
 	"sort"
+	"strings"
+	"time"
 
 	"github.com/blacknon/lssh/internal/check"
 	"github.com/blacknon/lssh/internal/common"
 	conf "github.com/blacknon/lssh/internal/config"
 	"github.com/blacknon/lssh/internal/list"
+	lsmuxsession "github.com/blacknon/lssh/internal/lsmuxsession"
 	"github.com/blacknon/lssh/internal/mux"
 	sshcmd "github.com/blacknon/lssh/internal/ssh"
 	"github.com/blacknon/lssh/internal/version"
@@ -116,6 +119,14 @@ USAGE:
 		cli.BoolFlag{Name: "P", Usage: "run shell or command in mux UI (lsmux compatible)."},
 		cli.BoolFlag{Name: "hold", Usage: "keep command panes after remote command exits (with -P)."},
 		cli.BoolFlag{Name: "allow-layout-change", Usage: "allow opening new pages/panes even in command mode (with -P)."},
+		cli.StringFlag{Name: "mux-session", Usage: "persistent mux session `name` (with -P)."},
+		cli.StringFlag{Name: "mux-socket-path", Usage: "socket `path` for persistent mux session (with -P)."},
+		cli.BoolFlag{Name: "mux-attach", Usage: "attach to an existing mux session (with -P)."},
+		cli.BoolFlag{Name: "mux-detach", Usage: "create or keep a persistent mux session without attaching (with -P)."},
+		cli.BoolFlag{Name: "mux-list-sessions", Usage: "list persistent mux sessions (with -P)."},
+		cli.BoolFlag{Name: "mux-kill-session", Usage: "kill the named mux session (with -P)."},
+		cli.StringFlag{Name: "attach", Usage: "attach to an existing connector session by `session-id`."},
+		cli.BoolFlag{Name: "detach", Usage: "start a connector shell session without attaching when supported."},
 		cli.BoolFlag{Name: "localrc", Usage: "use local bashrc shell."},
 		cli.BoolFlag{Name: "not-localrc", Usage: "not use local bashrc shell."},
 		cli.BoolFlag{Name: "enable-transfer", Usage: "enable file transfer UI in mux mode even if disabled in config."},
@@ -124,6 +135,8 @@ USAGE:
 		cli.BoolFlag{Name: "help,h", Usage: "print this help"},
 		// Background (like ssh -f)
 		cli.BoolFlag{Name: "f", Usage: "Run in background after forwarding/connection (ssh -f like)."},
+		cli.BoolFlag{Name: "mux-daemon", Hidden: true},
+		cli.BoolFlag{Name: "mux-child", Hidden: true},
 	}
 	app.Flags = append(app.Flags, common.ControlMasterOverrideFlags()...)
 	app.EnableBashCompletion = true
@@ -175,8 +188,27 @@ USAGE:
 
 		enableX11 := c.Bool("X11")
 		enableTrustedX11 := c.Bool("Y")
+		connectorAttachSession := c.String("attach")
+		connectorDetach := c.Bool("detach")
+		muxSessionName := c.String("mux-session")
+		muxSocketPath := c.String("mux-socket-path")
+		if strings.TrimSpace(muxSocketPath) == "" {
+			muxSocketPath = data.Mux.SocketPath
+		}
 
 		if c.Bool("P") {
+			if c.Bool("mux-list-sessions") {
+				return listLsshMuxSessions()
+			}
+			if c.Bool("mux-kill-session") {
+				return killLsshMuxSession(muxSessionName)
+			}
+			if c.Bool("mux-attach") {
+				return attachLsshMuxSession(muxSessionName, data)
+			}
+			if connectorAttachSession != "" || connectorDetach {
+				return fmt.Errorf("--attach/--detach cannot be used with -P")
+			}
 			if c.Bool("enable-transfer") && c.Bool("disable-transfer") {
 				return fmt.Errorf("--enable-transfer and --disable-transfer cannot be used together")
 			}
@@ -308,6 +340,59 @@ USAGE:
 					}
 				}
 			}
+			if c.Bool("mux-child") {
+				manager, err := mux.NewManager(data, names, c.Args(), stdinData, hosts, c.Bool("hold"), c.Bool("allow-layout-change"), forwardConfig)
+				if err != nil {
+					return err
+				}
+				return manager.Run()
+			}
+			if c.Bool("mux-daemon") {
+				if muxSessionName == "" {
+					muxSessionName = lsmuxsession.DefaultSessionName
+				}
+				exe, exeErr := os.Executable()
+				if exeErr != nil {
+					return exeErr
+				}
+				childArgs := make([]string, 0, len(os.Args))
+				for _, arg := range os.Args[1:] {
+					if arg == "--mux-daemon" {
+						continue
+					}
+					childArgs = append(childArgs, arg)
+				}
+				childArgs = append(childArgs, "--mux-child")
+				daemon := &lsmuxsession.Daemon{
+					Name:       muxSessionName,
+					ConfigPath: confpath,
+					SocketPath: muxSocketPath,
+					Exe:        exe,
+					Args:       childArgs,
+					Env:        append(os.Environ(), "_LSMUX_CHILD=1"),
+				}
+				return daemon.Run(notifyLsshMuxParentReady)
+			}
+			if muxSessionName != "" || c.Bool("mux-detach") {
+				if runtime.GOOS == "windows" {
+					return fmt.Errorf("persistent mux sessions are not supported on Windows yet")
+				}
+				if muxSessionName == "" {
+					muxSessionName = lsmuxsession.DefaultSessionName
+				}
+				session, err := ensureLsshMuxSession(muxSessionName, muxSocketPath)
+				if err != nil {
+					return err
+				}
+				if c.Bool("mux-detach") {
+					fmt.Fprintf(os.Stdout, "lsmux session %q is running in background (pid %d)\n", session.Name, session.PID)
+					return nil
+				}
+				return lsmuxsession.Attach(session, lsmuxsession.AttachOptions{
+					PrefixSpec: data.Mux.Prefix,
+					DetachSpec: data.Mux.DetachClient,
+				})
+			}
 
 			manager, err := mux.NewManager(data, names, c.Args(), stdinData, hosts, c.Bool("hold"), c.Bool("allow-layout-change"), forwardConfig)
 			if err != nil {
@@ -356,6 +441,33 @@ USAGE:
 			}
 		}
 
+		if err := validateConnectorShellOptions(connectorFlagOptions{
+			AttachSession:            connectorAttachSession,
+			Detach:                   connectorDetach,
+			CommandArgs:              append([]string(nil), c.Args()...),
+			MuxMode:                  c.Bool("P"),
+			ParallelMode:             c.Bool("parallel"),
+			TermMode:                 c.Bool("term"),
+			NotExecute:               c.Bool("not-execute"),
+			LocalRc:                  c.Bool("localrc"),
+			NotLocalRc:               c.Bool("not-localrc"),
+			X11:                      enableX11,
+			X11Trusted:               enableTrustedX11,
+			Background:               c.Bool("f"),
+			LocalForwards:            len(c.StringSlice("L")),
+			RemoteForwards:           len(c.StringSlice("R")),
+			DynamicForward:           c.String("D") != "",
+			HTTPDynamicForward:       c.String("d") != "",
+			HTTPReverseForward:       c.String("r") != "",
+			NFSDynamicForward:        c.String("M") != "",
+			NFSReverseDynamicForward: c.String("m") != "",
+			SMBDynamicForward:        c.String("S") != "",
+			SMBReverseDynamicForward: c.String("s") != "",
+			Tunnel:                   c.String("tunnel") != "",
+		}, selected, data); err != nil {
+			return err
+		}
+
 		r := new(sshcmd.Run)
 		r.ServerList = selected
 		r.Conf = data
@@ -372,6 +484,8 @@ USAGE:
 
 		// exec command
 		r.ExecCmd = c.Args()
+		r.ConnectorAttachSession = connectorAttachSession
+		r.ConnectorDetach = connectorDetach
 		r.IsParallel = c.Bool("parallel")
 
 		if enableX11 || enableTrustedX11 {
@@ -598,4 +712,145 @@ USAGE:
 		return nil
 	}
 	return app
+}
+
+func ensureLsshMuxSession(name, socketPath string) (lsmuxsession.Session, error) {
+	if session, err := lsmuxsession.ResolveSession(name); err == nil {
+		return session, nil
+	}
+	return spawnLsshMuxSession(name, socketPath)
+}
+
+func spawnLsshMuxSession(name, socketPath string) (lsmuxsession.Session, error) {
+	args := make([]string, 0, len(os.Args)+6)
+	for _, arg := range os.Args[1:] {
+		switch arg {
+		case "--mux-detach", "--mux-attach", "--mux-list-sessions", "--mux-kill-session", "--mux-daemon", "--mux-child":
+			continue
+		}
+		args = append(args, arg)
+	}
+	args = filterLsshMuxSessionValueFlags(args)
+	args = append(args, "--mux-daemon", "--mux-session", name)
+	if strings.TrimSpace(socketPath) != "" {
+		args = append(args, "--mux-socket-path", socketPath)
+	}
+
+	exe, err := os.Executable()
+	if err != nil {
+		return lsmuxsession.Session{}, err
+	}
+	var rpipe *os.File
+	var wpipe *os.File
+	if runtime.GOOS != "windows" {
+		rpipe, wpipe, err = os.Pipe()
+		if err != nil {
+			return lsmuxsession.Session{}, err
+		}
+	}
+	cmd := exec.Command(exe, args...)
+	cmd.Env = append(os.Environ(), "_LSMUX_DAEMON=1")
+	if runtime.GOOS != "windows" {
+		cmd.ExtraFiles = []*os.File{wpipe}
+		cmd.SysProcAttr = daemonSysProcAttr()
+	}
+	devnull, _ := os.OpenFile(os.DevNull, os.O_RDWR, 0)
+	if devnull != nil {
+		cmd.Stdin = devnull
+	}
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	if err := cmd.Start(); err != nil {
+		return lsmuxsession.Session{}, err
+	}
+	if runtime.GOOS != "windows" && wpipe != nil {
+		_ = wpipe.Close()
+	}
+	if runtime.GOOS != "windows" && rpipe != nil {
+		buf := make([]byte, 16)
+		n, _ := rpipe.Read(buf)
+		_ = rpipe.Close()
+		if n == 0 {
+			return lsmuxsession.Session{}, fmt.Errorf("background start failed")
+		}
+	}
+	time.Sleep(200 * time.Millisecond)
+	return lsmuxsession.ResolveSession(name)
+}
+
+func filterLsshMuxSessionValueFlags(args []string) []string {
+	filtered := make([]string, 0, len(args))
+	skipNext := false
+	for _, arg := range args {
+		if skipNext {
+			skipNext = false
+			continue
+		}
+		switch arg {
+		case "--mux-session", "--mux-socket-path":
+			skipNext = true
+			continue
+		}
+		filtered = append(filtered, arg)
+	}
+	return filtered
+}
+
+func notifyLsshMuxParentReady() {
+	if os.Getenv("_LSMUX_DAEMON") != "1" {
+		return
+	}
+	f := os.NewFile(uintptr(3), "lsmux_ready")
+	if f == nil {
+		return
+	}
+	defer f.Close()
+	_, _ = f.Write([]byte("OK\n"))
+}
+
+func listLsshMuxSessions() error {
+	sessions, err := lsmuxsession.ListSessions()
+	if err != nil {
+		return err
+	}
+	if len(sessions) == 0 {
+		fmt.Fprintln(os.Stdout, "No lsmux sessions.")
+		return nil
+	}
+	for i := range sessions {
+		lsmuxsession.MarkSessionAlive(&sessions[i])
+		fmt.Fprintln(os.Stdout, lsmuxsession.FormatSessionSummary(sessions[i]))
+	}
+	return nil
+}
+
+func killLsshMuxSession(name string) error {
+	if strings.TrimSpace(name) == "" {
+		name = lsmuxsession.DefaultSessionName
+	}
+	session, err := lsmuxsession.LoadSession(name)
+	if err != nil {
+		return err
+	}
+	if session.PID > 0 {
+		process, findErr := os.FindProcess(session.PID)
+		if findErr == nil {
+			_ = process.Kill()
+		}
+	}
+	return lsmuxsession.RemoveSession(name)
+}
+
+func attachLsshMuxSession(name string, cfg conf.Config) error {
+	if strings.TrimSpace(name) == "" {
+		name = lsmuxsession.DefaultSessionName
+	}
+	session, err := lsmuxsession.ResolveSession(name)
+	if err != nil {
+		return err
+	}
+	return lsmuxsession.Attach(session, lsmuxsession.AttachOptions{
+		PrefixSpec: cfg.Mux.Prefix,
+		DetachSpec: cfg.Mux.DetachClient,
+	})
 }
