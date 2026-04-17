@@ -2,6 +2,7 @@ package main
 
 import (
 	"errors"
+	"strings"
 	"testing"
 
 	"github.com/blacknon/lssh/internal/providerapi"
@@ -240,6 +241,19 @@ func TestGetSecretAutoWithoutTokenFallsBackToCLI(t *testing.T) {
 	}
 }
 
+func TestGetSecretSDKModeReturnsMigrationError(t *testing.T) {
+	_, _, err := getSecret(providerapi.SecretGetParams{
+		Config: map[string]interface{}{"auth_mode": "sdk"},
+		Ref:    "item-id/password",
+	})
+	if err == nil {
+		t.Fatal("getSecret() error = nil")
+	}
+	if !strings.Contains(err.Error(), `auth_mode="sdk" is no longer supported`) {
+		t.Fatalf("getSecret() error = %v", err)
+	}
+}
+
 func TestBitwardenHealthCheckCLI(t *testing.T) {
 	original := runBitwardenCLI
 	defer func() { runBitwardenCLI = original }()
@@ -271,5 +285,15 @@ func TestBitwardenHealthCheckCLIFailure(t *testing.T) {
 	_, err := bitwardenHealthCheck(map[string]interface{}{"auth_mode": "cli"})
 	if err == nil {
 		t.Fatal("bitwardenHealthCheck() error = nil")
+	}
+}
+
+func TestBitwardenHealthCheckSDKModeReturnsMigrationError(t *testing.T) {
+	_, err := bitwardenHealthCheck(map[string]interface{}{"auth_mode": "sdk"})
+	if err == nil {
+		t.Fatal("bitwardenHealthCheck() error = nil")
+	}
+	if !strings.Contains(err.Error(), `auth_mode="sdk" is no longer supported`) {
+		t.Fatalf("bitwardenHealthCheck() error = %v", err)
 	}
 }

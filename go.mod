@@ -50,7 +50,6 @@ require (
 	github.com/aws/aws-sdk-go-v2 v1.41.5
 	github.com/aws/aws-sdk-go-v2/config v1.32.14
 	github.com/aws/aws-sdk-go-v2/service/ec2 v1.297.0
-	github.com/bitwarden/sdk-go v1.0.2
 	github.com/blacknon/go-sshproc v0.1.1
 	github.com/blacknon/mview v0.1.5
 	github.com/c9s/goprocinfo v0.0.0-20210130143923-c95fcf8c64a8

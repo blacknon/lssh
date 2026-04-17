@@ -6,7 +6,6 @@ import (
 	"os"
 	"strings"
 
-	sdk "github.com/bitwarden/sdk-go"
 	"github.com/blacknon/lssh/internal/providerapi"
 	"github.com/blacknon/lssh/internal/providerbuiltin"
 )
@@ -110,56 +109,14 @@ func getSecret(params providerapi.SecretGetParams) (string, string, error) {
 	}
 
 	switch mode {
-	case bitwardenAuthModeSDK:
-		accessToken, err := bitwardenToken(params.Config)
-		if err != nil {
-			return "", "", err
-		}
-		return getSecretWithSDK(params.Config, accessToken, params.Ref)
 	case bitwardenAuthModeCLI:
 		return getSecretWithCLI(params.Config, params.Ref)
 	case bitwardenAuthModeAuto:
-		accessToken, err := providerbuiltin.ResolveConfigValue(params.Config, "token")
-		if err != nil {
-			return "", "", err
-		}
-		if accessToken != "" {
-			return getSecretWithSDK(params.Config, accessToken, params.Ref)
-		}
 		return getSecretWithCLI(params.Config, params.Ref)
+	case bitwardenAuthModeSDK:
+		return "", "", fmt.Errorf("provider.bitwarden.auth_mode=%q is no longer supported; use the bw CLI with auth_mode=%q or auth_mode=%q", bitwardenAuthModeSDK, bitwardenAuthModeCLI, bitwardenAuthModeAuto)
 	default:
 		return "", "", fmt.Errorf("unsupported auth_mode %q", mode)
-	}
-}
-
-func getSecretWithSDK(config map[string]interface{}, accessToken, ref string) (string, string, error) {
-	secretID, field := splitBitwardenRef(ref)
-
-	apiURL, identityURL := bitwardenEndpoints(config)
-	client, err := sdk.NewBitwardenClient(apiURL, identityURL)
-	if err != nil {
-		return "", "", err
-	}
-	defer client.Close()
-
-	if err := client.AccessTokenLogin(accessToken, nil); err != nil {
-		return "", "", err
-	}
-
-	secret, err := client.Secrets().Get(secretID)
-	if err != nil {
-		return "", "", err
-	}
-
-	switch field {
-	case "", "value", "password":
-		return secret.Value, "password", nil
-	case "note", "notes":
-		return secret.Note, "text", nil
-	case "key":
-		return secret.Key, "text", nil
-	default:
-		return "", "", fmt.Errorf("bitwarden field %q is not supported by the SDK provider", field)
 	}
 }
 
@@ -301,31 +258,6 @@ func bitwardenSupportedField(field string) bool {
 	}
 }
 
-func bitwardenEndpoints(config map[string]interface{}) (*string, *string) {
-	server, err := providerbuiltin.ResolveConfigValue(config, "server")
-	if err == nil && server != "" {
-		base := strings.TrimRight(server, "/")
-		apiURL := base + "/api"
-		identityURL := base + "/identity"
-		if v, err := providerbuiltin.ResolveConfigValue(config, "api_url"); err == nil && v != "" {
-			apiURL = v
-		}
-		if v, err := providerbuiltin.ResolveConfigValue(config, "identity_url"); err == nil && v != "" {
-			identityURL = v
-		}
-		return &apiURL, &identityURL
-	}
-
-	var apiURL, identityURL *string
-	if v, err := providerbuiltin.ResolveConfigValue(config, "api_url"); err == nil && v != "" {
-		apiURL = &v
-	}
-	if v, err := providerbuiltin.ResolveConfigValue(config, "identity_url"); err == nil && v != "" {
-		identityURL = &v
-	}
-	return apiURL, identityURL
-}
-
 func bitwardenHealthCheck(config map[string]interface{}) (providerapi.HealthCheckResult, error) {
 	mode, err := bitwardenAuthMode(config)
 	if err != nil {
@@ -333,18 +265,6 @@ func bitwardenHealthCheck(config map[string]interface{}) (providerapi.HealthChec
 	}
 
 	switch mode {
-	case bitwardenAuthModeSDK:
-		accessToken, err := bitwardenToken(config)
-		if err != nil {
-			return providerapi.HealthCheckResult{}, err
-		}
-		if err := bitwardenSDKHealthCheck(config, accessToken); err != nil {
-			return providerapi.HealthCheckResult{}, err
-		}
-		return providerapi.HealthCheckResult{
-			OK:      true,
-			Message: "bitwarden secret provider authenticated successfully with SDK access token auth",
-		}, nil
 	case bitwardenAuthModeCLI:
 		if err := bitwardenCLIHealthCheck(config); err != nil {
 			return providerapi.HealthCheckResult{}, err
@@ -354,19 +274,6 @@ func bitwardenHealthCheck(config map[string]interface{}) (providerapi.HealthChec
 			Message: "bitwarden secret provider can use the bw CLI session",
 		}, nil
 	case bitwardenAuthModeAuto:
-		accessToken, err := providerbuiltin.ResolveConfigValue(config, "token")
-		if err != nil {
-			return providerapi.HealthCheckResult{}, err
-		}
-		if accessToken != "" {
-			if err := bitwardenSDKHealthCheck(config, accessToken); err != nil {
-				return providerapi.HealthCheckResult{}, err
-			}
-			return providerapi.HealthCheckResult{
-				OK:      true,
-				Message: "bitwarden secret provider authenticated successfully with SDK access token auth",
-			}, nil
-		}
 		if err := bitwardenCLIHealthCheck(config); err != nil {
 			return providerapi.HealthCheckResult{}, err
 		}
@@ -374,36 +281,16 @@ func bitwardenHealthCheck(config map[string]interface{}) (providerapi.HealthChec
 			OK:      true,
 			Message: "bitwarden secret provider can use the bw CLI session",
 		}, nil
+	case bitwardenAuthModeSDK:
+		return providerapi.HealthCheckResult{}, fmt.Errorf("provider.bitwarden.auth_mode=%q is no longer supported; use the bw CLI with auth_mode=%q or auth_mode=%q", bitwardenAuthModeSDK, bitwardenAuthModeCLI, bitwardenAuthModeAuto)
 	default:
 		return providerapi.HealthCheckResult{}, fmt.Errorf("unsupported auth_mode %q", mode)
 	}
 }
 
-func bitwardenSDKHealthCheck(config map[string]interface{}, accessToken string) error {
-	apiURL, identityURL := bitwardenEndpoints(config)
-	client, err := sdk.NewBitwardenClient(apiURL, identityURL)
-	if err != nil {
-		return err
-	}
-	defer client.Close()
-
-	return client.AccessTokenLogin(accessToken, nil)
-}
-
 func bitwardenCLIHealthCheck(config map[string]interface{}) error {
 	_, err := runBitwardenCLI(config, "status")
 	return err
-}
-
-func bitwardenToken(config map[string]interface{}) (string, error) {
-	accessToken, err := providerbuiltin.ResolveConfigValue(config, "token")
-	if err != nil {
-		return "", err
-	}
-	if accessToken == "" {
-		return "", fmt.Errorf("provider.bitwarden.token is required for SDK authentication")
-	}
-	return accessToken, nil
 }
 
 func bitwardenAuthMode(config map[string]interface{}) (string, error) {
