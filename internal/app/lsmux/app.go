@@ -62,6 +62,8 @@ USAGE:
 		cli.BoolFlag{Name: "allow-layout-change", Usage: "allow opening new pages/panes even in command mode."},
 		cli.BoolFlag{Name: "localrc", Usage: "use local bashrc shell."},
 		cli.BoolFlag{Name: "not-localrc", Usage: "not use local bashrc shell."},
+		cli.BoolFlag{Name: "enable-transfer", Usage: "enable file transfer UI even if disabled in config."},
+		cli.BoolFlag{Name: "disable-transfer", Usage: "disable file transfer UI for this session."},
 		cli.BoolFlag{Name: "list,l", Usage: "print server list from config."},
 		cli.BoolFlag{Name: "help,h", Usage: "print this help"},
 	}
@@ -104,6 +106,17 @@ USAGE:
 			ControlMasterOverride: controlMasterOverride,
 			IsBashrc:              c.Bool("localrc"),
 			IsNotBashrc:           c.Bool("not-localrc"),
+		}
+		if c.Bool("enable-transfer") && c.Bool("disable-transfer") {
+			return fmt.Errorf("--enable-transfer and --disable-transfer cannot be used together")
+		}
+		if c.Bool("enable-transfer") {
+			enabled := true
+			forwardConfig.TransferEnabled = &enabled
+		}
+		if c.Bool("disable-transfer") {
+			enabled := false
+			forwardConfig.TransferEnabled = &enabled
 		}
 
 		var forwards []*conf.PortForward

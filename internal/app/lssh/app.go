@@ -118,6 +118,8 @@ USAGE:
 		cli.BoolFlag{Name: "allow-layout-change", Usage: "allow opening new pages/panes even in command mode (with -P)."},
 		cli.BoolFlag{Name: "localrc", Usage: "use local bashrc shell."},
 		cli.BoolFlag{Name: "not-localrc", Usage: "not use local bashrc shell."},
+		cli.BoolFlag{Name: "enable-transfer", Usage: "enable file transfer UI in mux mode even if disabled in config."},
+		cli.BoolFlag{Name: "disable-transfer", Usage: "disable file transfer UI in mux mode."},
 		cli.BoolFlag{Name: "list,l", Usage: "print server list from config."},
 		cli.BoolFlag{Name: "help,h", Usage: "print this help"},
 		// Background (like ssh -f)
@@ -175,6 +177,9 @@ USAGE:
 		enableTrustedX11 := c.Bool("Y")
 
 		if c.Bool("P") {
+			if c.Bool("enable-transfer") && c.Bool("disable-transfer") {
+				return fmt.Errorf("--enable-transfer and --disable-transfer cannot be used together")
+			}
 			if len(hosts) > 0 && !check.ExistServer(hosts, names) {
 				fmt.Fprintln(os.Stderr, "Input Server not found from list.")
 				os.Exit(1)
@@ -203,6 +208,14 @@ USAGE:
 				X11Trusted:  enableTrustedX11,
 				IsBashrc:    c.Bool("localrc"),
 				IsNotBashrc: c.Bool("not-localrc"),
+			}
+			if c.Bool("enable-transfer") {
+				enabled := true
+				forwardConfig.TransferEnabled = &enabled
+			}
+			if c.Bool("disable-transfer") {
+				enabled := false
+				forwardConfig.TransferEnabled = &enabled
 			}
 			for _, forwardargs := range c.StringSlice("R") {
 				f := new(conf.PortForward)

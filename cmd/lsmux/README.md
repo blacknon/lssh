@@ -30,6 +30,8 @@ OPTIONS:
     -m port:/path/to/local                      NFS Reverse Dynamic forward mode. Specify a port:/path/to/local.
     --hold                                      keep command panes after remote command exits.
     --allow-layout-change                       allow opening new pages/panes even in command mode.
+    --enable-transfer                           enable file transfer UI even if disabled in config.
+    --disable-transfer                          disable file transfer UI for this session.
     --list, -l                                  print server list from config.
     --help, -h                                  print this help
     --enable-control-master                     temporarily enable ControlMaster for this command execution
@@ -125,6 +127,7 @@ page_list = "w"
 close_pane = "x"
 broadcast = "b"
 transfer = "f"
+transfer_enabled = true
 focus_border_color = "green"
 focus_title_color = "green"
 broadcast_border_color = "yellow"
@@ -148,6 +151,7 @@ mux:
   close_pane: "x"
   broadcast: "b"
   transfer: "f"
+  transfer_enabled: true
   focus_border_color: "green"
   focus_title_color: "green"
   broadcast_border_color: "yellow"
@@ -171,8 +175,11 @@ Available `mux` settings:
 - `close_pane`: close the current pane. Default: `x`
 - `broadcast`: toggle broadcast input to all panes on the page. Default: `b`
 - `transfer`: open file transfer for the active pane. Default: `f`
+- `transfer_enabled`: allow the transfer UI in `lsmux`. Default: `true`
 - `focus_border_color`, `focus_title_color`: colors for the focused pane. Default: `green`
 - `broadcast_border_color`, `broadcast_title_color`: colors for panes in broadcast mode. Default: `yellow`
 - `done_border_color`, `done_title_color`: colors for completed command panes. Default: `gray`
 
 These values only control the `lsmux` UI. Host connection settings such as `addr`, `user`, `key`, and proxy options continue to be defined in the regular `common` and `server.<name>` sections.
+
+If you use `lsmux` mainly as a bastion or observation workspace, set `transfer_enabled = false` or pass `--disable-transfer` so the file-transfer wizard cannot be opened during that session.
