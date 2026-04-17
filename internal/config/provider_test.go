@@ -393,10 +393,10 @@ printf '%s' '{"version":"v1","result":{"value":"super-secret-password"}}'
 	if strings.Contains(got, "super-secret-password") {
 		t.Fatalf("debug log leaked secret value: %q", got)
 	}
-	if !strings.Contains(got, `"token":"<redacted>"`) {
+	if !strings.Contains(got, `"token":"\u003credacted\u003e"`) {
 		t.Fatalf("debug log missing redacted token: %q", got)
 	}
-	if !strings.Contains(got, `"value":"<redacted>"`) {
+	if !strings.Contains(got, `"value":"\u003credacted\u003e"`) {
 		t.Fatalf("debug log missing redacted secret result: %q", got)
 	}
 }

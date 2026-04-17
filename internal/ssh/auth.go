@@ -37,6 +37,7 @@ func (r *Run) CreateAuthMethodMap() {
 	r.authMethodMap = map[AuthKey][]ssh.AuthMethod{}
 	r.serverAuthMethodMap = map[string][]ssh.AuthMethod{}
 
+serverLoop:
 	for _, server := range srvs {
 		// get server config
 		config := r.Conf.Server[server]
@@ -45,6 +46,11 @@ func (r *Run) CreateAuthMethodMap() {
 		if config.Pass != "" || config.PassRef != "" {
 			pass, err := r.resolveLiteralOrRef(server, "pass", config.Pass, config.PassRef)
 			if err != nil {
+				if shouldBlockAuthServer(err) {
+					fmt.Fprintln(os.Stderr, err)
+					delete(r.serverAuthMethodMap, server)
+					continue serverLoop
+				}
 				fmt.Fprintln(os.Stderr, err)
 			} else if pass != "" {
 				r.registAuthMapPassword(server, pass)
@@ -62,6 +68,11 @@ func (r *Run) CreateAuthMethodMap() {
 		if config.Key != "" || config.KeyRef != "" {
 			err := r.registAuthMapPublicKey(server, config)
 			if err != nil {
+				if shouldBlockAuthServer(err) {
+					fmt.Fprintln(os.Stderr, err)
+					delete(r.serverAuthMethodMap, server)
+					continue serverLoop
+				}
 				fmt.Fprintln(os.Stderr, err)
 			}
 		}
@@ -92,11 +103,21 @@ func (r *Run) CreateAuthMethodMap() {
 		if config.KeyCommand != "" {
 			keyCommandPass, err := r.resolveLiteralOrRef(server, "keycmdpass", config.KeyCommandPass, config.KeyCommandPassRef)
 			if err != nil {
+				if shouldBlockAuthServer(err) {
+					fmt.Fprintln(os.Stderr, err)
+					delete(r.serverAuthMethodMap, server)
+					continue serverLoop
+				}
 				fmt.Fprintln(os.Stderr, err)
 			} else {
 				err = r.registAuthMapPublicKeyCommand(server, config.KeyCommand, keyCommandPass)
 			}
 			if err != nil {
+				if shouldBlockAuthServer(err) {
+					fmt.Fprintln(os.Stderr, err)
+					delete(r.serverAuthMethodMap, server)
+					continue serverLoop
+				}
 				fmt.Fprintln(os.Stderr, err)
 			}
 		}
@@ -105,6 +126,11 @@ func (r *Run) CreateAuthMethodMap() {
 		if config.Cert != "" || config.CertRef != "" {
 			err := r.registAuthMapCertificate(server, config)
 			if err != nil {
+				if shouldBlockAuthServer(err) {
+					fmt.Fprintln(os.Stderr, err)
+					delete(r.serverAuthMethodMap, server)
+					continue serverLoop
+				}
 				fmt.Fprintln(os.Stderr, err)
 				continue
 			}
@@ -140,11 +166,21 @@ func (r *Run) CreateAuthMethodMap() {
 		if config.PKCS11Use {
 			pin, err := r.resolveLiteralOrRef(server, "pkcs11pin", config.PKCS11PIN, config.PKCS11PINRef)
 			if err != nil {
+				if shouldBlockAuthServer(err) {
+					fmt.Fprintln(os.Stderr, err)
+					delete(r.serverAuthMethodMap, server)
+					continue serverLoop
+				}
 				fmt.Fprintln(os.Stderr, err)
 			} else {
 				err = r.registAuthMapPKCS11(server, config.PKCS11Provider, pin)
 			}
 			if err != nil {
+				if shouldBlockAuthServer(err) {
+					fmt.Fprintln(os.Stderr, err)
+					delete(r.serverAuthMethodMap, server)
+					continue serverLoop
+				}
 				fmt.Fprintln(os.Stderr, err)
 			}
 		}
@@ -158,6 +194,10 @@ func (r *Run) CreateAuthMethodMap() {
 			}
 		}
 	}
+}
+
+func shouldBlockAuthServer(err error) bool {
+	return conf.IsProviderErrorCode(err, "auth_pending")
 }
 
 func (r *Run) SetupSshAgent() {
