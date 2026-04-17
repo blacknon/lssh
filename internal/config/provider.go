@@ -264,7 +264,11 @@ func (c *Config) callProvider(name, method string, params interface{}, out inter
 		if stdout.Len() > 0 {
 			var resp providerapi.Response
 			if decodeErr := json.Unmarshal(stdout.Bytes(), &resp); decodeErr == nil && resp.Error != nil {
-				return fmt.Errorf("provider %q: %s", name, resp.Error.Message)
+				return &ProviderError{
+					Provider: name,
+					Code:     resp.Error.Code,
+					Message:  resp.Error.Message,
+				}
 			}
 		}
 		if stderr.Len() > 0 {
@@ -279,7 +283,11 @@ func (c *Config) callProvider(name, method string, params interface{}, out inter
 		return fmt.Errorf("provider %q decode response from %q: %w", name, path, err)
 	}
 	if resp.Error != nil {
-		return fmt.Errorf("provider %q: %s", name, resp.Error.Message)
+		return &ProviderError{
+			Provider: name,
+			Code:     resp.Error.Code,
+			Message:  resp.Error.Message,
+		}
 	}
 	if out == nil || len(resp.Result) == 0 {
 		return nil

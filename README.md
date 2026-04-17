@@ -151,6 +151,7 @@ The lssh project includes multiple tools for SSH-centered workflows.
 ## Related projects
 
 - [go-sshlib](https://github.com/blacknon/go-sshlib): Go library for SSH connections, command execution, and interactive shells
+- [tvxterm](https://github.com/blacknon/tvxterm): tvxterm provides terminal widgets for tview
 
 ## Licence
 

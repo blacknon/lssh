@@ -46,7 +46,7 @@ func main() {
 
 		value, err := getSecret(params)
 		if err != nil {
-			_ = providerbuiltin.WriteErrorResponse(req, "secret_get_failed", err.Error())
+			_ = providerbuiltin.WriteErrorResponse(req, onePasswordProviderErrorCode(err, "secret_get_failed"), err.Error())
 			os.Exit(1)
 		}
 		_ = providerbuiltin.WriteResponse(req, providerapi.SecretGetResult{Value: value}, nil)
@@ -58,7 +58,7 @@ func main() {
 		}
 		result, err := onePasswordHealthCheck(params.Config)
 		if err != nil {
-			_ = providerbuiltin.WriteErrorResponse(req, "health_check_failed", err.Error())
+			_ = providerbuiltin.WriteErrorResponse(req, onePasswordProviderErrorCode(err, "health_check_failed"), err.Error())
 			os.Exit(1)
 		}
 		_ = providerbuiltin.WriteResponse(req, result, nil)
@@ -226,4 +226,36 @@ func onePasswordCLIPath(config map[string]interface{}) string {
 		return path
 	}
 	return "op"
+}
+
+func onePasswordProviderErrorCode(err error, fallback string) string {
+	if onePasswordCLIAuthPending(err) {
+		return "auth_pending"
+	}
+	return fallback
+}
+
+func onePasswordCLIAuthPending(err error) bool {
+	if err == nil {
+		return false
+	}
+
+	message := strings.ToLower(err.Error())
+	patterns := []string{
+		"touch id",
+		"biometric",
+		"authentication required",
+		"authorization required",
+		"sign in to your 1password account",
+		"you are not currently signed in",
+		"unlock 1password",
+		"1password app",
+	}
+	for _, pattern := range patterns {
+		if strings.Contains(message, pattern) {
+			return true
+		}
+	}
+
+	return false
 }

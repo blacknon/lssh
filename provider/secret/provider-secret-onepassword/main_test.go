@@ -115,3 +115,11 @@ func TestOnePasswordHealthCheckCLIFailure(t *testing.T) {
 		t.Fatal("onePasswordHealthCheck() error = nil")
 	}
 }
+
+func TestOnePasswordProviderErrorCodeAuthPending(t *testing.T) {
+	err := errors.New("Touch ID authentication required")
+	got := onePasswordProviderErrorCode(err, "secret_get_failed")
+	if got != "auth_pending" {
+		t.Fatalf("onePasswordProviderErrorCode() = %q", got)
+	}
+}
