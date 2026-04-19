@@ -4,7 +4,14 @@ package lsmuxsession
 
 import "fmt"
 
-type Daemon struct{}
+type Daemon struct {
+	Name       string
+	ConfigPath string
+	SocketPath string
+	Exe        string
+	Args       []string
+	Env        []string
+}
 
 type AttachOptions struct {
 	PrefixSpec string
