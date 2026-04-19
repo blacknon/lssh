@@ -28,4 +28,6 @@
 
 # provider
 /provider-inventory-*
+/provider-connector-*
 /provider-secret-*
+/provider-mixed-*
