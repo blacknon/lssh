@@ -28,7 +28,7 @@ OPTIONS:
     -m port:/path/to/local                      NFS Reverse Dynamic forward mode. Specify a port:/path/to/local. Only single connection works.
     -S port:/path/to/remote                     SMB Dynamic forward mode. Specify a port:/path/to/remote. Only single connection works.
     -s port:/path/to/local                      SMB Reverse Dynamic forward mode. Specify a port:/path/to/local. Only single connection works.
-    --tunnel ${local}:${remote}                 Enable tunnel device. Specify ${local}:${remote} (use 'any' to request next available).
+    --tunnel ${local}:${remote}                 Enable tunnel device. Specify ${local}:${remote} (use 'any' to request next available). Supported on Linux and macOS only.
     -w                                          Displays the server header when in command execution mode.
     -W                                          Not displays the server header when in command execution mode.
     --not-execute, -N                           not execute remote command and shell.
@@ -121,6 +121,7 @@ lssh -P --hold hostname
 ```
 
 If you use `-P` as a long-lived workspace, you can keep the mux session alive in the background and attach later.
+This persistent `-P` session feature is currently not supported on Windows.
 
 ```sh
 # create and attach
@@ -307,6 +308,8 @@ lssh -X
 lssh -Y
 ```
 
+`--tunnel` is supported on Linux and macOS. It is not available when `lssh` runs on Windows.
+
 #### if use config file
 
 `~/.lssh.toml` examples.
@@ -413,6 +416,7 @@ server:
 ```
 
 Tunnel device forwarding is available from the command line with `--tunnel`.
+It is supported on Linux and macOS, and is not available when `lssh` runs on Windows.
 
 
 ### local bashrc

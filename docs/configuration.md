@@ -184,6 +184,8 @@ shell:
 
 Mux UI:
 
+The persistent mux session feature that uses `socket_path` is currently supported on Unix-like systems only and is not supported on Windows.
+
 ```toml
 [mux]
 prefix = "Ctrl+A"
@@ -530,6 +532,7 @@ Available forwarding settings:
 - `x11_trusted`: enable trusted X11 forwarding
 
 Tunnel device forwarding is available only from the command line with `--tunnel`, not as a config file key.
+It is supported on Linux and macOS, and is not available when `lssh` runs on Windows.
 
 
 ## Terminal log

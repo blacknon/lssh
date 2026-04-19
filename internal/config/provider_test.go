@@ -446,6 +446,50 @@ printf '%s' '{"version":"v1","result":{"servers":[{"name":"pve:node:vm1","config
 	}
 }
 
+func TestReadInventoryProvidersDoesNotLeakAzureAPISettingsIntoSSHConfig(t *testing.T) {
+	dir := t.TempDir()
+	providerPath := filepath.Join(dir, "provider-inventory-azure-compute")
+	script := `#!/bin/sh
+cat >/dev/null
+printf '%s' '{"version":"v1","result":{"servers":[{"name":"azure:vm1","config":{"addr":"10.0.0.4"}}]}}'
+`
+	if err := os.WriteFile(providerPath, []byte(script), 0o755); err != nil {
+		t.Fatalf("write provider: %v", err)
+	}
+
+	cfg := Config{
+		Providers: ProvidersConfig{Paths: []string{providerPath}},
+		Server:    map[string]ServerConfig{},
+		Provider: map[string]map[string]interface{}{
+			"azure": {
+				"plugin":          "provider-inventory-azure-compute",
+				"capabilities":    []interface{}{"inventory"},
+				"subscription_id": "sub-1",
+				"tenant_id":       "tenant-1",
+				"client_id":       "client-1",
+				"client_secret":   "secret-1",
+				"resource_group":  "rg-demo",
+				"user":            "provider-user-should-not-leak",
+			},
+		},
+	}
+
+	if err := cfg.ReadInventoryProviders(); err != nil {
+		t.Fatalf("ReadInventoryProviders() error = %v", err)
+	}
+
+	server, ok := cfg.Server["azure:vm1"]
+	if !ok {
+		t.Fatalf("inventory server not loaded: %#v", cfg.Server)
+	}
+	if server.User != "" {
+		t.Fatalf("user = %q, want empty", server.User)
+	}
+	if server.Addr != "10.0.0.4" {
+		t.Fatalf("addr = %q, want %q", server.Addr, "10.0.0.4")
+	}
+}
+
 func TestApplyProviderInventoryMatchesNoteTemplate(t *testing.T) {
 	base := ServerConfig{Note: "base-note"}
 	matches := []providerInventoryMatch{

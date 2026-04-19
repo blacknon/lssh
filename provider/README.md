@@ -65,6 +65,58 @@ These are returned by `connector.describe`.
 
 This separation is important because `connector` alone does not tell the caller whether a target supports interactive shell, command execution, or file transfer.
 
+## Transport-Oriented Connector Design
+
+Some connectors are best treated as transport providers rather than as full end-user feature providers.
+
+The clearest case is an OpenSSH-based connector.
+
+In that model:
+
+- OpenSSH is responsible for the base connection
+  - authentication
+  - bastion / jump host behavior
+  - ProxyJump / ProxyCommand compatibility
+  - ControlMaster / session reuse
+- Go-side code is responsible for higher-level behavior
+  - file transfer
+  - sync logic
+  - mount-facing file operations
+  - command integration with `lscp`, `lsftp`, `lssync`, and `lsshfs`
+
+This keeps the connector thin while still allowing the `lssh` family to present a consistent feature set.
+
+### Recommended Transport Capabilities
+
+For transport-oriented connectors, the connector layer may expose finer-grained capabilities internally.
+
+Examples:
+
+- `shell_transport`
+- `exec_transport`
+- `sftp_transport`
+- `port_forward_transport`
+
+These are not necessarily user-facing command capabilities.
+Instead, they are building blocks used by higher-level commands.
+
+Example interpretation:
+
+- `shell_transport`
+  - the connector can open an interactive shell transport
+- `exec_transport`
+  - the connector can execute a command transport
+- `sftp_transport`
+  - the connector can open an SFTP subsystem stream
+- `port_forward_transport`
+  - the connector can establish forwarding-compatible transport
+
+This model is especially useful when:
+
+- the connector uses OpenSSH for base connectivity
+- `lscp` / `lsftp` / `lssync` should use Go-side SFTP logic instead of shelling out to `scp` or `sftp`
+- `lsshfs` should use Go-side file operations rather than delegating to an `sshfs` executable
+
 ## Command Capability Requirements
 
 Each `cmd/*` command should decide support based on connector operation capabilities, not only on the presence of the `connector` provider category.

@@ -108,6 +108,10 @@ func (r *Runner) Run() error {
 	if err != nil {
 		return err
 	}
+	if r.Config.ServerUsesConnector(r.Host) && (r.GOOS == "linux" || r.GOOS == "darwin") {
+		// Connector-backed mounts use the Go-side SFTP/FUSE backend on Unix-like systems.
+		backend = BackendFUSE
+	}
 	r.debugf("start host=%s remote_path=%s mountpoint=%s goos=%s backend=%s", r.Host, r.RemotePath, r.MountPoint, r.GOOS, backend)
 
 	mountpoint, err := normalizeMountPoint(r.GOOS, r.MountPoint)
@@ -262,6 +266,37 @@ func (r *Runner) Run() error {
 }
 
 func createMountConn(r *Runner) (mountConn, error) {
+	goos := r.GOOS
+	if goos == "" {
+		goos = currentGOOS
+	}
+
+	if r.Config.ServerUsesConnector(r.Host) {
+		if goos != "linux" && goos != "darwin" {
+			return nil, fmt.Errorf("connector-backed lsshfs currently supports linux and macos only")
+		}
+
+		run := &lsshssh.Run{
+			ServerList:            []string{r.Host},
+			Conf:                  r.Config,
+			ControlMasterOverride: r.ControlMasterOverride,
+		}
+		run.CreateAuthMethodMap()
+
+		handle, err := run.CreateSFTPClientHandle(r.Host)
+		if err != nil {
+			return nil, err
+		}
+		if handle == nil || handle.Client == nil {
+			if handle != nil && handle.Closer != nil {
+				_ = handle.Closer.Close()
+			}
+			return nil, fmt.Errorf("connector-backed sftp client is not available")
+		}
+
+		return newSFTPMountConn(handle, r.ReadWrite)
+	}
+
 	run := &lsshssh.Run{
 		ServerList:            []string{r.Host},
 		Conf:                  r.Config,

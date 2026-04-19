@@ -17,6 +17,7 @@ Planned direction:
   - `connector`
 - connector backend
   - AWS SSM
+  - later connector modes may also include direct SSH or bastion-backed SSH flows
 
 ## Example
 
@@ -61,6 +62,10 @@ key = "~/.ssh/aws-ubuntu.pem"
 - Available match metadata includes `region`, `zone`, `platform`, `instance_id`, `private_ip`, `public_ip`, and `tag.<TagName>`.
 - `connector.describe` requires `instance_id` and `region`, which are emitted by this inventory provider.
 - `connector.prepare` currently returns provider-managed AWS SSM plans for `shell`, `exec`, and `exec_pty`.
+- future AWS connector expansion may include:
+  - direct SSH
+  - bastion-backed SSH
+  - OpenSSH-transport-based file operations layered in Go
 - for `shell`, attach/detach are represented as operation options rather than separate subcommands.
   - `attach=true` with `session_id=<id>` resumes an existing SSM session
   - `detach=true` starts a shell session without attaching and returns a session id

@@ -101,7 +101,7 @@ require (
 	github.com/cespare/xxhash/v2 v2.3.0 // indirect
 	github.com/clipperhouse/uax29/v2 v2.7.0 // indirect
 	github.com/cpuguy83/go-md2man/v2 v2.0.7 // indirect
-	github.com/creack/pty v1.1.24 // indirect
+	github.com/creack/pty v1.1.24
 	github.com/cyphar/filepath-securejoin v0.6.1 // indirect
 	github.com/dylibso/observe-sdk/go v0.0.0-20240828172851-9145d8ad07e1 // indirect
 	github.com/extism/go-sdk v1.7.1 // indirect
@@ -116,7 +116,7 @@ require (
 	github.com/google/uuid v1.6.0 // indirect
 	github.com/googleapis/enterprise-certificate-proxy v0.3.14 // indirect
 	github.com/googleapis/gax-go/v2 v2.21.0 // indirect
-	github.com/hanwen/go-fuse/v2 v2.9.0 // indirect
+	github.com/hanwen/go-fuse/v2 v2.9.0
 	github.com/hashicorp/golang-lru/v2 v2.0.7 // indirect
 	github.com/hirochachacha/go-smb2 v1.1.0 // indirect
 	github.com/ianlancetaylor/demangle v0.0.0-20251118225945-96ee0021ea0f // indirect

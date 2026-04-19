@@ -8,8 +8,14 @@ If older discussion or notes use the spelling `connecter`, they refer to the sam
 
 Current prototype providers:
 
+- [`provider-connector-openssh`](./provider-connector-openssh/README.md)
 - [`provider-connector-telnet`](./provider-connector-telnet/README.md)
 - [`provider-connector-winrm`](./provider-connector-winrm/README.md)
+
+Planned design-only connector families:
+
+- `provider-connector-openssh`
+- cloud-specific connectors that may internally use OpenSSH-compatible transport
 
 ## Why A Separate Provider Type May Be Needed
 
@@ -30,6 +36,7 @@ The first intended connector families are:
 - winrm
 - serial console
 - aws ssm
+- openssh transport
 
 ## Role
 
@@ -186,6 +193,13 @@ Recommended capability keys:
 - `port_forward_remote`
 - `agent_forward`
 
+Transport-oriented connectors may also expose internal transport capabilities:
+
+- `shell_transport`
+- `exec_transport`
+- `sftp_transport`
+- `port_forward_transport`
+
 Recommended interpretation:
 
 - `shell`
@@ -294,6 +308,8 @@ This ordering is intentional.
 For telnet, WinRM, and AWS SSM, the highest-confidence shared abstraction is session and command execution.
 File transfer support differs significantly and should not be over-generalized too early.
 
+For OpenSSH-oriented connectors, however, file-oriented transports are first-class because OpenSSH can provide the underlying connection while Go-side code implements higher-level file behavior.
+
 ## Connector-Specific Design
 
 ### SSH Reference Model
@@ -318,6 +334,183 @@ Expected operation capabilities:
   - supported
 - `mount`
   - conditionally supported through `sshfs`
+
+### OpenSSH Connector Model
+
+An OpenSSH connector is different from a plain shell-out wrapper around `scp`, `sftp`, or `sshfs`.
+
+Recommended design:
+
+- use `ssh` only for the base transport
+- let Go-side code speak higher-level protocols on top of that transport when practical
+
+This means:
+
+- `lssh`
+  - uses OpenSSH for `shell` and `exec`
+- `lscp`
+  - does not call `scp`
+  - uses OpenSSH to establish an SFTP subsystem stream and performs upload/download in Go
+- `lsftp`
+  - does not call `sftp`
+  - uses the same SFTP subsystem transport but keeps the interactive UI in Go
+- `lssync`
+  - does not call `rsync`
+  - reuses Go-side SFTP transfer and tree-walk logic on top of the same transport
+- `lsshfs`
+  - does not require an `sshfs` executable
+  - uses Go-side file operations on top of the same SFTP transport
+
+In other words, the connector provides transport, and the commands provide protocol-aware behavior.
+
+#### Why This Model Is Preferred
+
+This model keeps the OpenSSH connector aligned with the project architecture:
+
+- OpenSSH handles difficult enterprise SSH compatibility
+  - ProxyJump
+  - bastion flows
+  - ControlMaster
+  - OpenSSH config compatibility
+- Go-side commands keep consistent behavior across connectors
+  - file browsing
+  - sync planning
+  - mount behavior
+  - error shaping
+
+It also avoids creating a connector that is merely a thin command launcher for many separate OS tools.
+
+#### Recommended OpenSSH Connector Capabilities
+
+Plugin capability:
+
+- `connector`
+
+Primary operation capabilities:
+
+- `shell`
+- `exec`
+- `exec_pty`
+
+Primary transport capabilities:
+
+- `shell_transport`
+- `exec_transport`
+- `sftp_transport`
+- `port_forward_transport`
+
+Conditional operation capabilities:
+
+- `upload`
+- `download`
+- `mount`
+- `port_forward_local`
+- `port_forward_remote`
+- `agent_forward`
+
+Recommended interpretation:
+
+- `upload` / `download`
+  - supported when `sftp_transport` is available and the command layer can use it
+- `mount`
+  - supported when the project's mount layer can operate over the SFTP transport
+- forwarding capabilities
+  - supported only if the chosen OpenSSH transport plan exposes them safely
+
+#### Go-Side Wrapper Requirement
+
+To make this work cleanly, the project should provide a Go wrapper that is conceptually similar to `go-sshlib`, but backed by OpenSSH processes.
+
+Recommended responsibilities of this wrapper:
+
+- open interactive shell sessions via OpenSSH
+- open exec sessions via OpenSSH
+- open an SFTP subsystem stream via OpenSSH
+- expose stdio-based transport handles that higher-level Go code can use
+- expose forwarding-related transport setup where applicable
+
+Recommended non-goals:
+
+- it should not try to reimplement OpenSSH itself
+- it should not require `scp`, `sftp`, `rsync`, or `sshfs` executables when Go-side protocol handling already exists
+
+This is best thought of as a `go-sshlib`-compatible OpenSSH transport layer.
+
+#### Example Capability Mapping For OpenSSH Connector
+
+| Command | Required OpenSSH-backed capability | Notes |
+| --- | --- | --- |
+| `lssh` | `shell` | interactive shell via `ssh` |
+| `lssh command...` | `exec` | remote command via `ssh` |
+| `lsshell` | `exec` | command execution transport is sufficient |
+| `lsmux` shell panes | `shell` | interactive pane transport |
+| `lsmux` command panes | `exec` | command pane transport |
+| `lscp` | `sftp_transport` | upload/download handled in Go |
+| `lsftp` | `sftp_transport` | UI in Go, transport via OpenSSH |
+| `lssync` | `sftp_transport` | sync logic in Go |
+| `lsshfs` | `sftp_transport` plus mount integration | mount semantics remain Go-side |
+| `lspipe` | `exec` | process-oriented command execution |
+
+### Secret Interaction
+
+For cloud and enterprise environments, connectors often depend on `secret` providers even when the connector itself focuses only on transport.
+
+Examples:
+
+- OpenSSH connector
+  - `key_ref`
+  - `keypass_ref`
+  - bastion credentials
+- WinRM connector
+  - `username_ref`
+  - `password_ref`
+  - certificate material
+- AWS / GCP / Azure connectors
+  - API credentials
+  - session tokens
+  - bastion-side SSH keys
+
+So the expected architecture is often:
+
+- `inventory`
+  - target discovery
+- `connector`
+  - transport and operation planning
+- `secret`
+  - credential resolution
+
+This means it is correct to think about connector design and secret design together, especially for cloud connectors.
+
+### Cloud Connector Direction
+
+Recommended direction by cloud:
+
+- AWS
+  - `provider-mixed-aws-ec2`
+    - `inventory`
+    - `connector`
+  - connector modes may later include:
+    - `ssm`
+    - `ssh`
+    - `bastion_ssh`
+- GCP
+  - `provider-inventory-gcp-compute`
+  - later `provider-connector-gcp-ssh`
+    - direct SSH
+    - OS Login SSH
+    - IAP-backed SSH transport
+- Azure
+  - `provider-inventory-azure-compute`
+  - later connector candidates:
+    - `provider-connector-azure-run-command`
+    - `provider-connector-azure-ssh`
+    - `provider-connector-azure-winrm`
+    - `provider-connector-azure-bastion-ssh`
+
+For Bastion-like cloud features:
+
+- generic bastion or jump-host behavior can often remain a proxy concern
+- cloud-managed bastion features with cloud-specific setup and capability limits are usually better represented as connectors
 - `agent_forward`
   - supported
 
