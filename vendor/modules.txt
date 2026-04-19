@@ -377,11 +377,17 @@ github.com/googleapis/gax-go/v2/internallog
 github.com/googleapis/gax-go/v2/internallog/internal
 # github.com/hanwen/go-fuse/v2 v2.9.0
 ## explicit; go 1.17
+github.com/hanwen/go-fuse/v2/fs
 github.com/hanwen/go-fuse/v2/fuse
 github.com/hanwen/go-fuse/v2/fuse/nodefs
 github.com/hanwen/go-fuse/v2/fuse/pathfs
 github.com/hanwen/go-fuse/v2/internal
+github.com/hanwen/go-fuse/v2/internal/fallocate
+github.com/hanwen/go-fuse/v2/internal/ioctl
+github.com/hanwen/go-fuse/v2/internal/openat
+github.com/hanwen/go-fuse/v2/internal/renameat
 github.com/hanwen/go-fuse/v2/internal/utimens
+github.com/hanwen/go-fuse/v2/internal/xattr
 github.com/hanwen/go-fuse/v2/splice
 # github.com/hashicorp/go-cleanhttp v0.5.2
 ## explicit; go 1.13

@@ -147,6 +147,7 @@ The lssh project includes multiple tools for SSH-centered workflows.
 - [docs/README.md](./docs/README.md): documentation index
 - [cmd/lssh/README.md](./cmd/lssh/README.md): `lssh` command details, forwarding, and local rc usage
 - [cmd/README.md](./cmd/README.md): command overview
+- [CONTRIBUTING.md](./CONTRIBUTING.md): development and contribution guidelines
 
 ## Related projects
 

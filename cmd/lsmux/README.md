@@ -199,6 +199,7 @@ If you use `lsmux` mainly as a bastion or observation workspace, set `transfer_e
 ### persistent sessions
 
 `lsmux` can keep a session alive in the background and let another terminal attach later.
+This persistent session feature is currently not supported on Windows.
 
 ```shell
 # create and attach

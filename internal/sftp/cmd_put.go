@@ -125,7 +125,7 @@ func (r *RunSftp) put(args []string) {
 			cancelMu.Unlock()
 
 			for _, client := range clients {
-				client.Connect.Close()
+				_ = client.Close()
 			}
 		}
 
@@ -194,16 +194,16 @@ func (r *RunSftp) put(args []string) {
 						for {
 							select {
 							case <-ctx.Done():
-								if workerClient.Connect != client.Connect {
-									workerClient.Connect.Close()
+								if workerClient != client {
+									_ = workerClient.Close()
 								}
 
 								workerExit <- true
 								return
 							case task, ok := <-tasks:
 								if !ok {
-									if workerClient.Connect != client.Connect {
-										workerClient.Connect.Close()
+									if workerClient != client {
+										_ = workerClient.Close()
 									}
 
 									workerExit <- true

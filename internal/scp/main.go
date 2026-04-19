@@ -5,6 +5,7 @@
 package scp
 
 import (
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -83,9 +84,17 @@ type ScpConnect struct {
 
 	// ssh connect
 	Connect *sftp.Client
+	Closer  io.Closer
 
 	// Output
 	Output *output.Output
+}
+
+func (s *ScpConnect) Close() error {
+	if s == nil || s.Closer == nil {
+		return nil
+	}
+	return s.Closer.Close()
 }
 
 type PathSet struct {
@@ -184,6 +193,11 @@ func (cp *Scp) push() {
 				}
 				workerCount++
 				go func(client *ScpConnect) {
+					defer func() {
+						if err := client.Close(); err != nil {
+							fmt.Fprintf(os.Stderr, "%s close error: %s\n", client.Server, err)
+						}
+					}()
 					client.Output.Create(client.Server)
 					ow := client.Output.NewWriter()
 					defer ow.Close()
@@ -361,9 +375,13 @@ func (cp *Scp) viaPush() {
 	fclient := cp.createScpConnects([]string{from})
 	tclient := cp.createScpConnects(to)
 	if len(fclient) == 0 || len(tclient) == 0 {
+		closeScpClients(fclient)
+		closeScpClients(tclient)
 		fmt.Fprintf(os.Stderr, "There is no host to connect to\n")
 		return
 	}
+	defer closeScpClients(fclient)
+	defer closeScpClients(tclient)
 
 	// pull and push data
 	cp.viaPushPath(cp.From.Path, fclient[0], tclient)
@@ -412,6 +430,14 @@ func (cp *Scp) viaPushPath(paths []string, fclient *ScpConnect, tclients []*ScpC
 			}
 			workerCountMap[tc.Server]++
 			go func() {
+				defer func() {
+					if err := tclient.Close(); err != nil {
+						fmt.Fprintf(os.Stderr, "%s close error: %s\n", tclient.Server, err)
+					}
+					if err := sclient.Close(); err != nil {
+						fmt.Fprintf(os.Stderr, "%s close error: %s\n", sclient.Server, err)
+					}
+				}()
 				tclient.Output.Create(tclient.Server)
 				for task := range tasks {
 					if cp.DryRun {
@@ -492,6 +518,7 @@ func (cp *Scp) pull() {
 		fmt.Fprintf(os.Stderr, "There is no host to connect to\n")
 		return
 	}
+	defer closeScpClients(clients)
 
 	// parallel push data
 	for _, c := range clients {
@@ -562,6 +589,11 @@ func (cp *Scp) pullPath(client *ScpConnect) {
 		}
 		workerCount++
 		go func(wclient *ScpConnect) {
+			defer func() {
+				if err := wclient.Close(); err != nil {
+					fmt.Fprintf(os.Stderr, "%s close error: %s\n", wclient.Server, err)
+				}
+			}()
 			wclient.Output.Create(wclient.Server)
 			wow := wclient.Output.NewWriter()
 			defer wow.Close()
@@ -715,21 +747,14 @@ func (cp *Scp) createScpConnects(targets []string) (result []*ScpConnect) {
 }
 
 func (cp *Scp) createScpConnect(server string, serverList []string) (result *ScpConnect) {
-	// ssh connect
-	conn, err := cp.Run.CreateSshConnectDirect(server)
+	client, closer, err := cp.Run.CreateSFTPClient(server)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "%s connect error: %s\n", server, err)
 		return nil
 	}
-	if conn == nil || conn.Client == nil {
-		fmt.Fprintf(os.Stderr, "%s connect error: ssh client is not available for sftp\n", server)
-		return nil
-	}
-
-	// create sftp client
-	ftp, err := sftp.NewClient(conn.Client)
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "%s create client error: %s\n", server, err)
+	if client == nil {
+		_ = closeCloser(closer)
+		fmt.Fprintf(os.Stderr, "%s connect error: sftp client is not available\n", server)
 		return nil
 	}
 
@@ -745,7 +770,27 @@ func (cp *Scp) createScpConnect(server string, serverList []string) (result *Scp
 
 	return &ScpConnect{
 		Server:  server,
-		Connect: ftp,
+		Connect: client,
+		Closer:  closer,
 		Output:  o,
 	}
+}
+
+func closeScpClients(clients []*ScpConnect) {
+	for _, client := range clients {
+		if err := closeCloser(client); err != nil {
+			fmt.Fprintf(os.Stderr, "%s close error: %s\n", client.Server, err)
+		}
+	}
+}
+
+func closeCloser(closer io.Closer) error {
+	if closer == nil {
+		return nil
+	}
+	err := closer.Close()
+	if errors.Is(err, io.ErrClosedPipe) {
+		return nil
+	}
+	return err
 }

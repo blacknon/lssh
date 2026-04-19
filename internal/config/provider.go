@@ -361,6 +361,20 @@ func providerReservedKeys(raw map[string]interface{}) []string {
 		} {
 			keys[key] = struct{}{}
 		}
+	case "provider-inventory-azure-compute":
+		for _, key := range []string{
+			"subscription_id",
+			"username", "user",
+			"tenant_id", "tenant_id_env", "tenant_id_source", "tenant_id_source_env",
+			"client_id", "client_id_env", "client_id_source", "client_id_source_env",
+			"client_secret", "client_secret_env", "client_secret_source", "client_secret_source_env",
+			"access_token", "access_token_env", "access_token_source", "access_token_source_env",
+			"authority_host", "endpoint", "resource_group",
+			"statuses", "include_stopped", "include_tags",
+			"server_name_template", "note_template",
+		} {
+			keys[key] = struct{}{}
+		}
 	}
 
 	result := make([]string, 0, len(keys))

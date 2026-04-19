@@ -4,6 +4,7 @@ Inventory Providers
 Inventory providers generate `server` entries dynamically from external systems.
 
 - [`provider-mixed-aws-ec2`](../mixed/provider-mixed-aws-ec2/README.md)
+- [`provider-inventory-azure-compute`](./provider-inventory-azure-compute/README.md)
 - [`provider-inventory-gcp-compute`](./provider-inventory-gcp-compute/README.md)
 - [`provider-inventory-proxmox`](./provider-inventory-proxmox/README.md)
 
@@ -235,6 +236,18 @@ Recommended updates:
 - add `plugin.describe`
 - add `health.check`
 - define stable warning/error codes
+
+### `provider-inventory-azure-compute`
+
+Current fit:
+
+- good fit for `inventory.list`
+- metadata is useful for match rules and cloud-aware note templates
+
+Recommended updates:
+
+- define stable warning/error codes
+- move non-fatal network enrichment failures into protocol `warnings` when the core supports them
 
 ### `provider-inventory-proxmox`
 

@@ -97,6 +97,8 @@ description = "Build provider binaries"
 depends = ["provider_clean", "go_mod"]
 run = """
     go build -o provider-mixed-aws-ec2 ./provider/mixed/provider-mixed-aws-ec2
+    go build -o provider-connector-openssh ./provider/connector/provider-connector-openssh
+    go build -o provider-inventory-azure-compute ./provider/inventory/provider-inventory-azure-compute
     go build -o provider-inventory-gcp-compute ./provider/inventory/provider-inventory-gcp-compute
     go build -o provider-inventory-proxmox ./provider/inventory/provider-inventory-proxmox
     go build -o provider-secret-onepassword ./provider/secret/provider-secret-onepassword
@@ -110,6 +112,8 @@ description = "Clean provider binaries"
 depends = []
 run = """
     rm -f provider-mixed-aws-ec2
+    rm -f provider-connector-openssh
+    rm -f provider-inventory-azure-compute
     rm -f provider-inventory-gcp-compute
     rm -f provider-inventory-proxmox
     rm -f provider-secret-onepassword
@@ -136,6 +140,8 @@ run = """
 
     mkdir -p "$HOME/.config/lssh/providers"
     install_binary provider-mixed-aws-ec2 "$HOME/.config/lssh/providers/provider-mixed-aws-ec2"
+    install_binary provider-connector-openssh "$HOME/.config/lssh/providers/provider-connector-openssh"
+    install_binary provider-inventory-azure-compute "$HOME/.config/lssh/providers/provider-inventory-azure-compute"
     install_binary provider-inventory-gcp-compute "$HOME/.config/lssh/providers/provider-inventory-gcp-compute"
     install_binary provider-inventory-proxmox "$HOME/.config/lssh/providers/provider-inventory-proxmox"
     install_binary provider-secret-onepassword "$HOME/.config/lssh/providers/provider-secret-onepassword"
@@ -149,6 +155,8 @@ description = "Run go test for provider packages"
 depends = ["go_mod"]
 run = """
     go test -v ./provider/mixed/provider-mixed-aws-ec2
+    go test -v ./provider/connector/provider-connector-openssh
+    go test -v ./provider/inventory/provider-inventory-azure-compute
     go test -v ./provider/inventory/provider-inventory-gcp-compute
     go test -v ./provider/inventory/provider-inventory-proxmox
     go test -v ./provider/secret/provider-secret-onepassword

@@ -27,6 +27,23 @@ import (
 	"golang.org/x/crypto/ssh/terminal"
 )
 
+func resolveTunnelOption(goos, spec string) (enabled bool, local, remote int, err error) {
+	if spec == "" {
+		return false, 0, 0, nil
+	}
+
+	if goos == "windows" {
+		return false, 0, 0, fmt.Errorf("--tunnel is not supported on Windows")
+	}
+
+	local, remote, err = common.ParseTunnelSpec(spec)
+	if err != nil {
+		return false, 0, 0, fmt.Errorf("invalid --tunnel format: %w", err)
+	}
+
+	return true, local, remote, nil
+}
+
 func Lssh() (app *cli.App) {
 	// Default config file path
 	defConf := common.GetDefaultConfigPath()
@@ -318,12 +335,10 @@ USAGE:
 				run.SMBDynamicForwardPort = port
 				run.SMBDynamicForwardPath = path
 			}
-			if t := c.String("tunnel"); t != "" {
-				local, remote, parseErr := common.ParseTunnelSpec(t)
-				if parseErr != nil {
-					fmt.Fprintln(os.Stderr, "Invalid --tunnel format:", parseErr)
-					os.Exit(1)
-				}
+			if enabled, local, remote, tunnelErr := resolveTunnelOption(runtime.GOOS, c.String("tunnel")); tunnelErr != nil {
+				fmt.Fprintln(os.Stderr, tunnelErr)
+				os.Exit(1)
+			} else if enabled {
 				run.TunnelEnabled = true
 				run.TunnelLocal = local
 				run.TunnelRemote = remote
@@ -609,12 +624,10 @@ USAGE:
 		r.HTTPReverseDynamicPortForward = c.String("r")
 
 		// Tunnel device (like ssh -w local:remote). Format: <num|any>:<num|any>
-		if t := c.String("tunnel"); t != "" {
-			local, remote, err := common.ParseTunnelSpec(t)
-			if err != nil {
-				fmt.Fprintln(os.Stderr, "Invalid --tunnel format:", err)
-				os.Exit(1)
-			}
+		if enabled, local, remote, err := resolveTunnelOption(runtime.GOOS, c.String("tunnel")); err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			os.Exit(1)
+		} else if enabled {
 			r.TunnelEnabled = true
 			r.TunnelLocal = local
 			r.TunnelRemote = remote

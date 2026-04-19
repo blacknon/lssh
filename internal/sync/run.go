@@ -3,6 +3,7 @@ package sync
 import (
 	"context"
 	"fmt"
+	"io"
 	"os"
 	"os/signal"
 	syncpkg "sync"
@@ -52,8 +53,16 @@ type SyncInfo struct {
 type SyncConnect struct {
 	Server  string
 	Connect *sftp.Client
+	Closer  io.Closer
 	Output  *output.Output
 	Pwd     string
+}
+
+func (s *SyncConnect) Close() error {
+	if s == nil || s.Closer == nil {
+		return nil
+	}
+	return s.Closer.Close()
 }
 
 func (s *Sync) Start() {
@@ -268,7 +277,7 @@ func (s *Sync) localToRemoteOnce(ctx context.Context, localFS FileSystem, server
 	if conn == nil {
 		return fmt.Errorf("%s connect error", server)
 	}
-	defer conn.Connect.Close()
+	defer conn.Close()
 
 	remoteFS := NewRemoteFS(conn.Connect, conn.Pwd)
 	plan, err := BuildPlan(localFS, remoteFS, s.From.Path, s.To.Path[0])
@@ -292,7 +301,7 @@ func (s *Sync) remoteToLocalOnce(ctx context.Context, localFS FileSystem, server
 	if conn == nil {
 		return fmt.Errorf("%s connect error", server)
 	}
-	defer conn.Connect.Close()
+	defer conn.Close()
 
 	destination := s.To.Path[0]
 	if len(s.From.Server) > 1 {
@@ -322,8 +331,8 @@ func (s *Sync) remoteToRemoteOnce(ctx context.Context, sourceServer string, targ
 	if srcConn == nil || dstConn == nil {
 		return fmt.Errorf("remote connection error")
 	}
-	defer srcConn.Connect.Close()
-	defer dstConn.Connect.Close()
+	defer srcConn.Close()
+	defer dstConn.Close()
 
 	srcFS := NewRemoteFS(srcConn.Connect, srcConn.Pwd)
 	dstFS := NewRemoteFS(dstConn.Connect, dstConn.Pwd)
@@ -348,7 +357,7 @@ func (s *Sync) bidirectionalLocalRemoteOnce(ctx context.Context, localFS FileSys
 	if conn == nil {
 		return fmt.Errorf("%s connect error", server)
 	}
-	defer conn.Connect.Close()
+	defer conn.Close()
 
 	remoteFS := NewRemoteFS(conn.Connect, conn.Pwd)
 	leftToRight, rightToLeft, err := BuildBidirectionalPlans(localFS, remoteFS, s.From.Path[0], s.To.Path[0])
@@ -382,7 +391,7 @@ func (s *Sync) bidirectionalRemoteLocalOnce(ctx context.Context, localFS FileSys
 	if conn == nil {
 		return fmt.Errorf("%s connect error", server)
 	}
-	defer conn.Connect.Close()
+	defer conn.Close()
 
 	destination := s.To.Path[0]
 	if len(s.From.Server) > 1 {
@@ -422,8 +431,8 @@ func (s *Sync) bidirectionalRemoteRemoteOnce(ctx context.Context, sourceServer s
 	if srcConn == nil || dstConn == nil {
 		return fmt.Errorf("remote connection error")
 	}
-	defer srcConn.Connect.Close()
-	defer dstConn.Connect.Close()
+	defer srcConn.Close()
+	defer dstConn.Close()
 
 	srcFS := NewRemoteFS(srcConn.Connect, srcConn.Pwd)
 	dstFS := NewRemoteFS(dstConn.Connect, dstConn.Pwd)
@@ -454,19 +463,16 @@ func (s *Sync) bidirectionalRemoteRemoteOnce(ctx context.Context, sourceServer s
 }
 
 func (s *Sync) createSyncConnect(server string, serverList []string) *SyncConnect {
-	conn, err := s.Run.CreateSshConnectDirect(server)
+	client, closer, err := s.Run.CreateSFTPClient(server)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "%s connect error: %s\n", server, err)
 		return nil
 	}
-	if conn == nil || conn.Client == nil {
-		fmt.Fprintf(os.Stderr, "%s connect error: ssh client is not available for sftp\n", server)
-		return nil
-	}
-
-	client, err := sftp.NewClient(conn.Client)
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "%s create client error: %s\n", server, err)
+	if client == nil {
+		if closer != nil {
+			_ = closer.Close()
+		}
+		fmt.Fprintf(os.Stderr, "%s connect error: sftp client is not available\n", server)
 		return nil
 	}
 
@@ -488,6 +494,7 @@ func (s *Sync) createSyncConnect(server string, serverList []string) *SyncConnec
 	return &SyncConnect{
 		Server:  server,
 		Connect: client,
+		Closer:  closer,
 		Output:  o,
 		Pwd:     pwd,
 	}
