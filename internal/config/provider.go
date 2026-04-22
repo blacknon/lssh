@@ -13,6 +13,7 @@ import (
 	"reflect"
 	"sort"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/blacknon/lssh/internal/providerapi"
@@ -25,6 +26,9 @@ func mergeProvidersConfig(base, override ProvidersConfig) ProvidersConfig {
 	}
 	if override.Timeout != "" {
 		result.Timeout = override.Timeout
+	}
+	if override.MaxParallel > 0 {
+		result.MaxParallel = override.MaxParallel
 	}
 	if override.InventoryCacheTTL != "" {
 		result.InventoryCacheTTL = override.InventoryCacheTTL
@@ -43,55 +47,106 @@ func (c *Config) ReadInventoryProviders() error {
 		return nil
 	}
 
-	for _, item := range c.activeProviders() {
-		name := item.name
-		raw := c.Provider[name]
-		if !providerEnabled(raw) || !providerHasCapability(raw, "inventory") {
+	providers := c.activeProviders()
+	results := c.fetchInventoryProviderResults(providers)
+
+	for i, item := range providers {
+		result := results[i]
+		if result.skip {
 			continue
 		}
-
-		var result providerapi.InventoryListResult
-		if err := c.callProvider(name, providerapi.MethodInventoryList, providerapi.InventoryListParams{
-			Provider: name,
-			Config:   raw,
-		}, &result); err != nil {
-			if providerFailOpen(c.Providers, raw) {
-				log.Printf("provider %q inventory failed but fail_open=true: %v", name, err)
+		if result.err != nil {
+			if providerFailOpen(c.Providers, result.raw) {
+				log.Printf("provider %q inventory failed but fail_open=true: %v", item.name, result.err)
 				continue
 			}
-			return err
+			return result.err
 		}
 
-		defaults, err := providerServerDefaults(raw)
+		defaults, err := providerServerDefaults(result.raw)
 		if err != nil {
-			return fmt.Errorf("provider %q defaults: %w", name, err)
+			return fmt.Errorf("provider %q defaults: %w", item.name, err)
 		}
-		matches, err := providerInventoryMatches(raw)
+		matches, err := providerInventoryMatches(result.raw)
 		if err != nil {
-			return fmt.Errorf("provider %q matches: %w", name, err)
+			return fmt.Errorf("provider %q matches: %w", item.name, err)
 		}
 		base := serverConfigReduct(c.Common, defaults)
 
-		for _, server := range result.Servers {
+		for _, server := range result.inventory.Servers {
 			if server.Name == "" {
-				return fmt.Errorf("provider %q returned an empty server name", name)
+				return fmt.Errorf("provider %q returned an empty server name", item.name)
 			}
 
 			var generated ServerConfig
 			if err := decodeTaggedMap(server.Config, &generated, "toml"); err != nil {
-				return fmt.Errorf("provider %q server %q: %w", name, server.Name, err)
+				return fmt.Errorf("provider %q server %q: %w", item.name, server.Name, err)
 			}
 
 			merged := serverConfigReduct(base, generated)
-			merged = applyProviderInventoryMatches(name, server.Name, server.Meta, merged, matches)
-			merged.ProviderName = name
-			merged.ProviderPlugin = providerString(raw, "plugin")
+			merged = applyProviderInventoryMatches(item.name, server.Name, server.Meta, merged, matches)
+			merged.ProviderName = item.name
+			merged.ProviderPlugin = providerString(result.raw, "plugin")
 			merged.ProviderMeta = cloneProviderMeta(server.Meta)
 			c.Server[server.Name] = merged
 		}
 	}
 
 	return nil
+}
+
+type inventoryProviderResult struct {
+	raw       map[string]interface{}
+	inventory providerapi.InventoryListResult
+	err       error
+	skip      bool
+}
+
+func (c *Config) fetchInventoryProviderResults(providers []namedProviderConfig) []inventoryProviderResult {
+	results := make([]inventoryProviderResult, len(providers))
+	var wg sync.WaitGroup
+	semaphore := providerInventorySemaphore(c.Providers)
+
+	for i, item := range providers {
+		i := i
+		name := item.name
+		raw := c.Provider[name]
+		if !providerEnabled(raw) || !providerHasCapability(raw, "inventory") {
+			results[i] = inventoryProviderResult{raw: raw, skip: true}
+			continue
+		}
+
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			if semaphore != nil {
+				semaphore <- struct{}{}
+				defer func() {
+					<-semaphore
+				}()
+			}
+
+			results[i].raw = raw
+			err := c.callProvider(name, providerapi.MethodInventoryList, providerapi.InventoryListParams{
+				Provider: name,
+				Config:   raw,
+			}, &results[i].inventory)
+			if err != nil {
+				results[i].err = err
+			}
+		}()
+	}
+
+	wg.Wait()
+	return results
+}
+
+func providerInventorySemaphore(global ProvidersConfig) chan struct{} {
+	if global.MaxParallel <= 0 {
+		return nil
+	}
+
+	return make(chan struct{}, global.MaxParallel)
 }
 
 type namedProviderConfig struct {
@@ -350,7 +405,7 @@ func providerReservedKeys(raw map[string]interface{}) []string {
 		for _, key := range []string{
 			"regions", "region", "profile",
 			"shared_config_files", "shared_credentials_files",
-			"include_tags", "server_name_template", "note_template",
+			"include_tags", "server_name_template", "note_template", "addr_strategy",
 		} {
 			keys[key] = struct{}{}
 		}

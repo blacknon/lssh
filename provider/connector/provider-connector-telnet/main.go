@@ -22,6 +22,7 @@ func main() {
 		_ = providerbuiltin.WriteResponse(req, providerapi.PluginDescribeResult{
 			Name:            "provider-connector-telnet",
 			Capabilities:    []string{"connector"},
+			ConnectorNames:  []string{"telnet"},
 			Methods:         []string{providerapi.MethodPluginDescribe, providerapi.MethodHealthCheck, providerapi.MethodConnectorDescribe, providerapi.MethodConnectorPrepare},
 			ProtocolVersion: providerapi.Version,
 		}, nil)
@@ -144,10 +145,16 @@ func telnetPrepare(params providerapi.ConnectorPrepareParams) (providerapi.Conne
 			Plan: providerapi.ConnectorPlan{
 				Kind: "provider-managed",
 				Details: map[string]interface{}{
-					"connector": "telnet",
-					"addr":      cfg.Host,
-					"port":      cfg.Port,
-					"user":      cfg.Username,
+					"connector":           "telnet",
+					"addr":                cfg.Host,
+					"port":                cfg.Port,
+					"user":                cfg.Username,
+					"pass":                cfg.Password,
+					"login_prompt":        cfg.LoginPrompt,
+					"password_prompt":     cfg.PasswordPrompt,
+					"initial_newline":     cfg.InitialNewline,
+					"dial_timeout_sec":    cfg.DialTimeoutSec,
+					"post_login_delay_ms": cfg.PostLoginDelayMs,
 				},
 			},
 		}, nil

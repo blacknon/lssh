@@ -78,6 +78,9 @@ func validateConnectorShellOptions(opts connectorFlagOptions, selected []string,
 	if !data.ServerUsesConnector(selected[0]) {
 		return fmt.Errorf("--attach/--detach can only be used with connector-backed hosts")
 	}
+	if data.ServerConnectorName(selected[0]) != "aws-ssm" {
+		return fmt.Errorf("--attach/--detach are only supported for aws-ssm connectors")
+	}
 
 	return nil
 }

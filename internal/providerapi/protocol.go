@@ -46,6 +46,7 @@ type Warning struct {
 type PluginDescribeResult struct {
 	Name            string   `json:"name"`
 	Capabilities    []string `json:"capabilities,omitempty"`
+	ConnectorNames  []string `json:"connector_names,omitempty"`
 	Methods         []string `json:"methods,omitempty"`
 	ProtocolVersion string   `json:"protocol_version,omitempty"`
 	PluginVersion   string   `json:"plugin_version,omitempty"`

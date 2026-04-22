@@ -49,13 +49,14 @@ addr = "example.internal"
 user = "demo"
 port = "2222"
 key = "~/.ssh/id_ed25519"
-provider_name = "openssh"
+connector_name = "openssh"
 ```
 
 ## Notes
 
 - `providers.paths` is intended to list provider executable files.
 - current plugin capabilities are `["connector"]`.
+- `plugin.describe` reports connector name `openssh`.
 - implemented methods are:
   - `plugin.describe`
   - `health.check`

@@ -29,6 +29,8 @@ type awsSSMProbeResult struct {
 
 var probeSSMTarget = defaultProbeSSMTarget
 
+const awsSSMDescribeInstanceInformationMinResults int32 = 5
+
 func awsConnectorDescribe(params providerapi.ConnectorDescribeParams) (providerapi.ConnectorDescribeResult, error) {
 	target, missing := awsSSMTargetFromParams(params.Config, params.Target)
 	if len(missing) > 0 {
@@ -250,15 +252,7 @@ func defaultProbeSSMTarget(ctx context.Context, raw map[string]interface{}, targ
 	}
 
 	client := ssm.NewFromConfig(cfg)
-	out, err := client.DescribeInstanceInformation(ctx, &ssm.DescribeInstanceInformationInput{
-		Filters: []ssmtypes.InstanceInformationStringFilter{
-			{
-				Key:    aws.String("InstanceIds"),
-				Values: []string{target.InstanceID},
-			},
-		},
-		MaxResults: aws.Int32(1),
-	})
+	out, err := client.DescribeInstanceInformation(ctx, awsDescribeInstanceInformationInput(target.InstanceID))
 	if err != nil {
 		return awsSSMProbeResult{}, fmt.Errorf("describe ssm instance information: %w", err)
 	}
@@ -290,12 +284,29 @@ func awsSSMHealthCheck(ctx context.Context, raw map[string]interface{}, region s
 
 	client := ssm.NewFromConfig(cfg)
 	_, err = client.DescribeInstanceInformation(ctx, &ssm.DescribeInstanceInformationInput{
-		MaxResults: aws.Int32(1),
+		MaxResults: aws.Int32(awsSSMDescribeInstanceInformationMinResults),
 	})
 	if err != nil {
 		return fmt.Errorf("describe ssm instance information: %w", err)
 	}
 	return nil
+}
+
+func awsDescribeInstanceInformationInput(instanceID string) *ssm.DescribeInstanceInformationInput {
+	input := &ssm.DescribeInstanceInformationInput{
+		MaxResults: aws.Int32(awsSSMDescribeInstanceInformationMinResults),
+	}
+	if strings.TrimSpace(instanceID) == "" {
+		return input
+	}
+
+	input.Filters = []ssmtypes.InstanceInformationStringFilter{
+		{
+			Key:    aws.String("InstanceIds"),
+			Values: []string{instanceID},
+		},
+	}
+	return input
 }
 
 func awsUnsupportedSSMCapabilities(reason string) providerapi.ConnectorDescribeResult {

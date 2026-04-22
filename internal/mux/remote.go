@@ -22,6 +22,8 @@ import (
 	conf "github.com/blacknon/lssh/internal/config"
 	"github.com/blacknon/lssh/internal/providerapi"
 	sshcmd "github.com/blacknon/lssh/internal/ssh"
+	"github.com/blacknon/lssh/provider/connector/provider-connector-telnet/telnetlib"
+	"github.com/blacknon/lssh/provider/connector/provider-connector-winrm/winrmlib"
 	ssmconnector "github.com/blacknon/lssh/provider/mixed/provider-mixed-aws-ec2/ssmconnector"
 	"github.com/blacknon/tvxterm"
 	"github.com/creack/pty"
@@ -305,22 +307,6 @@ func (n nopWriteCloser) Close() error {
 }
 
 func newConnectorRemoteSession(cfg conf.Config, server string, serverConf conf.ServerConfig, notices []string, command []string, cols, rows int) (*RemoteSession, error) {
-	switch connectorName(serverConf) {
-	case "aws-ssm":
-		return newAWSConnectorRemoteSession(cfg, server, serverConf, notices, command, cols, rows)
-	default:
-		return nil, fmt.Errorf("server %q connector %q is not supported in lsmux yet", server, connectorName(serverConf))
-	}
-}
-
-func connectorName(serverConf conf.ServerConfig) string {
-	if serverConf.ProviderPlugin == "provider-mixed-aws-ec2" {
-		return "aws-ssm"
-	}
-	return ""
-}
-
-func newAWSConnectorRemoteSession(cfg conf.Config, server string, serverConf conf.ServerConfig, notices []string, command []string, cols, rows int) (*RemoteSession, error) {
 	operation := providerapi.ConnectorOperation{Name: "shell"}
 	if len(command) > 0 {
 		operation = providerapi.ConnectorOperation{
@@ -341,10 +327,144 @@ func newAWSConnectorRemoteSession(cfg conf.Config, server string, serverConf con
 		return nil, fmt.Errorf("%s", reason)
 	}
 
-	if len(command) == 0 {
-		return newAWSShellRemoteSession(cfg, server, serverConf, notices, prepared.Plan, cols, rows)
+	connectorName := connectorNameFromPlan(prepared.Plan, cfg.ServerConnectorName(server))
+	switch prepared.Plan.Kind {
+	case "command":
+		if len(command) == 0 {
+			return newCommandShellRemoteSession(cfg, server, serverConf, notices, prepared.Plan, cols, rows)
+		}
+		return newCommandExecRemoteSession(cfg, server, serverConf, notices, prepared.Plan)
+	case "provider-managed":
+		switch connectorName {
+		case "aws-ssm":
+			if len(command) == 0 {
+				return newAWSShellRemoteSession(cfg, server, serverConf, notices, prepared.Plan, cols, rows)
+			}
+			return newAWSExecRemoteSession(cfg, server, serverConf, notices, prepared.Plan)
+		case "winrm":
+			if len(command) == 0 {
+				return newWinRMShellRemoteSession(cfg, server, serverConf, notices, prepared.Plan)
+			}
+			return newWinRMExecRemoteSession(cfg, server, serverConf, notices, prepared.Plan)
+		case "telnet":
+			if len(command) > 0 {
+				return nil, fmt.Errorf("connector %q does not support exec in lsmux yet", connectorName)
+			}
+			return newTelnetShellRemoteSession(cfg, server, serverConf, notices, prepared.Plan)
+		default:
+			return nil, fmt.Errorf("server %q connector %q is not supported in lsmux yet", server, connectorName)
+		}
+	default:
+		return nil, fmt.Errorf("server %q connector %q returned unsupported plan kind %q", server, connectorName, prepared.Plan.Kind)
 	}
-	return newAWSExecRemoteSession(cfg, server, serverConf, notices, prepared.Plan)
+}
+
+func connectorNameFromPlan(plan providerapi.ConnectorPlan, fallback string) string {
+	if value := detailString(plan.Details, "connector"); value != "" {
+		return value
+	}
+	return fallback
+}
+
+func newCommandShellRemoteSession(cfg conf.Config, server string, serverConf conf.ServerConfig, notices []string, plan providerapi.ConnectorPlan, cols, rows int) (*RemoteSession, error) {
+	if plan.Program == "" {
+		return nil, fmt.Errorf("connector command plan is missing program")
+	}
+
+	cmd := exec.Command(plan.Program, plan.Args...)
+	cmd.Env = mergedCommandPlanEnv(plan.Env)
+	tty, err := pty.StartWithSize(cmd, &pty.Winsize{
+		Cols: uint16(maxInt(cols, 80)),
+		Rows: uint16(maxInt(rows, 24)),
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	outputReader, outputWriter := io.Pipe()
+	var logWriter *terminalLogWriter
+	logPath := ""
+	if cfg.Log.Enable {
+		logPath, err = buildMuxLogPath(cfg.Log, server)
+		if err != nil {
+			_ = outputWriter.CloseWithError(err)
+			_ = tty.Close()
+			_ = cmd.Process.Kill()
+			_ = cmd.Wait()
+			return nil, err
+		}
+		logWriter, err = newTerminalLogWriter(logPath, cfg.Log.Timestamp, cfg.Log.RemoveAnsiCode)
+		if err != nil {
+			_ = outputWriter.CloseWithError(err)
+			_ = tty.Close()
+			_ = cmd.Process.Kill()
+			_ = cmd.Wait()
+			return nil, err
+		}
+	}
+
+	var copyWG sync.WaitGroup
+	copyWG.Add(1)
+	go copyPipe(&copyWG, writerWithLog(outputWriter, logWriter), tty)
+
+	var waitErr error
+	waitDone := make(chan struct{})
+	go func() {
+		waitErr = cmd.Wait()
+		close(waitDone)
+	}()
+	go func() {
+		defer func() {
+			copyWG.Wait()
+		}()
+		<-waitDone
+		if waitErr != nil {
+			_ = outputWriter.CloseWithError(waitErr)
+			return
+		}
+		_ = outputWriter.Close()
+	}()
+
+	var closeOnce sync.Once
+	closeFn := func() error {
+		var closeErr error
+		closeOnce.Do(func() {
+			_ = outputWriter.Close()
+			if logWriter != nil {
+				_ = logWriter.Close()
+			}
+			if err := tty.Close(); closeErr == nil && err != nil {
+				closeErr = err
+			}
+			if cmd.Process != nil {
+				_ = cmd.Process.Kill()
+			}
+			<-waitDone
+			if closeErr == nil && waitErr != nil && !isExpectedProcessExit(waitErr) {
+				closeErr = waitErr
+			}
+		})
+		return closeErr
+	}
+
+	return &RemoteSession{
+		Server:  server,
+		Config:  serverConf,
+		Notices: append([]string(nil), notices...),
+		Input:   tty,
+		LogPath: logPath,
+		Backend: tvxterm.NewStreamBackend(
+			outputReader,
+			tty,
+			func(cols, rows int) error {
+				return pty.Setsize(tty, &pty.Winsize{
+					Cols: uint16(maxInt(cols, 1)),
+					Rows: uint16(maxInt(rows, 1)),
+				})
+			},
+			closeFn,
+		),
+	}, nil
 }
 
 func newAWSShellRemoteSession(cfg conf.Config, server string, serverConf conf.ServerConfig, notices []string, plan providerapi.ConnectorPlan, cols, rows int) (*RemoteSession, error) {
@@ -447,6 +567,102 @@ func newAWSShellRemoteSession(cfg conf.Config, server string, serverConf conf.Se
 	}, nil
 }
 
+func newCommandExecRemoteSession(cfg conf.Config, server string, serverConf conf.ServerConfig, notices []string, plan providerapi.ConnectorPlan) (*RemoteSession, error) {
+	if plan.Program == "" {
+		return nil, fmt.Errorf("connector command plan is missing program")
+	}
+
+	cmd := exec.Command(plan.Program, plan.Args...)
+	cmd.Env = mergedCommandPlanEnv(plan.Env)
+	stdoutPipe, err := cmd.StdoutPipe()
+	if err != nil {
+		return nil, err
+	}
+	stderrPipe, err := cmd.StderrPipe()
+	if err != nil {
+		return nil, err
+	}
+	if err := cmd.Start(); err != nil {
+		return nil, err
+	}
+
+	outputReader, outputWriter := io.Pipe()
+	var logWriter *terminalLogWriter
+	logPath := ""
+	if cfg.Log.Enable {
+		logPath, err = buildMuxLogPath(cfg.Log, server)
+		if err != nil {
+			_ = outputWriter.CloseWithError(err)
+			_ = cmd.Process.Kill()
+			_ = cmd.Wait()
+			return nil, err
+		}
+		logWriter, err = newTerminalLogWriter(logPath, cfg.Log.Timestamp, cfg.Log.RemoveAnsiCode)
+		if err != nil {
+			_ = outputWriter.CloseWithError(err)
+			_ = cmd.Process.Kill()
+			_ = cmd.Wait()
+			return nil, err
+		}
+	}
+
+	var copyWG sync.WaitGroup
+	copyWG.Add(2)
+	go copyPipe(&copyWG, writerWithLog(outputWriter, logWriter), stdoutPipe)
+	go copyPipe(&copyWG, writerWithLog(outputWriter, logWriter), stderrPipe)
+
+	var waitErr error
+	waitDone := make(chan struct{})
+	go func() {
+		waitErr = cmd.Wait()
+		close(waitDone)
+	}()
+	go func() {
+		defer func() {
+			copyWG.Wait()
+		}()
+		<-waitDone
+		if waitErr != nil {
+			_ = outputWriter.CloseWithError(waitErr)
+			return
+		}
+		_ = outputWriter.Close()
+	}()
+
+	var closeOnce sync.Once
+	closeFn := func() error {
+		var closeErr error
+		closeOnce.Do(func() {
+			_ = outputWriter.Close()
+			if logWriter != nil {
+				_ = logWriter.Close()
+			}
+			if cmd.Process != nil {
+				_ = cmd.Process.Kill()
+			}
+			<-waitDone
+			if closeErr == nil && waitErr != nil && !isExpectedProcessExit(waitErr) {
+				closeErr = waitErr
+			}
+		})
+		return closeErr
+	}
+
+	return &RemoteSession{
+		Server:  server,
+		Config:  serverConf,
+		Notices: append([]string(nil), notices...),
+		Input:   nopWriteCloser{Writer: io.Discard},
+		LogPath: logPath,
+		Backend: tvxterm.NewStreamBackend(
+			outputReader,
+			nopWriteCloser{Writer: io.Discard},
+			func(cols, rows int) error { return nil },
+			closeFn,
+		),
+	}, nil
+}
+
 func newAWSExecRemoteSession(cfg conf.Config, server string, serverConf conf.ServerConfig, notices []string, plan providerapi.ConnectorPlan) (*RemoteSession, error) {
 	commandCfg, err := ssmconnector.CommandConfigFromPlan(plan)
 	if err != nil {
@@ -514,6 +730,161 @@ func newAWSExecRemoteSession(cfg conf.Config, server string, serverConf conf.Ser
 	}, nil
 }
 
+func newWinRMShellRemoteSession(cfg conf.Config, server string, serverConf conf.ServerConfig, notices []string, plan providerapi.ConnectorPlan) (*RemoteSession, error) {
+	targetCfg, err := winrmlib.ConfigFromPlanDetails(plan.Details)
+	if err != nil {
+		return nil, err
+	}
+
+	connect, err := winrmlib.CreateConnect(targetCfg)
+	if err != nil {
+		return nil, err
+	}
+	terminal, err := connect.OpenShell()
+	if err != nil {
+		return nil, err
+	}
+
+	return newReaderBackedRemoteSession(cfg, server, serverConf, notices, terminal.Stdin(), terminal.Stdout(), terminal.Stderr(), terminal.Wait, terminal.Close)
+}
+
+func newWinRMExecRemoteSession(cfg conf.Config, server string, serverConf conf.ServerConfig, notices []string, plan providerapi.ConnectorPlan) (*RemoteSession, error) {
+	targetCfg, err := winrmlib.ConfigFromPlanDetails(plan.Details)
+	if err != nil {
+		return nil, err
+	}
+
+	connect, err := winrmlib.CreateConnect(targetCfg)
+	if err != nil {
+		return nil, err
+	}
+	commandLine := detailString(plan.Details, "command_line")
+	if commandLine == "" {
+		commandLine = strings.Join(detailStringSlice(plan.Details, "command"), " ")
+	}
+	command, err := connect.ExecuteCommand(commandLine)
+	if err != nil {
+		return nil, err
+	}
+
+	waitFn := func() error {
+		err := command.Wait()
+		if err == nil && command.ExitCode() != 0 {
+			return fmt.Errorf("exit status %d", command.ExitCode())
+		}
+		return err
+	}
+
+	return newReaderBackedRemoteSession(cfg, server, serverConf, notices, nopWriteCloser{Writer: io.Discard}, command.Stdout(), command.Stderr(), waitFn, command.Close)
+}
+
+func newTelnetShellRemoteSession(cfg conf.Config, server string, serverConf conf.ServerConfig, notices []string, plan providerapi.ConnectorPlan) (*RemoteSession, error) {
+	targetCfg, err := telnetlib.ConfigFromPlanDetails(plan.Details)
+	if err != nil {
+		return nil, err
+	}
+
+	terminal, err := telnetlib.OpenShell(targetCfg, "xterm-256color", 80, 24)
+	if err != nil {
+		return nil, err
+	}
+
+	return newReaderBackedRemoteSession(cfg, server, serverConf, notices, terminal.Stdin(), terminal.Stdout(), terminal.Stderr(), terminal.Wait, terminal.Close)
+}
+
+func newReaderBackedRemoteSession(cfg conf.Config, server string, serverConf conf.ServerConfig, notices []string, stdin io.Writer, stdout, stderr io.Reader, waitFn func() error, closeResource func() error) (*RemoteSession, error) {
+	outputReader, outputWriter := io.Pipe()
+	var logWriter *terminalLogWriter
+	var err error
+	logPath := ""
+	if cfg.Log.Enable {
+		logPath, err = buildMuxLogPath(cfg.Log, server)
+		if err != nil {
+			_ = outputWriter.CloseWithError(err)
+			if closeResource != nil {
+				_ = closeResource()
+			}
+			return nil, err
+		}
+		logWriter, err = newTerminalLogWriter(logPath, cfg.Log.Timestamp, cfg.Log.RemoveAnsiCode)
+		if err != nil {
+			_ = outputWriter.CloseWithError(err)
+			if closeResource != nil {
+				_ = closeResource()
+			}
+			return nil, err
+		}
+	}
+
+	var copyWG sync.WaitGroup
+	if stdout != nil {
+		copyWG.Add(1)
+		go copyPipe(&copyWG, writerWithLog(outputWriter, logWriter), stdout)
+	}
+	if stderr != nil {
+		copyWG.Add(1)
+		go copyPipe(&copyWG, writerWithLog(outputWriter, logWriter), stderr)
+	}
+
+	var waitErr error
+	waitDone := make(chan struct{})
+	go func() {
+		waitErr = waitFn()
+		close(waitDone)
+	}()
+	go func() {
+		defer func() {
+			copyWG.Wait()
+		}()
+		<-waitDone
+		if waitErr != nil {
+			_ = outputWriter.CloseWithError(waitErr)
+			return
+		}
+		_ = outputWriter.Close()
+	}()
+
+	var closeOnce sync.Once
+	closeFn := func() error {
+		var closeErr error
+		closeOnce.Do(func() {
+			_ = outputWriter.Close()
+			if logWriter != nil {
+				_ = logWriter.Close()
+			}
+			if closeResource != nil {
+				if err := closeResource(); closeErr == nil && err != nil {
+					closeErr = err
+				}
+			}
+			<-waitDone
+			if closeErr == nil && waitErr != nil && !isExpectedProcessExit(waitErr) {
+				closeErr = waitErr
+			}
+		})
+		return closeErr
+	}
+
+	input := nopWriteCloser{Writer: io.Discard}
+	if stdin != nil {
+		input = nopWriteCloser{Writer: stdin}
+	}
+
+	return &RemoteSession{
+		Server:  server,
+		Config:  serverConf,
+		Notices: append([]string(nil), notices...),
+		Input:   input,
+		LogPath: logPath,
+		Backend: tvxterm.NewStreamBackend(
+			outputReader,
+			input,
+			func(cols, rows int) error { return nil },
+			closeFn,
+		),
+	}, nil
+}
+
 func detailString(details map[string]interface{}, key string) string {
 	if details == nil {
 		return ""
@@ -522,6 +893,43 @@ func detailString(details map[string]interface{}, key string) string {
 		return fmt.Sprint(value)
 	}
 	return ""
+}
+
+func detailStringSlice(details map[string]interface{}, key string) []string {
+	if details == nil {
+		return nil
+	}
+	raw, ok := details[key]
+	if !ok || raw == nil {
+		return nil
+	}
+	switch typed := raw.(type) {
+	case []string:
+		return append([]string(nil), typed...)
+	case []interface{}:
+		out := make([]string, 0, len(typed))
+		for _, item := range typed {
+			if item == nil {
+				continue
+			}
+			out = append(out, fmt.Sprint(item))
+		}
+		return out
+	default:
+		return []string{fmt.Sprint(typed)}
+	}
+}
+
+func mergedCommandPlanEnv(env map[string]string) []string {
+	if len(env) == 0 {
+		return nil
+	}
+
+	result := append([]string{}, os.Environ()...)
+	for key, value := range env {
+		result = append(result, key+"="+value)
+	}
+	return result
 }
 
 func isExpectedProcessExit(err error) bool {

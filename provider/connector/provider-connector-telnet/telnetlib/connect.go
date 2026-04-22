@@ -66,6 +66,24 @@ func Dial(cfg TargetConfig) (*Connect, error) {
 	return &Connect{cfg: cfg, conn: conn}, nil
 }
 
+func ConfigFromPlanDetails(details map[string]interface{}) (TargetConfig, error) {
+	cfg := TargetConfig{
+		Host:             stringValue(details, "addr", ""),
+		Username:         stringValue(details, "user", ""),
+		Password:         stringValue(details, "pass", ""),
+		LoginPrompt:      stringValue(details, "login_prompt", "login:"),
+		PasswordPrompt:   stringValue(details, "password_prompt", "password:"),
+		InitialNewline:   parseBoolDefault(stringValue(details, "initial_newline", ""), true),
+		DialTimeoutSec:   parseIntDefault(stringValue(details, "dial_timeout_sec", ""), 10),
+		PostLoginDelayMs: parseIntDefault(stringValue(details, "post_login_delay_ms", ""), 200),
+	}
+	cfg.Port = parseIntDefault(stringValue(details, "port", ""), 23)
+	if err := cfg.Validate(); err != nil {
+		return TargetConfig{}, err
+	}
+	return cfg, nil
+}
+
 func (c *Connect) Close() error {
 	if c == nil || c.conn == nil {
 		return nil

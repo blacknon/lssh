@@ -63,3 +63,27 @@ func TestResolveConfigValueSource(t *testing.T) {
 		t.Fatalf("unexpected value: %q", value)
 	}
 }
+
+func TestExpandPaths(t *testing.T) {
+	t.Parallel()
+
+	home, err := os.UserHomeDir()
+	if err != nil {
+		t.Fatalf("UserHomeDir failed: %v", err)
+	}
+
+	got := ExpandPaths([]string{"~/.aws/config", "/tmp/aws-credentials", ""})
+	want := []string{
+		filepath.Join(home, ".aws", "config"),
+		"/tmp/aws-credentials",
+		"",
+	}
+	if len(got) != len(want) {
+		t.Fatalf("len(ExpandPaths()) = %d, want %d", len(got), len(want))
+	}
+	for i := range want {
+		if got[i] != want[i] {
+			t.Fatalf("ExpandPaths()[%d] = %q, want %q", i, got[i], want[i])
+		}
+	}
+}

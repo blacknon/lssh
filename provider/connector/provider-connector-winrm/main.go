@@ -23,6 +23,7 @@ func main() {
 		_ = providerbuiltin.WriteResponse(req, providerapi.PluginDescribeResult{
 			Name:            "provider-connector-winrm",
 			Capabilities:    []string{"connector"},
+			ConnectorNames:  []string{"winrm"},
 			Methods:         []string{providerapi.MethodPluginDescribe, providerapi.MethodHealthCheck, providerapi.MethodConnectorDescribe, providerapi.MethodConnectorPrepare},
 			ProtocolVersion: providerapi.Version,
 		}, nil)
@@ -152,12 +153,19 @@ func winrmPrepare(params providerapi.ConnectorPrepareParams) (providerapi.Connec
 			Plan: providerapi.ConnectorPlan{
 				Kind: "provider-managed",
 				Details: map[string]interface{}{
-					"connector": "winrm",
-					"addr":      cfg.Host,
-					"port":      cfg.Port,
-					"user":      cfg.User,
-					"transport": winrmTransport(params.Config, params.Target),
-					"command":   params.Operation.Command,
+					"connector":             "winrm",
+					"addr":                  cfg.Host,
+					"port":                  cfg.Port,
+					"user":                  cfg.User,
+					"pass":                  cfg.Password,
+					"https":                 cfg.HTTPS,
+					"insecure":              cfg.Insecure,
+					"transport":             winrmTransport(params.Config, params.Target),
+					"command":               params.Operation.Command,
+					"command_line":          strings.Join(params.Operation.Command, " "),
+					"shell_command":         cfg.ShellCommand,
+					"tls_server_name":       cfg.TLSServerName,
+					"operation_timeout_sec": cfg.OperationTimeoutSec,
 				},
 			},
 		}, nil
@@ -168,12 +176,18 @@ func winrmPrepare(params providerapi.ConnectorPrepareParams) (providerapi.Connec
 			Plan: providerapi.ConnectorPlan{
 				Kind: "provider-managed",
 				Details: map[string]interface{}{
-					"connector": "winrm",
-					"addr":      cfg.Host,
-					"port":      cfg.Port,
-					"user":      cfg.User,
-					"transport": winrmTransport(params.Config, params.Target),
-					"reason":    unsupportedReason(supported, "interactive shell support is disabled unless enable_shell=true"),
+					"connector":             "winrm",
+					"addr":                  cfg.Host,
+					"port":                  cfg.Port,
+					"user":                  cfg.User,
+					"pass":                  cfg.Password,
+					"https":                 cfg.HTTPS,
+					"insecure":              cfg.Insecure,
+					"transport":             winrmTransport(params.Config, params.Target),
+					"reason":                unsupportedReason(supported, "interactive shell support is disabled unless enable_shell=true"),
+					"shell_command":         cfg.ShellCommand,
+					"tls_server_name":       cfg.TLSServerName,
+					"operation_timeout_sec": cfg.OperationTimeoutSec,
 				},
 			},
 		}, nil

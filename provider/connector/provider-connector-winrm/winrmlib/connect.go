@@ -92,6 +92,32 @@ func CreateConnect(cfg TargetConfig) (*Connect, error) {
 	return &Connect{cfg: cfg, endpoint: endpoint, client: client}, nil
 }
 
+func ConfigFromPlanDetails(details map[string]interface{}) (TargetConfig, error) {
+	cfg := TargetConfig{
+		Host:                stringValue(details, "addr", ""),
+		User:                stringValue(details, "user", ""),
+		Password:            stringValue(details, "pass", ""),
+		HTTPS:               parseBoolDefault(stringValue(details, "https", ""), false),
+		Insecure:            parseBoolDefault(stringValue(details, "insecure", ""), false),
+		ShellCommand:        strings.TrimSpace(stringValue(details, "shell_command", "")),
+		TLSServerName:       strings.TrimSpace(stringValue(details, "tls_server_name", "")),
+		OperationTimeoutSec: parseIntDefault(stringValue(details, "operation_timeout_sec", ""), 60),
+	}
+	rawPort := stringValue(details, "port", "")
+	if cfg.HTTPS {
+		cfg.Port = parseIntDefault(rawPort, 5986)
+	} else {
+		cfg.Port = parseIntDefault(rawPort, 5985)
+	}
+	if cfg.ShellCommand == "" {
+		cfg.ShellCommand = "cmd.exe"
+	}
+	if err := cfg.Validate(); err != nil {
+		return TargetConfig{}, err
+	}
+	return cfg, nil
+}
+
 func defaultInt(v, def int) int {
 	if v == 0 {
 		return def
