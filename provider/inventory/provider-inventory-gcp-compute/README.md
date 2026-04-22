@@ -10,6 +10,7 @@ The `gcp-compute` inventory provider lists running Compute Engine instances with
 ```toml
 [providers]
 paths = ["~/.config/lssh/providers/provider-inventory-gcp-compute"]
+max_parallel = 4
 
 [provider.gcp]
 plugin = "provider-inventory-gcp-compute"
@@ -34,6 +35,8 @@ user = "debian"
 ## Notes
 
 - `providers.paths` is intended to list provider executable files.
+- `providers.max_parallel` limits simultaneous `inventory.list` calls across configured providers.
+  - unset or `0` means no explicit limit
 - Uses Google Application Default Credentials by default.
 - `credentials_file` can be used to point at a specific service-account or ADC JSON file.
 - `endpoint` and `scopes` can be overridden when needed.

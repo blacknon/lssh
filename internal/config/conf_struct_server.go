@@ -164,6 +164,10 @@ type ServerConfig struct {
 	// ignore this server from selection / execution targets
 	Ignore bool `toml:"ignore" yaml:"ignore"`
 
+	// Optional connector selector. Empty means default built-in SSH unless a
+	// legacy provider-backed connector is inferred.
+	ConnectorName string `toml:"connector_name" yaml:"connector_name"`
+
 	// Runtime-only provider metadata for provider-generated servers.
 	ProviderName   string            `toml:"-" yaml:"-"`
 	ProviderPlugin string            `toml:"-" yaml:"-"`

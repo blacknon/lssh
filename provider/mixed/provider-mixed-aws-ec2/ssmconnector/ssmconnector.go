@@ -2,6 +2,7 @@ package ssmconnector
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -13,7 +14,9 @@ import (
 	awsconfig "github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/service/ssm"
 	ssmtypes "github.com/aws/aws-sdk-go-v2/service/ssm/types"
+	"github.com/aws/smithy-go"
 	"github.com/blacknon/lssh/internal/providerapi"
+	"github.com/blacknon/lssh/internal/providerbuiltin"
 	"github.com/kballard/go-shellquote"
 )
 
@@ -205,6 +208,9 @@ func RunCommand(ctx context.Context, cfg CommandConfig, stdout, stderr io.Writer
 				InstanceId: aws.String(cfg.InstanceID),
 			})
 			if err != nil {
+				if shouldRetryGetCommandInvocation(err) {
+					continue
+				}
 				return 0, fmt.Errorf("get ssm command invocation: %w", err)
 			}
 			switch out.Status {
@@ -223,6 +229,20 @@ func RunCommand(ctx context.Context, cfg CommandConfig, stdout, stderr io.Writer
 	}
 }
 
+func shouldRetryGetCommandInvocation(err error) bool {
+	var apiErr smithy.APIError
+	if !errors.As(err, &apiErr) {
+		return false
+	}
+
+	switch apiErr.ErrorCode() {
+	case "InvocationDoesNotExist":
+		return true
+	default:
+		return false
+	}
+}
+
 func loadAWSConfig(ctx context.Context, cfg BaseConfig) (aws.Config, error) {
 	opts := []func(*awsconfig.LoadOptions) error{
 		awsconfig.WithRegion(cfg.Region),
@@ -230,22 +250,24 @@ func loadAWSConfig(ctx context.Context, cfg BaseConfig) (aws.Config, error) {
 	if cfg.Profile != "" {
 		opts = append(opts, awsconfig.WithSharedConfigProfile(cfg.Profile))
 	}
-	if len(cfg.SharedConfigFiles) > 0 {
-		opts = append(opts, awsconfig.WithSharedConfigFiles(cfg.SharedConfigFiles))
+	if files := providerbuiltin.ExpandPaths(cfg.SharedConfigFiles); len(files) > 0 {
+		opts = append(opts, awsconfig.WithSharedConfigFiles(files))
 	}
-	if len(cfg.SharedCredentialsFiles) > 0 {
-		opts = append(opts, awsconfig.WithSharedCredentialsFiles(cfg.SharedCredentialsFiles))
+	if files := providerbuiltin.ExpandPaths(cfg.SharedCredentialsFiles); len(files) > 0 {
+		opts = append(opts, awsconfig.WithSharedCredentialsFiles(files))
 	}
 	return awsconfig.LoadDefaultConfig(ctx, opts...)
 }
 
 func shellEnvironment(cfg ShellConfig) []string {
 	env := []string{}
-	if len(cfg.SharedConfigFiles) > 0 && cfg.SharedConfigFiles[0] != "" {
-		env = append(env, "AWS_CONFIG_FILE="+cfg.SharedConfigFiles[0])
+	sharedConfigFiles := providerbuiltin.ExpandPaths(cfg.SharedConfigFiles)
+	sharedCredentialsFiles := providerbuiltin.ExpandPaths(cfg.SharedCredentialsFiles)
+	if len(sharedConfigFiles) > 0 && sharedConfigFiles[0] != "" {
+		env = append(env, "AWS_CONFIG_FILE="+sharedConfigFiles[0])
 	}
-	if len(cfg.SharedCredentialsFiles) > 0 && cfg.SharedCredentialsFiles[0] != "" {
-		env = append(env, "AWS_SHARED_CREDENTIALS_FILE="+cfg.SharedCredentialsFiles[0])
+	if len(sharedCredentialsFiles) > 0 && sharedCredentialsFiles[0] != "" {
+		env = append(env, "AWS_SHARED_CREDENTIALS_FILE="+sharedCredentialsFiles[0])
 	}
 	return env
 }

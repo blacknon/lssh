@@ -24,11 +24,18 @@ capabilities = ["connector"]
 transport = "https"
 port = "5986"
 enable_shell = false
+
+[server.windows01]
+addr = "windows.local"
+user = "Administrator"
+pass = "secret"
+connector_name = "winrm"
 ```
 
 ## Notes
 
 - `plugin.describe` reports `["connector"]`.
+- connector name is `winrm`.
 - `health.check` validates static connector config only.
 - `connector.describe` reports `exec` as supported when a target address is available.
 - `connector.prepare` currently returns provider-managed plans for `exec` and `shell`.

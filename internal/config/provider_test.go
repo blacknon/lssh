@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/blacknon/lssh/internal/providerapi"
 )
@@ -217,6 +218,139 @@ printf '%s' '{"version":"v1","result":{"value":"super-secret"}}'
 	}
 	if value != "super-secret" {
 		t.Fatalf("ResolveSecretRef() = %q", value)
+	}
+}
+
+func TestReadInventoryProvidersMatchSetsConnectorName(t *testing.T) {
+	dir := t.TempDir()
+	providerPath := filepath.Join(dir, "lssh-provider-fake-inventory")
+	script := `#!/bin/sh
+cat >/dev/null
+printf '%s' '{"version":"v1","result":{"servers":[{"name":"aws:win-1","config":{"addr":"10.0.0.12"},"meta":{"platform":"windows"}}]}}'
+`
+	if err := os.WriteFile(providerPath, []byte(script), 0o755); err != nil {
+		t.Fatalf("write provider: %v", err)
+	}
+
+	configPath := filepath.Join(dir, "lssh.toml")
+	body := `
+[providers]
+paths = ["` + providerPath + `"]
+
+[provider.aws]
+plugin = "lssh-provider-fake-inventory"
+capabilities = ["inventory"]
+
+[provider.aws.match.windows]
+meta_in = ["platform=windows"]
+connector_name = "winrm"
+`
+	if err := os.WriteFile(configPath, []byte(body), 0o600); err != nil {
+		t.Fatalf("write config: %v", err)
+	}
+
+	cfg := Read(configPath)
+	server := cfg.Server["aws:win-1"]
+	if server.ConnectorName != "winrm" {
+		t.Fatalf("connector_name = %q, want winrm", server.ConnectorName)
+	}
+}
+
+func TestServerUsesConnectorRespectsConnectorName(t *testing.T) {
+	cfg := Config{
+		Server: map[string]ServerConfig{
+			"ssh-host":  {ConnectorName: "ssh"},
+			"conn-host": {ConnectorName: "openssh"},
+		},
+	}
+
+	if cfg.ServerUsesConnector("ssh-host") {
+		t.Fatal("ServerUsesConnector(ssh-host) = true, want false")
+	}
+	if !cfg.ServerUsesConnector("conn-host") {
+		t.Fatal("ServerUsesConnector(conn-host) = false, want true")
+	}
+}
+
+func TestPrepareConnectorResolvesProviderByConnectorName(t *testing.T) {
+	dir := t.TempDir()
+	providerPath := filepath.Join(dir, "lssh-provider-fake-connector")
+	script := `#!/bin/sh
+payload="$(cat)"
+case "$payload" in
+  *'"method":"plugin.describe"'*)
+    printf '%s' '{"version":"v1","result":{"name":"fake-connector","capabilities":["connector"],"connector_names":["openssh"],"methods":["plugin.describe","connector.prepare"]}}'
+    ;;
+  *'"method":"connector.prepare"'*)
+    printf '%s' '{"version":"v1","result":{"supported":true,"plan":{"kind":"command","program":"ssh","args":["example.internal"],"details":{"connector":"openssh"}}}}'
+    ;;
+  *)
+    printf '%s' '{"version":"v1","error":{"message":"unsupported"}}'
+    exit 1
+    ;;
+esac
+`
+	if err := os.WriteFile(providerPath, []byte(script), 0o755); err != nil {
+		t.Fatalf("write provider: %v", err)
+	}
+
+	cfg := Config{
+		Providers: ProvidersConfig{Paths: []string{providerPath}},
+		Server: map[string]ServerConfig{
+			"web01": {
+				Addr:          "example.internal",
+				User:          "demo",
+				ConnectorName: "openssh",
+			},
+		},
+		Provider: map[string]map[string]interface{}{
+			"openssh": {
+				"plugin":       "lssh-provider-fake-connector",
+				"enabled":      true,
+				"capabilities": []interface{}{"connector"},
+			},
+		},
+	}
+
+	result, err := cfg.PrepareConnector("web01", providerapi.ConnectorOperation{Name: "shell"})
+	if err != nil {
+		t.Fatalf("PrepareConnector() error = %v", err)
+	}
+	if !result.Supported {
+		t.Fatal("PrepareConnector().Supported = false, want true")
+	}
+	if got := result.Plan.Details["connector"]; got != "openssh" {
+		t.Fatalf("PrepareConnector().Plan.Details[connector] = %v, want openssh", got)
+	}
+}
+
+func TestServerConnectorNameFallsBackToProviderDescriptor(t *testing.T) {
+	dir := t.TempDir()
+	providerPath := filepath.Join(dir, "lssh-provider-fake-connector")
+	script := `#!/bin/sh
+cat >/dev/null
+printf '%s' '{"version":"v1","result":{"name":"fake-connector","capabilities":["connector"],"connector_names":["aws-ssm"],"methods":["plugin.describe"]}}'
+`
+	if err := os.WriteFile(providerPath, []byte(script), 0o755); err != nil {
+		t.Fatalf("write provider: %v", err)
+	}
+
+	cfg := Config{
+		Providers: ProvidersConfig{Paths: []string{providerPath}},
+		Server: map[string]ServerConfig{
+			"aws:web-01": {ProviderName: "aws"},
+		},
+		Provider: map[string]map[string]interface{}{
+			"aws": {
+				"plugin":       "lssh-provider-fake-connector",
+				"enabled":      true,
+				"capabilities": []interface{}{"inventory", "connector"},
+			},
+		},
+	}
+
+	if got := cfg.ServerConnectorName("aws:web-01"); got != "aws-ssm" {
+		t.Fatalf("ServerConnectorName() = %q, want aws-ssm", got)
 	}
 }
 
@@ -546,6 +680,155 @@ func TestActiveProvidersHonorsWhen(t *testing.T) {
 	got := cfg.activeProviders()
 	if len(got) != 1 || got[0].name != "proxmox" {
 		t.Fatalf("activeProviders() = %#v", got)
+	}
+}
+
+func TestReadInventoryProvidersFetchesProvidersInParallel(t *testing.T) {
+	dir := t.TempDir()
+	providerPathA := filepath.Join(dir, "lssh-provider-fake-inventory-a")
+	providerPathB := filepath.Join(dir, "lssh-provider-fake-inventory-b")
+
+	script := `#!/bin/sh
+sleep 0.3
+cat >/dev/null
+printf '%s' '{"version":"v1","result":{"servers":[{"name":"aws:web-1","config":{"addr":"10.0.0.10"}}]}}'
+`
+	if err := os.WriteFile(providerPathA, []byte(script), 0o755); err != nil {
+		t.Fatalf("write provider A: %v", err)
+	}
+	if err := os.WriteFile(providerPathB, []byte(script), 0o755); err != nil {
+		t.Fatalf("write provider B: %v", err)
+	}
+
+	cfg := Config{
+		Providers: ProvidersConfig{Paths: []string{providerPathA, providerPathB}},
+		Server:    map[string]ServerConfig{},
+		Provider: map[string]map[string]interface{}{
+			"aws-a": {
+				"plugin":       "lssh-provider-fake-inventory-a",
+				"capabilities": []interface{}{"inventory"},
+			},
+			"aws-b": {
+				"plugin":       "lssh-provider-fake-inventory-b",
+				"capabilities": []interface{}{"inventory"},
+			},
+		},
+	}
+
+	start := time.Now()
+	if err := cfg.ReadInventoryProviders(); err != nil {
+		t.Fatalf("ReadInventoryProviders() error = %v", err)
+	}
+	if elapsed := time.Since(start); elapsed >= 900*time.Millisecond {
+		t.Fatalf("ReadInventoryProviders() took %v, want parallel execution under 900ms", elapsed)
+	}
+}
+
+func TestReadInventoryProvidersMergesResultsDeterministicallyAfterParallelFetch(t *testing.T) {
+	dir := t.TempDir()
+	providerPathA := filepath.Join(dir, "lssh-provider-fake-inventory-a")
+	providerPathB := filepath.Join(dir, "lssh-provider-fake-inventory-b")
+
+	scriptA := `#!/bin/sh
+sleep 0.3
+cat >/dev/null
+printf '%s' '{"version":"v1","result":{"servers":[{"name":"aws:web-1","config":{"addr":"10.0.0.10","note":"from-a"}}]}}'
+`
+	scriptB := `#!/bin/sh
+sleep 0.1
+cat >/dev/null
+printf '%s' '{"version":"v1","result":{"servers":[{"name":"aws:web-1","config":{"addr":"10.0.0.20","note":"from-b"}}]}}'
+`
+	if err := os.WriteFile(providerPathA, []byte(scriptA), 0o755); err != nil {
+		t.Fatalf("write provider A: %v", err)
+	}
+	if err := os.WriteFile(providerPathB, []byte(scriptB), 0o755); err != nil {
+		t.Fatalf("write provider B: %v", err)
+	}
+
+	cfg := Config{
+		Providers: ProvidersConfig{Paths: []string{providerPathA, providerPathB}},
+		Server:    map[string]ServerConfig{},
+		Provider: map[string]map[string]interface{}{
+			"aws-a": {
+				"plugin":       "lssh-provider-fake-inventory-a",
+				"capabilities": []interface{}{"inventory"},
+			},
+			"aws-b": {
+				"plugin":       "lssh-provider-fake-inventory-b",
+				"capabilities": []interface{}{"inventory"},
+			},
+		},
+	}
+
+	if err := cfg.ReadInventoryProviders(); err != nil {
+		t.Fatalf("ReadInventoryProviders() error = %v", err)
+	}
+
+	server, ok := cfg.Server["aws:web-1"]
+	if !ok {
+		t.Fatalf("inventory server not loaded: %#v", cfg.Server)
+	}
+	if server.Addr != "10.0.0.20" {
+		t.Fatalf("addr = %q, want 10.0.0.20", server.Addr)
+	}
+	if server.Note != "from-b" {
+		t.Fatalf("note = %q, want from-b", server.Note)
+	}
+	if server.ProviderName != "aws-b" {
+		t.Fatalf("provider = %q, want aws-b", server.ProviderName)
+	}
+}
+
+func TestReadInventoryProvidersHonorsMaxParallel(t *testing.T) {
+	dir := t.TempDir()
+	providerPathA := filepath.Join(dir, "lssh-provider-fake-inventory-a")
+	providerPathB := filepath.Join(dir, "lssh-provider-fake-inventory-b")
+	providerPathC := filepath.Join(dir, "lssh-provider-fake-inventory-c")
+
+	script := `#!/bin/sh
+sleep 0.3
+cat >/dev/null
+printf '%s' '{"version":"v1","result":{"servers":[{"name":"aws:web-1","config":{"addr":"10.0.0.10"}}]}}'
+`
+	if err := os.WriteFile(providerPathA, []byte(script), 0o755); err != nil {
+		t.Fatalf("write provider A: %v", err)
+	}
+	if err := os.WriteFile(providerPathB, []byte(script), 0o755); err != nil {
+		t.Fatalf("write provider B: %v", err)
+	}
+	if err := os.WriteFile(providerPathC, []byte(script), 0o755); err != nil {
+		t.Fatalf("write provider C: %v", err)
+	}
+
+	cfg := Config{
+		Providers: ProvidersConfig{
+			Paths:       []string{providerPathA, providerPathB, providerPathC},
+			MaxParallel: 1,
+		},
+		Server: map[string]ServerConfig{},
+		Provider: map[string]map[string]interface{}{
+			"aws-a": {
+				"plugin":       "lssh-provider-fake-inventory-a",
+				"capabilities": []interface{}{"inventory"},
+			},
+			"aws-b": {
+				"plugin":       "lssh-provider-fake-inventory-b",
+				"capabilities": []interface{}{"inventory"},
+			},
+			"aws-c": {
+				"plugin":       "lssh-provider-fake-inventory-c",
+				"capabilities": []interface{}{"inventory"},
+			},
+		},
+	}
+
+	start := time.Now()
+	if err := cfg.ReadInventoryProviders(); err != nil {
+		t.Fatalf("ReadInventoryProviders() error = %v", err)
+	}
+	if elapsed := time.Since(start); elapsed < 800*time.Millisecond {
+		t.Fatalf("ReadInventoryProviders() took %v, want max_parallel=1 to serialize inventory fetches", elapsed)
 	}
 }
 

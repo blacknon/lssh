@@ -216,6 +216,22 @@ func readEnvSourceFile(path string) (map[string]string, error) {
 	return values, nil
 }
 
+func ExpandPath(path string) string {
+	return expandPath(path)
+}
+
+func ExpandPaths(paths []string) []string {
+	if len(paths) == 0 {
+		return nil
+	}
+
+	expanded := make([]string, 0, len(paths))
+	for _, path := range paths {
+		expanded = append(expanded, expandPath(path))
+	}
+	return expanded
+}
+
 func expandPath(path string) string {
 	if path == "" {
 		return path

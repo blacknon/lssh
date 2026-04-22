@@ -22,11 +22,16 @@ plugin = "provider-connector-telnet"
 enabled = true
 capabilities = ["connector"]
 port = "23"
+
+[server.router01]
+addr = "router.local"
+connector_name = "telnet"
 ```
 
 ## Notes
 
 - `plugin.describe` reports `["connector"]`.
+- connector name is `telnet`.
 - `health.check` validates static connector config only.
 - `connector.describe` uses `target.config.addr` and `target.config.port`.
 - `connector.prepare` currently returns a provider-managed shell plan for `shell`.

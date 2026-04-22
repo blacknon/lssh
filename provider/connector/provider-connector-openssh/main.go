@@ -24,6 +24,7 @@ func main() {
 		_ = providerbuiltin.WriteResponse(req, providerapi.PluginDescribeResult{
 			Name:            "provider-connector-openssh",
 			Capabilities:    []string{"connector"},
+			ConnectorNames:  []string{"openssh"},
 			Methods:         []string{providerapi.MethodPluginDescribe, providerapi.MethodHealthCheck, providerapi.MethodConnectorDescribe, providerapi.MethodConnectorPrepare},
 			ProtocolVersion: providerapi.Version,
 		}, nil)

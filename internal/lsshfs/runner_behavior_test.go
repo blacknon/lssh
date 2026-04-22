@@ -199,13 +199,7 @@ func TestCreateMountConnRejectsConnectorBackedUnsupportedGOOS(t *testing.T) {
 		GOOS: "windows",
 		Config: conf.Config{
 			Server: map[string]conf.ServerConfig{
-				"web01": {ProviderName: "openssh"},
-			},
-			Provider: map[string]map[string]interface{}{
-				"openssh": map[string]interface{}{
-					"enabled":      true,
-					"capabilities": []interface{}{"connector"},
-				},
+				"web01": {ConnectorName: "openssh"},
 			},
 		},
 	}
@@ -231,13 +225,7 @@ func TestRunnerRunUsesFUSEForConnectorBackedDarwin(t *testing.T) {
 		GOOS:       "darwin",
 		Config: conf.Config{
 			Server: map[string]conf.ServerConfig{
-				"web01": {ProviderName: "openssh"},
-			},
-			Provider: map[string]map[string]interface{}{
-				"openssh": {
-					"enabled":      true,
-					"capabilities": []interface{}{"connector"},
-				},
+				"web01": {ConnectorName: "openssh"},
 			},
 		},
 		createConnect: func(r *Runner) (mountConn, error) {

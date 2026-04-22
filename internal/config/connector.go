@@ -2,20 +2,23 @@ package conf
 
 import (
 	"fmt"
+	"sort"
+	"strings"
 
 	"github.com/blacknon/lssh/internal/providerapi"
 )
 
-func (c *Config) ServerUsesConnector(server string) bool {
+func (c *Config) ServerConnectorName(server string) string {
 	serverConfig, ok := c.Server[server]
 	if !ok {
-		return false
+		return ""
 	}
-	raw, ok := c.Provider[serverConfig.ProviderName]
-	if !ok {
-		return false
-	}
-	return providerEnabled(raw) && providerHasCapability(raw, "connector")
+	return c.serverConnectorName(serverConfig)
+}
+
+func (c *Config) ServerUsesConnector(server string) bool {
+	connectorName := strings.TrimSpace(c.ServerConnectorName(server))
+	return connectorName != "" && connectorName != "ssh"
 }
 
 func (c *Config) PrepareConnector(server string, operation providerapi.ConnectorOperation) (providerapi.ConnectorPrepareResult, error) {
@@ -23,20 +26,20 @@ func (c *Config) PrepareConnector(server string, operation providerapi.Connector
 	if !ok {
 		return providerapi.ConnectorPrepareResult{}, fmt.Errorf("server %q is not configured", server)
 	}
-	raw, ok := c.Provider[serverConfig.ProviderName]
-	if !ok {
-		return providerapi.ConnectorPrepareResult{}, fmt.Errorf("provider %q is not configured", serverConfig.ProviderName)
+
+	connectorName := strings.TrimSpace(c.serverConnectorName(serverConfig))
+	if connectorName == "" || connectorName == "ssh" {
+		return providerapi.ConnectorPrepareResult{}, fmt.Errorf("server %q does not use an external connector", server)
 	}
-	if !providerEnabled(raw) {
-		return providerapi.ConnectorPrepareResult{}, fmt.Errorf("provider %q is disabled", serverConfig.ProviderName)
-	}
-	if !providerHasCapability(raw, "connector") {
-		return providerapi.ConnectorPrepareResult{}, fmt.Errorf("provider %q does not support connector capability", serverConfig.ProviderName)
+
+	providerName, raw, err := c.resolveConnectorProvider(serverConfig, connectorName)
+	if err != nil {
+		return providerapi.ConnectorPrepareResult{}, err
 	}
 
 	var result providerapi.ConnectorPrepareResult
-	if err := c.callProvider(serverConfig.ProviderName, providerapi.MethodConnectorPrepare, providerapi.ConnectorPrepareParams{
-		Provider: serverConfig.ProviderName,
+	if err := c.callProvider(providerName, providerapi.MethodConnectorPrepare, providerapi.ConnectorPrepareParams{
+		Provider: providerName,
 		Config:   raw,
 		Target: providerapi.ConnectorTarget{
 			Name:   server,
@@ -49,4 +52,98 @@ func (c *Config) PrepareConnector(server string, operation providerapi.Connector
 	}
 
 	return result, nil
+}
+
+func (c *Config) serverConnectorName(serverConfig ServerConfig) string {
+	if connectorName := strings.TrimSpace(serverConfig.ConnectorName); connectorName != "" {
+		return connectorName
+	}
+
+	if serverConfig.ProviderName == "" {
+		return ""
+	}
+
+	raw, ok := c.Provider[serverConfig.ProviderName]
+	if !ok || !providerEnabled(raw) || !providerHasCapability(raw, "connector") {
+		return ""
+	}
+
+	describe, err := c.describeProvider(serverConfig.ProviderName)
+	if err != nil || len(describe.ConnectorNames) != 1 {
+		return ""
+	}
+
+	return strings.TrimSpace(describe.ConnectorNames[0])
+}
+
+func (c *Config) describeProvider(providerName string) (providerapi.PluginDescribeResult, error) {
+	if _, ok := c.Provider[providerName]; !ok {
+		return providerapi.PluginDescribeResult{}, fmt.Errorf("provider %q is not configured", providerName)
+	}
+
+	var result providerapi.PluginDescribeResult
+	if err := c.callProvider(providerName, providerapi.MethodPluginDescribe, nil, &result); err != nil {
+		return providerapi.PluginDescribeResult{}, err
+	}
+	return result, nil
+}
+
+func (c *Config) resolveConnectorProvider(serverConfig ServerConfig, connectorName string) (string, map[string]interface{}, error) {
+	if serverConfig.ProviderName != "" {
+		if raw, ok := c.Provider[serverConfig.ProviderName]; ok && providerEnabled(raw) && providerHasCapability(raw, "connector") {
+			describe, err := c.describeProvider(serverConfig.ProviderName)
+			if err == nil && stringSliceContains(describe.ConnectorNames, connectorName) {
+				return serverConfig.ProviderName, raw, nil
+			}
+		}
+	}
+
+	return c.resolveConfiguredConnectorProvider(connectorName)
+}
+
+func (c *Config) resolveConfiguredConnectorProvider(connectorName string) (string, map[string]interface{}, error) {
+	names := make([]string, 0, len(c.Provider))
+	for name := range c.Provider {
+		names = append(names, name)
+	}
+	sort.Strings(names)
+
+	var matched string
+	var matchedRaw map[string]interface{}
+
+	for _, name := range names {
+		raw := c.Provider[name]
+		if !providerEnabled(raw) || !providerHasCapability(raw, "connector") {
+			continue
+		}
+
+		describe, err := c.describeProvider(name)
+		if err != nil {
+			return "", nil, err
+		}
+		if !stringSliceContains(describe.ConnectorNames, connectorName) {
+			continue
+		}
+		if matched != "" {
+			return "", nil, fmt.Errorf("connector %q is provided by multiple providers: %q and %q", connectorName, matched, name)
+		}
+
+		matched = name
+		matchedRaw = raw
+	}
+
+	if matched == "" {
+		return "", nil, fmt.Errorf("connector %q is not configured", connectorName)
+	}
+
+	return matched, matchedRaw, nil
+}
+
+func stringSliceContains(values []string, needle string) bool {
+	for _, value := range values {
+		if strings.TrimSpace(value) == needle {
+			return true
+		}
+	}
+	return false
 }

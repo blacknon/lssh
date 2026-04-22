@@ -103,6 +103,13 @@ func (c *Command) Wait() error {
 	return c.command.Error()
 }
 
+func (c *Command) ExitCode() int {
+	if c == nil || c.command == nil {
+		return 0
+	}
+	return c.command.ExitCode()
+}
+
 func (c *Command) Close() error {
 	return closeWinRMSession(c.command, c.shell, c.cancel)
 }

@@ -27,6 +27,7 @@ func main() {
 		_ = providerbuiltin.WriteResponse(req, providerapi.PluginDescribeResult{
 			Name:            "provider-mixed-aws-ec2",
 			Capabilities:    []string{"inventory", "connector"},
+			ConnectorNames:  []string{"aws-ssm"},
 			Methods:         []string{providerapi.MethodPluginDescribe, providerapi.MethodHealthCheck, providerapi.MethodInventoryList, providerapi.MethodConnectorDescribe, providerapi.MethodConnectorPrepare},
 			ProtocolVersion: providerapi.Version,
 		}, nil)
@@ -103,6 +104,7 @@ func listAWS(config map[string]interface{}) ([]providerapi.InventoryServer, erro
 	}
 
 	includeTags := providerbuiltin.StringSlice(config, "include_tags")
+	addrStrategy := awsAddrStrategy(config)
 	nameTemplate := providerbuiltin.String(config, "server_name_template")
 	if nameTemplate == "" {
 		nameTemplate = "aws:${tags.Name}"
@@ -149,12 +151,10 @@ func listAWS(config map[string]interface{}) ([]providerapi.InventoryServer, erro
 						name = "aws:" + instanceID
 					}
 
+					addr := awsSelectAddress(privateIP, publicIP, addrStrategy)
 					cfgMap := map[string]interface{}{
-						"addr": privateIP,
+						"addr": addr,
 						"note": renderTemplate(noteTemplate, instanceID, privateIP, publicIP, region, tags),
-					}
-					if cfgMap["addr"] == "" {
-						cfgMap["addr"] = publicIP
 					}
 					for _, key := range includeTags {
 						if value := tags[key]; value != "" {
@@ -185,6 +185,40 @@ func listAWS(config map[string]interface{}) ([]providerapi.InventoryServer, erro
 	return out, nil
 }
 
+func awsAddrStrategy(config map[string]interface{}) string {
+	switch strings.TrimSpace(strings.ToLower(providerbuiltin.String(config, "addr_strategy"))) {
+	case "", "private_first":
+		return "private_first"
+	case "public_first":
+		return "public_first"
+	case "private_only":
+		return "private_only"
+	case "public_only":
+		return "public_only"
+	default:
+		return "private_first"
+	}
+}
+
+func awsSelectAddress(privateIP, publicIP, strategy string) string {
+	switch strategy {
+	case "public_first":
+		if publicIP != "" {
+			return publicIP
+		}
+		return privateIP
+	case "private_only":
+		return privateIP
+	case "public_only":
+		return publicIP
+	default:
+		if privateIP != "" {
+			return privateIP
+		}
+		return publicIP
+	}
+}
+
 func loadAWSConfig(ctx context.Context, raw map[string]interface{}, region string) (cfg aws.Config, err error) {
 	opts := []func(*awsconfig.LoadOptions) error{
 		awsconfig.WithRegion(region),
@@ -192,10 +226,10 @@ func loadAWSConfig(ctx context.Context, raw map[string]interface{}, region strin
 	if profile := providerbuiltin.String(raw, "profile"); profile != "" {
 		opts = append(opts, awsconfig.WithSharedConfigProfile(profile))
 	}
-	if v := providerbuiltin.StringSlice(raw, "shared_config_files"); len(v) > 0 {
+	if v := providerbuiltin.ExpandPaths(providerbuiltin.StringSlice(raw, "shared_config_files")); len(v) > 0 {
 		opts = append(opts, awsconfig.WithSharedConfigFiles(v))
 	}
-	if v := providerbuiltin.StringSlice(raw, "shared_credentials_files"); len(v) > 0 {
+	if v := providerbuiltin.ExpandPaths(providerbuiltin.StringSlice(raw, "shared_credentials_files")); len(v) > 0 {
 		opts = append(opts, awsconfig.WithSharedCredentialsFiles(v))
 	}
 	return awsconfig.LoadDefaultConfig(ctx, opts...)

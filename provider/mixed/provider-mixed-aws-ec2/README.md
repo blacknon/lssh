@@ -24,6 +24,7 @@ Planned direction:
 ```toml
 [providers]
 paths = ["~/.config/lssh/providers/provider-mixed-aws-ec2"]
+max_parallel = 4
 
 [provider.aws]
 plugin = "provider-mixed-aws-ec2"
@@ -33,32 +34,42 @@ regions = ["ap-northeast-1"]
 profile = "default"
 shared_config_files = ["~/.aws/config"]
 shared_credentials_files = ["~/.aws/credentials"]
+addr_strategy = "public_first"
 server_name_template = "aws:${tags.Name}"
 note_template = "aws ${instance_id} ${private_ip}"
 ssm_require_online = true
 
 [provider.aws.match.web]
 meta_in = ["tag.Role=web", "region=ap-northeast-1"]
+connector_name = "ssh"
 user = "ec2-user"
 key = "~/.ssh/aws-web.pem"
 
-[provider.aws.match.ubuntu]
-name_in = ["aws:ubuntu-*"]
-user = "ubuntu"
-key = "~/.ssh/aws-ubuntu.pem"
+[provider.aws.match.ssm]
+meta_in = ["tag.Connection=ssm"]
+connector_name = "aws-ssm"
 ```
 
 ## Notes
 
 - `providers.paths` is intended to list provider executable files.
+- `providers.max_parallel` limits how many inventory providers are queried at the same time.
+  - unset or `0` means no explicit limit
+  - inventory fetch is parallel, but merge order stays deterministic by provider order
 - current plugin capabilities are `["inventory", "connector"]`.
+- `plugin.describe` reports connector name `aws-ssm`.
 - inventory is implemented by `inventory.list`.
 - connector is currently implemented by `connector.describe` and `connector.prepare`.
 - Uses the AWS SDK default credential/config chain.
 - `profile`, `shared_config_files`, and `shared_credentials_files` can be used to steer authentication.
-- Uses private IP first, then public IP if needed.
+- `addr_strategy` controls how generated `addr` is chosen.
+  - `private_first` (default)
+  - `public_first`
+  - `private_only`
+  - `public_only`
 - Only running instances are returned.
-- `match` can override SSH settings per generated host.
+- `match` can override SSH settings per generated host, including `connector_name`.
+- `connector_name = "ssh"` forces the built-in go-sshlib path instead of the provider connector.
 - Available match metadata includes `region`, `zone`, `platform`, `instance_id`, `private_ip`, `public_ip`, and `tag.<TagName>`.
 - `connector.describe` requires `instance_id` and `region`, which are emitted by this inventory provider.
 - `connector.prepare` currently returns provider-managed AWS SSM plans for `shell`, `exec`, and `exec_pty`.

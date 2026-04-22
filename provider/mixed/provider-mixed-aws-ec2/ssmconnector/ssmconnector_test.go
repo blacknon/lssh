@@ -2,8 +2,11 @@ package ssmconnector
 
 import (
 	"context"
+	"os"
 	"path/filepath"
 	"testing"
+
+	"github.com/aws/smithy-go"
 )
 
 func TestBuildStartSessionCommand(t *testing.T) {
@@ -72,5 +75,44 @@ func TestBuildResumeSessionCommand(t *testing.T) {
 		if cmd.Args[i] != wantArgs[i] {
 			t.Fatalf("cmd.Args[%d] = %q, want %q", i, cmd.Args[i], wantArgs[i])
 		}
+	}
+}
+
+func TestBuildStartSessionCommandExpandsSharedConfigPaths(t *testing.T) {
+	home, err := os.UserHomeDir()
+	if err != nil {
+		t.Fatalf("UserHomeDir() error = %v", err)
+	}
+
+	cmd := BuildStartSessionCommand(context.Background(), ShellConfig{
+		BaseConfig: BaseConfig{
+			InstanceID:             "i-0123456789abcdef0",
+			Region:                 "ap-northeast-1",
+			SharedConfigFiles:      []string{"~/.aws/config"},
+			SharedCredentialsFiles: []string{"~/.aws/credentials"},
+		},
+	})
+
+	env := map[string]bool{}
+	for _, item := range cmd.Env {
+		env[item] = true
+	}
+	if !env["AWS_CONFIG_FILE="+filepath.Join(home, ".aws", "config")] {
+		t.Fatal("AWS_CONFIG_FILE is not expanded in command env")
+	}
+	if !env["AWS_SHARED_CREDENTIALS_FILE="+filepath.Join(home, ".aws", "credentials")] {
+		t.Fatal("AWS_SHARED_CREDENTIALS_FILE is not expanded in command env")
+	}
+}
+
+func TestShouldRetryGetCommandInvocation(t *testing.T) {
+	retryErr := &smithy.GenericAPIError{Code: "InvocationDoesNotExist", Message: "not ready"}
+	if !shouldRetryGetCommandInvocation(retryErr) {
+		t.Fatal("shouldRetryGetCommandInvocation() = false, want true")
+	}
+
+	otherErr := &smithy.GenericAPIError{Code: "AccessDeniedException", Message: "denied"}
+	if shouldRetryGetCommandInvocation(otherErr) {
+		t.Fatal("shouldRetryGetCommandInvocation() = true, want false")
 	}
 }
