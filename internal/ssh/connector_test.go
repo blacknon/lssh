@@ -4,6 +4,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"strings"
 	"testing"
 
 	conf "github.com/blacknon/lssh/internal/config"
@@ -84,6 +85,59 @@ func TestConnectorLocalForwardSpecRejectsMultipleForwards(t *testing.T) {
 	})
 	if err == nil {
 		t.Fatal("connectorLocalForwardSpec() error = nil, want non-nil")
+	}
+}
+
+func TestConnectorForwardModeDynamic(t *testing.T) {
+	mode, err := connectorForwardMode(conf.ServerConfig{
+		DynamicPortForward: "1080",
+	})
+	if err != nil {
+		t.Fatalf("connectorForwardMode() error = %v", err)
+	}
+	if mode != "dynamic" {
+		t.Fatalf("connectorForwardMode() = %q, want dynamic", mode)
+	}
+}
+
+func TestConnectorForwardModeRejectsUnsupportedReverseDynamic(t *testing.T) {
+	_, err := connectorForwardMode(conf.ServerConfig{
+		ReverseDynamicPortForward: "2080",
+	})
+	if err == nil {
+		t.Fatal("connectorForwardMode() error = nil, want non-nil")
+	}
+	if !strings.Contains(err.Error(), "-R port") {
+		t.Fatalf("connectorForwardMode() error = %q, want reverse dynamic hint", err)
+	}
+}
+
+func TestConnectorDynamicForwardSpecRejectsInvalidPort(t *testing.T) {
+	_, err := connectorDynamicForwardSpec(conf.ServerConfig{
+		DynamicPortForward: "localhost",
+	})
+	if err == nil {
+		t.Fatal("connectorDynamicForwardSpec() error = nil, want non-nil")
+	}
+}
+
+func TestAWSSSMDynamicDialNeedsPluginFallback(t *testing.T) {
+	if !awsSSMDynamicDialNeedsPluginFallback(providerapi.ConnectorPlan{
+		Details: map[string]interface{}{
+			"connector":    "aws-ssm",
+			"session_mode": "tcp-dial-transport",
+		},
+	}) {
+		t.Fatal("awsSSMDynamicDialNeedsPluginFallback() = false, want true for aws-ssm tcp-dial-transport")
+	}
+
+	if awsSSMDynamicDialNeedsPluginFallback(providerapi.ConnectorPlan{
+		Details: map[string]interface{}{
+			"connector":    "aws-ssm",
+			"session_mode": "port-forward-local",
+		},
+	}) {
+		t.Fatal("awsSSMDynamicDialNeedsPluginFallback() = true, want false for local port forward")
 	}
 }
 

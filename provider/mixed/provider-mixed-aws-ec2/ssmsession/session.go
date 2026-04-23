@@ -36,6 +36,7 @@ const (
 	serviceName          = "ssmmessages"
 	clientVersion        = "lssh-native"
 	sessionTypeStandard  = "Standard_Stream"
+	sessionTypePort      = "Port"
 
 	messageTypeInputStream  = "input_stream_data"
 	messageTypeOutputStream = "output_stream_data"
@@ -47,6 +48,7 @@ const (
 	payloadTypeHandshakeRequest  uint32 = 5
 	payloadTypeHandshakeResponse uint32 = 6
 	payloadTypeHandshakeComplete uint32 = 7
+	payloadTypeFlag              uint32 = 10
 	payloadTypeStdErr            uint32 = 11
 
 	streamExitMarkerPrefix = "__LSSH_EXIT__:"
@@ -62,6 +64,9 @@ type Config struct {
 	DocumentName           string
 	StartupCommand         string
 	StartupMarker          string
+	PortForwardHost        string
+	PortForwardPort        string
+	PortForwardLocalPort   string
 }
 
 type Session struct {
@@ -80,6 +85,7 @@ type Session struct {
 	startupSuppress bool
 	startupMarker   string
 	startupBuffer   bytes.Buffer
+	sessionType     string
 }
 
 func (s *Session) markReady() {
@@ -356,6 +362,8 @@ func (s *Session) handleOutputMessage(msg clientMessage, stdout, stderr io.Write
 		if stderr != nil {
 			_, _ = stderr.Write(msg.Payload)
 		}
+	case payloadTypeFlag:
+		return s.handleFlagMessage(msg.Payload)
 	case payloadTypeHandshakeRequest:
 		return s.handleHandshakeRequest(msg.Payload)
 	case payloadTypeHandshakeComplete:
@@ -387,11 +395,12 @@ func (s *Session) handleHandshakeRequest(payload []byte) error {
 				processed.ActionStatus = 2
 				processed.Error = err.Error()
 				response.Errors = append(response.Errors, err.Error())
-			} else if sessionReq.SessionType != sessionTypeStandard {
+			} else if sessionReq.SessionType != sessionTypeStandard && sessionReq.SessionType != sessionTypePort {
 				processed.ActionStatus = 3
 				processed.Error = fmt.Sprintf("unsupported session type %q", sessionReq.SessionType)
 				response.Errors = append(response.Errors, processed.Error)
 			} else {
+				s.sessionType = sessionReq.SessionType
 				processed.ActionStatus = 1
 			}
 		default:
@@ -416,7 +425,7 @@ func (s *Session) handleHandshakeRequest(payload []byte) error {
 func (s *Session) handleHandshakeComplete(payload []byte, stdout io.Writer) error {
 	var complete handshakeCompletePayload
 	if err := json.Unmarshal(payload, &complete); err == nil {
-		if complete.CustomerMessage != "" && stdout != nil {
+		if complete.CustomerMessage != "" && stdout != nil && s.sessionType != sessionTypePort {
 			_, _ = io.WriteString(stdout, complete.CustomerMessage+"\n")
 		}
 	}
@@ -458,6 +467,12 @@ func (s *Session) sendInputPayload(payloadType uint32, payload []byte) error {
 		Payload:        payload,
 	}
 	return s.sendBinary(encodeClientMessage(msg))
+}
+
+func (s *Session) sendFlag(flag uint32) error {
+	buf := make([]byte, 4)
+	binary.BigEndian.PutUint32(buf, flag)
+	return s.sendInputPayload(payloadTypeFlag, buf)
 }
 
 func (s *Session) sendStartupCommand(command string) error {

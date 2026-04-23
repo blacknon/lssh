@@ -2,6 +2,8 @@ package ssmsession
 
 import (
 	"bytes"
+	"context"
+	"encoding/json"
 	"net"
 	"strings"
 	"testing"
@@ -150,4 +152,66 @@ func TestFilterStartupOutputSuppressesUntilMarker(t *testing.T) {
 	if session.startupSuppress {
 		t.Fatal("startupSuppress = true, want false")
 	}
+}
+
+func TestHandleHandshakeRequestAcceptsPortSession(t *testing.T) {
+	session := New(Config{})
+	session.conn = &wsConn{conn: discardConn{}}
+
+	requestBody, err := json.Marshal(handshakeRequestPayload{
+		RequestedClientActions: []requestedClientAction{
+			{
+				ActionType: "SessionType",
+				ActionParameters: mustMarshalJSON(t, sessionTypeRequest{
+					SessionType: sessionTypePort,
+				}),
+			},
+		},
+	})
+	if err != nil {
+		t.Fatalf("Marshal(handshakeRequestPayload) error = %v", err)
+	}
+
+	if err := session.handleHandshakeRequest(requestBody); err != nil {
+		t.Fatalf("handleHandshakeRequest() error = %v", err)
+	}
+	if session.sessionType != sessionTypePort {
+		t.Fatalf("session.sessionType = %q, want %q", session.sessionType, sessionTypePort)
+	}
+}
+
+func TestHandleFlagMessageConnectError(t *testing.T) {
+	session := New(Config{})
+	payload := make([]byte, 4)
+	payload[3] = byte(portFlagConnectError)
+
+	err := session.handleFlagMessage(payload)
+	if err == nil {
+		t.Fatal("handleFlagMessage() error = nil, want non-nil")
+	}
+}
+
+func TestStartPortSessionRelayDoesNotWaitForReady(t *testing.T) {
+	session := New(Config{})
+
+	conn := startPortSessionRelay(context.Background(), session)
+	if conn == nil {
+		t.Fatal("startPortSessionRelay() = nil, want non-nil")
+	}
+	defer conn.Close()
+
+	select {
+	case <-session.ready:
+		t.Fatal("session.ready was closed unexpectedly")
+	default:
+	}
+}
+
+func mustMarshalJSON(t *testing.T, value interface{}) []byte {
+	t.Helper()
+	raw, err := json.Marshal(value)
+	if err != nil {
+		t.Fatalf("json.Marshal() error = %v", err)
+	}
+	return raw
 }

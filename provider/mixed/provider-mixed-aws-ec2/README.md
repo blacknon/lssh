@@ -90,8 +90,9 @@ connector_name = "aws-ssm"
   - `native`: use the experimental built-in Go runtime for plain shell start
     - `localrc` is supported only in this mode
 - `ssm_port_forward_runtime` controls how local port forwarding is executed.
-  - `plugin` (default): use `aws ssm start-session` with the port forwarding document
-  - `native`: reserved for future Go implementation and currently unsupported
+  - if omitted, it follows `ssm_shell_runtime`
+  - `plugin`: use `aws ssm start-session` with the port forwarding document
+  - `native`: use the experimental built-in Go runtime for local and dynamic forwarding
 - optional connector tuning keys:
   - `ssm_shell_document`
   - `ssm_interactive_command_document`
@@ -105,12 +106,18 @@ connector_name = "aws-ssm"
     - `localrc` is executed by sending the generated startup command through the native session
   - `exec` is executed with the AWS SDK via `SendCommand`
     - when `ssm_shell_runtime = "native"` and the caller uses the connector stream path, `lspipe --raw` can stream stdin/stdout over the native runtime for Linux targets
-  - `port_forward_local` currently supports the plugin runtime only
+  - `port_forward_local` supports both `plugin` and `native`
     - `lssh -L ...` works for `connector_name = "aws-ssm"` hosts
     - only one TCP local forward is supported in the first wave
     - bind address must stay on localhost / loopback
     - AWS SSM runs this as a forwarding-only session, so `-N` and `localrc` are ignored
+    - in `native` mode, each accepted local TCP connection uses its own SSM session
     - X11 forwarding is still unsupported
+  - dynamic port forwarding (`lssh -D ...`) supports both `plugin` and `native`
+    - implemented as a local SOCKS5 listener plus one SSM port forwarding session per SOCKS connection
+    - current `native` mode uses the AWS CLI/session-manager-plugin transport for each SOCKS connection while the built-in port-session path catches up with newer agent behavior
+    - only SOCKS5 CONNECT without authentication is supported in the first wave
+    - reverse / HTTP / NFS / SMB forwarding still return explicit unsupported errors for `aws-ssm`
 - to use `shell`, the local machine must have:
   - AWS CLI
   - Session Manager plugin for AWS CLI
@@ -142,6 +149,7 @@ Current operation capabilities for the AWS SSM connector layer:
 - `exec`
 - `exec_pty`
 - `port_forward_local`
+- internal `tcp_dial_transport` used by dynamic forwarding
 
 Not recommended for the first implementation wave:
 
