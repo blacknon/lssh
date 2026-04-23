@@ -19,6 +19,7 @@ capabilities = ["inventory"]
 project = "example-project"
 zone = "asia-northeast1-a"
 credentials_file = "~/.config/gcloud/application_default_credentials.json"
+addr_strategy = "public_first"
 server_name_template = "gcp:${name}"
 note_template = "gcp ${zone} ${private_ip}"
 
@@ -40,7 +41,11 @@ user = "debian"
 - Uses Google Application Default Credentials by default.
 - `credentials_file` can be used to point at a specific service-account or ADC JSON file.
 - `endpoint` and `scopes` can be overridden when needed.
-- Uses private IP first, then public IP if needed.
+- `addr_strategy` controls how generated `addr` is chosen.
+  - `private_first` (default)
+  - `public_first`
+  - `private_only`
+  - `public_only`
 - Only running instances are returned.
 - `match` can override SSH settings per generated host.
 - Available match metadata includes `name`, `id`, `zone`, `private_ip`, `public_ip`, and `label.<LabelName>`.

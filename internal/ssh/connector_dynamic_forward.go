@@ -33,10 +33,6 @@ func (r *Run) runConnectorDynamicPortForwardSession(ctx context.Context, server 
 	if r.X11 || r.X11Trusted {
 		return fmt.Errorf("server %q uses connector %q; X11 forwarding is not supported with dynamic port forwarding", server, connectorName)
 	}
-	if connectorName != "aws-ssm" {
-		return fmt.Errorf("server %q uses connector %q; dynamic port forwarding (-D) is not supported yet", server, connectorName)
-	}
-
 	if _, err := r.prepareConnectorDialTransport(server, "example.com", "80"); err != nil {
 		return err
 	}

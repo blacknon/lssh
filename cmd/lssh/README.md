@@ -244,18 +244,24 @@ For example, the current `aws-ssm` connector supports:
 
 - a single local TCP port forward with `-L`
 - SOCKS5 dynamic forwarding with `-D`
+- HTTP dynamic forwarding with `-d`
 
 Current `aws-ssm` forwarding restrictions:
 
 - `-D` opens the interactive shell as well unless `-N` is specified
+- `-d` opens the interactive shell as well unless `-N` is specified
 - `-L` is still handled as a forwarding-only session, so `-N` and `localrc` do not change its behavior there
 - local TCP bind must stay on localhost / loopback
 - `-D` supports SOCKS5 CONNECT only, without authentication
+- `-d` supports HTTP proxy requests and HTTPS `CONNECT`
 - each SOCKS connection currently uses its own SSM session
+- each HTTP proxy request currently uses its own SSM session
 - when `ssm_port_forward_runtime` is omitted, forwarding follows `ssm_shell_runtime`
 - native `-D` currently falls back to the AWS CLI/session-manager-plugin transport per SOCKS connection
+- native `-d` currently falls back to the AWS CLI/session-manager-plugin transport per HTTP proxy request
 - when `ssm_port_forward_runtime = "native"`, each accepted `-L` TCP connection also uses its own SSM session
-- `-R`, `-r`, `-d`, `-M`, `-m`, `-S`, and `-s` are still unsupported and return explicit errors
+- `-R`, `-r`, `-M`, `-m`, `-S`, and `-s` are still unsupported and return explicit errors
+
 
 ### connector attach / detach
 

@@ -102,7 +102,12 @@ func (r *Run) runConnectorShellWithSharedForwarding(server string, config conf.S
 	}
 
 	r.PrintSelectServer()
-	r.printDynamicPortForward(config.DynamicPortForward)
+	switch {
+	case strings.TrimSpace(config.DynamicPortForward) != "":
+		r.printDynamicPortForward(config.DynamicPortForward)
+	case strings.TrimSpace(config.HTTPDynamicPortForward) != "":
+		r.printHTTPDynamicPortForward(config.HTTPDynamicPortForward)
+	}
 
 	return runConnectorWithPrePost(config, func() error {
 		ctx, cancel := context.WithCancel(context.Background())
@@ -110,7 +115,14 @@ func (r *Run) runConnectorShellWithSharedForwarding(server string, config conf.S
 
 		forwardErrCh := make(chan error, 1)
 		go func() {
-			forwardErrCh <- r.runConnectorDynamicPortForwardSession(ctx, server, config, connectorName, false)
+			switch {
+			case strings.TrimSpace(config.DynamicPortForward) != "":
+				forwardErrCh <- r.runConnectorDynamicPortForwardSession(ctx, server, config, connectorName, false)
+			case strings.TrimSpace(config.HTTPDynamicPortForward) != "":
+				forwardErrCh <- r.runConnectorHTTPDynamicPortForwardSession(ctx, server, config, connectorName, false)
+			default:
+				forwardErrCh <- nil
+			}
 		}()
 
 		shellErr := runProviderManagedShell(r, config, prepared.Plan, planConnector)
@@ -382,6 +394,8 @@ func (r *Run) runConnectorForwarding(server string, config conf.ServerConfig, co
 		return r.runConnectorLocalPortForward(server, config, connectorName)
 	case "dynamic":
 		return r.runConnectorDynamicPortForward(server, config, connectorName)
+	case "http-dynamic":
+		return r.runConnectorHTTPDynamicPortForward(server, config, connectorName)
 	default:
 		return fmt.Errorf("server %q uses connector %q; unsupported forwarding mode %q", server, connectorName, mode)
 	}
@@ -602,13 +616,18 @@ func connectorHasForwarding(config conf.ServerConfig) bool {
 }
 
 func (r *Run) connectorForwardingSharesShell(config conf.ServerConfig, connectorName string) bool {
-	if r == nil || r.IsNone || connectorName != "aws-ssm" {
+	if r == nil || r.IsNone {
 		return false
 	}
-	return strings.TrimSpace(config.DynamicPortForward) != "" &&
+	if connectorName != "aws-ssm" {
+		return false
+	}
+	if strings.TrimSpace(config.DynamicPortForward) != "" && strings.TrimSpace(config.HTTPDynamicPortForward) != "" {
+		return false
+	}
+	return (strings.TrimSpace(config.DynamicPortForward) != "" || strings.TrimSpace(config.HTTPDynamicPortForward) != "") &&
 		len(config.Forwards) == 0 &&
 		config.ReverseDynamicPortForward == "" &&
-		config.HTTPDynamicPortForward == "" &&
 		config.HTTPReverseDynamicPortForward == "" &&
 		config.NFSDynamicForwardPort == "" &&
 		config.NFSReverseDynamicForwardPort == "" &&
@@ -679,15 +698,19 @@ type connectorPortForwardSpec struct {
 func connectorForwardMode(config conf.ServerConfig) (string, error) {
 	localForwardConfigured := len(config.Forwards) > 0
 	dynamicForwardConfigured := strings.TrimSpace(config.DynamicPortForward) != ""
+	httpDynamicForwardConfigured := strings.TrimSpace(config.HTTPDynamicPortForward) != ""
 
-	if localForwardConfigured && dynamicForwardConfigured {
-		return "", fmt.Errorf("combining local (-L) and dynamic (-D) port forwarding is not supported")
+	if localForwardConfigured && (dynamicForwardConfigured || httpDynamicForwardConfigured) {
+		return "", fmt.Errorf("combining local (-L) and dynamic (-D/-d) port forwarding is not supported")
+	}
+	if dynamicForwardConfigured && httpDynamicForwardConfigured {
+		return "", fmt.Errorf("combining dynamic (-D) and http dynamic (-d) port forwarding is not supported")
 	}
 	if config.ReverseDynamicPortForward != "" {
 		return "", fmt.Errorf("reverse dynamic port forwarding (-R port) is not supported yet")
 	}
 	if config.HTTPDynamicPortForward != "" {
-		return "", fmt.Errorf("http dynamic port forwarding (-d) is not supported yet")
+		return "http-dynamic", nil
 	}
 	if config.HTTPReverseDynamicPortForward != "" {
 		return "", fmt.Errorf("http reverse dynamic port forwarding (-r) is not supported yet")
