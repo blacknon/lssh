@@ -156,24 +156,22 @@ func runProviderManagedShell(r *Run, config conf.ServerConfig, plan providerapi.
 			if shellConfig.SessionAction != "start" {
 				return fmt.Errorf("aws ssm native shell does not support session_action %q yet", shellConfig.SessionAction)
 			}
-			return runNativeInteractiveSession(func() error {
-				startupCommand := connectorLocalRCCommand(r, config)
-				startupMarker := ""
-				if startupCommand != "" {
-					startupMarker = InteractiveLocalRCStartupMarker()
-				}
-				return ssmsession.StartShell(context.Background(), ssmsession.Config{
-					InstanceID:             shellConfig.InstanceID,
-					Region:                 shellConfig.Region,
-					Platform:               shellConfig.Platform,
-					Profile:                shellConfig.Profile,
-					SharedConfigFiles:      append([]string(nil), shellConfig.SharedConfigFiles...),
-					SharedCredentialsFiles: append([]string(nil), shellConfig.SharedCredentialsFiles...),
-					DocumentName:           shellConfig.DocumentName,
-					StartupCommand:         startupCommand,
-					StartupMarker:          startupMarker,
-				}, os.Stdin, os.Stdout, os.Stderr)
-			})
+			startupCommand := connectorLocalRCCommand(r, config)
+			startupMarker := ""
+			if startupCommand != "" {
+				startupMarker = InteractiveLocalRCStartupMarker()
+			}
+			return runNativeSSMShell(ssmsession.Config{
+				InstanceID:             shellConfig.InstanceID,
+				Region:                 shellConfig.Region,
+				Platform:               shellConfig.Platform,
+				Profile:                shellConfig.Profile,
+				SharedConfigFiles:      append([]string(nil), shellConfig.SharedConfigFiles...),
+				SharedCredentialsFiles: append([]string(nil), shellConfig.SharedCredentialsFiles...),
+				DocumentName:           shellConfig.DocumentName,
+				StartupCommand:         startupCommand,
+				StartupMarker:          startupMarker,
+			}, os.Stdin, os.Stdout, os.Stderr)
 		}
 		if shellConfig.SessionAction == "detach" {
 			sessionID, err := ssmconnector.StartDetachedShell(context.Background(), shellConfig)
