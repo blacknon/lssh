@@ -20,6 +20,12 @@ import (
 )
 
 func (r *Run) runConnectorDynamicPortForward(server string, config conf.ServerConfig, connectorName string) error {
+	return runConnectorWithPrePost(config, func() error {
+		return r.runConnectorDynamicPortForwardSession(context.Background(), server, config, connectorName, true)
+	})
+}
+
+func (r *Run) runConnectorDynamicPortForwardSession(ctx context.Context, server string, config conf.ServerConfig, connectorName string, printHeader bool) error {
 	port, err := connectorDynamicForwardSpec(config)
 	if err != nil {
 		return fmt.Errorf("server %q uses connector %q; %w", server, connectorName, err)
@@ -35,13 +41,13 @@ func (r *Run) runConnectorDynamicPortForward(server string, config conf.ServerCo
 		return err
 	}
 
-	r.PrintSelectServer()
-	r.printDynamicPortForward(port)
+	if printHeader {
+		r.PrintSelectServer()
+		r.printDynamicPortForward(port)
+	}
 
-	return runConnectorWithPrePost(config, func() error {
-		return runConnectorSOCKS5ForwardServer(port, func(ctx context.Context, network, address string) (net.Conn, error) {
-			return r.dialConnectorTarget(ctx, server, network, address)
-		})
+	return runConnectorSOCKS5ForwardServer(ctx, port, func(ctx context.Context, network, address string) (net.Conn, error) {
+		return r.dialConnectorTarget(ctx, server, network, address)
 	})
 }
 
@@ -106,7 +112,7 @@ func (r *Run) dialConnectorTarget(ctx context.Context, server, network, address 
 	}
 }
 
-func runConnectorSOCKS5ForwardServer(port string, dialContext func(ctx context.Context, network, address string) (net.Conn, error)) error {
+func runConnectorSOCKS5ForwardServer(ctx context.Context, port string, dialContext func(ctx context.Context, network, address string) (net.Conn, error)) error {
 	listener, err := net.Listen("tcp", net.JoinHostPort("localhost", port))
 	if err != nil {
 		return err
@@ -114,15 +120,17 @@ func runConnectorSOCKS5ForwardServer(port string, dialContext func(ctx context.C
 	notifyParentReady()
 
 	server := &connectorSOCKS5Server{
+		ctx:         ctx,
 		listener:    listener,
 		dialContext: dialContext,
 		active:      map[net.Conn]struct{}{},
 	}
 
-	return server.serveUntilInterrupt()
+	return server.serveUntilStop(ctx)
 }
 
 type connectorSOCKS5Server struct {
+	ctx         context.Context
 	listener    net.Listener
 	dialContext func(ctx context.Context, network, address string) (net.Conn, error)
 
@@ -131,7 +139,7 @@ type connectorSOCKS5Server struct {
 	active map[net.Conn]struct{}
 }
 
-func (s *connectorSOCKS5Server) serveUntilInterrupt() error {
+func (s *connectorSOCKS5Server) serveUntilStop(ctx context.Context) error {
 	errCh := make(chan error, 1)
 	go func() {
 		errCh <- s.serve()
@@ -144,6 +152,9 @@ func (s *connectorSOCKS5Server) serveUntilInterrupt() error {
 	select {
 	case err := <-errCh:
 		return err
+	case <-ctx.Done():
+		s.shutdownNoWait()
+		return nil
 	case <-interrupts:
 		s.shutdown()
 		err := <-errCh
@@ -185,6 +196,16 @@ func (s *connectorSOCKS5Server) shutdown() {
 	s.wg.Wait()
 }
 
+func (s *connectorSOCKS5Server) shutdownNoWait() {
+	_ = s.listener.Close()
+
+	s.mu.Lock()
+	for conn := range s.active {
+		_ = conn.Close()
+	}
+	s.mu.Unlock()
+}
+
 func (s *connectorSOCKS5Server) trackConn(conn net.Conn) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -211,7 +232,7 @@ func (s *connectorSOCKS5Server) handleConn(client net.Conn) error {
 	}
 
 	debugConnectorSOCKS5f("dial start target=%s", targetAddress)
-	dialCtx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+	dialCtx, cancel := context.WithTimeout(s.ctx, 15*time.Second)
 	defer cancel()
 
 	remote, err := s.dialContext(dialCtx, "tcp", targetAddress)

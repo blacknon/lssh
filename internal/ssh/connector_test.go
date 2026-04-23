@@ -141,6 +141,25 @@ func TestAWSSSMDynamicDialNeedsPluginFallback(t *testing.T) {
 	}
 }
 
+func TestConnectorForwardingSharesShellForAWSSSMDynamicOnly(t *testing.T) {
+	r := &Run{}
+	if !r.connectorForwardingSharesShell(conf.ServerConfig{DynamicPortForward: "11080"}, "aws-ssm") {
+		t.Fatal("connectorForwardingSharesShell() = false, want true for aws-ssm dynamic forward")
+	}
+	if r.connectorForwardingSharesShell(conf.ServerConfig{DynamicPortForward: "11080"}, "winrm") {
+		t.Fatal("connectorForwardingSharesShell() = true, want false for non aws-ssm connector")
+	}
+	if r.connectorForwardingSharesShell(conf.ServerConfig{
+		DynamicPortForward: "11080",
+		Forwards:           []*conf.PortForward{{Mode: "L", Local: "localhost:15432", Remote: "db.internal:5432"}},
+	}, "aws-ssm") {
+		t.Fatal("connectorForwardingSharesShell() = true, want false when local forward is also configured")
+	}
+	if (&Run{IsNone: true}).connectorForwardingSharesShell(conf.ServerConfig{DynamicPortForward: "11080"}, "aws-ssm") {
+		t.Fatal("connectorForwardingSharesShell() = true, want false with --not-execute")
+	}
+}
+
 func TestRunConnectorWithPrePost(t *testing.T) {
 	if runtime.GOOS == "windows" {
 		t.Skip("pre_cmd/post_cmd helper test uses sh-compatible commands")
