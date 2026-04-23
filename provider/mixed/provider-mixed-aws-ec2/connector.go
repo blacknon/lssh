@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"fmt"
+	"net"
 	"strings"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
@@ -76,8 +77,12 @@ func awsConnectorDescribe(params providerapi.ConnectorDescribeParams) (providera
 				Reason:    "aws ssm does not provide mount semantics",
 			},
 			"port_forward_local": {
-				Supported: false,
-				Reason:    "aws ssm port forwarding is not implemented in the first connector wave",
+				Supported: probe.Managed && probe.Online && awsSSMPortForwardRuntime(params.Config) == "plugin",
+				Reason: awsSSMLocalPortForwardReason(
+					probe,
+					awsSSMPortForwardRuntime(params.Config),
+				),
+				Requires: []string{"aws:ssm_managed_instance"},
 			},
 			"port_forward_remote": {
 				Supported: false,
@@ -131,6 +136,7 @@ func awsConnectorPrepare(params providerapi.ConnectorPrepareParams) (providerapi
 			"timeout_sec":              60,
 			"operation":                params.Operation.Name,
 			"shell_runtime":            awsSSMShellRuntime(params.Config),
+			"port_forward_runtime":     awsSSMPortForwardRuntime(params.Config),
 		},
 	}
 
@@ -162,6 +168,23 @@ func awsConnectorPrepare(params providerapi.ConnectorPrepareParams) (providerapi
 		if target.InteractiveCommandDocument != "" {
 			plan.Details["document_name"] = target.InteractiveCommandDocument
 		}
+	case "port_forward_local":
+		spec, specErr := awsLocalPortForwardSpecFromOperation(params.Operation)
+		if specErr != nil {
+			return providerapi.ConnectorPrepareResult{}, specErr
+		}
+		plan.Details["session_mode"] = "port-forward-local"
+		plan.Details["listen_host"] = spec.ListenHost
+		plan.Details["listen_port"] = spec.ListenPort
+		plan.Details["target_host"] = spec.TargetHost
+		plan.Details["target_port"] = spec.TargetPort
+		if documentName := providerbuiltin.String(params.Config, "ssm_port_forward_document"); documentName != "" {
+			plan.Details["document_name"] = documentName
+		}
+		if awsSSMPortForwardRuntime(params.Config) != "plugin" {
+			supported = false
+			plan.Details["reason"] = "aws ssm native local port forwarding is not implemented yet"
+		}
 	default:
 		return providerapi.ConnectorPrepareResult{
 			Supported: false,
@@ -176,7 +199,9 @@ func awsConnectorPrepare(params providerapi.ConnectorPrepareParams) (providerapi
 	}
 
 	if !supported {
-		plan.Details["reason"] = awsSSMUnsupportedReason(probe, "aws ssm target is not online")
+		if _, ok := plan.Details["reason"]; !ok {
+			plan.Details["reason"] = awsSSMUnsupportedReason(probe, "aws ssm target is not online")
+		}
 	}
 
 	return providerapi.ConnectorPrepareResult{
@@ -259,6 +284,67 @@ func awsSSMShellRuntime(config map[string]interface{}) string {
 	default:
 		return "plugin"
 	}
+}
+
+func awsSSMPortForwardRuntime(config map[string]interface{}) string {
+	switch strings.ToLower(strings.TrimSpace(providerbuiltin.String(config, "ssm_port_forward_runtime"))) {
+	case "", "plugin":
+		return "plugin"
+	case "native":
+		return "native"
+	default:
+		return "plugin"
+	}
+}
+
+func awsSSMLocalPortForwardReason(probe awsSSMProbeResult, runtime string) string {
+	if runtime != "plugin" {
+		return "aws ssm native local port forwarding is not implemented yet"
+	}
+	return awsSSMUnsupportedReason(probe, "local port forwarding requires an SSM-managed online instance")
+}
+
+type awsLocalPortForwardSpec struct {
+	ListenHost string
+	ListenPort string
+	TargetHost string
+	TargetPort string
+}
+
+func awsLocalPortForwardSpecFromOperation(operation providerapi.ConnectorOperation) (awsLocalPortForwardSpec, error) {
+	listenHost := strings.TrimSpace(awsOptionString(operation.Options, "listen_host"))
+	listenPort := strings.TrimSpace(awsOptionString(operation.Options, "listen_port"))
+	targetHost := strings.TrimSpace(awsOptionString(operation.Options, "target_host"))
+	targetPort := strings.TrimSpace(awsOptionString(operation.Options, "target_port"))
+
+	if listenHost == "" {
+		listenHost = "localhost"
+	}
+	if listenPort == "" || targetHost == "" || targetPort == "" {
+		return awsLocalPortForwardSpec{}, fmt.Errorf("local port forward requires listen_port, target_host, and target_port")
+	}
+	if !awsIsLoopbackHost(listenHost) {
+		return awsLocalPortForwardSpec{}, fmt.Errorf("aws ssm local port forward only supports localhost bind addresses")
+	}
+	return awsLocalPortForwardSpec{
+		ListenHost: listenHost,
+		ListenPort: listenPort,
+		TargetHost: targetHost,
+		TargetPort: targetPort,
+	}, nil
+}
+
+func awsIsLoopbackHost(host string) bool {
+	normalized := strings.TrimSpace(host)
+	if normalized == "" {
+		return true
+	}
+	switch strings.ToLower(normalized) {
+	case "localhost", "127.0.0.1", "::1":
+		return true
+	}
+	ip := net.ParseIP(normalized)
+	return ip != nil && ip.IsLoopback()
 }
 
 func defaultProbeSSMTarget(ctx context.Context, raw map[string]interface{}, target awsSSMTargetConfig) (awsSSMProbeResult, error) {

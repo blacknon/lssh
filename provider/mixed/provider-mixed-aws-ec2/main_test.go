@@ -151,6 +151,117 @@ func TestAWSConnectorPrepareShellNativeRuntime(t *testing.T) {
 	}
 }
 
+func TestAWSConnectorDescribePortForwardLocalPluginRuntime(t *testing.T) {
+	originalProbe := probeSSMTarget
+	defer func() { probeSSMTarget = originalProbe }()
+	probeSSMTarget = func(ctx context.Context, raw map[string]interface{}, target awsSSMTargetConfig) (awsSSMProbeResult, error) {
+		return awsSSMProbeResult{Managed: true, Online: true, Platform: "linux"}, nil
+	}
+
+	result, err := awsConnectorDescribe(providerapi.ConnectorDescribeParams{
+		Config: map[string]interface{}{
+			"ssm_port_forward_runtime": "plugin",
+		},
+		Target: providerapi.ConnectorTarget{
+			Name: "aws:web-01",
+			Meta: map[string]string{
+				"instance_id": "i-0123456789abcdef0",
+				"region":      "ap-northeast-1",
+				"platform":    "linux",
+			},
+		},
+	})
+	if err != nil {
+		t.Fatalf("awsConnectorDescribe() error = %v", err)
+	}
+	if !result.Capabilities["port_forward_local"].Supported {
+		t.Fatal("port_forward_local capability = unsupported, want supported")
+	}
+}
+
+func TestAWSConnectorPreparePortForwardLocal(t *testing.T) {
+	originalProbe := probeSSMTarget
+	defer func() { probeSSMTarget = originalProbe }()
+	probeSSMTarget = func(ctx context.Context, raw map[string]interface{}, target awsSSMTargetConfig) (awsSSMProbeResult, error) {
+		return awsSSMProbeResult{Managed: true, Online: true, Platform: "linux"}, nil
+	}
+
+	result, err := awsConnectorPrepare(providerapi.ConnectorPrepareParams{
+		Config: map[string]interface{}{
+			"ssm_port_forward_runtime": "plugin",
+		},
+		Target: providerapi.ConnectorTarget{
+			Name: "aws:web-01",
+			Meta: map[string]string{
+				"instance_id": "i-0123456789abcdef0",
+				"region":      "ap-northeast-1",
+				"platform":    "linux",
+			},
+		},
+		Operation: providerapi.ConnectorOperation{
+			Name: "port_forward_local",
+			Options: map[string]interface{}{
+				"listen_host": "localhost",
+				"listen_port": "15432",
+				"target_host": "db.internal",
+				"target_port": "5432",
+			},
+		},
+	})
+	if err != nil {
+		t.Fatalf("awsConnectorPrepare() error = %v", err)
+	}
+	if !result.Supported {
+		t.Fatal("Supported = false, want true")
+	}
+	if got := result.Plan.Details["session_mode"]; got != "port-forward-local" {
+		t.Fatalf("Plan.Details[session_mode] = %v, want port-forward-local", got)
+	}
+	if got := result.Plan.Details["target_host"]; got != "db.internal" {
+		t.Fatalf("Plan.Details[target_host] = %v, want db.internal", got)
+	}
+}
+
+func TestAWSConnectorPreparePortForwardLocalNativeUnsupported(t *testing.T) {
+	originalProbe := probeSSMTarget
+	defer func() { probeSSMTarget = originalProbe }()
+	probeSSMTarget = func(ctx context.Context, raw map[string]interface{}, target awsSSMTargetConfig) (awsSSMProbeResult, error) {
+		return awsSSMProbeResult{Managed: true, Online: true, Platform: "linux"}, nil
+	}
+
+	result, err := awsConnectorPrepare(providerapi.ConnectorPrepareParams{
+		Config: map[string]interface{}{
+			"ssm_port_forward_runtime": "native",
+		},
+		Target: providerapi.ConnectorTarget{
+			Name: "aws:web-01",
+			Meta: map[string]string{
+				"instance_id": "i-0123456789abcdef0",
+				"region":      "ap-northeast-1",
+				"platform":    "linux",
+			},
+		},
+		Operation: providerapi.ConnectorOperation{
+			Name: "port_forward_local",
+			Options: map[string]interface{}{
+				"listen_host": "localhost",
+				"listen_port": "15432",
+				"target_host": "db.internal",
+				"target_port": "5432",
+			},
+		},
+	})
+	if err != nil {
+		t.Fatalf("awsConnectorPrepare() error = %v", err)
+	}
+	if result.Supported {
+		t.Fatal("Supported = true, want false")
+	}
+	if got := result.Plan.Details["reason"]; got != "aws ssm native local port forwarding is not implemented yet" {
+		t.Fatalf("Plan.Details[reason] = %v, want native runtime unsupported reason", got)
+	}
+}
+
 func TestAWSConnectorPrepareRejectsAttachDetachConflict(t *testing.T) {
 	originalProbe := probeSSMTarget
 	defer func() { probeSSMTarget = originalProbe }()

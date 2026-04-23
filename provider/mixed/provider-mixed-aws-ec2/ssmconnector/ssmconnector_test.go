@@ -2,7 +2,9 @@ package ssmconnector
 
 import (
 	"context"
+	"errors"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"testing"
 
@@ -102,6 +104,64 @@ func TestBuildStartSessionCommandExpandsSharedConfigPaths(t *testing.T) {
 	}
 	if !env["AWS_SHARED_CREDENTIALS_FILE="+filepath.Join(home, ".aws", "credentials")] {
 		t.Fatal("AWS_SHARED_CREDENTIALS_FILE is not expanded in command env")
+	}
+}
+
+func TestBuildStartPortForwardCommand(t *testing.T) {
+	cmd := BuildStartPortForwardCommand(context.Background(), PortForwardLocalConfig{
+		BaseConfig: BaseConfig{
+			InstanceID:             "i-0123456789abcdef0",
+			Region:                 "ap-northeast-1",
+			Profile:                "default",
+			SharedConfigFiles:      []string{"/tmp/aws-config"},
+			SharedCredentialsFiles: []string{"/tmp/aws-credentials"},
+		},
+		ListenHost: "localhost",
+		ListenPort: "15432",
+		TargetHost: "db.internal",
+		TargetPort: "5432",
+	})
+
+	wantArgs := []string{
+		"aws", "ssm", "start-session",
+		"--target", "i-0123456789abcdef0",
+		"--region", "ap-northeast-1",
+		"--profile", "default",
+		"--document-name", "AWS-StartPortForwardingSessionToRemoteHost",
+		"--parameters", `{"host":["db.internal"],"localPortNumber":["15432"],"portNumber":["5432"]}`,
+	}
+	if len(cmd.Args) != len(wantArgs) {
+		t.Fatalf("len(cmd.Args) = %d, want %d (%v)", len(cmd.Args), len(wantArgs), cmd.Args)
+	}
+	for i := range wantArgs {
+		if cmd.Args[i] != wantArgs[i] {
+			t.Fatalf("cmd.Args[%d] = %q, want %q", i, cmd.Args[i], wantArgs[i])
+		}
+	}
+
+	env := map[string]bool{}
+	for _, item := range cmd.Env {
+		env[item] = true
+	}
+	if !env["AWS_CONFIG_FILE=/tmp/aws-config"] {
+		t.Fatal("AWS_CONFIG_FILE is not set in command env")
+	}
+	if !env["AWS_SHARED_CREDENTIALS_FILE=/tmp/aws-credentials"] {
+		t.Fatal("AWS_SHARED_CREDENTIALS_FILE is not set in command env")
+	}
+}
+
+func TestIsInterruptExit(t *testing.T) {
+	cmd := exec.Command("sh", "-c", "exit 130")
+	err := cmd.Run()
+	if err == nil {
+		t.Fatal("cmd.Run() error = nil, want non-nil")
+	}
+	if !isInterruptExit(err) {
+		t.Fatal("isInterruptExit(exit 130) = false, want true")
+	}
+	if isInterruptExit(errors.New("other")) {
+		t.Fatal("isInterruptExit(other error) = true, want false")
 	}
 }
 

@@ -2,11 +2,13 @@ package ssmconnector
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
 	"os"
 	"os/exec"
+	"os/signal"
 	"strings"
 	"time"
 
@@ -45,6 +47,16 @@ type CommandConfig struct {
 	Timeout             time.Duration
 }
 
+type PortForwardLocalConfig struct {
+	BaseConfig
+	DocumentName string
+	Runtime      string
+	ListenHost   string
+	ListenPort   string
+	TargetHost   string
+	TargetPort   string
+}
+
 func ShellConfigFromPlan(plan providerapi.ConnectorPlan) (ShellConfig, error) {
 	cfg := ShellConfig{BaseConfig: baseConfigFromPlan(plan)}
 	cfg.DocumentName = detailString(plan.Details, "document_name")
@@ -81,6 +93,26 @@ func CommandConfigFromPlan(plan providerapi.ConnectorPlan) (CommandConfig, error
 	cfg.Timeout = detailDuration(plan.Details, "timeout_sec", 60*time.Second)
 	if cfg.InstanceID == "" || cfg.Region == "" {
 		return CommandConfig{}, fmt.Errorf("aws ssm command plan is missing instance_id or region")
+	}
+	return cfg, nil
+}
+
+func PortForwardLocalConfigFromPlan(plan providerapi.ConnectorPlan) (PortForwardLocalConfig, error) {
+	cfg := PortForwardLocalConfig{BaseConfig: baseConfigFromPlan(plan)}
+	cfg.DocumentName = detailString(plan.Details, "document_name")
+	cfg.Runtime = detailString(plan.Details, "port_forward_runtime")
+	cfg.ListenHost = detailString(plan.Details, "listen_host")
+	cfg.ListenPort = detailString(plan.Details, "listen_port")
+	cfg.TargetHost = detailString(plan.Details, "target_host")
+	cfg.TargetPort = detailString(plan.Details, "target_port")
+	if cfg.Runtime == "" {
+		cfg.Runtime = "plugin"
+	}
+	if cfg.InstanceID == "" || cfg.Region == "" {
+		return PortForwardLocalConfig{}, fmt.Errorf("aws ssm local port forward plan is missing instance_id or region")
+	}
+	if cfg.ListenPort == "" || cfg.TargetHost == "" || cfg.TargetPort == "" {
+		return PortForwardLocalConfig{}, fmt.Errorf("aws ssm local port forward plan is missing listen_port, target_host, or target_port")
 	}
 	return cfg, nil
 }
@@ -158,6 +190,53 @@ func StartDetachedShell(ctx context.Context, cfg ShellConfig) (string, error) {
 		return "", fmt.Errorf("start detached ssm session returned empty session id")
 	}
 	return sessionID, nil
+}
+
+func StartLocalPortForward(ctx context.Context, cfg PortForwardLocalConfig) error {
+	cmd := BuildStartPortForwardCommand(ctx, cfg)
+	cmd.Stdin = os.Stdin
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	if err := cmd.Start(); err != nil {
+		return fmt.Errorf("start aws ssm local port forward: %w", err)
+	}
+	if os.Getenv("_LSSH_DAEMON") == "1" {
+		notifyParentReady()
+	}
+	if err := waitCommandWithInterrupt(cmd); err != nil {
+		return fmt.Errorf("run aws ssm local port forward: %w", err)
+	}
+	return nil
+}
+
+func BuildStartPortForwardCommand(ctx context.Context, cfg PortForwardLocalConfig) *exec.Cmd {
+	args := []string{
+		"ssm", "start-session",
+		"--target", cfg.InstanceID,
+		"--region", cfg.Region,
+	}
+	if cfg.Profile != "" {
+		args = append(args, "--profile", cfg.Profile)
+	}
+
+	documentName := cfg.DocumentName
+	if documentName == "" {
+		documentName = "AWS-StartPortForwardingSessionToRemoteHost"
+	}
+	args = append(args, "--document-name", documentName)
+
+	parameters, err := json.Marshal(map[string][]string{
+		"host":            {cfg.TargetHost},
+		"portNumber":      {cfg.TargetPort},
+		"localPortNumber": {cfg.ListenPort},
+	})
+	if err == nil {
+		args = append(args, "--parameters", string(parameters))
+	}
+
+	cmd := exec.CommandContext(ctx, "aws", args...)
+	cmd.Env = append(os.Environ(), portForwardEnvironment(cfg)...)
+	return cmd
 }
 
 func RunCommand(ctx context.Context, cfg CommandConfig, stdout, stderr io.Writer) (int, error) {
@@ -265,6 +344,14 @@ func loadAWSConfig(ctx context.Context, cfg BaseConfig) (aws.Config, error) {
 }
 
 func shellEnvironment(cfg ShellConfig) []string {
+	return baseEnvironment(cfg.BaseConfig)
+}
+
+func portForwardEnvironment(cfg PortForwardLocalConfig) []string {
+	return baseEnvironment(cfg.BaseConfig)
+}
+
+func baseEnvironment(cfg BaseConfig) []string {
 	env := []string{}
 	sharedConfigFiles := providerbuiltin.ExpandPaths(cfg.SharedConfigFiles)
 	sharedCredentialsFiles := providerbuiltin.ExpandPaths(cfg.SharedCredentialsFiles)
@@ -321,6 +408,59 @@ func detailStringSlice(details map[string]interface{}, key string) []string {
 	default:
 		return []string{fmt.Sprint(typed)}
 	}
+}
+
+func notifyParentReady() {
+	if os.Getenv("_LSSH_DAEMON") != "1" {
+		return
+	}
+
+	f := os.NewFile(uintptr(3), "lssh_ready")
+	if f == nil {
+		return
+	}
+	defer f.Close()
+
+	_, _ = f.Write([]byte("OK\n"))
+}
+
+func waitCommandWithInterrupt(cmd *exec.Cmd) error {
+	waitCh := make(chan error, 1)
+	go func() {
+		waitCh <- cmd.Wait()
+	}()
+
+	signalCh := make(chan os.Signal, 1)
+	signal.Notify(signalCh, os.Interrupt)
+	defer signal.Stop(signalCh)
+
+	select {
+	case err := <-waitCh:
+		return err
+	case sig := <-signalCh:
+		if cmd.Process != nil {
+			_ = cmd.Process.Signal(sig)
+		}
+		err := <-waitCh
+		if isInterruptExit(err) {
+			return nil
+		}
+		return err
+	}
+}
+
+func isInterruptExit(err error) bool {
+	if err == nil {
+		return false
+	}
+	var exitErr *exec.ExitError
+	if !errors.As(err, &exitErr) {
+		return false
+	}
+	if exitErr.ProcessState == nil {
+		return false
+	}
+	return exitErr.ProcessState.ExitCode() == 130
 }
 
 func detailDuration(details map[string]interface{}, key string, def time.Duration) time.Duration {

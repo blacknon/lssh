@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"net"
 	"os"
 	"os/exec"
 	"strings"
@@ -28,13 +29,20 @@ func (r *Run) usesConnector(server string) bool {
 }
 
 func (r *Run) RunConnectorShell(server string) error {
-	config := r.Conf.Server[server]
+	config := r.resolveShellConfig(server)
+	return r.runConnectorShellWithConfig(server, config)
+}
+
+func (r *Run) runConnectorShellWithConfig(server string, config conf.ServerConfig) error {
 	connectorName := r.Conf.ServerConnectorName(server)
 	if connectorName == "" || connectorName == "ssh" {
 		return fmt.Errorf("server %q does not use an external connector", server)
 	}
+	if r.TunnelEnabled {
+		return fmt.Errorf("server %q uses connector %q; ssh tunnel devices are not supported", server, connectorName)
+	}
 	if connectorHasForwarding(config) {
-		return fmt.Errorf("server %q uses connector %q; ssh port forwarding is not supported", server, connectorName)
+		return r.runConnectorLocalPortForward(server, config, connectorName)
 	}
 
 	r.PrintSelectServer()
@@ -56,18 +64,25 @@ func (r *Run) RunConnectorShell(server string) error {
 		return fmt.Errorf("server %q uses connector %q; localrc is not supported", server, planConnector)
 	}
 
-	switch prepared.Plan.Kind {
-	case "command":
-		return runCommandPlanShell(prepared.Plan)
-	case "provider-managed":
-		return runProviderManagedShell(r, config, prepared.Plan, planConnector)
-	default:
-		return fmt.Errorf("server %q connector %q returned unsupported plan kind %q", server, planConnector, prepared.Plan.Kind)
-	}
+	return runConnectorWithPrePost(config, func() error {
+		switch prepared.Plan.Kind {
+		case "command":
+			return runCommandPlanShell(prepared.Plan)
+		case "provider-managed":
+			return runProviderManagedShell(r, config, prepared.Plan, planConnector)
+		default:
+			return fmt.Errorf("server %q connector %q returned unsupported plan kind %q", server, planConnector, prepared.Plan.Kind)
+		}
+	})
 }
 
 func (r *Run) runConnectorShell(server string) error {
 	return r.RunConnectorShell(server)
+}
+
+func (r *Run) RunConnectorLocalPortForward(server string) error {
+	config := r.resolveShellConfig(server)
+	return r.runConnectorLocalPortForward(server, config, r.Conf.ServerConnectorName(server))
 }
 
 func (r *Run) RunConnectorCommand(server string, command []string, stdin io.Reader, stdout, stderr io.Writer) (int, error) {
@@ -220,6 +235,22 @@ func runProviderManagedExec(plan providerapi.ConnectorPlan, connectorName string
 	}
 }
 
+func runProviderManagedLocalPortForward(plan providerapi.ConnectorPlan, connectorName string) error {
+	switch connectorName {
+	case "aws-ssm":
+		cfg, err := ssmconnector.PortForwardLocalConfigFromPlan(plan)
+		if err != nil {
+			return err
+		}
+		if cfg.Runtime != "plugin" {
+			return fmt.Errorf("aws ssm native local port forwarding is not implemented yet")
+		}
+		return ssmconnector.StartLocalPortForward(context.Background(), cfg)
+	default:
+		return fmt.Errorf("connector %q does not support local port forwarding in the core runtime yet", connectorName)
+	}
+}
+
 func runCommandPlanShell(plan providerapi.ConnectorPlan) error {
 	if strings.TrimSpace(plan.Program) == "" {
 		return fmt.Errorf("connector command plan is missing program")
@@ -253,6 +284,49 @@ func runCommandPlanExec(plan providerapi.ConnectorPlan, stdin io.Reader, stdout,
 		return exitErr.ExitCode(), nil
 	}
 	return 0, err
+}
+
+func (r *Run) runConnectorLocalPortForward(server string, config conf.ServerConfig, connectorName string) error {
+	spec, err := connectorLocalForwardSpec(config)
+	if err != nil {
+		return fmt.Errorf("server %q uses connector %q; %w", server, connectorName, err)
+	}
+	if r.X11 || r.X11Trusted {
+		return fmt.Errorf("server %q uses connector %q; X11 forwarding is not supported with local port forwarding", server, connectorName)
+	}
+
+	r.PrintSelectServer()
+	r.printPortForward(spec.Mode, spec.Local, spec.Remote)
+
+	operation := providerapi.ConnectorOperation{
+		Name: "port_forward_local",
+		Options: map[string]interface{}{
+			"listen_host": spec.ListenHost,
+			"listen_port": spec.ListenPort,
+			"target_host": spec.TargetHost,
+			"target_port": spec.TargetPort,
+		},
+	}
+
+	prepared, err := r.Conf.PrepareConnector(server, operation)
+	if err != nil {
+		return err
+	}
+	planConnector := connectorNameFromPlan(prepared.Plan, connectorName)
+	if !prepared.Supported {
+		return fmt.Errorf("server %q connector %q: %v", server, planConnector, prepared.Plan.Details["reason"])
+	}
+
+	return runConnectorWithPrePost(config, func() error {
+		switch prepared.Plan.Kind {
+		case "command":
+			return runCommandPlanShell(prepared.Plan)
+		case "provider-managed":
+			return runProviderManagedLocalPortForward(prepared.Plan, planConnector)
+		default:
+			return fmt.Errorf("server %q connector %q returned unsupported plan kind %q", server, planConnector, prepared.Plan.Kind)
+		}
+	})
 }
 
 func mergedCommandPlanEnv(env map[string]string) []string {
@@ -426,6 +500,115 @@ func connectorHasForwarding(config conf.ServerConfig) bool {
 		config.SMBReverseDynamicForwardPort != ""
 }
 
+func (r *Run) resolveShellConfig(server string) conf.ServerConfig {
+	config := r.Conf.Server[server]
+	config = r.setPortForwards(server, config)
+
+	if r.DynamicPortForward != "" {
+		config.DynamicPortForward = r.DynamicPortForward
+	}
+	if r.ReverseDynamicPortForward != "" {
+		config.ReverseDynamicPortForward = r.ReverseDynamicPortForward
+	}
+	if r.HTTPDynamicPortForward != "" {
+		config.HTTPDynamicPortForward = r.HTTPDynamicPortForward
+	}
+	if r.HTTPReverseDynamicPortForward != "" {
+		config.HTTPReverseDynamicPortForward = r.HTTPReverseDynamicPortForward
+	}
+	if r.NFSDynamicForwardPort != "" {
+		config.NFSDynamicForwardPort = r.NFSDynamicForwardPort
+	}
+	if r.NFSDynamicForwardPath != "" {
+		config.NFSDynamicForwardPath = r.NFSDynamicForwardPath
+	}
+	if r.SMBDynamicForwardPort != "" {
+		config.SMBDynamicForwardPort = r.SMBDynamicForwardPort
+	}
+	if r.SMBDynamicForwardPath != "" {
+		config.SMBDynamicForwardPath = r.SMBDynamicForwardPath
+	}
+	if r.NFSReverseDynamicForwardPort != "" {
+		config.NFSReverseDynamicForwardPort = r.NFSReverseDynamicForwardPort
+	}
+	if r.NFSReverseDynamicForwardPath != "" {
+		config.NFSReverseDynamicForwardPath = r.NFSReverseDynamicForwardPath
+	}
+	if r.SMBReverseDynamicForwardPort != "" {
+		config.SMBReverseDynamicForwardPort = r.SMBReverseDynamicForwardPort
+	}
+	if r.SMBReverseDynamicForwardPath != "" {
+		config.SMBReverseDynamicForwardPath = r.SMBReverseDynamicForwardPath
+	}
+	if r.IsBashrc {
+		config.LocalRcUse = "yes"
+	}
+	if r.IsNotBashrc {
+		config.LocalRcUse = "no"
+	}
+
+	return config
+}
+
+type connectorPortForwardSpec struct {
+	Mode       string
+	Local      string
+	Remote     string
+	ListenHost string
+	ListenPort string
+	TargetHost string
+	TargetPort string
+}
+
+func connectorLocalForwardSpec(config conf.ServerConfig) (connectorPortForwardSpec, error) {
+	if config.DynamicPortForward != "" ||
+		config.ReverseDynamicPortForward != "" ||
+		config.HTTPDynamicPortForward != "" ||
+		config.HTTPReverseDynamicPortForward != "" ||
+		config.NFSDynamicForwardPort != "" ||
+		config.NFSReverseDynamicForwardPort != "" ||
+		config.SMBDynamicForwardPort != "" ||
+		config.SMBReverseDynamicForwardPort != "" {
+		return connectorPortForwardSpec{}, fmt.Errorf("only simple local tcp port forwarding is supported")
+	}
+	if len(config.Forwards) != 1 {
+		return connectorPortForwardSpec{}, fmt.Errorf("exactly one local port forward is required")
+	}
+
+	forward := config.Forwards[0]
+	if forward == nil {
+		return connectorPortForwardSpec{}, fmt.Errorf("local port forward is not configured")
+	}
+	if strings.ToUpper(forward.Mode) != "L" {
+		return connectorPortForwardSpec{}, fmt.Errorf("only local port forwarding is supported")
+	}
+	if forward.LocalNetwork != "" && forward.LocalNetwork != "tcp" {
+		return connectorPortForwardSpec{}, fmt.Errorf("local port forward network %q is not supported", forward.LocalNetwork)
+	}
+	if forward.RemoteNetwork != "" && forward.RemoteNetwork != "tcp" {
+		return connectorPortForwardSpec{}, fmt.Errorf("remote port forward network %q is not supported", forward.RemoteNetwork)
+	}
+
+	listenHost, listenPort, err := net.SplitHostPort(forward.Local)
+	if err != nil {
+		return connectorPortForwardSpec{}, fmt.Errorf("invalid local port forward endpoint %q: %w", forward.Local, err)
+	}
+	targetHost, targetPort, err := net.SplitHostPort(forward.Remote)
+	if err != nil {
+		return connectorPortForwardSpec{}, fmt.Errorf("invalid remote port forward endpoint %q: %w", forward.Remote, err)
+	}
+
+	return connectorPortForwardSpec{
+		Mode:       "L",
+		Local:      forward.Local,
+		Remote:     forward.Remote,
+		ListenHost: listenHost,
+		ListenPort: listenPort,
+		TargetHost: targetHost,
+		TargetPort: targetPort,
+	}, nil
+}
+
 func connectorLocalRCEnabled(r *Run, config conf.ServerConfig) bool {
 	if r == nil {
 		return config.LocalRcUse == "yes"
@@ -473,4 +656,14 @@ func connectorOutputWriters(r *Run, server string, single bool) (io.Writer, io.W
 	}
 	o := r.createCommandOutput(server)
 	return o.NewWriter(), o.NewWriter()
+}
+
+func runConnectorWithPrePost(config conf.ServerConfig, run func() error) error {
+	if config.PreCmd != "" {
+		execLocalCommand(config.PreCmd)
+	}
+	if config.PostCmd != "" {
+		defer execLocalCommand(config.PostCmd)
+	}
+	return run()
 }
