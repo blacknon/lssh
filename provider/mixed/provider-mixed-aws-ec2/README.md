@@ -38,6 +38,7 @@ addr_strategy = "public_first"
 server_name_template = "aws:${tags.Name}"
 note_template = "aws ${instance_id} ${private_ip}"
 ssm_require_online = true
+ssm_shell_runtime = "plugin"
 
 [provider.aws.match.web]
 meta_in = ["tag.Role=web", "region=ap-northeast-1"]
@@ -83,6 +84,10 @@ connector_name = "aws-ssm"
   - `attach` and `detach` are mutually exclusive
 - `ssm_require_online` defaults to `true`.
   - when enabled, the connector requires the target instance to be online in AWS Systems Manager
+- `ssm_shell_runtime` controls how `shell` is executed.
+  - `plugin` (default): use `aws ssm start-session`
+  - `native`: use the experimental built-in Go runtime for plain shell start
+    - `localrc` is supported only in this mode
 - optional connector tuning keys:
   - `ssm_shell_document`
   - `ssm_interactive_command_document`
@@ -90,10 +95,21 @@ connector_name = "aws-ssm"
   - `shell` is executed with `aws ssm start-session`
     - attach uses `aws ssm resume-session`
     - detach uses the AWS SDK `StartSession` API and returns the created session id
+  - `shell` with `ssm_shell_runtime = "native"` currently supports only a plain start session
+    - attach/detach still use the plugin runtime
+    - `localrc` is executed by sending the generated startup command through the native session
   - `exec` is executed with the AWS SDK via `SendCommand`
+    - when `ssm_shell_runtime = "native"` and the caller uses the connector stream path, `lspipe --raw` can stream stdin/stdout over the native runtime for Linux targets
 - to use `shell`, the local machine must have:
   - AWS CLI
   - Session Manager plugin for AWS CLI
+
+Example stream transfer with `lspipe`:
+
+```bash
+tar czf - ./dist | lspipe -h aws:ssm-host --raw 'tar xzf - -C /srv/app'
+lspipe -h aws:ssm-host --raw 'tar czf - /srv/app' > app.tar.gz
+```
 
 ## AWS SSM Connector Contract
 

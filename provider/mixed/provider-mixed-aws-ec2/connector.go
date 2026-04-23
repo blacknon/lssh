@@ -130,6 +130,7 @@ func awsConnectorPrepare(params providerapi.ConnectorPrepareParams) (providerapi
 			"poll_interval_sec":        2,
 			"timeout_sec":              60,
 			"operation":                params.Operation.Name,
+			"shell_runtime":            awsSSMShellRuntime(params.Config),
 		},
 	}
 
@@ -146,6 +147,10 @@ func awsConnectorPrepare(params providerapi.ConnectorPrepareParams) (providerapi
 	case "exec":
 		plan.Details["session_mode"] = "send-command"
 		plan.Details["command"] = params.Operation.Command
+		plan.Details["command_line"] = awsFirstNonEmpty(
+			awsOptionString(params.Operation.Options, "command_line"),
+			strings.TrimSpace(strings.Join(params.Operation.Command, " ")),
+		)
 		if strings.EqualFold(awsFirstNonEmpty(probe.Platform, target.Platform), "windows") {
 			plan.Details["command_document_name"] = "AWS-RunPowerShellScript"
 		} else {
@@ -243,6 +248,17 @@ func awsSSMTargetFromParams(config map[string]interface{}, target providerapi.Co
 		missing = append(missing, "region")
 	}
 	return result, missing
+}
+
+func awsSSMShellRuntime(config map[string]interface{}) string {
+	switch strings.ToLower(strings.TrimSpace(providerbuiltin.String(config, "ssm_shell_runtime"))) {
+	case "", "plugin":
+		return "plugin"
+	case "native":
+		return "native"
+	default:
+		return "plugin"
+	}
 }
 
 func defaultProbeSSMTarget(ctx context.Context, raw map[string]interface{}, target awsSSMTargetConfig) (awsSSMProbeResult, error) {

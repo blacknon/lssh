@@ -5,6 +5,7 @@
 package ssh
 
 import (
+	"encoding/base64"
 	"errors"
 	"fmt"
 	"io"
@@ -320,41 +321,107 @@ loop:
 
 // localRcShell connect to remote shell using local bashrc
 func localrcShell(connect *sshlib.Connect, session *ssh.Session, localrcPath []string, decoder string, compress bool, uncompress string) (err error) {
-	// var
+	return connect.CmdShell(session, BuildLocalRCShellCommand(localrcPath, decoder, compress, uncompress))
+}
+
+func BuildLocalRCShellCommand(localrcPath []string, decoder string, compress bool, uncompress string) string {
+	return buildLocalRCShellCommand(localrcPath, decoder, compress, uncompress, false)
+}
+
+func BuildInteractiveLocalRCShellCommand(localrcPath []string, decoder string, compress bool, uncompress string) string {
+	return buildPortableInteractiveLocalRCShellCommand(localrcPath, decoder, compress, uncompress)
+}
+
+func InteractiveLocalRCStartupMarker() string {
+	return "__LSSH_LOCALRC_READY__"
+}
+
+func buildLocalRCShellCommand(localrcPath []string, decoder string, compress bool, uncompress string, interactive bool) string {
 	var cmd string
+	bashCommand := "bash"
+	interactiveSuffix := ""
+	exitSuffix := "; exit 0"
+	prefixCommand := ""
 
-	// TODO(blacknon): 受け付けるrcdataをzip化するオプションの追加
-
-	// set default bashrc
 	if len(localrcPath) == 0 {
 		localrcPath = []string{"~/.bashrc"}
 	}
 
-	// get bashrc base64 data
+	if interactive {
+		bashCommand = "bash"
+		interactiveSuffix = " -i"
+		exitSuffix = ""
+		prefixCommand = fmt.Sprintf("export TERM=%s; ", shellSingleQuote(interactiveShellTerm()))
+	}
+
 	rcData, _ := common.GetFilesBase64(localrcPath, localrcArchiveMode(compress))
 
-	// set default uncompress command
 	if uncompress == "" {
 		uncompress = "gzip -d"
 	}
 
-	// switch
 	switch {
 	case !compress && decoder != "":
-		cmd = fmt.Sprintf("bash --noprofile --rcfile <(echo %s | %s); exit 0", rcData, decoder)
-
+		cmd = fmt.Sprintf("%s%s --noprofile --rcfile <(echo %s | %s)%s%s", prefixCommand, bashCommand, rcData, decoder, interactiveSuffix, exitSuffix)
 	case !compress && decoder == "":
-		cmd = fmt.Sprintf("bash --noprofile --rcfile <(echo %s | ( (base64 --help | grep -q coreutils) && base64 -d <(cat) || base64 -D <(cat) ) ); exit 0", rcData)
-
+		cmd = fmt.Sprintf("%s%s --noprofile --rcfile <(echo %s | ( (base64 --help | grep -q coreutils) && base64 -d <(cat) || base64 -D <(cat) ) )%s%s", prefixCommand, bashCommand, rcData, interactiveSuffix, exitSuffix)
 	case compress && decoder != "":
-		cmd = fmt.Sprintf("bash --noprofile --rcfile <(echo %s | %s | %s); exit 0", rcData, decoder, uncompress)
-
+		cmd = fmt.Sprintf("%s%s --noprofile --rcfile <(echo %s | %s | %s)%s%s", prefixCommand, bashCommand, rcData, decoder, uncompress, interactiveSuffix, exitSuffix)
 	case compress && decoder == "":
-		cmd = fmt.Sprintf("bash --noprofile --rcfile <(echo %s | ( (base64 --help | grep -q coreutils) && base64 -d <(cat) || base64 -D <(cat) ) | %s); exit 0", rcData, uncompress)
-
+		cmd = fmt.Sprintf("%s%s --noprofile --rcfile <(echo %s | ( (base64 --help | grep -q coreutils) && base64 -d <(cat) || base64 -D <(cat) ) | %s)%s%s", prefixCommand, bashCommand, rcData, uncompress, interactiveSuffix, exitSuffix)
 	}
 
-	return connect.CmdShell(session, cmd)
+	return cmd
+}
+
+func buildPortableInteractiveLocalRCShellCommand(localrcPath []string, decoder string, compress bool, uncompress string) string {
+	if len(localrcPath) == 0 {
+		localrcPath = []string{"~/.bashrc"}
+	}
+
+	rcData, _ := common.GetFilesBase64(localrcPath, localrcArchiveMode(compress))
+	if uncompress == "" {
+		uncompress = "gzip -d"
+	}
+	decodeCommand := decoder
+	if decodeCommand == "" {
+		decodeCommand = "( (base64 --help | grep -q coreutils) && base64 -d || base64 -D )"
+	}
+	markerLine := fmt.Sprintf("\nprintf '%%s\\n' %s\n", shellSingleQuote(InteractiveLocalRCStartupMarker()))
+	markerEncoded := base64.StdEncoding.EncodeToString([]byte(markerLine))
+
+	var pipeline string
+	switch {
+	case !compress:
+		pipeline = fmt.Sprintf("printf %%s %s | %s", shellSingleQuote(rcData), decodeCommand)
+	default:
+		pipeline = fmt.Sprintf("printf %%s %s | %s | %s", shellSingleQuote(rcData), decodeCommand, uncompress)
+	}
+
+	rcStream := fmt.Sprintf("{ %s; printf %%s %s | ( (base64 --help | grep -q coreutils) && base64 -d || base64 -D ); }",
+		pipeline,
+		shellSingleQuote(markerEncoded),
+	)
+	bashScript := fmt.Sprintf("exec bash --noprofile --rcfile <(%s) -i", rcStream)
+
+	return fmt.Sprintf(
+		"export TERM=%s; exec bash -lc %s",
+		shellSingleQuote(interactiveShellTerm()),
+		shellSingleQuote(bashScript),
+	)
+}
+
+func interactiveShellTerm() string {
+	term := strings.TrimSpace(os.Getenv("TERM"))
+	if term == "" {
+		return "xterm-256color"
+	}
+
+	return term
+}
+
+func shellSingleQuote(value string) string {
+	return "'" + strings.ReplaceAll(value, "'", `'\''`) + "'"
 }
 
 func localrcArchiveMode(compress bool) int {

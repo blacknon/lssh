@@ -21,6 +21,11 @@ func (c *Config) ServerUsesConnector(server string) bool {
 	return connectorName != "" && connectorName != "ssh"
 }
 
+func (c *Config) ServerUsesBuiltInSSH(server string) bool {
+	connectorName := strings.TrimSpace(c.ServerConnectorName(server))
+	return connectorName == "" || connectorName == "ssh"
+}
+
 func (c *Config) PrepareConnector(server string, operation providerapi.ConnectorOperation) (providerapi.ConnectorPrepareResult, error) {
 	serverConfig, ok := c.Server[server]
 	if !ok {

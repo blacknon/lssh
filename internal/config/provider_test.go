@@ -272,6 +272,26 @@ func TestServerUsesConnectorRespectsConnectorName(t *testing.T) {
 	}
 }
 
+func TestServerUsesBuiltInSSHRespectsConnectorName(t *testing.T) {
+	cfg := Config{
+		Server: map[string]ServerConfig{
+			"default-host": {},
+			"ssh-host":     {ConnectorName: "ssh"},
+			"conn-host":    {ConnectorName: "openssh"},
+		},
+	}
+
+	if !cfg.ServerUsesBuiltInSSH("default-host") {
+		t.Fatal("ServerUsesBuiltInSSH(default-host) = false, want true")
+	}
+	if !cfg.ServerUsesBuiltInSSH("ssh-host") {
+		t.Fatal("ServerUsesBuiltInSSH(ssh-host) = false, want true")
+	}
+	if cfg.ServerUsesBuiltInSSH("conn-host") {
+		t.Fatal("ServerUsesBuiltInSSH(conn-host) = true, want false")
+	}
+}
+
 func TestPrepareConnectorResolvesProviderByConnectorName(t *testing.T) {
 	dir := t.TempDir()
 	providerPath := filepath.Join(dir, "lssh-provider-fake-connector")

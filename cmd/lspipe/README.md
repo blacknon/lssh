@@ -88,6 +88,22 @@ vimdiff \
   <(lspipe -h web02 --raw cat /etc/hosts)
 ```
 
+### stream transfer over aws-ssm native
+
+When a selected host uses `connector_name = "aws-ssm"` and its provider is configured with `ssm_shell_runtime = "native"`, `lspipe` can stream stdin/stdout through the native SSM runtime.
+This is a good fit for `tar.gz`-style transfers.
+
+```bash
+# upload a directory
+tar czf - ./dist | lspipe -h aws:ssm-host --raw 'tar xzf - -C /srv/app'
+
+# download a directory
+lspipe -h aws:ssm-host --raw 'tar czf - /srv/app' > app.tar.gz
+
+# upload a single file
+cat app.conf | lspipe -h aws:ssm-host --raw 'cat > /etc/app.conf'
+```
+
 ### inspect and close sessions
 
 ```bash
@@ -122,6 +138,7 @@ echo 'cat' > ~/.cache/lssh/lspipe/fifo/default/ops/web01.cmd
 - `lspipe` sessions are single local handles to a chosen host set.
 - `stdin` is broadcast to every selected host in the current MVP.
 - `--raw` is only allowed when the resolved target set contains exactly one host.
+- Connector-backed `lspipe` stream transfer currently supports `aws-ssm` with `ssm_shell_runtime = "native"` only.
 - Windows supports normal `lspipe` session creation and command execution through the local TCP fallback.
 - `--mkfifo` creates `all.*` pipes plus one `host.*` set per host: `.cmd`, `.stdin`, `.out`.
 - Write stdin into `.stdin`, then write the remote command into `.cmd`; read the result from `.out`.

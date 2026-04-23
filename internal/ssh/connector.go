@@ -15,6 +15,8 @@ import (
 	"github.com/blacknon/lssh/provider/connector/provider-connector-telnet/telnetlib"
 	"github.com/blacknon/lssh/provider/connector/provider-connector-winrm/winrmlib"
 	ssmconnector "github.com/blacknon/lssh/provider/mixed/provider-mixed-aws-ec2/ssmconnector"
+	"github.com/blacknon/lssh/provider/mixed/provider-mixed-aws-ec2/ssmsession"
+	"golang.org/x/crypto/ssh/terminal"
 )
 
 func (r *Run) UsesConnector(server string) bool {
@@ -34,9 +36,6 @@ func (r *Run) RunConnectorShell(server string) error {
 	if connectorHasForwarding(config) {
 		return fmt.Errorf("server %q uses connector %q; ssh port forwarding is not supported", server, connectorName)
 	}
-	if connectorLocalRCEnabled(r, config) {
-		return fmt.Errorf("server %q uses connector %q; localrc is not supported", server, connectorName)
-	}
 
 	r.PrintSelectServer()
 
@@ -53,12 +52,15 @@ func (r *Run) RunConnectorShell(server string) error {
 	if !prepared.Supported {
 		return fmt.Errorf("server %q connector %q: %v", server, planConnector, prepared.Plan.Details["reason"])
 	}
+	if connectorLocalRCEnabled(r, config) && !connectorPlanSupportsLocalRC(prepared.Plan, planConnector) {
+		return fmt.Errorf("server %q uses connector %q; localrc is not supported", server, planConnector)
+	}
 
 	switch prepared.Plan.Kind {
 	case "command":
 		return runCommandPlanShell(prepared.Plan)
 	case "provider-managed":
-		return runProviderManagedShell(prepared.Plan, planConnector)
+		return runProviderManagedShell(r, config, prepared.Plan, planConnector)
 	default:
 		return fmt.Errorf("server %q connector %q returned unsupported plan kind %q", server, planConnector, prepared.Plan.Kind)
 	}
@@ -68,16 +70,31 @@ func (r *Run) runConnectorShell(server string) error {
 	return r.RunConnectorShell(server)
 }
 
-func (r *Run) RunConnectorCommand(server string, command []string, stdout, stderr io.Writer) (int, error) {
+func (r *Run) RunConnectorCommand(server string, command []string, stdin io.Reader, stdout, stderr io.Writer) (int, error) {
+	operation := providerapi.ConnectorOperation{
+		Name:    "exec",
+		Command: append([]string(nil), command...),
+	}
+	return r.runConnectorCommandOperation(server, operation, stdin, stdout, stderr)
+}
+
+func (r *Run) RunConnectorCommandLine(server, commandLine string, stdin io.Reader, stdout, stderr io.Writer) (int, error) {
+	operation := providerapi.ConnectorOperation{
+		Name: "exec",
+		Options: map[string]interface{}{
+			"command_line": commandLine,
+		},
+	}
+	return r.runConnectorCommandOperation(server, operation, stdin, stdout, stderr)
+}
+
+func (r *Run) runConnectorCommandOperation(server string, operation providerapi.ConnectorOperation, stdin io.Reader, stdout, stderr io.Writer) (int, error) {
 	connectorName := r.Conf.ServerConnectorName(server)
 	if connectorName == "" || connectorName == "ssh" {
 		return 0, fmt.Errorf("server %q does not use an external connector", server)
 	}
 
-	prepared, err := r.Conf.PrepareConnector(server, providerapi.ConnectorOperation{
-		Name:    "exec",
-		Command: append([]string(nil), command...),
-	})
+	prepared, err := r.Conf.PrepareConnector(server, operation)
 	if err != nil {
 		return 0, err
 	}
@@ -88,16 +105,16 @@ func (r *Run) RunConnectorCommand(server string, command []string, stdout, stder
 
 	switch prepared.Plan.Kind {
 	case "command":
-		return runCommandPlanExec(prepared.Plan, stdout, stderr)
+		return runCommandPlanExec(prepared.Plan, stdin, stdout, stderr)
 	case "provider-managed":
-		return runProviderManagedExec(prepared.Plan, planConnector, stdout, stderr)
+		return runProviderManagedExec(prepared.Plan, planConnector, stdin, stdout, stderr)
 	default:
 		return 0, fmt.Errorf("server %q connector %q returned unsupported plan kind %q", server, planConnector, prepared.Plan.Kind)
 	}
 }
 
 func (r *Run) runConnectorCommand(server string, stdout, stderr io.Writer) (int, error) {
-	return r.RunConnectorCommand(server, r.ExecCmd, stdout, stderr)
+	return r.RunConnectorCommand(server, r.ExecCmd, nil, stdout, stderr)
 }
 
 func (r *Run) connectorShellOperation(connectorName string) (providerapi.ConnectorOperation, error) {
@@ -128,12 +145,35 @@ func connectorNameFromPlan(plan providerapi.ConnectorPlan, fallback string) stri
 	return fallback
 }
 
-func runProviderManagedShell(plan providerapi.ConnectorPlan, connectorName string) error {
+func runProviderManagedShell(r *Run, config conf.ServerConfig, plan providerapi.ConnectorPlan, connectorName string) error {
 	switch connectorName {
 	case "aws-ssm":
 		shellConfig, err := ssmconnector.ShellConfigFromPlan(plan)
 		if err != nil {
 			return err
+		}
+		if shellConfig.Runtime == "native" {
+			if shellConfig.SessionAction != "start" {
+				return fmt.Errorf("aws ssm native shell does not support session_action %q yet", shellConfig.SessionAction)
+			}
+			return runNativeInteractiveSession(func() error {
+				startupCommand := connectorLocalRCCommand(r, config)
+				startupMarker := ""
+				if startupCommand != "" {
+					startupMarker = InteractiveLocalRCStartupMarker()
+				}
+				return ssmsession.StartShell(context.Background(), ssmsession.Config{
+					InstanceID:             shellConfig.InstanceID,
+					Region:                 shellConfig.Region,
+					Platform:               shellConfig.Platform,
+					Profile:                shellConfig.Profile,
+					SharedConfigFiles:      append([]string(nil), shellConfig.SharedConfigFiles...),
+					SharedCredentialsFiles: append([]string(nil), shellConfig.SharedCredentialsFiles...),
+					DocumentName:           shellConfig.DocumentName,
+					StartupCommand:         startupCommand,
+					StartupMarker:          startupMarker,
+				}, os.Stdin, os.Stdout, os.Stderr)
+			})
 		}
 		if shellConfig.SessionAction == "detach" {
 			sessionID, err := ssmconnector.StartDetachedShell(context.Background(), shellConfig)
@@ -153,9 +193,23 @@ func runProviderManagedShell(plan providerapi.ConnectorPlan, connectorName strin
 	}
 }
 
-func runProviderManagedExec(plan providerapi.ConnectorPlan, connectorName string, stdout, stderr io.Writer) (int, error) {
+func runProviderManagedExec(plan providerapi.ConnectorPlan, connectorName string, stdin io.Reader, stdout, stderr io.Writer) (int, error) {
 	switch connectorName {
 	case "aws-ssm":
+		if detailString(plan.Details, "shell_runtime") == "native" && detailString(plan.Details, "command_line") != "" {
+			cfg, err := ssmconnector.CommandConfigFromPlan(plan)
+			if err != nil {
+				return 0, err
+			}
+			return ssmsession.RunStreamCommand(context.Background(), ssmsession.Config{
+				InstanceID:             cfg.InstanceID,
+				Region:                 cfg.Region,
+				Platform:               cfg.Platform,
+				Profile:                cfg.Profile,
+				SharedConfigFiles:      append([]string(nil), cfg.SharedConfigFiles...),
+				SharedCredentialsFiles: append([]string(nil), cfg.SharedCredentialsFiles...),
+			}, detailString(plan.Details, "command_line"), stdin, stdout, stderr)
+		}
 		cmdConfig, err := ssmconnector.CommandConfigFromPlan(plan)
 		if err != nil {
 			return 0, err
@@ -181,12 +235,13 @@ func runCommandPlanShell(plan providerapi.ConnectorPlan) error {
 	return cmd.Run()
 }
 
-func runCommandPlanExec(plan providerapi.ConnectorPlan, stdout, stderr io.Writer) (int, error) {
+func runCommandPlanExec(plan providerapi.ConnectorPlan, stdin io.Reader, stdout, stderr io.Writer) (int, error) {
 	if strings.TrimSpace(plan.Program) == "" {
 		return 0, fmt.Errorf("connector command plan is missing program")
 	}
 
 	cmd := exec.CommandContext(context.Background(), plan.Program, plan.Args...)
+	cmd.Stdin = stdin
 	cmd.Stdout = stdout
 	cmd.Stderr = stderr
 	cmd.Env = mergedCommandPlanEnv(plan.Env)
@@ -309,6 +364,23 @@ func copyConnectorStream(wg *sync.WaitGroup, dst io.Writer, src io.Reader) {
 	_, _ = io.Copy(dst, src)
 }
 
+func runNativeInteractiveSession(run func() error) error {
+	fd := int(os.Stdin.Fd())
+	if !terminal.IsTerminal(fd) {
+		return run()
+	}
+
+	state, err := terminal.MakeRaw(fd)
+	if err != nil {
+		return err
+	}
+	defer func() {
+		_ = terminal.Restore(fd, state)
+	}()
+
+	return run()
+}
+
 func detailString(details map[string]interface{}, key string) string {
 	if details == nil {
 		return ""
@@ -367,6 +439,23 @@ func connectorLocalRCEnabled(r *Run, config conf.ServerConfig) bool {
 		return true
 	}
 	return config.LocalRcUse == "yes"
+}
+
+func connectorLocalRCCommand(r *Run, config conf.ServerConfig) string {
+	if !connectorLocalRCEnabled(r, config) {
+		return ""
+	}
+	return BuildInteractiveLocalRCShellCommand(config.LocalRcPath, config.LocalRcDecodeCmd, config.LocalRcCompress, config.LocalRcUncompressCmd)
+}
+
+func connectorPlanSupportsLocalRC(plan providerapi.ConnectorPlan, connectorName string) bool {
+	if connectorName != "aws-ssm" {
+		return false
+	}
+	if detailString(plan.Details, "shell_runtime") != "native" {
+		return false
+	}
+	return detailString(plan.Details, "session_action") == "start"
 }
 
 func connectorErrorString(server string, err error) string {

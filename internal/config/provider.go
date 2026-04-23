@@ -406,6 +406,7 @@ func providerReservedKeys(raw map[string]interface{}) []string {
 			"regions", "region", "profile",
 			"shared_config_files", "shared_credentials_files",
 			"include_tags", "server_name_template", "note_template", "addr_strategy",
+			"ssm_shell_runtime",
 		} {
 			keys[key] = struct{}{}
 		}

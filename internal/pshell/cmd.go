@@ -1236,7 +1236,7 @@ func (s *shell) executeRemotePipeLine(pline pipeLine, in *io.PipeReader, out *io
 					_, _ = io.WriteString(outputWriter, "connector execution requires a command\n")
 					return
 				}
-				if _, err := s.Run.RunConnectorCommand(conn.Name, append([]string(nil), commandArgs...), outputWriter, outputWriter); err != nil {
+				if _, err := s.Run.RunConnectorCommand(conn.Name, append([]string(nil), commandArgs...), nil, outputWriter, outputWriter); err != nil {
 					_, _ = fmt.Fprintf(outputWriter, "%s\n", err)
 					return
 				}
