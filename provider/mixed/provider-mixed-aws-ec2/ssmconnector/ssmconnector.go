@@ -34,6 +34,7 @@ type ShellConfig struct {
 	DocumentName  string
 	SessionAction string
 	SessionID     string
+	Runtime       string
 }
 
 type CommandConfig struct {
@@ -48,8 +49,12 @@ func ShellConfigFromPlan(plan providerapi.ConnectorPlan) (ShellConfig, error) {
 	cfg := ShellConfig{BaseConfig: baseConfigFromPlan(plan)}
 	cfg.DocumentName = detailString(plan.Details, "document_name")
 	cfg.SessionAction = detailString(plan.Details, "session_action")
+	cfg.Runtime = detailString(plan.Details, "shell_runtime")
 	if cfg.SessionAction == "" {
 		cfg.SessionAction = "start"
+	}
+	if cfg.Runtime == "" {
+		cfg.Runtime = "plugin"
 	}
 	cfg.SessionID = detailString(plan.Details, "session_id")
 

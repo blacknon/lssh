@@ -122,6 +122,35 @@ func TestAWSConnectorPrepareShellAttach(t *testing.T) {
 	}
 }
 
+func TestAWSConnectorPrepareShellNativeRuntime(t *testing.T) {
+	originalProbe := probeSSMTarget
+	defer func() { probeSSMTarget = originalProbe }()
+	probeSSMTarget = func(ctx context.Context, raw map[string]interface{}, target awsSSMTargetConfig) (awsSSMProbeResult, error) {
+		return awsSSMProbeResult{Managed: true, Online: true, Platform: "linux"}, nil
+	}
+
+	result, err := awsConnectorPrepare(providerapi.ConnectorPrepareParams{
+		Config: map[string]interface{}{
+			"ssm_shell_runtime": "native",
+		},
+		Target: providerapi.ConnectorTarget{
+			Name: "aws:web-01",
+			Meta: map[string]string{
+				"instance_id": "i-0123456789abcdef0",
+				"region":      "ap-northeast-1",
+				"platform":    "linux",
+			},
+		},
+		Operation: providerapi.ConnectorOperation{Name: "shell"},
+	})
+	if err != nil {
+		t.Fatalf("awsConnectorPrepare() error = %v", err)
+	}
+	if got := result.Plan.Details["shell_runtime"]; got != "native" {
+		t.Fatalf("Plan.Details[shell_runtime] = %v, want native", got)
+	}
+}
+
 func TestAWSConnectorPrepareRejectsAttachDetachConflict(t *testing.T) {
 	originalProbe := probeSSMTarget
 	defer func() { probeSSMTarget = originalProbe }()

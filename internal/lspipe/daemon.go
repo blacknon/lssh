@@ -60,12 +60,12 @@ type sshSessionAdapter struct {
 	session *gossh.Session
 }
 
-func (a *sshSessionAdapter) StdoutPipe() (io.Reader, error)  { return a.session.StdoutPipe() }
-func (a *sshSessionAdapter) StderrPipe() (io.Reader, error)  { return a.session.StderrPipe() }
+func (a *sshSessionAdapter) StdoutPipe() (io.Reader, error)     { return a.session.StdoutPipe() }
+func (a *sshSessionAdapter) StderrPipe() (io.Reader, error)     { return a.session.StderrPipe() }
 func (a *sshSessionAdapter) StdinPipe() (io.WriteCloser, error) { return a.session.StdinPipe() }
-func (a *sshSessionAdapter) Start(command string) error      { return a.session.Start(command) }
-func (a *sshSessionAdapter) Wait() error                     { return a.session.Wait() }
-func (a *sshSessionAdapter) Close() error                    { return a.session.Close() }
+func (a *sshSessionAdapter) Start(command string) error         { return a.session.Start(command) }
+func (a *sshSessionAdapter) Wait() error                        { return a.session.Wait() }
+func (a *sshSessionAdapter) Close() error                       { return a.session.Close() }
 
 type Daemon struct {
 	Name                  string
@@ -289,6 +289,10 @@ func (d *Daemon) resolveTargets(requested []string) ([]string, error) {
 }
 
 func (d *Daemon) runCommand(host string, req Request, sendEvent func(Event)) (int, error) {
+	if d.Config.ServerUsesConnector(host) {
+		return d.runConnectorCommand(host, req, sendEvent)
+	}
+
 	conn, err := d.getOrReconnect(host)
 	if err != nil {
 		return 1, err
@@ -317,6 +321,49 @@ func (d *Daemon) runCommand(host string, req Request, sendEvent func(Event)) (in
 		d.setHealth(host, HostHealth{Connected: true})
 	}
 
+	return code, nil
+}
+
+func (d *Daemon) runConnectorCommand(host string, req Request, sendEvent func(Event)) (int, error) {
+	connectorName := d.Config.ServerConnectorName(host)
+	if connectorName != "aws-ssm" {
+		return 1, fmt.Errorf("connector-backed host %s does not support lspipe yet", host)
+	}
+
+	var stdoutWriter io.Writer
+	var stderrWriter io.Writer
+	if req.Raw {
+		stdoutWriter = &eventWriter{host: host, stream: "stdout", raw: true, send: sendEvent}
+		stderrWriter = &eventWriter{host: host, stream: "stderr", raw: true, send: sendEvent}
+	} else {
+		stdout := &eventWriter{host: host, stream: "stdout", send: sendEvent}
+		stderr := &eventWriter{host: host, stream: "stderr", send: sendEvent}
+		stdoutWriter = stdout
+		stderrWriter = stderr
+		defer stdout.Flush()
+		defer stderr.Flush()
+	}
+
+	run := &lssh.Run{
+		Conf:                  d.Config,
+		ControlMasterOverride: d.ControlMasterOverride,
+		EnableStdoutMutex:     false,
+		EnableHeader:          false,
+		DisableHeader:         true,
+	}
+
+	var stdin io.Reader
+	if len(req.Stdin) > 0 {
+		stdin = bytes.NewReader(req.Stdin)
+	}
+
+	code, err := run.RunConnectorCommandLine(host, req.Command, stdin, stdoutWriter, stderrWriter)
+	if err != nil {
+		d.setHealth(host, HostHealth{Connected: false, Error: err.Error()})
+		return code, err
+	}
+
+	d.setHealth(host, HostHealth{Connected: true})
 	return code, nil
 }
 
@@ -382,6 +429,10 @@ func runSessionCommand(conn sessionConn, command string, stdin []byte, stdout io
 
 func (d *Daemon) connectAll() error {
 	for _, host := range d.Hosts {
+		if d.Config.ServerUsesConnector(host) {
+			d.setHealth(host, HostHealth{Connected: true})
+			continue
+		}
 		if _, err := d.connect(host); err != nil {
 			d.setHealth(host, HostHealth{Connected: false, Error: err.Error()})
 		}

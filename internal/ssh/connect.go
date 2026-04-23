@@ -246,6 +246,10 @@ func (r *Run) effectiveServerConfig(server string, forceDirect bool) conf.Server
 // createSshConnect is the main function for creating sshlib.Connect objects.
 // If forceDirect is true, it disables ControlMaster/ControlPersist for the connection (used for features like SFTP that require a concrete *ssh.Client).
 func (r *Run) createSshConnect(server string, forceDirect bool) (connect *sshlib.Connect, err error) {
+	if !r.Conf.ServerUsesBuiltInSSH(server) {
+		return nil, fmt.Errorf("server %q uses connector %q; direct ssh is not supported", server, r.Conf.ServerConnectorName(server))
+	}
+
 	// create proxyRoute
 	proxyRoute, err := getProxyRoute(server, r.Conf)
 	if err != nil {
