@@ -25,10 +25,10 @@ import (
 func (r *Run) shell() (err error) {
 	// server config
 	server := r.ServerList[0]
-	config := r.Conf.Server[server]
+	config := r.resolveShellConfig(server)
 
 	if r.usesConnector(server) {
-		return r.runConnectorShell(server)
+		return r.runConnectorShellWithConfig(server, config)
 	}
 
 	// check count AuthMethod
@@ -36,71 +36,6 @@ func (r *Run) shell() (err error) {
 		msg := fmt.Sprintf("Error: %s is No AuthMethod.\n", server)
 		err = errors.New(msg)
 		return
-	}
-
-	// set port forwarding
-	config = r.setPortForwards(server, config)
-
-	// OverWrite dynamic port forwarding
-	if r.DynamicPortForward != "" {
-		config.DynamicPortForward = r.DynamicPortForward
-	}
-
-	// OverWrite reverse dynamic port forwarding
-	if r.ReverseDynamicPortForward != "" {
-		config.ReverseDynamicPortForward = r.ReverseDynamicPortForward
-	}
-
-	// OverWrite http dynamic port forwarding
-	if r.HTTPDynamicPortForward != "" {
-		config.HTTPDynamicPortForward = r.HTTPDynamicPortForward
-	}
-
-	// OverWrite http reverse dynamic port forwarding
-	if r.HTTPReverseDynamicPortForward != "" {
-		config.HTTPReverseDynamicPortForward = r.HTTPReverseDynamicPortForward
-	}
-
-	// OverWrite nfs dynacmic forwarding
-	if r.NFSDynamicForwardPort != "" {
-		config.NFSDynamicForwardPort = r.NFSDynamicForwardPort
-	}
-
-	// OverWrite nfs dynamic path
-	if r.NFSDynamicForwardPath != "" {
-		config.NFSDynamicForwardPath = r.NFSDynamicForwardPath
-	}
-	if r.SMBDynamicForwardPort != "" {
-		config.SMBDynamicForwardPort = r.SMBDynamicForwardPort
-	}
-	if r.SMBDynamicForwardPath != "" {
-		config.SMBDynamicForwardPath = r.SMBDynamicForwardPath
-	}
-
-	// OverWrite nfs reverse dynamic forwarding
-	if r.NFSReverseDynamicForwardPort != "" {
-		config.NFSReverseDynamicForwardPort = r.NFSReverseDynamicForwardPort
-	}
-
-	// OverWrite nfs reverse dynamic path
-	if r.NFSReverseDynamicForwardPath != "" {
-		config.NFSReverseDynamicForwardPath = r.NFSReverseDynamicForwardPath
-	}
-	if r.SMBReverseDynamicForwardPort != "" {
-		config.SMBReverseDynamicForwardPort = r.SMBReverseDynamicForwardPort
-	}
-	if r.SMBReverseDynamicForwardPath != "" {
-		config.SMBReverseDynamicForwardPath = r.SMBReverseDynamicForwardPath
-	}
-
-	// OverWrite local bashrc use
-	if r.IsBashrc {
-		config.LocalRcUse = "yes"
-	}
-
-	// OverWrite local bashrc not use
-	if r.IsNotBashrc {
-		config.LocalRcUse = "no"
 	}
 
 	// header

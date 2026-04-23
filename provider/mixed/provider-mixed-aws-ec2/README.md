@@ -39,6 +39,7 @@ server_name_template = "aws:${tags.Name}"
 note_template = "aws ${instance_id} ${private_ip}"
 ssm_require_online = true
 ssm_shell_runtime = "plugin"
+ssm_port_forward_runtime = "plugin"
 
 [provider.aws.match.web]
 meta_in = ["tag.Role=web", "region=ap-northeast-1"]
@@ -88,9 +89,13 @@ connector_name = "aws-ssm"
   - `plugin` (default): use `aws ssm start-session`
   - `native`: use the experimental built-in Go runtime for plain shell start
     - `localrc` is supported only in this mode
+- `ssm_port_forward_runtime` controls how local port forwarding is executed.
+  - `plugin` (default): use `aws ssm start-session` with the port forwarding document
+  - `native`: reserved for future Go implementation and currently unsupported
 - optional connector tuning keys:
   - `ssm_shell_document`
   - `ssm_interactive_command_document`
+  - `ssm_port_forward_document`
 - current runtime behavior:
   - `shell` is executed with `aws ssm start-session`
     - attach uses `aws ssm resume-session`
@@ -100,6 +105,12 @@ connector_name = "aws-ssm"
     - `localrc` is executed by sending the generated startup command through the native session
   - `exec` is executed with the AWS SDK via `SendCommand`
     - when `ssm_shell_runtime = "native"` and the caller uses the connector stream path, `lspipe --raw` can stream stdin/stdout over the native runtime for Linux targets
+  - `port_forward_local` currently supports the plugin runtime only
+    - `lssh -L ...` works for `connector_name = "aws-ssm"` hosts
+    - only one TCP local forward is supported in the first wave
+    - bind address must stay on localhost / loopback
+    - AWS SSM runs this as a forwarding-only session, so `-N` and `localrc` are ignored
+    - X11 forwarding is still unsupported
 - to use `shell`, the local machine must have:
   - AWS CLI
   - Session Manager plugin for AWS CLI
@@ -130,6 +141,7 @@ Current operation capabilities for the AWS SSM connector layer:
 - `shell`
 - `exec`
 - `exec_pty`
+- `port_forward_local`
 
 Not recommended for the first implementation wave:
 

@@ -239,6 +239,10 @@ The following forwarding features are available
 
 When using NFS or SMB forward, lssh starts the corresponding server and begins listening on the specified port.
 
+Connector-backed hosts may narrow what forwarding means.
+For example, the current `aws-ssm` connector supports only a single local TCP port forward, and it must stay bound to localhost / loopback.
+That connector always runs forwarding as a forwarding-only session, so `-N` and `localrc` do not change its behavior.
+
 ### connector attach / detach
 
 Connector-backed shell sessions can expose attach / detach as ordinary command options.
@@ -265,6 +269,9 @@ Command line examples.
 ```bash
 # local port forwarding
 lssh -L 8080:localhost:80
+
+# AWS SSM connector local port forwarding
+lssh -L 15432:db.internal:5432
 
 # local unix socket forwarding
 lssh -L /tmp/local.sock:/tmp/remote.sock
