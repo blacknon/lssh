@@ -247,7 +247,8 @@ For example, the current `aws-ssm` connector supports:
 
 Current `aws-ssm` forwarding restrictions:
 
-- forwarding is handled as a forwarding-only session, so `-N` and `localrc` do not change its behavior
+- `-D` opens the interactive shell as well unless `-N` is specified
+- `-L` is still handled as a forwarding-only session, so `-N` and `localrc` do not change its behavior there
 - local TCP bind must stay on localhost / loopback
 - `-D` supports SOCKS5 CONNECT only, without authentication
 - each SOCKS connection currently uses its own SSM session

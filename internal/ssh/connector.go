@@ -42,9 +42,16 @@ func (r *Run) runConnectorShellWithConfig(server string, config conf.ServerConfi
 		return fmt.Errorf("server %q uses connector %q; ssh tunnel devices are not supported", server, connectorName)
 	}
 	if connectorHasForwarding(config) {
+		if r.connectorForwardingSharesShell(config, connectorName) {
+			return r.runConnectorShellWithSharedForwarding(server, config, connectorName)
+		}
 		return r.runConnectorForwarding(server, config, connectorName)
 	}
 
+	return r.runConnectorShellOnly(server, config, connectorName)
+}
+
+func (r *Run) runConnectorShellOnly(server string, config conf.ServerConfig, connectorName string) error {
 	r.PrintSelectServer()
 
 	operation, err := r.connectorShellOperation(connectorName)
@@ -73,6 +80,49 @@ func (r *Run) runConnectorShellWithConfig(server string, config conf.ServerConfi
 		default:
 			return fmt.Errorf("server %q connector %q returned unsupported plan kind %q", server, planConnector, prepared.Plan.Kind)
 		}
+	})
+}
+
+func (r *Run) runConnectorShellWithSharedForwarding(server string, config conf.ServerConfig, connectorName string) error {
+	operation, err := r.connectorShellOperation(connectorName)
+	if err != nil {
+		return err
+	}
+
+	prepared, err := r.Conf.PrepareConnector(server, operation)
+	if err != nil {
+		return err
+	}
+	planConnector := connectorNameFromPlan(prepared.Plan, connectorName)
+	if !prepared.Supported {
+		return fmt.Errorf("server %q connector %q: %v", server, planConnector, prepared.Plan.Details["reason"])
+	}
+	if connectorLocalRCEnabled(r, config) && !connectorPlanSupportsLocalRC(prepared.Plan, planConnector) {
+		return fmt.Errorf("server %q uses connector %q; localrc is not supported", server, planConnector)
+	}
+
+	r.PrintSelectServer()
+	r.printDynamicPortForward(config.DynamicPortForward)
+
+	return runConnectorWithPrePost(config, func() error {
+		ctx, cancel := context.WithCancel(context.Background())
+		defer cancel()
+
+		forwardErrCh := make(chan error, 1)
+		go func() {
+			forwardErrCh <- r.runConnectorDynamicPortForwardSession(ctx, server, config, connectorName, false)
+		}()
+
+		shellErr := runProviderManagedShell(r, config, prepared.Plan, planConnector)
+		cancel()
+		forwardErr := <-forwardErrCh
+		if shellErr != nil {
+			return shellErr
+		}
+		if forwardErr != nil {
+			return forwardErr
+		}
+		return nil
 	})
 }
 
@@ -549,6 +599,21 @@ func connectorHasForwarding(config conf.ServerConfig) bool {
 		config.NFSReverseDynamicForwardPort != "" ||
 		config.SMBDynamicForwardPort != "" ||
 		config.SMBReverseDynamicForwardPort != ""
+}
+
+func (r *Run) connectorForwardingSharesShell(config conf.ServerConfig, connectorName string) bool {
+	if r == nil || r.IsNone || connectorName != "aws-ssm" {
+		return false
+	}
+	return strings.TrimSpace(config.DynamicPortForward) != "" &&
+		len(config.Forwards) == 0 &&
+		config.ReverseDynamicPortForward == "" &&
+		config.HTTPDynamicPortForward == "" &&
+		config.HTTPReverseDynamicPortForward == "" &&
+		config.NFSDynamicForwardPort == "" &&
+		config.NFSReverseDynamicForwardPort == "" &&
+		config.SMBDynamicForwardPort == "" &&
+		config.SMBReverseDynamicForwardPort == ""
 }
 
 func (r *Run) resolveShellConfig(server string) conf.ServerConfig {

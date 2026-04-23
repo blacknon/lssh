@@ -115,6 +115,7 @@ connector_name = "aws-ssm"
     - X11 forwarding is still unsupported
   - dynamic port forwarding (`lssh -D ...`) supports both `plugin` and `native`
     - implemented as a local SOCKS5 listener plus one SSM port forwarding session per SOCKS connection
+    - when `lssh` is used in shell mode, `-D` keeps the interactive shell open unless `-N` is specified
     - current `native` mode uses the AWS CLI/session-manager-plugin transport for each SOCKS connection while the built-in port-session path catches up with newer agent behavior
     - only SOCKS5 CONNECT without authentication is supported in the first wave
     - reverse / HTTP / NFS / SMB forwarding still return explicit unsupported errors for `aws-ssm`
