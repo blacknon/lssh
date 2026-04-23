@@ -100,6 +100,18 @@ func TestConnectorForwardModeDynamic(t *testing.T) {
 	}
 }
 
+func TestConnectorForwardModeHTTPDynamic(t *testing.T) {
+	mode, err := connectorForwardMode(conf.ServerConfig{
+		HTTPDynamicPortForward: "18080",
+	})
+	if err != nil {
+		t.Fatalf("connectorForwardMode() error = %v", err)
+	}
+	if mode != "http-dynamic" {
+		t.Fatalf("connectorForwardMode() = %q, want http-dynamic", mode)
+	}
+}
+
 func TestConnectorForwardModeRejectsUnsupportedReverseDynamic(t *testing.T) {
 	_, err := connectorForwardMode(conf.ServerConfig{
 		ReverseDynamicPortForward: "2080",
@@ -145,6 +157,9 @@ func TestConnectorForwardingSharesShellForAWSSSMDynamicOnly(t *testing.T) {
 	r := &Run{}
 	if !r.connectorForwardingSharesShell(conf.ServerConfig{DynamicPortForward: "11080"}, "aws-ssm") {
 		t.Fatal("connectorForwardingSharesShell() = false, want true for aws-ssm dynamic forward")
+	}
+	if !r.connectorForwardingSharesShell(conf.ServerConfig{HTTPDynamicPortForward: "18080"}, "aws-ssm") {
+		t.Fatal("connectorForwardingSharesShell() = false, want true for aws-ssm http dynamic forward")
 	}
 	if r.connectorForwardingSharesShell(conf.ServerConfig{DynamicPortForward: "11080"}, "winrm") {
 		t.Fatal("connectorForwardingSharesShell() = true, want false for non aws-ssm connector")

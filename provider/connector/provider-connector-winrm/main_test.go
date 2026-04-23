@@ -28,6 +28,9 @@ func TestWinRMDescribe(t *testing.T) {
 	if !result.Capabilities["shell"].Supported {
 		t.Fatal("shell capability = unsupported, want supported")
 	}
+	if result.Capabilities["port_forward_local"].Supported {
+		t.Fatal("port_forward_local capability = supported, want unsupported")
+	}
 	if result.Capabilities["exec_pty"].Supported {
 		t.Fatal("exec_pty capability = supported, want unsupported")
 	}

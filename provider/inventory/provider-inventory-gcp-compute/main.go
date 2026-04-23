@@ -84,24 +84,25 @@ func listGCP(config map[string]interface{}) ([]providerapi.InventoryServer, erro
 		nameTemplate = "gcp:${name}"
 	}
 	noteTemplate := providerbuiltin.String(config, "note_template")
+	addrStrategy := gcpAddrStrategy(config)
 	zone := providerbuiltin.String(config, "zone")
 
 	if zone != "" {
-		return listGCPZone(ctx, service, project, zone, nameTemplate, noteTemplate)
+		return listGCPZone(ctx, service, project, zone, nameTemplate, noteTemplate, addrStrategy)
 	}
-	return listGCPAggregated(ctx, service, project, nameTemplate, noteTemplate)
+	return listGCPAggregated(ctx, service, project, nameTemplate, noteTemplate, addrStrategy)
 }
 
-func listGCPZone(ctx context.Context, service *compute.Service, project, zone, nameTemplate, noteTemplate string) ([]providerapi.InventoryServer, error) {
+func listGCPZone(ctx context.Context, service *compute.Service, project, zone, nameTemplate, noteTemplate, addrStrategy string) ([]providerapi.InventoryServer, error) {
 	call := service.Instances.List(project, zone)
 	resp, err := call.Context(ctx).Do()
 	if err != nil {
 		return nil, err
 	}
-	return convertGCPInstances(resp.Items, nameTemplate, noteTemplate), nil
+	return convertGCPInstances(resp.Items, nameTemplate, noteTemplate, addrStrategy), nil
 }
 
-func listGCPAggregated(ctx context.Context, service *compute.Service, project, nameTemplate, noteTemplate string) ([]providerapi.InventoryServer, error) {
+func listGCPAggregated(ctx context.Context, service *compute.Service, project, nameTemplate, noteTemplate, addrStrategy string) ([]providerapi.InventoryServer, error) {
 	call := service.Instances.AggregatedList(project)
 	resp, err := call.Context(ctx).Do()
 	if err != nil {
@@ -110,12 +111,12 @@ func listGCPAggregated(ctx context.Context, service *compute.Service, project, n
 
 	out := []providerapi.InventoryServer{}
 	for _, scoped := range resp.Items {
-		out = append(out, convertGCPInstances(scoped.Instances, nameTemplate, noteTemplate)...)
+		out = append(out, convertGCPInstances(scoped.Instances, nameTemplate, noteTemplate, addrStrategy)...)
 	}
 	return out, nil
 }
 
-func convertGCPInstances(instances []*compute.Instance, nameTemplate, noteTemplate string) []providerapi.InventoryServer {
+func convertGCPInstances(instances []*compute.Instance, nameTemplate, noteTemplate, addrStrategy string) []providerapi.InventoryServer {
 	out := make([]providerapi.InventoryServer, 0, len(instances))
 	for _, instance := range instances {
 		if instance == nil || instance.Status != "RUNNING" {
@@ -131,12 +132,10 @@ func convertGCPInstances(instances []*compute.Instance, nameTemplate, noteTempla
 			}
 		}
 
+		addr := gcpSelectAddress(privateIP, publicIP, addrStrategy)
 		cfg := map[string]interface{}{
-			"addr": privateIP,
+			"addr": addr,
 			"note": renderGCPTemplate(noteTemplate, instance.Name, fmt.Sprint(instance.Id), privateIP, publicIP, instance.Zone, instance.Labels),
-		}
-		if cfg["addr"] == "" {
-			cfg["addr"] = publicIP
 		}
 
 		meta := map[string]string{
@@ -164,7 +163,7 @@ func convertGCPInstances(instances []*compute.Instance, nameTemplate, noteTempla
 
 func gcpOptions(config map[string]interface{}) []option.ClientOption {
 	opts := []option.ClientOption{}
-	if credentialsFile := providerbuiltin.String(config, "credentials_file"); credentialsFile != "" {
+	if credentialsFile := gcpCredentialsFile(config); credentialsFile != "" {
 		opts = append(opts, option.WithCredentialsFile(credentialsFile))
 	}
 	if endpoint := providerbuiltin.String(config, "endpoint"); endpoint != "" {
@@ -174,6 +173,48 @@ func gcpOptions(config map[string]interface{}) []option.ClientOption {
 		opts = append(opts, option.WithScopes(scopes...))
 	}
 	return opts
+}
+
+func gcpAddrStrategy(config map[string]interface{}) string {
+	switch strings.TrimSpace(strings.ToLower(providerbuiltin.String(config, "addr_strategy"))) {
+	case "", "private_first":
+		return "private_first"
+	case "public_first":
+		return "public_first"
+	case "private_only":
+		return "private_only"
+	case "public_only":
+		return "public_only"
+	default:
+		return "private_first"
+	}
+}
+
+func gcpSelectAddress(privateIP, publicIP, strategy string) string {
+	switch strategy {
+	case "public_first":
+		if publicIP != "" {
+			return publicIP
+		}
+		return privateIP
+	case "private_only":
+		return privateIP
+	case "public_only":
+		return publicIP
+	default:
+		if privateIP != "" {
+			return privateIP
+		}
+		return publicIP
+	}
+}
+
+func gcpCredentialsFile(config map[string]interface{}) string {
+	credentialsFile := providerbuiltin.String(config, "credentials_file")
+	if credentialsFile == "" {
+		return ""
+	}
+	return providerbuiltin.ExpandPath(credentialsFile)
 }
 
 func gcpHealthCheck(config map[string]interface{}) (providerapi.HealthCheckResult, error) {

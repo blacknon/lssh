@@ -118,7 +118,12 @@ connector_name = "aws-ssm"
     - when `lssh` is used in shell mode, `-D` keeps the interactive shell open unless `-N` is specified
     - current `native` mode uses the AWS CLI/session-manager-plugin transport for each SOCKS connection while the built-in port-session path catches up with newer agent behavior
     - only SOCKS5 CONNECT without authentication is supported in the first wave
-    - reverse / HTTP / NFS / SMB forwarding still return explicit unsupported errors for `aws-ssm`
+  - HTTP dynamic port forwarding (`lssh -d ...`) supports both `plugin` and `native`
+    - implemented as a local HTTP proxy listener plus one SSM port forwarding session per request
+    - when `lssh` is used in shell mode, `-d` keeps the interactive shell open unless `-N` is specified
+    - current `native` mode uses the AWS CLI/session-manager-plugin transport for each HTTP proxy request
+    - ordinary HTTP requests and HTTPS `CONNECT` are supported in the first wave
+  - reverse / HTTP reverse / NFS / SMB forwarding still return explicit unsupported errors for `aws-ssm`
 - to use `shell`, the local machine must have:
   - AWS CLI
   - Session Manager plugin for AWS CLI
