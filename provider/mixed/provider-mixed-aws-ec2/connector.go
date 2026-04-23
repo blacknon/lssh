@@ -77,8 +77,16 @@ func awsConnectorDescribe(params providerapi.ConnectorDescribeParams) (providera
 				Reason:    "aws ssm does not provide mount semantics",
 			},
 			"port_forward_local": {
-				Supported: probe.Managed && probe.Online && awsSSMPortForwardRuntime(params.Config) == "plugin",
+				Supported: probe.Managed && probe.Online,
 				Reason: awsSSMLocalPortForwardReason(
+					probe,
+					awsSSMPortForwardRuntime(params.Config),
+				),
+				Requires: []string{"aws:ssm_managed_instance"},
+			},
+			"tcp_dial_transport": {
+				Supported: probe.Managed && probe.Online,
+				Reason: awsSSMTCPDialTransportReason(
 					probe,
 					awsSSMPortForwardRuntime(params.Config),
 				),
@@ -181,9 +189,16 @@ func awsConnectorPrepare(params providerapi.ConnectorPrepareParams) (providerapi
 		if documentName := providerbuiltin.String(params.Config, "ssm_port_forward_document"); documentName != "" {
 			plan.Details["document_name"] = documentName
 		}
-		if awsSSMPortForwardRuntime(params.Config) != "plugin" {
-			supported = false
-			plan.Details["reason"] = "aws ssm native local port forwarding is not implemented yet"
+	case "tcp_dial_transport":
+		spec, specErr := awsDialTransportSpecFromOperation(params.Operation)
+		if specErr != nil {
+			return providerapi.ConnectorPrepareResult{}, specErr
+		}
+		plan.Details["session_mode"] = "tcp-dial-transport"
+		plan.Details["target_host"] = spec.TargetHost
+		plan.Details["target_port"] = spec.TargetPort
+		if documentName := providerbuiltin.String(params.Config, "ssm_port_forward_document"); documentName != "" {
+			plan.Details["document_name"] = documentName
 		}
 	default:
 		return providerapi.ConnectorPrepareResult{
@@ -287,26 +302,34 @@ func awsSSMShellRuntime(config map[string]interface{}) string {
 }
 
 func awsSSMPortForwardRuntime(config map[string]interface{}) string {
-	switch strings.ToLower(strings.TrimSpace(providerbuiltin.String(config, "ssm_port_forward_runtime"))) {
-	case "", "plugin":
+	switch value := strings.ToLower(strings.TrimSpace(providerbuiltin.String(config, "ssm_port_forward_runtime"))); value {
+	case "":
+		return awsSSMShellRuntime(config)
+	case "plugin":
 		return "plugin"
 	case "native":
 		return "native"
 	default:
-		return "plugin"
+		return awsSSMShellRuntime(config)
 	}
 }
 
 func awsSSMLocalPortForwardReason(probe awsSSMProbeResult, runtime string) string {
-	if runtime != "plugin" {
-		return "aws ssm native local port forwarding is not implemented yet"
-	}
 	return awsSSMUnsupportedReason(probe, "local port forwarding requires an SSM-managed online instance")
+}
+
+func awsSSMTCPDialTransportReason(probe awsSSMProbeResult, runtime string) string {
+	return awsSSMUnsupportedReason(probe, "dial transport requires an SSM-managed online instance")
 }
 
 type awsLocalPortForwardSpec struct {
 	ListenHost string
 	ListenPort string
+	TargetHost string
+	TargetPort string
+}
+
+type awsDialTransportSpec struct {
 	TargetHost string
 	TargetPort string
 }
@@ -329,6 +352,18 @@ func awsLocalPortForwardSpecFromOperation(operation providerapi.ConnectorOperati
 	return awsLocalPortForwardSpec{
 		ListenHost: listenHost,
 		ListenPort: listenPort,
+		TargetHost: targetHost,
+		TargetPort: targetPort,
+	}, nil
+}
+
+func awsDialTransportSpecFromOperation(operation providerapi.ConnectorOperation) (awsDialTransportSpec, error) {
+	targetHost := strings.TrimSpace(awsOptionString(operation.Options, "target_host"))
+	targetPort := strings.TrimSpace(awsOptionString(operation.Options, "target_port"))
+	if targetHost == "" || targetPort == "" {
+		return awsDialTransportSpec{}, fmt.Errorf("tcp dial transport requires target_host and target_port")
+	}
+	return awsDialTransportSpec{
 		TargetHost: targetHost,
 		TargetPort: targetPort,
 	}, nil

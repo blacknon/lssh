@@ -9,6 +9,7 @@ import (
 	"testing"
 
 	"github.com/aws/smithy-go"
+	"github.com/blacknon/lssh/internal/providerapi"
 )
 
 func TestBuildStartSessionCommand(t *testing.T) {
@@ -148,6 +149,27 @@ func TestBuildStartPortForwardCommand(t *testing.T) {
 	}
 	if !env["AWS_SHARED_CREDENTIALS_FILE=/tmp/aws-credentials"] {
 		t.Fatal("AWS_SHARED_CREDENTIALS_FILE is not set in command env")
+	}
+}
+
+func TestPortForwardDialConfigFromPlan(t *testing.T) {
+	cfg, err := PortForwardDialConfigFromPlan(providerapi.ConnectorPlan{
+		Details: map[string]interface{}{
+			"instance_id":          "i-0123456789abcdef0",
+			"region":               "ap-northeast-1",
+			"port_forward_runtime": "plugin",
+			"target_host":          "db.internal",
+			"target_port":          "5432",
+		},
+	})
+	if err != nil {
+		t.Fatalf("PortForwardDialConfigFromPlan() error = %v", err)
+	}
+	if cfg.TargetHost != "db.internal" {
+		t.Fatalf("cfg.TargetHost = %q, want db.internal", cfg.TargetHost)
+	}
+	if cfg.TargetPort != "5432" {
+		t.Fatalf("cfg.TargetPort = %q, want 5432", cfg.TargetPort)
 	}
 }
 

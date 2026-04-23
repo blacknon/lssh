@@ -240,8 +240,21 @@ The following forwarding features are available
 When using NFS or SMB forward, lssh starts the corresponding server and begins listening on the specified port.
 
 Connector-backed hosts may narrow what forwarding means.
-For example, the current `aws-ssm` connector supports only a single local TCP port forward, and it must stay bound to localhost / loopback.
-That connector always runs forwarding as a forwarding-only session, so `-N` and `localrc` do not change its behavior.
+For example, the current `aws-ssm` connector supports:
+
+- a single local TCP port forward with `-L`
+- SOCKS5 dynamic forwarding with `-D`
+
+Current `aws-ssm` forwarding restrictions:
+
+- forwarding is handled as a forwarding-only session, so `-N` and `localrc` do not change its behavior
+- local TCP bind must stay on localhost / loopback
+- `-D` supports SOCKS5 CONNECT only, without authentication
+- each SOCKS connection currently uses its own SSM session
+- when `ssm_port_forward_runtime` is omitted, forwarding follows `ssm_shell_runtime`
+- native `-D` currently falls back to the AWS CLI/session-manager-plugin transport per SOCKS connection
+- when `ssm_port_forward_runtime = "native"`, each accepted `-L` TCP connection also uses its own SSM session
+- `-R`, `-r`, `-d`, `-M`, `-m`, `-S`, and `-s` are still unsupported and return explicit errors
 
 ### connector attach / detach
 

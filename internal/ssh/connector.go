@@ -42,7 +42,7 @@ func (r *Run) runConnectorShellWithConfig(server string, config conf.ServerConfi
 		return fmt.Errorf("server %q uses connector %q; ssh tunnel devices are not supported", server, connectorName)
 	}
 	if connectorHasForwarding(config) {
-		return r.runConnectorLocalPortForward(server, config, connectorName)
+		return r.runConnectorForwarding(server, config, connectorName)
 	}
 
 	r.PrintSelectServer()
@@ -242,13 +242,48 @@ func runProviderManagedLocalPortForward(plan providerapi.ConnectorPlan, connecto
 		if err != nil {
 			return err
 		}
-		if cfg.Runtime != "plugin" {
-			return fmt.Errorf("aws ssm native local port forwarding is not implemented yet")
+		if cfg.Runtime == "native" {
+			return runNativeSSMLocalPortForward(plan, cfg)
 		}
 		return ssmconnector.StartLocalPortForward(context.Background(), cfg)
 	default:
 		return fmt.Errorf("connector %q does not support local port forwarding in the core runtime yet", connectorName)
 	}
+}
+
+func dialProviderManagedTransport(plan providerapi.ConnectorPlan, connectorName string) (net.Conn, error) {
+	switch connectorName {
+	case "aws-ssm":
+		cfg, err := ssmconnector.PortForwardDialConfigFromPlan(plan)
+		if err != nil {
+			return nil, err
+		}
+		if cfg.Runtime == "native" && !awsSSMDynamicDialNeedsPluginFallback(plan) {
+			return ssmsession.DialTarget(context.Background(), ssmsession.Config{
+				InstanceID:             cfg.InstanceID,
+				Region:                 cfg.Region,
+				Platform:               cfg.Platform,
+				Profile:                cfg.Profile,
+				SharedConfigFiles:      append([]string(nil), cfg.SharedConfigFiles...),
+				SharedCredentialsFiles: append([]string(nil), cfg.SharedCredentialsFiles...),
+				DocumentName:           cfg.DocumentName,
+				PortForwardHost:        cfg.TargetHost,
+				PortForwardPort:        cfg.TargetPort,
+				PortForwardLocalPort:   "0",
+			})
+		}
+		if cfg.Runtime == "native" {
+			cfg.Runtime = "plugin"
+		}
+		return ssmconnector.DialTarget(context.Background(), cfg)
+	default:
+		return nil, fmt.Errorf("connector %q does not support dial transport in the core runtime yet", connectorName)
+	}
+}
+
+func awsSSMDynamicDialNeedsPluginFallback(plan providerapi.ConnectorPlan) bool {
+	return detailString(plan.Details, "connector") == "aws-ssm" &&
+		detailString(plan.Details, "session_mode") == "tcp-dial-transport"
 }
 
 func runCommandPlanShell(plan providerapi.ConnectorPlan) error {
@@ -284,6 +319,22 @@ func runCommandPlanExec(plan providerapi.ConnectorPlan, stdin io.Reader, stdout,
 		return exitErr.ExitCode(), nil
 	}
 	return 0, err
+}
+
+func (r *Run) runConnectorForwarding(server string, config conf.ServerConfig, connectorName string) error {
+	mode, err := connectorForwardMode(config)
+	if err != nil {
+		return fmt.Errorf("server %q uses connector %q; %w", server, connectorName, err)
+	}
+
+	switch mode {
+	case "local":
+		return r.runConnectorLocalPortForward(server, config, connectorName)
+	case "dynamic":
+		return r.runConnectorDynamicPortForward(server, config, connectorName)
+	default:
+		return fmt.Errorf("server %q uses connector %q; unsupported forwarding mode %q", server, connectorName, mode)
+	}
 }
 
 func (r *Run) runConnectorLocalPortForward(server string, config conf.ServerConfig, connectorName string) error {
@@ -558,6 +609,44 @@ type connectorPortForwardSpec struct {
 	ListenPort string
 	TargetHost string
 	TargetPort string
+}
+
+func connectorForwardMode(config conf.ServerConfig) (string, error) {
+	localForwardConfigured := len(config.Forwards) > 0
+	dynamicForwardConfigured := strings.TrimSpace(config.DynamicPortForward) != ""
+
+	if localForwardConfigured && dynamicForwardConfigured {
+		return "", fmt.Errorf("combining local (-L) and dynamic (-D) port forwarding is not supported")
+	}
+	if config.ReverseDynamicPortForward != "" {
+		return "", fmt.Errorf("reverse dynamic port forwarding (-R port) is not supported yet")
+	}
+	if config.HTTPDynamicPortForward != "" {
+		return "", fmt.Errorf("http dynamic port forwarding (-d) is not supported yet")
+	}
+	if config.HTTPReverseDynamicPortForward != "" {
+		return "", fmt.Errorf("http reverse dynamic port forwarding (-r) is not supported yet")
+	}
+	if config.NFSDynamicForwardPort != "" || config.NFSDynamicForwardPath != "" {
+		return "", fmt.Errorf("nfs dynamic forwarding (-M) is not supported yet")
+	}
+	if config.NFSReverseDynamicForwardPort != "" || config.NFSReverseDynamicForwardPath != "" {
+		return "", fmt.Errorf("nfs reverse dynamic forwarding (-m) is not supported yet")
+	}
+	if config.SMBDynamicForwardPort != "" || config.SMBDynamicForwardPath != "" {
+		return "", fmt.Errorf("smb dynamic forwarding (-S) is not supported yet")
+	}
+	if config.SMBReverseDynamicForwardPort != "" || config.SMBReverseDynamicForwardPath != "" {
+		return "", fmt.Errorf("smb reverse dynamic forwarding (-s) is not supported yet")
+	}
+
+	if localForwardConfigured {
+		return "local", nil
+	}
+	if dynamicForwardConfigured {
+		return "dynamic", nil
+	}
+	return "", fmt.Errorf("forwarding is not configured")
 }
 
 func connectorLocalForwardSpec(config conf.ServerConfig) (connectorPortForwardSpec, error) {

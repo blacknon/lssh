@@ -151,6 +151,41 @@ func TestAWSConnectorPrepareShellNativeRuntime(t *testing.T) {
 	}
 }
 
+func TestAWSConnectorPreparePortForwardFallsBackToShellNativeRuntime(t *testing.T) {
+	originalProbe := probeSSMTarget
+	defer func() { probeSSMTarget = originalProbe }()
+	probeSSMTarget = func(ctx context.Context, raw map[string]interface{}, target awsSSMTargetConfig) (awsSSMProbeResult, error) {
+		return awsSSMProbeResult{Managed: true, Online: true, Platform: "linux"}, nil
+	}
+
+	result, err := awsConnectorPrepare(providerapi.ConnectorPrepareParams{
+		Config: map[string]interface{}{
+			"ssm_shell_runtime": "native",
+		},
+		Target: providerapi.ConnectorTarget{
+			Name: "aws:web-01",
+			Meta: map[string]string{
+				"instance_id": "i-0123456789abcdef0",
+				"region":      "ap-northeast-1",
+				"platform":    "linux",
+			},
+		},
+		Operation: providerapi.ConnectorOperation{
+			Name: "tcp_dial_transport",
+			Options: map[string]interface{}{
+				"target_host": "api.internal",
+				"target_port": "443",
+			},
+		},
+	})
+	if err != nil {
+		t.Fatalf("awsConnectorPrepare() error = %v", err)
+	}
+	if got := result.Plan.Details["port_forward_runtime"]; got != "native" {
+		t.Fatalf("Plan.Details[port_forward_runtime] = %v, want native", got)
+	}
+}
+
 func TestAWSConnectorDescribePortForwardLocalPluginRuntime(t *testing.T) {
 	originalProbe := probeSSMTarget
 	defer func() { probeSSMTarget = originalProbe }()
@@ -176,6 +211,9 @@ func TestAWSConnectorDescribePortForwardLocalPluginRuntime(t *testing.T) {
 	}
 	if !result.Capabilities["port_forward_local"].Supported {
 		t.Fatal("port_forward_local capability = unsupported, want supported")
+	}
+	if !result.Capabilities["tcp_dial_transport"].Supported {
+		t.Fatal("tcp_dial_transport capability = unsupported, want supported")
 	}
 }
 
@@ -222,7 +260,7 @@ func TestAWSConnectorPreparePortForwardLocal(t *testing.T) {
 	}
 }
 
-func TestAWSConnectorPreparePortForwardLocalNativeUnsupported(t *testing.T) {
+func TestAWSConnectorPreparePortForwardLocalNativeSupported(t *testing.T) {
 	originalProbe := probeSSMTarget
 	defer func() { probeSSMTarget = originalProbe }()
 	probeSSMTarget = func(ctx context.Context, raw map[string]interface{}, target awsSSMTargetConfig) (awsSSMProbeResult, error) {
@@ -254,11 +292,90 @@ func TestAWSConnectorPreparePortForwardLocalNativeUnsupported(t *testing.T) {
 	if err != nil {
 		t.Fatalf("awsConnectorPrepare() error = %v", err)
 	}
-	if result.Supported {
-		t.Fatal("Supported = true, want false")
+	if !result.Supported {
+		t.Fatal("Supported = false, want true")
 	}
-	if got := result.Plan.Details["reason"]; got != "aws ssm native local port forwarding is not implemented yet" {
-		t.Fatalf("Plan.Details[reason] = %v, want native runtime unsupported reason", got)
+	if got := result.Plan.Details["port_forward_runtime"]; got != "native" {
+		t.Fatalf("Plan.Details[port_forward_runtime] = %v, want native", got)
+	}
+}
+
+func TestAWSConnectorPrepareTCPDialTransport(t *testing.T) {
+	originalProbe := probeSSMTarget
+	defer func() { probeSSMTarget = originalProbe }()
+	probeSSMTarget = func(ctx context.Context, raw map[string]interface{}, target awsSSMTargetConfig) (awsSSMProbeResult, error) {
+		return awsSSMProbeResult{Managed: true, Online: true, Platform: "linux"}, nil
+	}
+
+	result, err := awsConnectorPrepare(providerapi.ConnectorPrepareParams{
+		Config: map[string]interface{}{
+			"ssm_port_forward_runtime": "plugin",
+		},
+		Target: providerapi.ConnectorTarget{
+			Name: "aws:web-01",
+			Meta: map[string]string{
+				"instance_id": "i-0123456789abcdef0",
+				"region":      "ap-northeast-1",
+				"platform":    "linux",
+			},
+		},
+		Operation: providerapi.ConnectorOperation{
+			Name: "tcp_dial_transport",
+			Options: map[string]interface{}{
+				"target_host": "api.internal",
+				"target_port": "443",
+			},
+		},
+	})
+	if err != nil {
+		t.Fatalf("awsConnectorPrepare() error = %v", err)
+	}
+	if !result.Supported {
+		t.Fatal("Supported = false, want true")
+	}
+	if got := result.Plan.Details["session_mode"]; got != "tcp-dial-transport" {
+		t.Fatalf("Plan.Details[session_mode] = %v, want tcp-dial-transport", got)
+	}
+	if got := result.Plan.Details["target_host"]; got != "api.internal" {
+		t.Fatalf("Plan.Details[target_host] = %v, want api.internal", got)
+	}
+}
+
+func TestAWSConnectorPrepareTCPDialTransportNativeSupported(t *testing.T) {
+	originalProbe := probeSSMTarget
+	defer func() { probeSSMTarget = originalProbe }()
+	probeSSMTarget = func(ctx context.Context, raw map[string]interface{}, target awsSSMTargetConfig) (awsSSMProbeResult, error) {
+		return awsSSMProbeResult{Managed: true, Online: true, Platform: "linux"}, nil
+	}
+
+	result, err := awsConnectorPrepare(providerapi.ConnectorPrepareParams{
+		Config: map[string]interface{}{
+			"ssm_port_forward_runtime": "native",
+		},
+		Target: providerapi.ConnectorTarget{
+			Name: "aws:web-01",
+			Meta: map[string]string{
+				"instance_id": "i-0123456789abcdef0",
+				"region":      "ap-northeast-1",
+				"platform":    "linux",
+			},
+		},
+		Operation: providerapi.ConnectorOperation{
+			Name: "tcp_dial_transport",
+			Options: map[string]interface{}{
+				"target_host": "api.internal",
+				"target_port": "443",
+			},
+		},
+	})
+	if err != nil {
+		t.Fatalf("awsConnectorPrepare() error = %v", err)
+	}
+	if !result.Supported {
+		t.Fatal("Supported = false, want true")
+	}
+	if got := result.Plan.Details["port_forward_runtime"]; got != "native" {
+		t.Fatalf("Plan.Details[port_forward_runtime] = %v, want native", got)
 	}
 }
 
