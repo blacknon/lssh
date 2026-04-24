@@ -13,6 +13,7 @@ import (
 
 	conf "github.com/blacknon/lssh/internal/config"
 	"github.com/blacknon/lssh/internal/providerapi"
+	"github.com/blacknon/lssh/internal/termenv"
 	"github.com/blacknon/lssh/provider/connector/provider-connector-telnet/telnetlib"
 	"github.com/blacknon/lssh/provider/connector/provider-connector-winrm/winrmlib"
 	azurebastionconnector "github.com/blacknon/lssh/provider/inventory/provider-inventory-azure-compute/bastionconnector"
@@ -484,15 +485,7 @@ func (r *Run) runConnectorLocalPortForward(server string, config conf.ServerConf
 }
 
 func mergedCommandPlanEnv(env map[string]string) []string {
-	if len(env) == 0 {
-		return nil
-	}
-
-	result := append([]string{}, os.Environ()...)
-	for key, value := range env {
-		result = append(result, key+"="+value)
-	}
-	return result
+	return termenv.MergeEnv(env)
 }
 
 func runWinRMShell(plan providerapi.ConnectorPlan) error {
