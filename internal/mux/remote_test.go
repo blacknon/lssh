@@ -58,6 +58,15 @@ func TestBuildAWSNativeShellSessionConfigWithoutLocalRC(t *testing.T) {
 	}
 }
 
+func TestBuildLocalRcCommandExportsTERM(t *testing.T) {
+	t.Setenv("TERM", "screen-256color")
+
+	cmd := buildLocalRcCommand([]string{}, "", false, "")
+	if !strings.Contains(cmd, "export TERM=screen-256color;") {
+		t.Fatalf("buildLocalRcCommand() = %q, want TERM export", cmd)
+	}
+}
+
 func TestShouldUseAWSNativeShellInMux(t *testing.T) {
 	if runtime.GOOS == "windows" {
 		t.Skip("native mux shell fallback is disabled on Windows")

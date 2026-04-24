@@ -24,6 +24,7 @@ import (
 	"github.com/blacknon/lssh/internal/connectorruntime"
 	"github.com/blacknon/lssh/internal/providerapi"
 	sshcmd "github.com/blacknon/lssh/internal/ssh"
+	"github.com/blacknon/lssh/internal/termenv"
 	"github.com/blacknon/lssh/provider/connector/provider-connector-telnet/telnetlib"
 	"github.com/blacknon/lssh/provider/connector/provider-connector-winrm/winrmlib"
 	ssmconnector "github.com/blacknon/lssh/provider/mixed/provider-mixed-aws-ec2/ssmconnector"
@@ -318,14 +319,14 @@ func newSSHRemoteSession(cfg conf.Config, server string, serverConf conf.ServerC
 	}
 
 	opts := sshlib.TerminalOptions{
-		Term: "xterm-256color",
+		Term: termenv.Current(),
 		Cols: maxInt(cols, 80),
 		Rows: maxInt(rows, 24),
 	}
 	if len(command) == 0 {
 		opts.StartShell = true
 	} else {
-		opts.Command = shellquote.Join(command...)
+		opts.Command = termenv.WrapShellExec(shellquote.Join(command...))
 	}
 	if len(command) == 0 && serverConf.LocalRcUse == "yes" {
 		opts.StartShell = false
@@ -1116,15 +1117,7 @@ func detailStringSlice(details map[string]interface{}, key string) []string {
 }
 
 func mergedCommandPlanEnv(env map[string]string) []string {
-	if len(env) == 0 {
-		return nil
-	}
-
-	result := append([]string{}, os.Environ()...)
-	for key, value := range env {
-		result = append(result, key+"="+value)
-	}
-	return result
+	return termenv.MergeEnv(env)
 }
 
 func isExpectedProcessExit(err error) bool {
@@ -1163,6 +1156,7 @@ func buildLocalRcCommand(localrcPath []string, decoder string, compress bool, un
 	}
 
 	rcData, _ := common.GetFilesBase64(localrcPath, localrcArchiveMode(compress))
+	prefixCommand := fmt.Sprintf("export TERM=%s; ", shellquote.Join(termenv.Current()))
 
 	if uncompress == "" {
 		uncompress = "gzip -d"
@@ -1170,13 +1164,13 @@ func buildLocalRcCommand(localrcPath []string, decoder string, compress bool, un
 
 	switch {
 	case !compress && decoder != "":
-		return fmt.Sprintf("bash --noprofile --rcfile <(echo %s | %s); exit 0", rcData, decoder)
+		return fmt.Sprintf("%sbash --noprofile --rcfile <(echo %s | %s); exit 0", prefixCommand, rcData, decoder)
 	case !compress && decoder == "":
-		return fmt.Sprintf("bash --noprofile --rcfile <(echo %s | ( (base64 --help | grep -q coreutils) && base64 -d <(cat) || base64 -D <(cat) ) ); exit 0", rcData)
+		return fmt.Sprintf("%sbash --noprofile --rcfile <(echo %s | ( (base64 --help | grep -q coreutils) && base64 -d <(cat) || base64 -D <(cat) ) ); exit 0", prefixCommand, rcData)
 	case compress && decoder != "":
-		return fmt.Sprintf("bash --noprofile --rcfile <(echo %s | %s | %s); exit 0", rcData, decoder, uncompress)
+		return fmt.Sprintf("%sbash --noprofile --rcfile <(echo %s | %s | %s); exit 0", prefixCommand, rcData, decoder, uncompress)
 	default:
-		return fmt.Sprintf("bash --noprofile --rcfile <(echo %s | ( (base64 --help | grep -q coreutils) && base64 -d <(cat) || base64 -D <(cat) ) | %s); exit 0", rcData, uncompress)
+		return fmt.Sprintf("%sbash --noprofile --rcfile <(echo %s | ( (base64 --help | grep -q coreutils) && base64 -d <(cat) || base64 -D <(cat) ) | %s); exit 0", prefixCommand, rcData, uncompress)
 	}
 }
 

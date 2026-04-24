@@ -19,6 +19,7 @@ import (
 	"github.com/aws/smithy-go"
 	"github.com/blacknon/lssh/internal/providerapi"
 	"github.com/blacknon/lssh/internal/providerbuiltin"
+	"github.com/blacknon/lssh/internal/termenv"
 	"github.com/kballard/go-shellquote"
 )
 
@@ -257,7 +258,7 @@ func RunCommand(ctx context.Context, cfg CommandConfig, stdout, stderr io.Writer
 
 	commandText := strings.Join(cfg.Command, " ")
 	if !strings.EqualFold(cfg.Platform, "windows") {
-		commandText = shellquote.Join(cfg.Command...)
+		commandText = termenv.WrapShellExec(shellquote.Join(cfg.Command...))
 	}
 
 	sendOut, err := client.SendCommand(ctx, &ssm.SendCommandInput{
