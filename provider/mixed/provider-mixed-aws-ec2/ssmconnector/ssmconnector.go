@@ -35,6 +35,7 @@ type BaseConfig struct {
 type ShellConfig struct {
 	BaseConfig
 	DocumentName  string
+	Command       []string
 	SessionAction string
 	SessionID     string
 	Runtime       string
@@ -61,6 +62,7 @@ type PortForwardLocalConfig struct {
 func ShellConfigFromPlan(plan providerapi.ConnectorPlan) (ShellConfig, error) {
 	cfg := ShellConfig{BaseConfig: baseConfigFromPlan(plan)}
 	cfg.DocumentName = detailString(plan.Details, "document_name")
+	cfg.Command = detailStringSlice(plan.Details, "command")
 	cfg.SessionAction = detailString(plan.Details, "session_action")
 	cfg.Runtime = detailString(plan.Details, "shell_runtime")
 	if cfg.SessionAction == "" {
@@ -157,6 +159,15 @@ func BuildStartSessionCommand(ctx context.Context, cfg ShellConfig) *exec.Cmd {
 	}
 	if cfg.SessionAction != "attach" && cfg.DocumentName != "" {
 		args = append(args, "--document-name", cfg.DocumentName)
+	}
+	if cfg.SessionAction != "attach" && len(cfg.Command) > 0 {
+		commandLine := shellquote.Join(cfg.Command...)
+		parameters, err := json.Marshal(map[string][]string{
+			"command": {commandLine},
+		})
+		if err == nil {
+			args = append(args, "--parameters", string(parameters))
+		}
 	}
 
 	cmd := exec.CommandContext(ctx, "aws", args...)

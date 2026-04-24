@@ -6,6 +6,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/aws/smithy-go"
@@ -78,6 +79,25 @@ func TestBuildResumeSessionCommand(t *testing.T) {
 		if cmd.Args[i] != wantArgs[i] {
 			t.Fatalf("cmd.Args[%d] = %q, want %q", i, cmd.Args[i], wantArgs[i])
 		}
+	}
+}
+
+func TestBuildStartSessionCommandInteractiveCommand(t *testing.T) {
+	cmd := BuildStartSessionCommand(context.Background(), ShellConfig{
+		BaseConfig: BaseConfig{
+			InstanceID: "i-0123456789abcdef0",
+			Region:     "ap-northeast-1",
+		},
+		DocumentName: "AWS-StartInteractiveCommand",
+		Command:      []string{"stty", "size"},
+	})
+
+	args := strings.Join(cmd.Args, " ")
+	if !strings.Contains(args, "--document-name AWS-StartInteractiveCommand") {
+		t.Fatalf("cmd.Args = %v, want document name", cmd.Args)
+	}
+	if !strings.Contains(args, `--parameters {"command":["stty size"]}`) {
+		t.Fatalf("cmd.Args = %v, want interactive command parameters", cmd.Args)
 	}
 }
 

@@ -913,6 +913,10 @@ func buildStreamCommandLine(commandLine string) string {
 	return wrapped
 }
 
+func BuildStreamCommandLine(commandLine string) string {
+	return buildStreamCommandLine(commandLine)
+}
+
 type streamExitStatusWriter struct {
 	dst      io.Writer
 	buf      bytes.Buffer

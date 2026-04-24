@@ -58,6 +58,28 @@ func TestBuildAWSNativeShellSessionConfigWithoutLocalRC(t *testing.T) {
 	}
 }
 
+func TestBuildAWSNativeShellSessionConfigAddsStartupCommandForInteractiveCommand(t *testing.T) {
+	sessionCfg := buildAWSNativeShellSessionConfig(
+		conf.ServerConfig{
+			LocalRcUse: "yes",
+		},
+		ssmconnector.ShellConfig{
+			BaseConfig: ssmconnector.BaseConfig{
+				InstanceID: "i-1234567890",
+				Region:     "ap-northeast-1",
+			},
+			Command: []string{"stty", "size"},
+		},
+	)
+
+	if !strings.Contains(sessionCfg.StartupCommand, "sh -c 'stty size'") {
+		t.Fatalf("StartupCommand = %q, want interactive command startup wrapper", sessionCfg.StartupCommand)
+	}
+	if sessionCfg.StartupMarker != "" {
+		t.Fatalf("StartupMarker = %q, want empty for interactive command startup", sessionCfg.StartupMarker)
+	}
+}
+
 func TestBuildLocalRcCommandExportsTERM(t *testing.T) {
 	t.Setenv("TERM", "screen-256color")
 

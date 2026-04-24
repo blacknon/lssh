@@ -247,7 +247,7 @@ func newConnectorRemoteSession(cfg conf.Config, server string, serverConf conf.S
 	operation := providerapi.ConnectorOperation{Name: "shell"}
 	if len(command) > 0 {
 		operation = providerapi.ConnectorOperation{
-			Name:    "exec",
+			Name:    "exec_pty",
 			Command: append([]string(nil), command...),
 		}
 	}
@@ -255,6 +255,16 @@ func newConnectorRemoteSession(cfg conf.Config, server string, serverConf conf.S
 	prepared, err := cfg.PrepareConnector(server, operation)
 	if err != nil {
 		return nil, err
+	}
+	if len(command) > 0 && !prepared.Supported {
+		fallbackPrepared, fallbackErr := cfg.PrepareConnector(server, providerapi.ConnectorOperation{
+			Name:    "exec",
+			Command: append([]string(nil), command...),
+		})
+		if fallbackErr != nil {
+			return nil, fallbackErr
+		}
+		prepared = fallbackPrepared
 	}
 	if !prepared.Supported {
 		reason := detailString(prepared.Plan.Details, "reason")
@@ -287,6 +297,9 @@ func newConnectorRemoteSession(cfg conf.Config, server string, serverConf conf.S
 		switch connectorName {
 		case "aws-ssm":
 			if len(command) == 0 {
+				return newAWSShellRemoteSession(cfg, server, serverConf, notices, prepared.Plan, cols, rows)
+			}
+			if detailString(prepared.Plan.Details, "session_mode") == "interactive-command" {
 				return newAWSShellRemoteSession(cfg, server, serverConf, notices, prepared.Plan, cols, rows)
 			}
 			return newAWSExecRemoteSession(cfg, server, serverConf, notices, prepared.Plan)
@@ -750,6 +763,10 @@ func buildAWSNativeShellSessionConfig(serverConf conf.ServerConfig, shellCfg ssm
 		SharedConfigFiles:      append([]string(nil), shellCfg.SharedConfigFiles...),
 		SharedCredentialsFiles: append([]string(nil), shellCfg.SharedCredentialsFiles...),
 		DocumentName:           shellCfg.DocumentName,
+	}
+	if len(shellCfg.Command) > 0 {
+		sessionCfg.StartupCommand = ssmsession.BuildStreamCommandLine(shellquote.Join(shellCfg.Command...))
+		return sessionCfg
 	}
 	if serverConf.LocalRcUse == "yes" {
 		sessionCfg.StartupCommand = sshcmd.BuildInteractiveLocalRCShellCommand(
