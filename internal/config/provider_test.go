@@ -96,6 +96,57 @@ key = "~/.ssh/aws-web.pem"
 	}
 }
 
+func TestReadInventoryProvidersMatchPreservesProviderSpecificConfig(t *testing.T) {
+	dir := t.TempDir()
+	providerPath := filepath.Join(dir, "lssh-provider-fake-inventory")
+	script := `#!/bin/sh
+cat >/dev/null
+printf '%s' '{"version":"v1","result":{"servers":[{"name":"azure:vm-1","config":{"addr":"10.0.0.21"},"meta":{"tag.Connector":"azure-bastion"}}]}}'
+`
+	if err := os.WriteFile(providerPath, []byte(script), 0o755); err != nil {
+		t.Fatalf("write provider: %v", err)
+	}
+
+	configPath := filepath.Join(dir, "lssh.toml")
+	body := `
+[providers]
+paths = ["` + providerPath + `"]
+
+[provider.azure]
+plugin = "lssh-provider-fake-inventory"
+capabilities = ["inventory", "connector"]
+
+[provider.azure.match.bastion]
+meta_in = ["tag.Connector=azure-bastion"]
+connector_name = "azure-bastion"
+bastion_runtime = "sdk"
+bastion_name = "test-bastion"
+bastion_resource_group = "test-rg"
+user = "azureuser"
+`
+	if err := os.WriteFile(configPath, []byte(body), 0o600); err != nil {
+		t.Fatalf("write config: %v", err)
+	}
+
+	cfg := Read(configPath)
+	server, ok := cfg.Server["azure:vm-1"]
+	if !ok {
+		t.Fatalf("inventory server not loaded: %#v", cfg.Server)
+	}
+	if server.ConnectorName != "azure-bastion" {
+		t.Fatalf("connector_name = %q, want azure-bastion", server.ConnectorName)
+	}
+	if got := server.ProviderConfig["bastion_name"]; got != "test-bastion" {
+		t.Fatalf("ProviderConfig[bastion_name] = %v, want test-bastion", got)
+	}
+	if got := server.ProviderConfig["bastion_resource_group"]; got != "test-rg" {
+		t.Fatalf("ProviderConfig[bastion_resource_group] = %v, want test-rg", got)
+	}
+	if got := server.ProviderConfig["bastion_runtime"]; got != "sdk" {
+		t.Fatalf("ProviderConfig[bastion_runtime] = %v, want sdk", got)
+	}
+}
+
 func TestReadInventoryProvidersMatchRespectsPriorityThenDeclarationOrderTOML(t *testing.T) {
 	dir := t.TempDir()
 	providerPath := filepath.Join(dir, "lssh-provider-fake-inventory")
@@ -371,6 +422,137 @@ printf '%s' '{"version":"v1","result":{"name":"fake-connector","capabilities":["
 
 	if got := cfg.ServerConnectorName("aws:web-01"); got != "aws-ssm" {
 		t.Fatalf("ServerConnectorName() = %q, want aws-ssm", got)
+	}
+}
+
+func TestServerConnectorNamePrefersProviderDefaultConnectorName(t *testing.T) {
+	cfg := Config{
+		Server: map[string]ServerConfig{
+			"aws:web-01": {ProviderName: "aws"},
+		},
+		Provider: map[string]map[string]interface{}{
+			"aws": {
+				"enabled":                true,
+				"capabilities":           []interface{}{"inventory", "connector"},
+				"default_connector_name": "aws-ssm",
+			},
+		},
+	}
+
+	if got := cfg.ServerConnectorName("aws:web-01"); got != "aws-ssm" {
+		t.Fatalf("ServerConnectorName() = %q, want aws-ssm", got)
+	}
+}
+
+func TestDescribeConnectorResolvesProviderByConnectorName(t *testing.T) {
+	dir := t.TempDir()
+	providerPath := filepath.Join(dir, "lssh-provider-fake-connector")
+	script := `#!/bin/sh
+payload="$(cat)"
+case "$payload" in
+  *'"method":"plugin.describe"'*)
+    printf '%s' '{"version":"v1","result":{"name":"fake-connector","capabilities":["connector"],"connector_names":["openssh"],"methods":["plugin.describe","connector.describe"]}}'
+    ;;
+  *'"method":"connector.describe"'*)
+    printf '%s' '{"version":"v1","result":{"capabilities":{"sftp_transport":{"supported":true}}}}'
+    ;;
+  *)
+    printf '%s' '{"version":"v1","error":{"message":"unsupported"}}'
+    exit 1
+    ;;
+esac
+`
+	if err := os.WriteFile(providerPath, []byte(script), 0o755); err != nil {
+		t.Fatalf("write provider: %v", err)
+	}
+
+	cfg := Config{
+		Providers: ProvidersConfig{Paths: []string{providerPath}},
+		Server: map[string]ServerConfig{
+			"web01": {
+				Addr:          "example.internal",
+				User:          "demo",
+				ConnectorName: "openssh",
+			},
+		},
+		Provider: map[string]map[string]interface{}{
+			"openssh": {
+				"plugin":       "lssh-provider-fake-connector",
+				"enabled":      true,
+				"capabilities": []interface{}{"connector"},
+			},
+		},
+	}
+
+	result, err := cfg.DescribeConnector("web01")
+	if err != nil {
+		t.Fatalf("DescribeConnector() error = %v", err)
+	}
+	if !result.Capabilities["sftp_transport"].Supported {
+		t.Fatal("DescribeConnector().Capabilities[sftp_transport].Supported = false, want true")
+	}
+}
+
+func TestFilterServersByOperationSkipsUnsupportedConnectorTargets(t *testing.T) {
+	dir := t.TempDir()
+	providerPath := filepath.Join(dir, "lssh-provider-fake-connector")
+	script := `#!/bin/sh
+payload="$(cat)"
+case "$payload" in
+  *'"method":"plugin.describe"'*)
+    printf '%s' '{"version":"v1","result":{"name":"fake-connector","capabilities":["connector"],"connector_names":["aws-ssm"],"methods":["plugin.describe","connector.describe"]}}'
+    ;;
+  *'"method":"connector.describe"'*)
+    case "$payload" in
+      *'"name":"aws:sftp-ok"'*)
+        printf '%s' '{"version":"v1","result":{"capabilities":{"sftp_transport":{"supported":true}}}}'
+        ;;
+      *)
+        printf '%s' '{"version":"v1","result":{"capabilities":{"sftp_transport":{"supported":false,"reason":"unsupported"}}}}'
+        ;;
+    esac
+    ;;
+  *)
+    printf '%s' '{"version":"v1","error":{"message":"unsupported"}}'
+    exit 1
+    ;;
+esac
+`
+	if err := os.WriteFile(providerPath, []byte(script), 0o755); err != nil {
+		t.Fatalf("write provider: %v", err)
+	}
+
+	cfg := Config{
+		Providers: ProvidersConfig{Paths: []string{providerPath}},
+		Server: map[string]ServerConfig{
+			"ssh-host":     {},
+			"aws:sftp-ok":  {ProviderName: "aws"},
+			"aws:no-sftp":  {ProviderName: "aws"},
+			"aws:no-entry": {ProviderName: "aws"},
+		},
+		Provider: map[string]map[string]interface{}{
+			"aws": {
+				"plugin":                 "lssh-provider-fake-connector",
+				"enabled":                true,
+				"capabilities":           []interface{}{"inventory", "connector"},
+				"default_connector_name": "aws-ssm",
+			},
+		},
+	}
+
+	filtered, err := cfg.FilterServersByOperation([]string{"ssh-host", "aws:sftp-ok", "aws:no-sftp", "aws:no-entry"}, "sftp_transport")
+	if err != nil {
+		t.Fatalf("FilterServersByOperation() error = %v", err)
+	}
+
+	want := []string{"ssh-host", "aws:sftp-ok"}
+	if len(filtered) != len(want) {
+		t.Fatalf("FilterServersByOperation() len = %d, want %d (%v)", len(filtered), len(want), filtered)
+	}
+	for i := range want {
+		if filtered[i] != want[i] {
+			t.Fatalf("FilterServersByOperation()[%d] = %q, want %q", i, filtered[i], want[i])
+		}
 	}
 }
 

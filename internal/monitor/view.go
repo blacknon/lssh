@@ -17,6 +17,12 @@ func (m *Monitor) StartView() {
 	m.View = mview.NewApplication()
 	defer m.View.HandlePanic()
 
+	for _, node := range m.Nodes {
+		if node != nil && node.NodeTop != nil {
+			node.NodeTop.bindApplication(m.View)
+		}
+	}
+
 	// enable mouse
 	m.View.EnableMouse(true)
 
@@ -41,7 +47,10 @@ func (m *Monitor) StartView() {
 }
 
 func (m *Monitor) DrawUpdate() {
-	m.View.Draw()
+	if m.View == nil {
+		return
+	}
+	m.View.QueueUpdateDraw(func() {})
 }
 
 // CreateTab is create new Tab.

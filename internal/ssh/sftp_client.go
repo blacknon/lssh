@@ -38,6 +38,9 @@ func (r *Run) CreateSFTPClientHandle(server string) (*SFTPClientHandle, error) {
 		if !prepared.Supported {
 			return nil, fmt.Errorf("connector for %q does not support sftp_transport", server)
 		}
+		if connectorManagedSSHRuntime(prepared.Plan, r.Conf.ServerConnectorName(server)) {
+			return r.createConnectorManagedSFTPHandle(server)
+		}
 		if prepared.Plan.Kind != "command" {
 			return nil, fmt.Errorf("connector plan for %q does not provide command-based sftp transport", server)
 		}

@@ -91,6 +91,10 @@ USAGE:
 
 		// Get Server Name List (and sort List)
 		names := conf.GetNameList(data)
+		names, err = data.FilterServersByOperation(names, "sftp_transport")
+		if err != nil {
+			return err
+		}
 		sort.Strings(names)
 
 		// create select list

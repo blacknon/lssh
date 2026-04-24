@@ -16,6 +16,7 @@ import (
 	"net"
 	"net/http"
 	"net/url"
+	"os"
 	"strings"
 	"sync"
 	"time"
@@ -52,6 +53,8 @@ const (
 	payloadTypeStdErr            uint32 = 11
 
 	streamExitMarkerPrefix = "__LSSH_EXIT__:"
+	startupMarkerWaitLimit = 3 * time.Second
+	startupCommandDelay    = 200 * time.Millisecond
 )
 
 type Config struct {
@@ -64,6 +67,9 @@ type Config struct {
 	DocumentName           string
 	StartupCommand         string
 	StartupMarker          string
+	ExpandNewlineToCRLF    bool
+	InitialCols            int
+	InitialRows            int
 	PortForwardHost        string
 	PortForwardPort        string
 	PortForwardLocalPort   string
@@ -76,20 +82,37 @@ type Session struct {
 	mu   sync.Mutex
 	conn *wsConn
 
+	sizeMu         sync.Mutex
+	pendingResize  connectorruntime.TerminalSize
+	hasPendingSize bool
+
 	ready           chan struct{}
+	startupTrigger  chan struct{}
 	readyOnce       sync.Once
 	closeOnce       sync.Once
 	readErr         chan error
 	sequence        int64
 	lastOutputSeq   int64
+	startupMu       sync.Mutex
 	startupSuppress bool
 	startupMarker   string
 	startupBuffer   bytes.Buffer
+	startupSince    time.Time
+	startupOnce     sync.Once
 	sessionType     string
 }
 
 func (s *Session) markReady() {
 	s.readyOnce.Do(func() { close(s.ready) })
+}
+
+func (s *Session) isReady() bool {
+	select {
+	case <-s.ready:
+		return true
+	default:
+		return false
+	}
 }
 
 type openDataChannelInput struct {
@@ -152,12 +175,13 @@ type clientMessage struct {
 
 func New(cfg Config) *Session {
 	return &Session{
-		cfg:           cfg,
-		clientID:      uuid.NewString(),
-		ready:         make(chan struct{}),
-		readErr:       make(chan error, 1),
-		lastOutputSeq: -1,
-		startupMarker: strings.TrimSpace(cfg.StartupMarker),
+		cfg:            cfg,
+		clientID:       uuid.NewString(),
+		ready:          make(chan struct{}),
+		startupTrigger: make(chan struct{}),
+		readErr:        make(chan error, 1),
+		lastOutputSeq:  -1,
+		startupMarker:  strings.TrimSpace(cfg.StartupMarker),
 	}
 }
 
@@ -172,8 +196,11 @@ func StartShell(ctx context.Context, cfg Config, stdin io.Reader, stdout, stderr
 }
 
 func (s *Session) Run(ctx context.Context, stream connectorruntime.StreamConfig) error {
+	debugShellSessionf("run begin instance=%s region=%s startup=%t marker=%q", s.cfg.InstanceID, s.cfg.Region, strings.TrimSpace(s.cfg.StartupCommand) != "", s.startupMarker)
+
 	ssmCfg, err := loadAWSConfig(ctx, s.cfg)
 	if err != nil {
+		debugShellSessionf("loadAWSConfig error err=%v", err)
 		return err
 	}
 
@@ -187,47 +214,116 @@ func (s *Session) Run(ctx context.Context, stream connectorruntime.StreamConfig)
 	client := ssm.NewFromConfig(ssmCfg)
 	startOut, err := client.StartSession(ctx, startInput)
 	if err != nil {
+		debugShellSessionf("StartSession error err=%v", err)
 		return fmt.Errorf("start ssm session: %w", err)
 	}
+	debugShellSessionf("StartSession ok session_id=%s", aws.ToString(startOut.SessionId))
 	credentials, err := ssmCfg.Credentials.Retrieve(ctx)
 	if err != nil {
+		debugShellSessionf("credentials error err=%v", err)
 		return fmt.Errorf("retrieve aws credentials for ssm websocket: %w", err)
 	}
 
 	if err := s.openWebSocket(ctx, aws.ToString(startOut.StreamUrl), aws.ToString(startOut.TokenValue), credentials); err != nil {
+		debugShellSessionf("openWebSocket error err=%v", err)
 		return err
 	}
+	debugShellSessionf("openWebSocket ok")
 
 	go s.readLoop(stream.Stdout, stream.Stderr)
 
 	select {
 	case <-s.ready:
+		debugShellSessionf("ready signaled")
 	case err := <-s.readErr:
+		debugShellSessionf("ready wait readErr err=%v", err)
 		return err
 	case <-ctx.Done():
+		debugShellSessionf("ready wait canceled err=%v", ctx.Err())
 		return ctx.Err()
 	}
 
-	_ = s.sendCurrentTerminalSize()
+	if err := s.sendCurrentTerminalSize(); err != nil {
+		debugShellSessionf("sendCurrentTerminalSize error err=%v", err)
+	}
+	if s.cfg.InitialCols > 0 && s.cfg.InitialRows > 0 {
+		if err := s.sendSize(s.cfg.InitialCols, s.cfg.InitialRows); err != nil {
+			debugShellSessionf("send initial size error err=%v", err)
+		}
+	}
+	if err := s.flushPendingResize(); err != nil {
+		debugShellSessionf("flushPendingResize error err=%v", err)
+	}
 	if strings.TrimSpace(s.cfg.StartupCommand) != "" {
+		debugShellSessionf("startup wait trigger begin")
+		select {
+		case <-s.startupTrigger:
+			debugShellSessionf("startup trigger received")
+		case <-time.After(startupMarkerWaitLimit):
+			debugShellSessionf("startup trigger timeout")
+		case <-ctx.Done():
+			debugShellSessionf("startup trigger canceled err=%v", ctx.Err())
+			return ctx.Err()
+		}
+		select {
+		case <-time.After(startupCommandDelay):
+		case <-ctx.Done():
+			debugShellSessionf("startup delay canceled err=%v", ctx.Err())
+			return ctx.Err()
+		}
 		if err := s.sendStartupCommand(s.cfg.StartupCommand); err != nil {
+			debugShellSessionf("sendStartupCommand error err=%v", err)
 			return err
 		}
+		debugShellSessionf("sendStartupCommand ok")
 	}
 
 	if stream.Stdin != nil {
+		debugShellSessionf("copyInput start")
 		go s.copyInput(stream.Stdin)
 	}
 
 	select {
 	case err := <-s.readErr:
+		debugShellSessionf("run end readErr err=%v", err)
 		return err
 	case <-ctx.Done():
+		debugShellSessionf("run end canceled err=%v", ctx.Err())
 		return ctx.Err()
 	}
 }
 
 func (s *Session) Resize(ctx context.Context, size connectorruntime.TerminalSize) error {
+	if !s.isReady() {
+		s.storePendingResize(size)
+		debugShellSessionf("defer resize cols=%d rows=%d until ready", size.Cols, size.Rows)
+		return nil
+	}
+	return s.sendSize(size.Cols, size.Rows)
+}
+
+func (s *Session) storePendingResize(size connectorruntime.TerminalSize) {
+	if size.Cols <= 0 || size.Rows <= 0 {
+		return
+	}
+	s.sizeMu.Lock()
+	defer s.sizeMu.Unlock()
+	s.pendingResize = size
+	s.hasPendingSize = true
+}
+
+func (s *Session) flushPendingResize() error {
+	s.sizeMu.Lock()
+	if !s.hasPendingSize {
+		s.sizeMu.Unlock()
+		return nil
+	}
+	size := s.pendingResize
+	s.hasPendingSize = false
+	s.pendingResize = connectorruntime.TerminalSize{}
+	s.sizeMu.Unlock()
+
+	debugShellSessionf("flush pending resize cols=%d rows=%d", size.Cols, size.Rows)
 	return s.sendSize(size.Cols, size.Rows)
 }
 
@@ -279,11 +375,10 @@ func (s *Session) copyInput(stdin io.Reader) {
 	for {
 		n, err := stdin.Read(buf)
 		if n > 0 {
-			payload := append([]byte(nil), buf[:n]...)
-			if len(payload) == 1 && payload[0] == '\n' {
-				payload[0] = '\r'
-			}
+			payload := normalizeInteractiveInputPayload(buf[:n], s.cfg.ExpandNewlineToCRLF)
+			debugShellSessionf("copyInput read bytes=%d preview=%q", n, debugPayloadPreview(payload))
 			if sendErr := s.sendInputPayload(payloadTypeOutput, payload); sendErr != nil {
+				debugShellSessionf("copyInput send error err=%v", sendErr)
 				select {
 				case s.readErr <- sendErr:
 				default:
@@ -293,20 +388,72 @@ func (s *Session) copyInput(stdin io.Reader) {
 		}
 		if err != nil {
 			if err != io.EOF {
+				debugShellSessionf("copyInput read error err=%v", err)
 				select {
 				case s.readErr <- err:
 				default:
 				}
+			} else {
+				debugShellSessionf("copyInput eof")
 			}
 			return
 		}
 	}
 }
 
+func normalizeInteractiveInputPayload(payload []byte, expandCRLF bool) []byte {
+	if len(payload) == 0 {
+		return nil
+	}
+
+	var normalized []byte
+	for i, b := range payload {
+		if expandCRLF {
+			switch b {
+			case '\r':
+				if i+1 < len(payload) && payload[i+1] == '\n' {
+					normalized = append(normalized, '\r')
+				} else {
+					normalized = append(normalized, '\r', '\n')
+				}
+				continue
+			case '\n':
+				if i > 0 && payload[i-1] == '\r' {
+					normalized = append(normalized, '\n')
+					continue
+				}
+				if i == 0 || payload[i-1] != '\r' {
+					normalized = append(normalized, '\r', '\n')
+					continue
+				}
+			}
+		}
+		if b == '\r' {
+			if i+1 < len(payload) && payload[i+1] == '\n' {
+				normalized = append(normalized, '\r')
+				continue
+			}
+			normalized = append(normalized, '\r')
+			continue
+		}
+		if b == '\n' && (i == 0 || payload[i-1] != '\r') {
+			normalized = append(normalized, '\r')
+			continue
+		}
+		if b == '\n' && i > 0 && payload[i-1] == '\r' {
+			continue
+		}
+		normalized = append(normalized, b)
+	}
+
+	return normalized
+}
+
 func (s *Session) readLoop(stdout, stderr io.Writer) {
 	for {
 		raw, err := s.receive()
 		if err != nil {
+			debugShellSessionf("readLoop receive error err=%v", err)
 			if isNetworkClose(err) {
 				s.readErr <- nil
 			} else {
@@ -317,9 +464,11 @@ func (s *Session) readLoop(stdout, stderr io.Writer) {
 
 		msg, err := decodeClientMessage(raw)
 		if err != nil {
+			debugShellSessionf("readLoop decode error err=%v", err)
 			s.readErr <- err
 			return
 		}
+		debugShellSessionf("readLoop message type=%s payload_type=%d seq=%d payload_bytes=%d", msg.MessageType, msg.PayloadType, msg.SequenceNumber, len(msg.Payload))
 
 		switch msg.MessageType {
 		case messageTypeOutputStream:
@@ -340,6 +489,7 @@ func (s *Session) readLoop(stdout, stderr io.Writer) {
 
 func (s *Session) handleOutputMessage(msg clientMessage, stdout, stderr io.Writer) error {
 	if err := s.sendAcknowledge(msg); err != nil {
+		debugShellSessionf("acknowledge error err=%v", err)
 		return err
 	}
 	if msg.SequenceNumber <= s.lastOutputSeq {
@@ -349,8 +499,10 @@ func (s *Session) handleOutputMessage(msg clientMessage, stdout, stderr io.Write
 
 	switch msg.PayloadType {
 	case payloadTypeOutput:
+		s.markStartupTrigger()
 		s.markReady()
 		payload := s.filterStartupOutput(msg.Payload)
+		debugShellSessionf("stdout payload raw=%q visible=%q", debugPayloadPreview(msg.Payload), debugPayloadPreview(payload))
 		if len(payload) == 0 {
 			return nil
 		}
@@ -358,7 +510,9 @@ func (s *Session) handleOutputMessage(msg clientMessage, stdout, stderr io.Write
 			_, _ = stdout.Write(payload)
 		}
 	case payloadTypeStdErr:
+		s.markStartupTrigger()
 		s.markReady()
+		debugShellSessionf("stderr payload=%q", debugPayloadPreview(msg.Payload))
 		if stderr != nil {
 			_, _ = stderr.Write(msg.Payload)
 		}
@@ -466,6 +620,7 @@ func (s *Session) sendInputPayload(payloadType uint32, payload []byte) error {
 		PayloadType:    payloadType,
 		Payload:        payload,
 	}
+	debugShellSessionf("sendInputPayload type=%d seq=%d bytes=%d preview=%q", payloadType, msg.SequenceNumber, len(payload), debugPayloadPreview(payload))
 	return s.sendBinary(encodeClientMessage(msg))
 }
 
@@ -479,8 +634,8 @@ func (s *Session) sendStartupCommand(command string) error {
 	const chunkSize = 512
 
 	if s.startupMarker != "" {
-		s.startupSuppress = true
-		s.startupBuffer.Reset()
+		debugShellSessionf("startup suppress enabled marker=%q", s.startupMarker)
+		s.startStartupSuppress()
 	}
 
 	payload := []byte(command)
@@ -489,6 +644,7 @@ func (s *Session) sendStartupCommand(command string) error {
 		if len(payload) < size {
 			size = len(payload)
 		}
+		debugShellSessionf("startup send chunk bytes=%d preview=%q", size, debugPayloadPreview(payload[:size]))
 		if err := s.sendInputPayload(payloadTypeOutput, payload[:size]); err != nil {
 			return err
 		}
@@ -499,21 +655,36 @@ func (s *Session) sendStartupCommand(command string) error {
 }
 
 func (s *Session) filterStartupOutput(payload []byte) []byte {
+	s.startupMu.Lock()
+	defer s.startupMu.Unlock()
+
 	if !s.startupSuppress || s.startupMarker == "" {
 		return payload
 	}
 
 	s.startupBuffer.Write(payload)
+	if !s.startupSince.IsZero() && time.Since(s.startupSince) > startupMarkerWaitLimit {
+		debugShellSessionf("startup marker timeout buffer=%q", debugPayloadPreview(s.startupBuffer.Bytes()))
+		visible := append([]byte(nil), s.startupBuffer.Bytes()...)
+		s.startupBuffer.Reset()
+		s.startupSuppress = false
+		s.startupSince = time.Time{}
+		return visible
+	}
+
 	buffer := s.startupBuffer.String()
 	index := strings.Index(buffer, s.startupMarker)
 	if index < 0 {
+		debugShellSessionf("startup marker not found yet buffered_bytes=%d", s.startupBuffer.Len())
 		return nil
 	}
 
 	visible := buffer[index+len(s.startupMarker):]
 	visible = strings.TrimLeft(visible, "\r\n")
+	debugShellSessionf("startup marker found visible=%q", debugPayloadPreview([]byte(visible)))
 	s.startupBuffer.Reset()
 	s.startupSuppress = false
+	s.startupSince = time.Time{}
 	if visible == "" {
 		return nil
 	}
@@ -521,10 +692,76 @@ func (s *Session) filterStartupOutput(payload []byte) []byte {
 	return []byte(visible)
 }
 
+func (s *Session) startStartupSuppress() {
+	s.startupMu.Lock()
+	s.startupSuppress = true
+	s.startupBuffer.Reset()
+	s.startupSince = time.Now()
+	s.startupMu.Unlock()
+	debugShellSessionf("startup suppress watchdog armed timeout=%s", startupMarkerWaitLimit)
+
+	go func() {
+		timer := time.NewTimer(startupMarkerWaitLimit)
+		defer timer.Stop()
+		<-timer.C
+
+		s.startupMu.Lock()
+		defer s.startupMu.Unlock()
+		if !s.startupSuppress {
+			return
+		}
+		debugShellSessionf("startup suppress watchdog timeout")
+		s.startupSuppress = false
+		s.startupBuffer.Reset()
+		s.startupSince = time.Time{}
+	}()
+}
+
+func (s *Session) markStartupTrigger() {
+	s.startupOnce.Do(func() {
+		debugShellSessionf("startup trigger closed")
+		close(s.startupTrigger)
+	})
+}
+
+func debugShellSessionf(format string, args ...interface{}) {
+	if os.Getenv("LSSH_DEBUG_AWS_SSM_SHELL") == "" {
+		return
+	}
+	if path := os.Getenv("LSSH_DEBUG_AWS_SSM_SHELL_LOG"); path != "" {
+		if f, err := os.OpenFile(path, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0o600); err == nil {
+			_, _ = fmt.Fprintf(f, "[lssh ssm-shell] "+format+"\n", args...)
+			_ = f.Close()
+			return
+		}
+	}
+	_, _ = fmt.Fprintf(os.Stderr, "[lssh ssm-shell] "+format+"\n", args...)
+}
+
+func debugPayloadPreview(payload []byte) string {
+	if len(payload) == 0 {
+		return ""
+	}
+	const maxBytes = 80
+	preview := payload
+	if len(preview) > maxBytes {
+		preview = preview[:maxBytes]
+	}
+	text := string(preview)
+	text = strings.ReplaceAll(text, "\r", "\\r")
+	text = strings.ReplaceAll(text, "\n", "\\n")
+	text = strings.ReplaceAll(text, "\t", "\\t")
+	if len(payload) > maxBytes {
+		return text + "..."
+	}
+	return text
+}
+
 func (s *Session) sendSize(cols, rows int) error {
 	if cols <= 0 || rows <= 0 {
 		return nil
 	}
+	debugShellSessionf("sendSize cols=%d rows=%d", cols, rows)
 	body, err := json.Marshal(map[string]uint32{
 		"cols": uint32(cols),
 		"rows": uint32(rows),
@@ -754,7 +991,8 @@ func RunStreamCommand(ctx context.Context, cfg Config, commandLine string, stdin
 }
 
 func buildStreamCommandLine(commandLine string) string {
-	wrapped := fmt.Sprintf("status=0; sh -lc %s; status=$?; printf '%s%%s\\n' \"$status\" >&2; exit \"$status\"",
+	// Use non-login shell semantics so native SSM exec behaves closer to SSH command mode.
+	wrapped := fmt.Sprintf("status=0; sh -c %s; status=$?; printf '%s%%s\\n' \"$status\" >&2; exit \"$status\"",
 		shellSingleQuote(commandLine), streamExitMarkerPrefix)
 	return wrapped
 }

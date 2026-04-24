@@ -6,6 +6,16 @@ import (
 	"testing"
 )
 
+func TestGCPConnectorRuntimePrefersTargetConfig(t *testing.T) {
+	got := gcpConnectorRuntime(
+		map[string]interface{}{"iap_runtime": "sdk"},
+		map[string]interface{}{"iap_runtime": "command"},
+	)
+	if got != "command" {
+		t.Fatalf("gcpConnectorRuntime() = %q, want command", got)
+	}
+}
+
 func TestGCPCredentialsFileExpandsHome(t *testing.T) {
 	home, err := os.UserHomeDir()
 	if err != nil {

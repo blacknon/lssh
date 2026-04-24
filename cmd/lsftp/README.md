@@ -47,6 +47,7 @@ USAGE:
 Start `lsftp`, select one or more hosts from the TUI list, and the `lsftp>>` prompt will open.
 When multiple hosts are selected, many operations run in parallel against the selected hosts.
 Use `--auto-reconnect` when you want disconnected hosts to be reconnected before running shell commands.
+Connector-backed targets that do not advertise `sftp_transport` are hidden from the selection list.
 
 ```bash
 # start lsftp shell

@@ -96,6 +96,7 @@ lssync -D -B --daemon-interval 30s ./notes remote:/srv/notes
 ## Notes
 
 - Like `lscp`, transfers are implemented with SFTP over SSH.
+- Connector-backed targets that do not advertise `sftp_transport` are excluded from the selection list and rejected when specified explicitly.
 - `--delete` only removes entries inside the destination scope derived from the source roots.
 - For multiple sources, the destination is treated as a directory and the union of source entries becomes the desired state.
 - Bidirectional sync currently requires exactly one source path and one destination path.

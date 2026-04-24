@@ -7,6 +7,7 @@ package mux
 import (
 	"fmt"
 
+	"github.com/blacknon/tvxterm"
 	"github.com/gdamore/tcell/v2"
 	"github.com/rivo/tview"
 )
@@ -61,6 +62,9 @@ func (m *Manager) captureMouse(event *tcell.EventMouse, action tview.MouseAction
 			if !p.term.InRect(x, y) {
 				continue
 			}
+			if !usesLocalScrollback(p.term) {
+				return event, action
+			}
 			if action == tview.MouseScrollUp {
 				p.term.ScrollbackUp(3)
 			} else {
@@ -104,10 +108,22 @@ func (m *Manager) captureInput(event *tcell.EventKey) *tcell.EventKey {
 	}
 
 	if event.Key() == tcell.KeyPgUp {
+		if !m.focusedPaneUsesLocalScrollback() {
+			if m.broadcastAll {
+				m.broadcastKey(event)
+			}
+			return event
+		}
 		m.scrollFocused(true)
 		return nil
 	}
 	if event.Key() == tcell.KeyPgDn {
+		if !m.focusedPaneUsesLocalScrollback() {
+			if m.broadcastAll {
+				m.broadcastKey(event)
+			}
+			return event
+		}
 		m.scrollFocused(false)
 		return nil
 	}
@@ -200,6 +216,21 @@ func (m *Manager) scrollFocused(up bool) {
 		m.currentPage.focus.term.ScrollbackPageDown()
 	}
 	m.updateStatus("")
+}
+
+func (m *Manager) focusedPaneUsesLocalScrollback() bool {
+	if m.currentPage == nil || m.currentPage.focus == nil {
+		return false
+	}
+	return usesLocalScrollback(m.currentPage.focus.term)
+}
+
+func usesLocalScrollback(term *tvxterm.View) bool {
+	if term == nil {
+		return false
+	}
+	_, rows := term.ScrollbackStatus()
+	return rows > 0
 }
 
 func (m *Manager) updateStatus(message string) {

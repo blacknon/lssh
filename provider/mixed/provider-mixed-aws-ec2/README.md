@@ -4,7 +4,7 @@ provider-mixed-aws-ec2 Provider
 ## About
 
 The `aws-ec2` mixed provider lists running EC2 instances with the AWS SDK for Go and returns them as dynamic `server` entries.
-It also exposes an AWS SSM-based connector contract for those instances.
+It also exposes AWS connector contracts for those instances.
 
 This README describes the current mixed implementation.
 
@@ -38,8 +38,6 @@ addr_strategy = "public_first"
 server_name_template = "aws:${tags.Name}"
 note_template = "aws ${instance_id} ${private_ip}"
 ssm_require_online = true
-ssm_shell_runtime = "plugin"
-ssm_port_forward_runtime = "plugin"
 
 [provider.aws.match.web]
 meta_in = ["tag.Role=web", "region=ap-northeast-1"]
@@ -47,9 +45,30 @@ connector_name = "ssh"
 user = "ec2-user"
 key = "~/.ssh/aws-web.pem"
 
-[provider.aws.match.ssm]
-meta_in = ["tag.Connection=ssm"]
+[provider.aws.match.ssm_plugin]
+meta_in = ["tag.Connection=ssm-plugin"]
 connector_name = "aws-ssm"
+ssm_shell_runtime = "plugin"
+ssm_port_forward_runtime = "plugin"
+
+[provider.aws.match.eice_sdk]
+meta_in = ["tag.Connection=eice-sdk"]
+connector_name = "aws-eice"
+eice_runtime = "sdk"
+instance_connect_endpoint_id = "eice-0123456789abcdef0"
+private_ip_address = "10.0.1.10"
+user = "ec2-user"
+key = "~/.ssh/aws-eice.pem"
+
+
+[provider.aws.match.eice_command]
+meta_in = ["tag.Connection=eice-command"]
+connector_name = "aws-eice"
+eice_runtime = "command"
+instance_connect_endpoint_dns_name = "eice-demo.ap-northeast-1.aws"
+private_ip_address = "10.0.2.10"
+user = "ec2-user"
+key = "~/.ssh/aws-eice.pem"
 ```
 
 ## Notes
@@ -59,7 +78,7 @@ connector_name = "aws-ssm"
   - unset or `0` means no explicit limit
   - inventory fetch is parallel, but merge order stays deterministic by provider order
 - current plugin capabilities are `["inventory", "connector"]`.
-- `plugin.describe` reports connector name `aws-ssm`.
+- `plugin.describe` reports connector names `aws-ssm` and `aws-eice`.
 - inventory is implemented by `inventory.list`.
 - connector is currently implemented by `connector.describe` and `connector.prepare`.
 - Uses the AWS SDK default credential/config chain.
@@ -72,9 +91,12 @@ connector_name = "aws-ssm"
 - Only running instances are returned.
 - `match` can override SSH settings per generated host, including `connector_name`.
 - `connector_name = "ssh"` forces the built-in go-sshlib path instead of the provider connector.
+- `default_connector_name` can be used to select the provider connector when `match.connector_name` is omitted.
+  - set `default_connector_name = "aws-ssm"` to preserve previous single-connector behavior
+- when `aws-ssm` and `aws-eice` hosts are mixed, prefer setting `connector_name` and runtime keys on each server or `match` entry.
 - Available match metadata includes `region`, `zone`, `platform`, `instance_id`, `private_ip`, `public_ip`, and `tag.<TagName>`.
-- `connector.describe` requires `instance_id` and `region`, which are emitted by this inventory provider.
-- `connector.prepare` currently returns provider-managed AWS SSM plans for `shell`, `exec`, and `exec_pty`.
+- `connector.describe` requires connector-specific metadata emitted by this inventory provider.
+- `aws-ssm` and `aws-eice` each implement `connector.describe` and `connector.prepare`.
 - future AWS connector expansion may include:
   - direct SSH
   - bastion-backed SSH
@@ -97,6 +119,10 @@ connector_name = "aws-ssm"
   - `ssm_shell_document`
   - `ssm_interactive_command_document`
   - `ssm_port_forward_document`
+  - `instance_connect_endpoint_id`
+  - `instance_connect_endpoint_dns_name`
+  - `private_ip_address`
+  - `eice_runtime`
 - current runtime behavior:
   - `shell` is executed with `aws ssm start-session`
     - attach uses `aws ssm resume-session`
@@ -127,6 +153,42 @@ connector_name = "aws-ssm"
 - to use `shell`, the local machine must have:
   - AWS CLI
   - Session Manager plugin for AWS CLI
+
+## AWS EICE Connector
+
+- `connector_name = "aws-eice"` enables EC2 Instance Connect Endpoint transport.
+- `eice_runtime` controls the connector runtime.
+  - `sdk` (default): provider-managed SSH transport for shell, exec, SFTP, mount, and local forwarding
+  - `command`: OpenSSH `ProxyCommand` using `aws ec2-instance-connect open-tunnel`
+- `aws-eice` requires:
+  - `instance_id`
+  - `region`
+  - one of `instance_connect_endpoint_id` or `instance_connect_endpoint_dns_name`
+  - target private address information, typically `private_ip_address`
+
+Per-server example:
+
+```toml
+[provider.aws.match.eice_sdk]
+meta_in = ["tag.Connection=eice-sdk"]
+connector_name = "aws-eice"
+eice_runtime = "sdk"
+instance_connect_endpoint_id = "eice-0123456789abcdef0"
+private_ip_address = "10.0.1.10"
+user = "ec2-user"
+key = "~/.ssh/aws-eice.pem"
+
+[provider.aws.match.eice_command]
+meta_in = ["tag.Connection=eice-command"]
+connector_name = "aws-eice"
+eice_runtime = "command"
+instance_connect_endpoint_dns_name = "eice-demo.ap-northeast-1.aws"
+private_ip_address = "10.0.2.10"
+user = "ec2-user"
+key = "~/.ssh/aws-eice.pem"
+```
+
+See [example/provider-aws-eice.toml](/Users/blacknon/_go/src/github.com/blacknon/lssh/example/provider-aws-eice.toml).
 
 Example stream transfer with `lspipe`:
 

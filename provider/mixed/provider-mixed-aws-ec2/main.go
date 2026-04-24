@@ -27,7 +27,7 @@ func main() {
 		_ = providerbuiltin.WriteResponse(req, providerapi.PluginDescribeResult{
 			Name:            "provider-mixed-aws-ec2",
 			Capabilities:    []string{"inventory", "connector"},
-			ConnectorNames:  []string{"aws-ssm"},
+			ConnectorNames:  []string{"aws-ssm", "aws-eice"},
 			Methods:         []string{providerapi.MethodPluginDescribe, providerapi.MethodHealthCheck, providerapi.MethodInventoryList, providerapi.MethodConnectorDescribe, providerapi.MethodConnectorPrepare},
 			ProtocolVersion: providerapi.Version,
 		}, nil)

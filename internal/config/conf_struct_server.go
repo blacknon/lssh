@@ -169,9 +169,10 @@ type ServerConfig struct {
 	ConnectorName string `toml:"connector_name" yaml:"connector_name"`
 
 	// Runtime-only provider metadata for provider-generated servers.
-	ProviderName   string            `toml:"-" yaml:"-"`
-	ProviderPlugin string            `toml:"-" yaml:"-"`
-	ProviderMeta   map[string]string `toml:"-" yaml:"-"`
+	ProviderName   string                 `toml:"-" yaml:"-"`
+	ProviderPlugin string                 `toml:"-" yaml:"-"`
+	ProviderMeta   map[string]string      `toml:"-" yaml:"-"`
+	ProviderConfig map[string]interface{} `toml:"-" yaml:"-"`
 
 	// Conditional overrides under [server.<name>.match.<branch>]
 	Match map[string]ServerMatchConfig `toml:"match" yaml:"match"`

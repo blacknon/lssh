@@ -26,6 +26,7 @@ type MuxConfig struct {
 	BroadcastTitleColor  string `toml:"broadcast_title_color" yaml:"broadcast_title_color"`
 	DoneBorderColor      string `toml:"done_border_color" yaml:"done_border_color"`
 	DoneTitleColor       string `toml:"done_title_color" yaml:"done_title_color"`
+	Scrollbar            *bool  `toml:"scrollbar" yaml:"scrollbar"`
 	TransferEnabled      *bool  `toml:"transfer_enabled" yaml:"transfer_enabled"`
 	SocketPath           string `toml:"socket_path" yaml:"socket_path"`
 }
@@ -92,6 +93,10 @@ func (m MuxConfig) ApplyDefaults() MuxConfig {
 	if m.DoneTitleColor == "" {
 		m.DoneTitleColor = "gray"
 	}
+	if m.Scrollbar == nil {
+		enabled := false
+		m.Scrollbar = &enabled
+	}
 	if m.TransferEnabled == nil {
 		enabled := true
 		m.TransferEnabled = &enabled
@@ -101,4 +106,8 @@ func (m MuxConfig) ApplyDefaults() MuxConfig {
 
 func (m MuxConfig) IsTransferEnabled() bool {
 	return m.TransferEnabled == nil || *m.TransferEnabled
+}
+
+func (m MuxConfig) IsScrollbarEnabled() bool {
+	return m.Scrollbar != nil && *m.Scrollbar
 }

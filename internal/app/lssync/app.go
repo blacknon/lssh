@@ -127,7 +127,12 @@ USAGE:
 		if err != nil {
 			return err
 		}
-		names := conf.GetNameList(data)
+		allNames := conf.GetNameList(data)
+		names := append([]string(nil), allNames...)
+		names, err = data.FilterServersByOperation(names, "sftp_transport")
+		if err != nil {
+			return err
+		}
 		sort.Strings(names)
 
 		if c.Bool("list") {
@@ -143,8 +148,16 @@ USAGE:
 		fromServer := []string{}
 		switch {
 		case len(hosts) != 0:
-			if !check.ExistServer(hosts, names) {
+			filteredHosts, err := data.FilterServersByOperation(hosts, "sftp_transport")
+			if err != nil {
+				return err
+			}
+			if !check.ExistServer(hosts, allNames) {
 				fmt.Fprintln(os.Stderr, "Input Server not found from list.")
+				os.Exit(1)
+			}
+			if len(filteredHosts) != len(hosts) {
+				fmt.Fprintln(os.Stderr, "Input Server does not support SFTP-based transfer.")
 				os.Exit(1)
 			}
 			if isFromInRemote {
@@ -153,6 +166,18 @@ USAGE:
 				toServer = append(toServer, hosts...)
 			}
 		case len(explicitSourceHosts) > 0 || (targetSpec.IsRemote && len(targetSpec.Hosts) > 0):
+			filteredSourceHosts, err := data.FilterServersByOperation(explicitSourceHosts, "sftp_transport")
+			if err != nil {
+				return err
+			}
+			filteredTargetHosts, err := data.FilterServersByOperation(targetSpec.Hosts, "sftp_transport")
+			if err != nil {
+				return err
+			}
+			if len(filteredSourceHosts) != len(explicitSourceHosts) || len(filteredTargetHosts) != len(targetSpec.Hosts) {
+				fmt.Fprintln(os.Stderr, "Selected host does not support SFTP-based transfer.")
+				os.Exit(1)
+			}
 			fromServer = append(fromServer, explicitSourceHosts...)
 			toServer = append(toServer, targetSpec.Hosts...)
 		case isFromInRemote && isToRemote:

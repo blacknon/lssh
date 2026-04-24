@@ -128,7 +128,12 @@ USAGE:
 		}
 
 		// Get Server Name List (and sort List)
-		names := conf.GetNameList(data)
+		allNames := conf.GetNameList(data)
+		names := append([]string(nil), allNames...)
+		names, err = data.FilterServersByOperation(names, "sftp_transport")
+		if err != nil {
+			return err
+		}
 		sort.Strings(names)
 
 		selected := []string{}
@@ -139,8 +144,15 @@ USAGE:
 		switch {
 		// connectHost is set
 		case len(hosts) != 0:
-			if check.ExistServer(hosts, names) == false {
+			filteredHosts, err := data.FilterServersByOperation(hosts, "sftp_transport")
+			if err != nil {
+				return err
+			}
+			if check.ExistServer(hosts, allNames) == false {
 				fmt.Fprintln(os.Stderr, "Input Server not found from list.")
+				os.Exit(1)
+			} else if len(filteredHosts) != len(hosts) {
+				fmt.Fprintln(os.Stderr, "Input Server does not support SFTP-based transfer.")
 				os.Exit(1)
 			} else {
 				toServer = hosts

@@ -135,6 +135,7 @@ broadcast = "b"
 transfer = "f"
 detach_client = "d"
 transfer_enabled = true
+scrollbar = false
 socket_path = "~/.cache/lssh/lsmux-<Name>.sock"
 focus_border_color = "green"
 focus_title_color = "green"
@@ -161,6 +162,7 @@ mux:
   transfer: "f"
   detach_client: "d"
   transfer_enabled: true
+  scrollbar: false
   socket_path: "~/.cache/lssh/lsmux-<Name>.sock"
   focus_border_color: "green"
   focus_title_color: "green"
@@ -187,6 +189,7 @@ Available `mux` settings:
 - `transfer`: open file transfer for the active pane. Default: `f`
 - `detach_client`: key used after the prefix to detach an attached persistent client. Default: `d`
 - `transfer_enabled`: allow the transfer UI in `lsmux`. Default: `true`
+- `scrollbar`: show the built-in `tvxterm` scrollbar in each pane. Default: `false`
 - `socket_path`: unix socket path template for persistent sessions. `<Name>` is replaced with the session name.
 - `focus_border_color`, `focus_title_color`: colors for the focused pane. Default: `green`
 - `broadcast_border_color`, `broadcast_title_color`: colors for panes in broadcast mode. Default: `yellow`

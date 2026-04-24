@@ -11,6 +11,8 @@ import (
 	ssmtypes "github.com/aws/aws-sdk-go-v2/service/ssm/types"
 	"github.com/blacknon/lssh/internal/providerapi"
 	"github.com/blacknon/lssh/internal/providerbuiltin"
+	"github.com/blacknon/lssh/provider/connector/provider-connector-openssh/opensshlib"
+	"github.com/blacknon/lssh/provider/mixed/provider-mixed-aws-ec2/eiceconnector"
 )
 
 type awsSSMTargetConfig struct {
@@ -33,6 +35,9 @@ var probeSSMTarget = defaultProbeSSMTarget
 const awsSSMDescribeInstanceInformationMinResults int32 = 5
 
 func awsConnectorDescribe(params providerapi.ConnectorDescribeParams) (providerapi.ConnectorDescribeResult, error) {
+	if awsConnectorName(params) == "aws-eice" {
+		return awsEICEConnectorDescribe(params)
+	}
 	target, missing := awsSSMTargetFromParams(params.Config, params.Target)
 	if len(missing) > 0 {
 		return awsUnsupportedSSMCapabilities(
@@ -105,6 +110,9 @@ func awsConnectorDescribe(params providerapi.ConnectorDescribeParams) (providera
 }
 
 func awsConnectorPrepare(params providerapi.ConnectorPrepareParams) (providerapi.ConnectorPrepareResult, error) {
+	if awsConnectorNameFromPrepare(params) == "aws-eice" {
+		return awsEICEConnectorPrepare(params)
+	}
 	target, missing := awsSSMTargetFromParams(params.Config, params.Target)
 	if len(missing) > 0 {
 		return providerapi.ConnectorPrepareResult{
@@ -382,6 +390,249 @@ func awsIsLoopbackHost(host string) bool {
 	return ip != nil && ip.IsLoopback()
 }
 
+func awsConnectorName(params providerapi.ConnectorDescribeParams) string {
+	connectorName := strings.TrimSpace(providerbuiltin.String(params.Target.Config, "connector_name"))
+	if connectorName != "" {
+		return connectorName
+	}
+	return strings.TrimSpace(providerbuiltin.String(params.Config, "default_connector_name"))
+}
+
+func awsConnectorNameFromPrepare(params providerapi.ConnectorPrepareParams) string {
+	connectorName := strings.TrimSpace(providerbuiltin.String(params.Target.Config, "connector_name"))
+	if connectorName != "" {
+		return connectorName
+	}
+	return strings.TrimSpace(providerbuiltin.String(params.Config, "default_connector_name"))
+}
+
+type awsEICETargetConfig struct {
+	InstanceID             string
+	Region                 string
+	PrivateIPAddress       string
+	Profile                string
+	SharedConfigFiles      []string
+	SharedCredentialsFiles []string
+	EndpointID             string
+	EndpointDNSName        string
+	User                   string
+	KeyFile                string
+	Port                   string
+}
+
+func awsEICEConnectorDescribe(params providerapi.ConnectorDescribeParams) (providerapi.ConnectorDescribeResult, error) {
+	_, missing := awsEICETargetFromParams(params.Config, params.Target)
+	if len(missing) > 0 {
+		reason := fmt.Sprintf("aws eice target metadata is missing: %s", strings.Join(missing, ", "))
+		return providerapi.ConnectorDescribeResult{
+			Capabilities: map[string]providerapi.ConnectorCapability{
+				"shell": {Supported: false, Reason: reason},
+			},
+		}, nil
+	}
+
+	commandRuntime := awsEICERuntime(params.Config, params.Target.Config) == "command"
+	sdkRuntime := !commandRuntime
+	runtimeReason := "aws eice sdk runtime is disabled by configuration"
+	if sdkRuntime {
+		runtimeReason = ""
+	}
+
+	return providerapi.ConnectorDescribeResult{
+		Capabilities: map[string]providerapi.ConnectorCapability{
+			"shell": {
+				Supported: true,
+				Preferred: sdkRuntime,
+			},
+			"exec": {Supported: true},
+			"exec_pty": {
+				Supported: sdkRuntime,
+				Reason:    unsupportedReason(sdkRuntime, runtimeReason),
+			},
+			"sftp_transport": {Supported: true},
+			"upload": {
+				Supported: true,
+				Requires:  []string{"sftp_transport"},
+			},
+			"download": {
+				Supported: true,
+				Requires:  []string{"sftp_transport"},
+			},
+			"mount": {
+				Supported: true,
+				Requires:  []string{"sftp_transport"},
+			},
+			"port_forward_local": {Supported: true},
+			"tcp_dial_transport": {
+				Supported: sdkRuntime,
+				Reason:    unsupportedReason(sdkRuntime, runtimeReason),
+			},
+			"port_forward_remote": {
+				Supported: false,
+				Reason:    "aws eice does not support remote port forwarding in the first connector wave",
+			},
+			"agent_forward": {
+				Supported: false,
+				Reason:    "aws eice does not provide agent forwarding in the first connector wave",
+			},
+		},
+	}, nil
+}
+
+func awsEICEConnectorPrepare(params providerapi.ConnectorPrepareParams) (providerapi.ConnectorPrepareResult, error) {
+	target, missing := awsEICETargetFromParams(params.Config, params.Target)
+	if len(missing) > 0 {
+		return providerapi.ConnectorPrepareResult{
+			Supported: false,
+			Plan: providerapi.ConnectorPlan{
+				Kind: "provider-managed",
+				Details: map[string]interface{}{
+					"connector": "aws-eice",
+					"reason":    fmt.Sprintf("aws eice target metadata is missing: %s", strings.Join(missing, ", ")),
+				},
+			},
+		}, nil
+	}
+
+	if awsEICERuntime(params.Config, params.Target.Config) == "command" {
+		return awsEICEPrepareCommand(params, target)
+	}
+
+	targetPort := awsFirstNonEmpty(awsOptionString(params.Operation.Options, "target_port"), target.Port)
+	if targetPort == "" {
+		targetPort = "22"
+	}
+	switch params.Operation.Name {
+	case "shell", "exec", "exec_pty", "sftp_transport", "mount", "port_forward_local", "tcp_dial_transport":
+		return providerapi.ConnectorPrepareResult{
+			Supported: true,
+			Plan: providerapi.ConnectorPlan{
+				Kind: "provider-managed",
+				Details: map[string]interface{}{
+					"connector":                          "aws-eice",
+					"ssh_runtime":                        "sdk",
+					"transport":                          "ssh_transport",
+					"operation":                          params.Operation.Name,
+					"instance_id":                        target.InstanceID,
+					"region":                             target.Region,
+					"private_ip_address":                 target.PrivateIPAddress,
+					"instance_connect_endpoint_id":       target.EndpointID,
+					"instance_connect_endpoint_dns_name": target.EndpointDNSName,
+					"profile":                            target.Profile,
+					"shared_config_files":                target.SharedConfigFiles,
+					"shared_credentials_files":           target.SharedCredentialsFiles,
+					"target_port":                        targetPort,
+				},
+			},
+		}, nil
+	default:
+		return providerapi.ConnectorPrepareResult{
+			Supported: false,
+			Plan: providerapi.ConnectorPlan{
+				Kind: "provider-managed",
+				Details: map[string]interface{}{
+					"connector": "aws-eice",
+					"reason":    fmt.Sprintf("operation %q is not supported by the aws eice connector", params.Operation.Name),
+				},
+			},
+		}, nil
+	}
+}
+
+func awsEICETargetFromParams(config map[string]interface{}, target providerapi.ConnectorTarget) (awsEICETargetConfig, []string) {
+	result := awsEICETargetConfig{
+		InstanceID:             awsFirstNonEmpty(target.Meta["instance_id"], providerbuiltin.String(target.Config, "instance_id"), providerbuiltin.String(config, "instance_id")),
+		Region:                 awsFirstNonEmpty(target.Meta["region"], providerbuiltin.String(target.Config, "region"), providerbuiltin.String(config, "region")),
+		PrivateIPAddress:       awsFirstNonEmpty(target.Meta["private_ip"], providerbuiltin.String(target.Config, "private_ip_address"), providerbuiltin.String(config, "private_ip_address")),
+		Profile:                awsFirstNonEmpty(providerbuiltin.String(target.Config, "profile"), providerbuiltin.String(config, "profile")),
+		SharedConfigFiles:      providerbuiltin.ExpandPaths(providerbuiltin.StringSlice(config, "shared_config_files")),
+		SharedCredentialsFiles: providerbuiltin.ExpandPaths(providerbuiltin.StringSlice(config, "shared_credentials_files")),
+		EndpointID:             awsFirstNonEmpty(providerbuiltin.String(target.Config, "instance_connect_endpoint_id"), providerbuiltin.String(config, "instance_connect_endpoint_id")),
+		EndpointDNSName:        awsFirstNonEmpty(providerbuiltin.String(target.Config, "instance_connect_endpoint_dns_name"), providerbuiltin.String(config, "instance_connect_endpoint_dns_name")),
+		User:                   providerbuiltin.String(target.Config, "user"),
+		KeyFile:                providerbuiltin.ExpandPath(providerbuiltin.String(target.Config, "key")),
+		Port:                   awsFirstNonEmpty(providerbuiltin.String(target.Config, "port"), "22"),
+	}
+
+	var missing []string
+	if result.InstanceID == "" {
+		missing = append(missing, "instance_id")
+	}
+	if result.Region == "" {
+		missing = append(missing, "region")
+	}
+	return result, missing
+}
+
+func awsEICERuntime(config map[string]interface{}, targetConfig map[string]interface{}) string {
+	switch strings.ToLower(strings.TrimSpace(awsFirstNonEmpty(
+		providerbuiltin.String(targetConfig, "eice_runtime"),
+		providerbuiltin.String(config, "eice_runtime"),
+	))) {
+	case "", "sdk":
+		return "sdk"
+	case "command":
+		return "command"
+	default:
+		return "sdk"
+	}
+}
+
+func awsEICEPrepareCommand(params providerapi.ConnectorPrepareParams, target awsEICETargetConfig) (providerapi.ConnectorPrepareResult, error) {
+	opensshCfg := opensshlib.Config{
+		SSHPath:      "ssh",
+		Host:         target.InstanceID,
+		User:         target.User,
+		Port:         target.Port,
+		IdentityFile: target.KeyFile,
+		ExtraOptions: []string{"ProxyCommand=" + eiceconnector.SSHProxyCommand(eiceconnector.ExpandForCommand(eiceconnector.Config{
+			InstanceID:             target.InstanceID,
+			Region:                 target.Region,
+			Profile:                target.Profile,
+			EndpointID:             target.EndpointID,
+			EndpointDNSName:        target.EndpointDNSName,
+			PrivateIPAddress:       target.PrivateIPAddress,
+			RemotePort:             target.Port,
+			SharedConfigFiles:      target.SharedConfigFiles,
+			SharedCredentialsFiles: target.SharedCredentialsFiles,
+		}))},
+	}
+
+	var plan providerapi.ConnectorPlan
+	switch params.Operation.Name {
+	case "shell":
+		plan = opensshlib.BuildShellPlan(opensshCfg)
+	case "exec", "exec_pty":
+		plan = opensshlib.BuildExecPlan(opensshCfg, params.Operation)
+	case "sftp_transport", "mount":
+		plan = opensshlib.BuildSFTPTransportPlan(opensshCfg)
+	case "port_forward_local":
+		spec, err := awsLocalPortForwardSpecFromOperation(params.Operation)
+		if err != nil {
+			return providerapi.ConnectorPrepareResult{}, err
+		}
+		plan = opensshlib.BuildLocalForwardPlan(opensshCfg, spec.ListenHost, spec.ListenPort, spec.TargetHost, spec.TargetPort)
+	default:
+		return providerapi.ConnectorPrepareResult{
+			Supported: false,
+			Plan: providerapi.ConnectorPlan{
+				Kind: "command",
+				Details: map[string]interface{}{
+					"connector": "aws-eice",
+					"reason":    fmt.Sprintf("operation %q is not supported by the aws eice command runtime", params.Operation.Name),
+				},
+			},
+		}, nil
+	}
+	plan.Details["connector"] = "aws-eice"
+	plan.Details["runtime"] = "command"
+	plan.Env = eiceconnector.CommandEnv(eiceconnector.Config{
+		SharedConfigFiles:      target.SharedConfigFiles,
+		SharedCredentialsFiles: target.SharedCredentialsFiles,
+	})
+	return providerapi.ConnectorPrepareResult{Supported: true, Plan: plan}, nil
+}
+
 func defaultProbeSSMTarget(ctx context.Context, raw map[string]interface{}, target awsSSMTargetConfig) (awsSSMProbeResult, error) {
 	cfg, err := loadAWSConfig(ctx, raw, target.Region)
 	if err != nil {
@@ -427,6 +678,13 @@ func awsSSMHealthCheck(ctx context.Context, raw map[string]interface{}, region s
 		return fmt.Errorf("describe ssm instance information: %w", err)
 	}
 	return nil
+}
+
+func unsupportedReason(supported bool, reason string) string {
+	if supported {
+		return ""
+	}
+	return reason
 }
 
 func awsDescribeInstanceInformationInput(instanceID string) *ssm.DescribeInstanceInformationInput {

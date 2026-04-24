@@ -53,6 +53,7 @@ USAGE:
 
 `lsmon` can monitor multiple hosts selected from the TUI list, or you can specify them directly with `-H`.
 It is designed for comparing host state across a server list.
+Connector-backed targets that do not advertise `sftp_transport` are excluded from the monitor target list.
 
 ```bash
 # start monitoring after selecting hosts from the TUI

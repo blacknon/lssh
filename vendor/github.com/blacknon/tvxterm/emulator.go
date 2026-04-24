@@ -452,6 +452,16 @@ func (e *Emulator) handleEscByte(b byte) {
 	case '8':
 		e.restoreCursor()
 		e.state = stateGround
+	case 'D':
+		e.index()
+		e.state = stateGround
+	case 'E':
+		e.cursorX = 0
+		e.index()
+		e.state = stateGround
+	case 'M':
+		e.reverseIndex()
+		e.state = stateGround
 	case 'c':
 		e.reset()
 		e.state = stateGround
@@ -706,6 +716,28 @@ func (e *Emulator) lineFeed() {
 		e.scrollUpInRegion(1, e.activeScrollTop(), bottom)
 	} else {
 		e.cursorY++
+	}
+}
+
+func (e *Emulator) index() {
+	bottom := e.activeScrollBottom()
+	if e.cursorY == bottom {
+		e.scrollUpInRegion(1, e.activeScrollTop(), bottom)
+		return
+	}
+	if e.cursorY < e.rows-1 {
+		e.cursorY++
+	}
+}
+
+func (e *Emulator) reverseIndex() {
+	top := e.activeScrollTop()
+	if e.cursorY == top {
+		e.scrollDownInRegion(1, top, e.activeScrollBottom())
+		return
+	}
+	if e.cursorY > 0 {
+		e.cursorY--
 	}
 }
 
