@@ -7,6 +7,7 @@ import (
 
 	conf "github.com/blacknon/lssh/internal/config"
 	ssmconnector "github.com/blacknon/lssh/provider/mixed/provider-mixed-aws-ec2/ssmconnector"
+	"github.com/blacknon/lssh/provider/mixed/provider-mixed-aws-ec2/ssmsession"
 )
 
 func TestBuildAWSNativeShellSessionConfigAddsLocalRC(t *testing.T) {
@@ -75,8 +76,11 @@ func TestBuildAWSNativeShellSessionConfigAddsStartupCommandForInteractiveCommand
 	if !strings.Contains(sessionCfg.StartupCommand, "sh -c 'stty size'") {
 		t.Fatalf("StartupCommand = %q, want interactive command startup wrapper", sessionCfg.StartupCommand)
 	}
-	if sessionCfg.StartupMarker != "" {
-		t.Fatalf("StartupMarker = %q, want empty for interactive command startup", sessionCfg.StartupMarker)
+	if sessionCfg.StartupMarker != ssmsession.StartupEchoMarker() {
+		t.Fatalf("StartupMarker = %q, want %q", sessionCfg.StartupMarker, ssmsession.StartupEchoMarker())
+	}
+	if !strings.Contains(sessionCfg.StartupCommand, "__LSSH_STARTUP__") {
+		t.Fatalf("StartupCommand = %q, want startup marker print", sessionCfg.StartupCommand)
 	}
 }
 
@@ -96,6 +100,11 @@ func TestShouldUseAWSNativeShellInMux(t *testing.T) {
 
 	if !shouldUseAWSNativeShellInMux(ssmconnector.ShellConfig{}) {
 		t.Fatal("shouldUseAWSNativeShellInMux(start) = false, want true")
+	}
+	if shouldUseAWSNativeShellInMux(ssmconnector.ShellConfig{
+		Command: []string{"stty", "size"},
+	}) {
+		t.Fatal("shouldUseAWSNativeShellInMux(command start) = true, want false")
 	}
 	if !shouldUseAWSNativeShellInMux(ssmconnector.ShellConfig{Runtime: "plugin"}) {
 		t.Fatal("shouldUseAWSNativeShellInMux(plugin start) = false, want true")
