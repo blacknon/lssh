@@ -143,6 +143,16 @@ func TestSendStartupCommandSplitsLongInput(t *testing.T) {
 	}
 }
 
+func TestBuildStartupCommandAddsMarker(t *testing.T) {
+	got := BuildStartupCommand("stty size", StartupEchoMarker())
+	if !strings.Contains(got, "printf '%s\\n' __LSSH_STARTUP__") {
+		t.Fatalf("BuildStartupCommand() = %q, want startup marker print", got)
+	}
+	if !strings.Contains(got, "sh -c 'stty size'") {
+		t.Fatalf("BuildStartupCommand() = %q, want wrapped command", got)
+	}
+}
+
 func TestNormalizeInteractiveInputPayload(t *testing.T) {
 	tests := []struct {
 		name string

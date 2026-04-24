@@ -52,6 +52,7 @@ const (
 	payloadTypeStdErr            uint32 = 11
 
 	streamExitMarkerPrefix = "__LSSH_EXIT__:"
+	startupEchoMarker      = "__LSSH_STARTUP__"
 	startupMarkerWaitLimit = 3 * time.Second
 	startupCommandDelay    = 200 * time.Millisecond
 )
@@ -221,7 +222,14 @@ func (s *Session) Run(ctx context.Context, stream connectorruntime.StreamConfig)
 		return err
 	}
 
-	go s.readLoop(stream.Stdout, stream.Stderr)
+	var stderrWriter io.Writer = stream.Stderr
+	var exitWriter *streamExitStatusWriter
+	if stream.Stderr != nil {
+		exitWriter = newStreamExitStatusWriter(stream.Stderr)
+		stderrWriter = exitWriter
+	}
+
+	go s.readLoop(stream.Stdout, stderrWriter)
 
 	select {
 	case <-s.ready:
@@ -257,12 +265,18 @@ func (s *Session) Run(ctx context.Context, stream connectorruntime.StreamConfig)
 		go s.copyInput(stream.Stdin)
 	}
 
+	var runErr error
 	select {
-	case err := <-s.readErr:
-		return err
+	case runErr = <-s.readErr:
 	case <-ctx.Done():
-		return ctx.Err()
+		runErr = ctx.Err()
 	}
+	if exitWriter != nil {
+		if flushErr := exitWriter.Flush(); flushErr != nil && runErr == nil {
+			runErr = flushErr
+		}
+	}
+	return runErr
 }
 
 func (s *Session) Resize(ctx context.Context, size connectorruntime.TerminalSize) error {
@@ -472,8 +486,12 @@ func (s *Session) handleOutputMessage(msg clientMessage, stdout, stderr io.Write
 	case payloadTypeStdErr:
 		s.markStartupTrigger()
 		s.markReady()
+		payload := s.filterStartupOutput(msg.Payload)
+		if len(payload) == 0 {
+			return nil
+		}
 		if stderr != nil {
-			_, _ = stderr.Write(msg.Payload)
+			_, _ = stderr.Write(payload)
 		}
 	case payloadTypeFlag:
 		return s.handleFlagMessage(msg.Payload)
@@ -915,6 +933,20 @@ func buildStreamCommandLine(commandLine string) string {
 
 func BuildStreamCommandLine(commandLine string) string {
 	return buildStreamCommandLine(commandLine)
+}
+
+func StartupEchoMarker() string {
+	return startupEchoMarker
+}
+
+func BuildStartupCommand(commandLine, marker string) string {
+	base := buildStreamCommandLine(commandLine)
+	marker = strings.TrimSpace(marker)
+	if marker == "" {
+		return base
+	}
+
+	return fmt.Sprintf("printf '%%s\\n' %s; %s", shellSingleQuote(marker), base)
 }
 
 type streamExitStatusWriter struct {

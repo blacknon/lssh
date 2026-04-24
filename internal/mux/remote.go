@@ -646,6 +646,9 @@ func shouldUseAWSNativeShellInMux(shellCfg ssmconnector.ShellConfig) bool {
 	if runtime.GOOS == "windows" {
 		return false
 	}
+	if len(shellCfg.Command) > 0 {
+		return false
+	}
 
 	switch shellCfg.SessionAction {
 	case "", "start":
@@ -765,7 +768,8 @@ func buildAWSNativeShellSessionConfig(serverConf conf.ServerConfig, shellCfg ssm
 		DocumentName:           shellCfg.DocumentName,
 	}
 	if len(shellCfg.Command) > 0 {
-		sessionCfg.StartupCommand = ssmsession.BuildStreamCommandLine(shellquote.Join(shellCfg.Command...))
+		sessionCfg.StartupMarker = ssmsession.StartupEchoMarker()
+		sessionCfg.StartupCommand = ssmsession.BuildStartupCommand(shellquote.Join(shellCfg.Command...), sessionCfg.StartupMarker)
 		return sessionCfg
 	}
 	if serverConf.LocalRcUse == "yes" {
