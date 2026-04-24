@@ -524,6 +524,7 @@ func (m *Manager) startPaneConnect(targetPage *page, p *pane) {
 func (m *Manager) activatePane(targetPage *page, p *pane, session *RemoteSession) {
 	p.session = session
 	p.term = tvxterm.New(m.app)
+	p.term.SetScrollbar(m.conf.Mux.IsScrollbarEnabled())
 	p.primitive = nil
 	p.focusTarget = nil
 	p.failed = false

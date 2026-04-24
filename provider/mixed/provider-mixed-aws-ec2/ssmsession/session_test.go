@@ -9,6 +9,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/blacknon/lssh/internal/connectorruntime"
 	"github.com/google/uuid"
 )
 
@@ -84,6 +85,11 @@ func TestHandleOutputMessageMarksReadyWithoutHandshakeComplete(t *testing.T) {
 	default:
 		t.Fatal("session.ready was not closed by first output message")
 	}
+	select {
+	case <-session.startupTrigger:
+	default:
+		t.Fatal("session.startupTrigger was not closed by first output message")
+	}
 
 	if stdout.String() != "sh-5.2$ " {
 		t.Fatalf("stdout = %q, want %q", stdout.String(), "sh-5.2$ ")
@@ -92,8 +98,8 @@ func TestHandleOutputMessageMarksReadyWithoutHandshakeComplete(t *testing.T) {
 
 func TestBuildStreamCommandLineWrapsCommand(t *testing.T) {
 	command := buildStreamCommandLine("cat > /tmp/test")
-	if !strings.Contains(command, "sh -lc") {
-		t.Fatalf("buildStreamCommandLine() = %q, want sh -lc wrapper", command)
+	if !strings.Contains(command, "sh -c") {
+		t.Fatalf("buildStreamCommandLine() = %q, want sh -c wrapper", command)
 	}
 	if !strings.Contains(command, streamExitMarkerPrefix) {
 		t.Fatalf("buildStreamCommandLine() = %q, want exit marker", command)
@@ -137,9 +143,55 @@ func TestSendStartupCommandSplitsLongInput(t *testing.T) {
 	}
 }
 
+func TestNormalizeInteractiveInputPayload(t *testing.T) {
+	tests := []struct {
+		name string
+		in   string
+		want string
+	}{
+		{name: "single newline", in: "\n", want: "\r"},
+		{name: "command line", in: "pwd\n", want: "pwd\r"},
+		{name: "collapse crlf", in: "pwd\r\n", want: "pwd\r"},
+		{name: "keep cr", in: "pwd\r", want: "pwd\r"},
+		{name: "multiple lines", in: "a\nb\n", want: "a\rb\r"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := string(normalizeInteractiveInputPayload([]byte(tt.in), false))
+			if got != tt.want {
+				t.Fatalf("normalizeInteractiveInputPayload(%q) = %q, want %q", tt.in, got, tt.want)
+			}
+		})
+	}
+}
+
+func TestNormalizeInteractiveInputPayloadExpandCRLF(t *testing.T) {
+	tests := []struct {
+		name string
+		in   string
+		want string
+	}{
+		{name: "single cr", in: "\r", want: "\r\n"},
+		{name: "single newline", in: "\n", want: "\r\n"},
+		{name: "command line", in: "pwd\r", want: "pwd\r\n"},
+		{name: "keep crlf", in: "pwd\r\n", want: "pwd\r\n"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := string(normalizeInteractiveInputPayload([]byte(tt.in), true))
+			if got != tt.want {
+				t.Fatalf("normalizeInteractiveInputPayload(%q, true) = %q, want %q", tt.in, got, tt.want)
+			}
+		})
+	}
+}
+
 func TestFilterStartupOutputSuppressesUntilMarker(t *testing.T) {
 	session := New(Config{StartupMarker: "__READY__"})
 	session.startupSuppress = true
+	session.startupSince = time.Now()
 
 	if got := session.filterStartupOutput([]byte("sh-5.2$ long startup")); got != nil {
 		t.Fatalf("filterStartupOutput(before marker) = %q, want nil", string(got))
@@ -151,6 +203,51 @@ func TestFilterStartupOutputSuppressesUntilMarker(t *testing.T) {
 	}
 	if session.startupSuppress {
 		t.Fatal("startupSuppress = true, want false")
+	}
+}
+
+func TestFilterStartupOutputFallsBackAfterTimeout(t *testing.T) {
+	session := New(Config{StartupMarker: "__READY__"})
+	session.startupMu.Lock()
+	session.startupSuppress = true
+	session.startupSince = time.Now().Add(-startupMarkerWaitLimit - time.Second)
+	session.startupMu.Unlock()
+
+	got := session.filterStartupOutput([]byte("plain prompt$ "))
+	if string(got) != "plain prompt$ " {
+		t.Fatalf("filterStartupOutput(timeout) = %q, want %q", string(got), "plain prompt$ ")
+	}
+	if session.startupSuppress {
+		t.Fatal("startupSuppress = true, want false after timeout fallback")
+	}
+}
+
+func TestStartStartupSuppressTimesOut(t *testing.T) {
+	session := New(Config{StartupMarker: "__READY__"})
+	session.startStartupSuppress()
+
+	time.Sleep(startupMarkerWaitLimit + 200*time.Millisecond)
+
+	session.startupMu.Lock()
+	defer session.startupMu.Unlock()
+	if session.startupSuppress {
+		t.Fatal("startupSuppress = true, want false after watchdog timeout")
+	}
+}
+
+func TestResizeDefersUntilReady(t *testing.T) {
+	session := New(Config{})
+	if err := session.Resize(context.Background(), connectorruntime.TerminalSize{Cols: 128, Rows: 27}); err != nil {
+		t.Fatalf("Resize() error = %v", err)
+	}
+
+	session.sizeMu.Lock()
+	defer session.sizeMu.Unlock()
+	if !session.hasPendingSize {
+		t.Fatal("hasPendingSize = false, want true")
+	}
+	if session.pendingResize.Cols != 128 || session.pendingResize.Rows != 27 {
+		t.Fatalf("pendingResize = %+v, want 128x27", session.pendingResize)
 	}
 }
 

@@ -458,3 +458,46 @@ func TestAWSSelectAddress(t *testing.T) {
 		})
 	}
 }
+
+func TestAWSEICERuntimePrefersTargetConfig(t *testing.T) {
+	got := awsEICERuntime(
+		map[string]interface{}{"eice_runtime": "sdk"},
+		map[string]interface{}{"eice_runtime": "command"},
+	)
+	if got != "command" {
+		t.Fatalf("awsEICERuntime() = %q, want command", got)
+	}
+}
+
+func TestAWSEICETargetFromParamsPrefersTargetConfig(t *testing.T) {
+	target, missing := awsEICETargetFromParams(
+		map[string]interface{}{
+			"profile":                            "provider-profile",
+			"instance_connect_endpoint_id":       "provider-eice",
+			"instance_connect_endpoint_dns_name": "provider.example",
+		},
+		providerapi.ConnectorTarget{
+			Config: map[string]interface{}{
+				"profile":                            "target-profile",
+				"instance_connect_endpoint_id":       "target-eice",
+				"instance_connect_endpoint_dns_name": "target.example",
+			},
+			Meta: map[string]string{
+				"instance_id": "i-0123456789abcdef0",
+				"region":      "ap-northeast-1",
+			},
+		},
+	)
+	if len(missing) != 0 {
+		t.Fatalf("missing = %v, want empty", missing)
+	}
+	if target.Profile != "target-profile" {
+		t.Fatalf("Profile = %q, want target-profile", target.Profile)
+	}
+	if target.EndpointID != "target-eice" {
+		t.Fatalf("EndpointID = %q, want target-eice", target.EndpointID)
+	}
+	if target.EndpointDNSName != "target.example" {
+		t.Fatalf("EndpointDNSName = %q, want target.example", target.EndpointDNSName)
+	}
+}

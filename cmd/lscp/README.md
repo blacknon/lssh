@@ -88,6 +88,7 @@ lscp ./build/app remote:/opt/app/
 
 You can select the destination host from the TUI list, or specify it directly with `-H`.
 When both source and destination are remote paths, `lscp` first asks for the source host and then for the destination host.
+Connector-backed targets that do not advertise `sftp_transport` are excluded from the selection list and rejected when passed with `-H`.
 
 ```bash
 # specify destination hosts directly

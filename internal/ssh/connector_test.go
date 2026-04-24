@@ -51,6 +51,18 @@ func TestConnectorPlanSupportsLocalRCForAWSNativeOnly(t *testing.T) {
 	if connectorPlanSupportsLocalRC(pluginPlan, "aws-ssm") {
 		t.Fatal("connectorPlanSupportsLocalRC(plugin aws-ssm) = true, want false")
 	}
+
+	managedSSHPlan := providerapi.ConnectorPlan{
+		Kind: "provider-managed",
+		Details: map[string]interface{}{
+			"connector":   "gcp-iap",
+			"ssh_runtime": "sdk",
+			"transport":   "ssh_transport",
+		},
+	}
+	if !connectorPlanSupportsLocalRC(managedSSHPlan, "gcp-iap") {
+		t.Fatal("connectorPlanSupportsLocalRC(managed ssh) = false, want true")
+	}
 }
 
 func TestConnectorLocalForwardSpecLocalhostTCP(t *testing.T) {

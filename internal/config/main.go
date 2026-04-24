@@ -293,6 +293,7 @@ func serverConfigReduct(perConfig, childConfig ServerConfig) ServerConfig {
 
 	resultMap := common.MapReduce(perConfigMap, childConfigMap)
 	_ = common.MapToStruct(resultMap, &result)
+	result.ProviderConfig = mergeProviderConfigMaps(perConfig.ProviderConfig, childConfig.ProviderConfig)
 
 	return result
 }

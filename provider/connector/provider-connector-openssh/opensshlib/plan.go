@@ -2,6 +2,7 @@ package opensshlib
 
 import (
 	"fmt"
+	"net"
 	"strings"
 
 	"github.com/blacknon/lssh/internal/providerapi"
@@ -90,6 +91,22 @@ func BuildSFTPTransportPlan(cfg Config) providerapi.ConnectorPlan {
 			"operation": "sftp_transport",
 			"transport": "sftp_transport",
 			"protocol":  "sftp",
+		},
+	}
+}
+
+func BuildLocalForwardPlan(cfg Config, listenHost, listenPort, targetHost, targetPort string) providerapi.ConnectorPlan {
+	args := baseArgs(cfg)
+	args = append(args, "-N", "-L", fmt.Sprintf("%s:%s:%s", net.JoinHostPort(listenHost, listenPort), targetHost, targetPort))
+	args = append(args, destination(cfg))
+	return providerapi.ConnectorPlan{
+		Kind:    "command",
+		Program: cfg.SSHPath,
+		Args:    args,
+		Details: map[string]interface{}{
+			"connector": "openssh",
+			"operation": "port_forward_local",
+			"transport": "port_forward_transport",
 		},
 	}
 }

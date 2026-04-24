@@ -130,7 +130,12 @@ USAGE:
 		isMulti := true
 
 		// Extraction server name list from 'data'
-		names := conf.GetNameList(data)
+		allNames := conf.GetNameList(data)
+		names := append([]string(nil), allNames...)
+		names, err = data.FilterServersByOperation(names, "sftp_transport")
+		if err != nil {
+			return err
+		}
 		sort.Strings(names)
 
 		// Check list flag
@@ -144,8 +149,15 @@ USAGE:
 
 		selected := []string{}
 		if len(hosts) > 0 {
-			if !check.ExistServer(hosts, names) {
+			filteredHosts, err := data.FilterServersByOperation(hosts, "sftp_transport")
+			if err != nil {
+				return err
+			}
+			if !check.ExistServer(hosts, allNames) {
 				fmt.Fprintln(os.Stderr, "Input Server not found from list.")
+				os.Exit(1)
+			} else if len(filteredHosts) != len(hosts) {
+				fmt.Fprintln(os.Stderr, "Input Server does not support SFTP-based monitoring.")
 				os.Exit(1)
 			} else {
 				selected = hosts

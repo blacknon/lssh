@@ -15,6 +15,9 @@ import (
 	"github.com/blacknon/lssh/internal/providerapi"
 	"github.com/blacknon/lssh/provider/connector/provider-connector-telnet/telnetlib"
 	"github.com/blacknon/lssh/provider/connector/provider-connector-winrm/winrmlib"
+	azurebastionconnector "github.com/blacknon/lssh/provider/inventory/provider-inventory-azure-compute/bastionconnector"
+	gcpiapconnector "github.com/blacknon/lssh/provider/inventory/provider-inventory-gcp-compute/iapconnector"
+	awseiceconnector "github.com/blacknon/lssh/provider/mixed/provider-mixed-aws-ec2/eiceconnector"
 	ssmconnector "github.com/blacknon/lssh/provider/mixed/provider-mixed-aws-ec2/ssmconnector"
 	"github.com/blacknon/lssh/provider/mixed/provider-mixed-aws-ec2/ssmsession"
 	"golang.org/x/crypto/ssh/terminal"
@@ -184,6 +187,9 @@ func (r *Run) runConnectorCommandOperation(server string, operation providerapi.
 	case "command":
 		return runCommandPlanExec(prepared.Plan, stdin, stdout, stderr)
 	case "provider-managed":
+		if connectorManagedSSHRuntime(prepared.Plan, planConnector) {
+			return r.runConnectorManagedSSHTransportExec(server, r.Conf.Server[server], operation.Command, connectorOptionString(operation.Options, "command_line"), stdin, stdout, stderr, operation.Name == "exec_pty")
+		}
 		return runProviderManagedExec(prepared.Plan, planConnector, stdin, stdout, stderr)
 	default:
 		return 0, fmt.Errorf("server %q connector %q returned unsupported plan kind %q", server, planConnector, prepared.Plan.Kind)
@@ -223,6 +229,14 @@ func connectorNameFromPlan(plan providerapi.ConnectorPlan, fallback string) stri
 }
 
 func runProviderManagedShell(r *Run, config conf.ServerConfig, plan providerapi.ConnectorPlan, connectorName string) error {
+	if connectorManagedSSHRuntime(plan, connectorName) {
+		server := ""
+		if len(r.ServerList) > 0 {
+			server = r.ServerList[0]
+		}
+		return r.runConnectorManagedSSHTransportShell(server, config)
+	}
+
 	switch connectorName {
 	case "aws-ssm":
 		shellConfig, err := ssmconnector.ShellConfigFromPlan(plan)
@@ -269,6 +283,10 @@ func runProviderManagedShell(r *Run, config conf.ServerConfig, plan providerapi.
 }
 
 func runProviderManagedExec(plan providerapi.ConnectorPlan, connectorName string, stdin io.Reader, stdout, stderr io.Writer) (int, error) {
+	if connectorManagedSSHRuntime(plan, connectorName) {
+		return 0, fmt.Errorf("connector %q managed ssh exec requires run context", connectorName)
+	}
+
 	switch connectorName {
 	case "aws-ssm":
 		if detailString(plan.Details, "shell_runtime") == "native" && detailString(plan.Details, "command_line") != "" {
@@ -338,6 +356,24 @@ func dialProviderManagedTransport(plan providerapi.ConnectorPlan, connectorName 
 			cfg.Runtime = "plugin"
 		}
 		return ssmconnector.DialTarget(context.Background(), cfg)
+	case "aws-eice":
+		cfg, err := awseiceconnector.ConfigFromPlan(plan)
+		if err != nil {
+			return nil, err
+		}
+		return awseiceconnector.DialTarget(context.Background(), cfg)
+	case "gcp-iap":
+		cfg, err := gcpiapconnector.ConfigFromPlan(plan)
+		if err != nil {
+			return nil, err
+		}
+		return gcpiapconnector.DialTarget(context.Background(), cfg)
+	case "azure-bastion":
+		cfg, err := azurebastionconnector.ConfigFromPlan(plan)
+		if err != nil {
+			return nil, err
+		}
+		return azurebastionconnector.DialTarget(context.Background(), cfg)
 	default:
 		return nil, fmt.Errorf("connector %q does not support dial transport in the core runtime yet", connectorName)
 	}
@@ -437,6 +473,9 @@ func (r *Run) runConnectorLocalPortForward(server string, config conf.ServerConf
 		case "command":
 			return runCommandPlanShell(prepared.Plan)
 		case "provider-managed":
+			if connectorManagedSSHRuntime(prepared.Plan, planConnector) {
+				return r.runConnectorManagedSSHLocalPortForward(server, config)
+			}
 			return runProviderManagedLocalPortForward(prepared.Plan, planConnector)
 		default:
 			return fmt.Errorf("server %q connector %q returned unsupported plan kind %q", server, planConnector, prepared.Plan.Kind)
@@ -807,6 +846,9 @@ func connectorLocalRCCommand(r *Run, config conf.ServerConfig) string {
 }
 
 func connectorPlanSupportsLocalRC(plan providerapi.ConnectorPlan, connectorName string) bool {
+	if connectorManagedSSHRuntime(plan, connectorName) {
+		return true
+	}
 	if connectorName != "aws-ssm" {
 		return false
 	}
@@ -843,4 +885,15 @@ func runConnectorWithPrePost(config conf.ServerConfig, run func() error) error {
 		defer execLocalCommand(config.PostCmd)
 	}
 	return run()
+}
+
+func connectorOptionString(raw map[string]interface{}, key string) string {
+	if raw == nil {
+		return ""
+	}
+	value, ok := raw[key]
+	if !ok || value == nil {
+		return ""
+	}
+	return strings.TrimSpace(fmt.Sprint(value))
 }

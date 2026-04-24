@@ -1,0 +1,13 @@
+//go:build linux
+
+package mux
+
+import "golang.org/x/sys/unix"
+
+func ioctlReadTermios() uint {
+	return unix.TCGETS
+}
+
+func ioctlWriteTermios() uint {
+	return unix.TCSETS
+}

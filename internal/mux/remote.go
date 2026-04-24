@@ -12,6 +12,7 @@ import (
 	"os/exec"
 	"os/user"
 	"regexp"
+	"runtime"
 	"strings"
 	"sync"
 	"time"
@@ -20,11 +21,13 @@ import (
 	sshlib "github.com/blacknon/go-sshlib"
 	"github.com/blacknon/lssh/internal/common"
 	conf "github.com/blacknon/lssh/internal/config"
+	"github.com/blacknon/lssh/internal/connectorruntime"
 	"github.com/blacknon/lssh/internal/providerapi"
 	sshcmd "github.com/blacknon/lssh/internal/ssh"
 	"github.com/blacknon/lssh/provider/connector/provider-connector-telnet/telnetlib"
 	"github.com/blacknon/lssh/provider/connector/provider-connector-winrm/winrmlib"
 	ssmconnector "github.com/blacknon/lssh/provider/mixed/provider-mixed-aws-ec2/ssmconnector"
+	"github.com/blacknon/lssh/provider/mixed/provider-mixed-aws-ec2/ssmsession"
 	"github.com/blacknon/tvxterm"
 	"github.com/creack/pty"
 	"github.com/kballard/go-shellquote"
@@ -96,111 +99,7 @@ func NewSessionFactory(cfg conf.Config, command []string, options SessionOptions
 		if err != nil {
 			return nil, err
 		}
-		if err := sshcmd.StartParallelForwards(connect, forwardConf); err != nil {
-			if connect.Client != nil {
-				_ = connect.Client.Close()
-			}
-			return nil, err
-		}
-
-		opts := sshlib.TerminalOptions{
-			Term: "xterm-256color",
-			Cols: maxInt(cols, 80),
-			Rows: maxInt(rows, 24),
-		}
-		if len(command) == 0 {
-			opts.StartShell = true
-		} else {
-			opts.Command = shellquote.Join(command...)
-		}
-		if len(command) == 0 && serverConf.LocalRcUse == "yes" {
-			opts.StartShell = false
-			opts.Command = buildLocalRcCommand(
-				serverConf.LocalRcPath,
-				serverConf.LocalRcDecodeCmd,
-				serverConf.LocalRcCompress,
-				serverConf.LocalRcUncompressCmd,
-			)
-		}
-
-		terminal, err := connect.OpenTerminal(opts)
-		if err != nil {
-			if connect.Client != nil {
-				_ = connect.Client.Close()
-			}
-			return nil, err
-		}
-
-		outputReader, outputWriter := io.Pipe()
-		var logWriter *terminalLogWriter
-		logPath := ""
-		if cfg.Log.Enable {
-			logPath, err = buildMuxLogPath(cfg.Log, server)
-			if err != nil {
-				_ = outputWriter.CloseWithError(err)
-				_ = terminal.Close()
-				if connect.Client != nil {
-					_ = connect.Client.Close()
-				}
-				return nil, err
-			}
-			logWriter, err = newTerminalLogWriter(logPath, cfg.Log.Timestamp, cfg.Log.RemoveAnsiCode)
-			if err != nil {
-				_ = outputWriter.CloseWithError(err)
-				_ = terminal.Close()
-				if connect.Client != nil {
-					_ = connect.Client.Close()
-				}
-				return nil, err
-			}
-		}
-		var copyWG sync.WaitGroup
-		copyWG.Add(2)
-
-		go copyPipe(&copyWG, writerWithLog(outputWriter, logWriter), terminal.Stdout)
-		go copyPipe(&copyWG, writerWithLog(outputWriter, logWriter), terminal.Stderr)
-
-		go func() {
-			copyWG.Wait()
-			_ = outputWriter.Close()
-		}()
-
-		var closeOnce sync.Once
-		closeFn := func() error {
-			var closeErr error
-			closeOnce.Do(func() {
-				_ = outputWriter.Close()
-				if logWriter != nil {
-					_ = logWriter.Close()
-				}
-				if err := terminal.Close(); err != nil {
-					closeErr = err
-				}
-				if connect.Client != nil {
-					if err := connect.Client.Close(); closeErr == nil && err != nil {
-						closeErr = err
-					}
-				}
-			})
-			return closeErr
-		}
-
-		return &RemoteSession{
-			Server:   server,
-			Config:   serverConf,
-			Notices:  append([]string(nil), notices...),
-			Connect:  connect,
-			Terminal: terminal,
-			LogPath:  logPath,
-			Backend: tvxterm.NewStreamBackend(
-				outputReader,
-				terminal.Stdin,
-				func(cols, rows int) error {
-					return terminal.Resize(cols, rows)
-				},
-				closeFn,
-			),
-		}, nil
+		return newSSHRemoteSession(cfg, server, serverConf, notices, connect, command, cols, rows, forwardConf)
 	}
 }
 
@@ -217,6 +116,43 @@ type terminalLogWriter struct {
 	timestamp  bool
 	removeAnsi bool
 	pending    string
+}
+
+type resizeDeduper struct {
+	mu   sync.Mutex
+	cols int
+	rows int
+	set  bool
+}
+
+func (d *resizeDeduper) ShouldSend(cols, rows int) bool {
+	d.mu.Lock()
+	defer d.mu.Unlock()
+
+	if d.set && d.cols == cols && d.rows == rows {
+		return false
+	}
+
+	d.cols = cols
+	d.rows = rows
+	d.set = true
+	return true
+}
+
+func dedupeResizeFunc(initialCols, initialRows int, resize func(cols, rows int) error) func(cols, rows int) error {
+	state := &resizeDeduper{}
+	if initialCols > 0 && initialRows > 0 {
+		_ = state.ShouldSend(initialCols, initialRows)
+	}
+
+	return func(cols, rows int) error {
+		cols = maxInt(cols, 1)
+		rows = maxInt(rows, 1)
+		if !state.ShouldSend(cols, rows) {
+			return nil
+		}
+		return resize(cols, rows)
+	}
 }
 
 func newTerminalLogWriter(path string, timestamp, removeAnsi bool) (*terminalLogWriter, error) {
@@ -335,6 +271,18 @@ func newConnectorRemoteSession(cfg conf.Config, server string, serverConf conf.S
 		}
 		return newCommandExecRemoteSession(cfg, server, serverConf, notices, prepared.Plan)
 	case "provider-managed":
+		if sshcmd.IsConnectorManagedSSHRuntime(prepared.Plan, connectorName) {
+			run := &sshcmd.Run{
+				ServerList: []string{server},
+				Conf:       cfg,
+			}
+			run.CreateAuthMethodMap()
+			connect, err := run.CreateConnectorManagedSSHConnectDirect(server)
+			if err != nil {
+				return nil, err
+			}
+			return newSSHRemoteSession(cfg, server, serverConf, notices, connect, command, cols, rows, conf.ServerConfig{})
+		}
 		switch connectorName {
 		case "aws-ssm":
 			if len(command) == 0 {
@@ -357,6 +305,116 @@ func newConnectorRemoteSession(cfg conf.Config, server string, serverConf conf.S
 	default:
 		return nil, fmt.Errorf("server %q connector %q returned unsupported plan kind %q", server, connectorName, prepared.Plan.Kind)
 	}
+}
+
+func newSSHRemoteSession(cfg conf.Config, server string, serverConf conf.ServerConfig, notices []string, connect *sshlib.Connect, command []string, cols, rows int, forwardConf conf.ServerConfig) (*RemoteSession, error) {
+	if len(forwardConf.Forwards) > 0 || forwardConf.DynamicPortForward != "" || forwardConf.HTTPDynamicPortForward != "" || forwardConf.ReverseDynamicPortForward != "" || forwardConf.HTTPReverseDynamicPortForward != "" || forwardConf.NFSReverseDynamicForwardPort != "" || forwardConf.SMBReverseDynamicForwardPort != "" {
+		if err := sshcmd.StartParallelForwards(connect, forwardConf); err != nil {
+			if connect.Client != nil {
+				_ = connect.Client.Close()
+			}
+			return nil, err
+		}
+	}
+
+	opts := sshlib.TerminalOptions{
+		Term: "xterm-256color",
+		Cols: maxInt(cols, 80),
+		Rows: maxInt(rows, 24),
+	}
+	if len(command) == 0 {
+		opts.StartShell = true
+	} else {
+		opts.Command = shellquote.Join(command...)
+	}
+	if len(command) == 0 && serverConf.LocalRcUse == "yes" {
+		opts.StartShell = false
+		opts.Command = buildLocalRcCommand(
+			serverConf.LocalRcPath,
+			serverConf.LocalRcDecodeCmd,
+			serverConf.LocalRcCompress,
+			serverConf.LocalRcUncompressCmd,
+		)
+	}
+
+	terminal, err := connect.OpenTerminal(opts)
+	if err != nil {
+		if connect.Client != nil {
+			_ = connect.Client.Close()
+		}
+		return nil, err
+	}
+
+	outputReader, outputWriter := io.Pipe()
+	var logWriter *terminalLogWriter
+	logPath := ""
+	if cfg.Log.Enable {
+		logPath, err = buildMuxLogPath(cfg.Log, server)
+		if err != nil {
+			_ = outputWriter.CloseWithError(err)
+			_ = terminal.Close()
+			if connect.Client != nil {
+				_ = connect.Client.Close()
+			}
+			return nil, err
+		}
+		logWriter, err = newTerminalLogWriter(logPath, cfg.Log.Timestamp, cfg.Log.RemoveAnsiCode)
+		if err != nil {
+			_ = outputWriter.CloseWithError(err)
+			_ = terminal.Close()
+			if connect.Client != nil {
+				_ = connect.Client.Close()
+			}
+			return nil, err
+		}
+	}
+	var copyWG sync.WaitGroup
+	copyWG.Add(2)
+
+	go copyPipe(&copyWG, writerWithLog(outputWriter, logWriter), terminal.Stdout)
+	go copyPipe(&copyWG, writerWithLog(outputWriter, logWriter), terminal.Stderr)
+
+	go func() {
+		copyWG.Wait()
+		_ = outputWriter.Close()
+	}()
+
+	var closeOnce sync.Once
+	closeFn := func() error {
+		var closeErr error
+		closeOnce.Do(func() {
+			_ = outputWriter.Close()
+			if logWriter != nil {
+				_ = logWriter.Close()
+			}
+			if err := terminal.Close(); err != nil {
+				closeErr = err
+			}
+			if connect.Client != nil {
+				if err := connect.Client.Close(); closeErr == nil && err != nil {
+					closeErr = err
+				}
+			}
+		})
+		return closeErr
+	}
+
+	return &RemoteSession{
+		Server:   server,
+		Config:   serverConf,
+		Notices:  append([]string(nil), notices...),
+		Connect:  connect,
+		Terminal: terminal,
+		LogPath:  logPath,
+		Backend: tvxterm.NewStreamBackend(
+			outputReader,
+			terminal.Stdin,
+			dedupeResizeFunc(opts.Cols, opts.Rows, func(cols, rows int) error {
+				return terminal.Resize(cols, rows)
+			}),
+			closeFn,
+		),
+	}, nil
 }
 
 func connectorNameFromPlan(plan providerapi.ConnectorPlan, fallback string) string {
@@ -456,12 +514,12 @@ func newCommandShellRemoteSession(cfg conf.Config, server string, serverConf con
 		Backend: tvxterm.NewStreamBackend(
 			outputReader,
 			tty,
-			func(cols, rows int) error {
+			dedupeResizeFunc(maxInt(cols, 80), maxInt(rows, 24), func(cols, rows int) error {
 				return pty.Setsize(tty, &pty.Winsize{
-					Cols: uint16(maxInt(cols, 1)),
-					Rows: uint16(maxInt(rows, 1)),
+					Cols: uint16(cols),
+					Rows: uint16(rows),
 				})
-			},
+			}),
 			closeFn,
 		),
 	}, nil
@@ -471,6 +529,9 @@ func newAWSShellRemoteSession(cfg conf.Config, server string, serverConf conf.Se
 	shellCfg, err := ssmconnector.ShellConfigFromPlan(plan)
 	if err != nil {
 		return nil, err
+	}
+	if shouldUseAWSNativeShellInMux(shellCfg) {
+		return newAWSNativeShellRemoteSession(cfg, server, serverConf, notices, shellCfg, cols, rows)
 	}
 	cmd := ssmconnector.BuildStartSessionCommand(context.Background(), shellCfg)
 	tty, err := pty.StartWithSize(cmd, &pty.Winsize{
@@ -556,15 +617,149 @@ func newAWSShellRemoteSession(cfg conf.Config, server string, serverConf conf.Se
 		Backend: tvxterm.NewStreamBackend(
 			outputReader,
 			tty,
-			func(cols, rows int) error {
+			dedupeResizeFunc(maxInt(cols, 80), maxInt(rows, 24), func(cols, rows int) error {
 				return pty.Setsize(tty, &pty.Winsize{
-					Cols: uint16(maxInt(cols, 1)),
-					Rows: uint16(maxInt(rows, 1)),
+					Cols: uint16(cols),
+					Rows: uint16(rows),
 				})
-			},
+			}),
 			closeFn,
 		),
 	}, nil
+}
+
+func shouldUseAWSNativeShellInMux(shellCfg ssmconnector.ShellConfig) bool {
+	if runtime.GOOS == "windows" {
+		return false
+	}
+
+	switch shellCfg.SessionAction {
+	case "", "start":
+		return true
+	default:
+		return shellCfg.Runtime == "native"
+	}
+}
+
+func newAWSNativeShellRemoteSession(cfg conf.Config, server string, serverConf conf.ServerConfig, notices []string, shellCfg ssmconnector.ShellConfig, cols, rows int) (*RemoteSession, error) {
+	stdinReader, stdinWriter := io.Pipe()
+	outputReader, outputWriter := io.Pipe()
+
+	var logWriter *terminalLogWriter
+	logPath := ""
+	var err error
+	if cfg.Log.Enable {
+		logPath, err = buildMuxLogPath(cfg.Log, server)
+		if err != nil {
+			_ = stdinReader.Close()
+			_ = stdinWriter.Close()
+			_ = outputWriter.CloseWithError(err)
+			return nil, err
+		}
+		logWriter, err = newTerminalLogWriter(logPath, cfg.Log.Timestamp, cfg.Log.RemoveAnsiCode)
+		if err != nil {
+			_ = stdinReader.Close()
+			_ = stdinWriter.Close()
+			_ = outputWriter.CloseWithError(err)
+			return nil, err
+		}
+	}
+
+	sessionCfg := buildAWSNativeShellSessionConfig(serverConf, shellCfg)
+	sessionCfg.InitialCols = maxInt(cols, 80)
+	sessionCfg.InitialRows = maxInt(rows, 24)
+	session := ssmsession.New(sessionCfg)
+	ctx, cancel := context.WithCancel(context.Background())
+
+	var runErr error
+	waitDone := make(chan struct{})
+	writer := writerWithLog(outputWriter, logWriter)
+	go func() {
+		runErr = session.Run(ctx, connectorruntime.StreamConfig{
+			Stdin:  stdinReader,
+			Stdout: writer,
+			Stderr: writer,
+		})
+		close(waitDone)
+	}()
+
+	go func() {
+		<-waitDone
+		if runErr != nil {
+			_ = outputWriter.CloseWithError(runErr)
+			return
+		}
+		_ = outputWriter.Close()
+	}()
+
+	var closeOnce sync.Once
+	closeFn := func() error {
+		var closeErr error
+		closeOnce.Do(func() {
+			cancel()
+			if err := stdinWriter.Close(); closeErr == nil && err != nil {
+				closeErr = err
+			}
+			if err := stdinReader.Close(); closeErr == nil && err != nil {
+				closeErr = err
+			}
+			if err := session.Close(); closeErr == nil && err != nil {
+				closeErr = err
+			}
+			<-waitDone
+			if logWriter != nil {
+				if err := logWriter.Close(); closeErr == nil && err != nil {
+					closeErr = err
+				}
+			}
+			if runErr != nil && closeErr == nil && !isExpectedProcessExit(runErr) {
+				closeErr = runErr
+			}
+			_ = outputWriter.Close()
+		})
+		return closeErr
+	}
+
+	return &RemoteSession{
+		Server:  server,
+		Config:  serverConf,
+		Notices: append([]string(nil), notices...),
+		Input:   stdinWriter,
+		LogPath: logPath,
+		Backend: tvxterm.NewStreamBackend(
+			outputReader,
+			stdinWriter,
+			dedupeResizeFunc(sessionCfg.InitialCols, sessionCfg.InitialRows, func(cols, rows int) error {
+				return session.Resize(ctx, connectorruntime.TerminalSize{
+					Cols: cols,
+					Rows: rows,
+				})
+			}),
+			closeFn,
+		),
+	}, nil
+}
+
+func buildAWSNativeShellSessionConfig(serverConf conf.ServerConfig, shellCfg ssmconnector.ShellConfig) ssmsession.Config {
+	sessionCfg := ssmsession.Config{
+		InstanceID:             shellCfg.InstanceID,
+		Region:                 shellCfg.Region,
+		Platform:               shellCfg.Platform,
+		Profile:                shellCfg.Profile,
+		SharedConfigFiles:      append([]string(nil), shellCfg.SharedConfigFiles...),
+		SharedCredentialsFiles: append([]string(nil), shellCfg.SharedCredentialsFiles...),
+		DocumentName:           shellCfg.DocumentName,
+	}
+	if serverConf.LocalRcUse == "yes" {
+		sessionCfg.StartupCommand = sshcmd.BuildInteractiveLocalRCShellCommand(
+			serverConf.LocalRcPath,
+			serverConf.LocalRcDecodeCmd,
+			serverConf.LocalRcCompress,
+			serverConf.LocalRcUncompressCmd,
+		)
+		sessionCfg.StartupMarker = sshcmd.InteractiveLocalRCStartupMarker()
+	}
+	return sessionCfg
 }
 
 func newCommandExecRemoteSession(cfg conf.Config, server string, serverConf conf.ServerConfig, notices []string, plan providerapi.ConnectorPlan) (*RemoteSession, error) {

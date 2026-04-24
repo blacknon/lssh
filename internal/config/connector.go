@@ -59,6 +59,71 @@ func (c *Config) PrepareConnector(server string, operation providerapi.Connector
 	return result, nil
 }
 
+func (c *Config) DescribeConnector(server string) (providerapi.ConnectorDescribeResult, error) {
+	serverConfig, ok := c.Server[server]
+	if !ok {
+		return providerapi.ConnectorDescribeResult{}, fmt.Errorf("server %q is not configured", server)
+	}
+
+	connectorName := strings.TrimSpace(c.serverConnectorName(serverConfig))
+	if connectorName == "" || connectorName == "ssh" {
+		return providerapi.ConnectorDescribeResult{}, fmt.Errorf("server %q does not use an external connector", server)
+	}
+
+	providerName, raw, err := c.resolveConnectorProvider(serverConfig, connectorName)
+	if err != nil {
+		return providerapi.ConnectorDescribeResult{}, err
+	}
+
+	var result providerapi.ConnectorDescribeResult
+	if err := c.callProvider(providerName, providerapi.MethodConnectorDescribe, providerapi.ConnectorDescribeParams{
+		Provider: providerName,
+		Config:   raw,
+		Target: providerapi.ConnectorTarget{
+			Name:   server,
+			Config: serverConfigToTOMLMap(serverConfig),
+			Meta:   cloneProviderMeta(serverConfig.ProviderMeta),
+		},
+	}, &result); err != nil {
+		return providerapi.ConnectorDescribeResult{}, err
+	}
+
+	return result, nil
+}
+
+func (c *Config) ServerSupportsOperation(server string, operation string) (bool, error) {
+	if !c.ServerUsesConnector(server) {
+		return true, nil
+	}
+
+	describe, err := c.DescribeConnector(server)
+	if err != nil {
+		return false, err
+	}
+
+	capability, ok := describe.Capabilities[operation]
+	if !ok {
+		return false, nil
+	}
+
+	return capability.Supported, nil
+}
+
+func (c *Config) FilterServersByOperation(servers []string, operation string) ([]string, error) {
+	filtered := make([]string, 0, len(servers))
+	for _, server := range servers {
+		supported, err := c.ServerSupportsOperation(server, operation)
+		if err != nil {
+			return nil, err
+		}
+		if supported {
+			filtered = append(filtered, server)
+		}
+	}
+
+	return filtered, nil
+}
+
 func (c *Config) serverConnectorName(serverConfig ServerConfig) string {
 	if connectorName := strings.TrimSpace(serverConfig.ConnectorName); connectorName != "" {
 		return connectorName
@@ -71,6 +136,9 @@ func (c *Config) serverConnectorName(serverConfig ServerConfig) string {
 	raw, ok := c.Provider[serverConfig.ProviderName]
 	if !ok || !providerEnabled(raw) || !providerHasCapability(raw, "connector") {
 		return ""
+	}
+	if defaultConnector := strings.TrimSpace(providerString(raw, "default_connector_name")); defaultConnector != "" {
+		return defaultConnector
 	}
 
 	describe, err := c.describeProvider(serverConfig.ProviderName)

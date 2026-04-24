@@ -380,13 +380,14 @@ func providerServerDefaultMap(raw map[string]interface{}) map[string]interface{}
 
 func providerReservedKeys(raw map[string]interface{}) []string {
 	keys := map[string]struct{}{
-		"plugin":       {},
-		"capabilities": {},
-		"enabled":      {},
-		"fail_open":    {},
-		"timeout":      {},
-		"debug_log":    {},
-		"match":        {},
+		"plugin":                 {},
+		"capabilities":           {},
+		"default_connector_name": {},
+		"enabled":                {},
+		"fail_open":              {},
+		"timeout":                {},
+		"debug_log":              {},
+		"match":                  {},
 	}
 
 	switch providerString(raw, "plugin") {
@@ -406,14 +407,16 @@ func providerReservedKeys(raw map[string]interface{}) []string {
 			"regions", "region", "profile",
 			"shared_config_files", "shared_credentials_files",
 			"include_tags", "server_name_template", "note_template", "addr_strategy",
-			"ssm_shell_runtime",
+			"ssm_shell_runtime", "ssm_port_forward_runtime",
+			"eice_runtime", "instance_connect_endpoint_id", "instance_connect_endpoint_dns_name", "private_ip_address",
+			"ssm_require_online", "ssm_shell_document", "ssm_interactive_command_document", "ssm_port_forward_document",
 		} {
 			keys[key] = struct{}{}
 		}
 	case "provider-inventory-gcp-compute":
 		for _, key := range []string{
 			"project", "zone", "credentials_file", "endpoint", "scopes",
-			"server_name_template", "note_template",
+			"server_name_template", "note_template", "iap_runtime",
 		} {
 			keys[key] = struct{}{}
 		}
@@ -428,6 +431,7 @@ func providerReservedKeys(raw map[string]interface{}) []string {
 			"authority_host", "endpoint", "resource_group",
 			"statuses", "include_stopped", "include_tags",
 			"server_name_template", "note_template",
+			"bastion_runtime", "bastion_name", "bastion_resource_group", "bastion_auth_type",
 		} {
 			keys[key] = struct{}{}
 		}
@@ -454,6 +458,7 @@ type providerInventoryMatch struct {
 	Name         string
 	Priority     int
 	Config       ServerConfig
+	ExtraConfig  map[string]interface{}
 	When         providerInventoryMatchWhen
 	NoteTemplate string
 	NoteAppend   string
@@ -501,6 +506,7 @@ func providerInventoryMatches(raw map[string]interface{}) ([]providerInventoryMa
 			Name:         name,
 			Priority:     priority,
 			Config:       cfg,
+			ExtraConfig:  providerInventoryMatchExtraConfig(branchMap),
 			When:         when,
 			NoteTemplate: providerString(branchMap, "note_template"),
 			NoteAppend:   providerString(branchMap, "note_append"),
@@ -585,10 +591,45 @@ func applyProviderInventoryMatches(providerName, serverName string, meta map[str
 	for _, match := range matches {
 		if providerInventoryMatchApplies(match.When, providerName, serverName, meta) {
 			current = serverConfigReduct(current, match.Config)
+			current.ProviderConfig = mergeProviderConfigMaps(current.ProviderConfig, match.ExtraConfig)
 			current.Note = applyProviderInventoryNoteTemplate(current.Note, providerName, serverName, meta, match)
 		}
 	}
 	return current
+}
+
+func providerInventoryMatchExtraConfig(branchMap map[string]interface{}) map[string]interface{} {
+	if branchMap == nil {
+		return nil
+	}
+
+	controlKeys := map[string]struct{}{
+		"name_in":         {},
+		"name_not_in":     {},
+		"provider_in":     {},
+		"provider_not_in": {},
+		"meta_in":         {},
+		"meta_not_in":     {},
+		"note_template":   {},
+		"note_append":     {},
+		"priority":        {},
+		"when":            {},
+	}
+	for _, key := range serverConfigTOMLKeys() {
+		controlKeys[key] = struct{}{}
+	}
+
+	result := map[string]interface{}{}
+	for key, value := range branchMap {
+		if _, ok := controlKeys[key]; ok {
+			continue
+		}
+		result[key] = value
+	}
+	if len(result) == 0 {
+		return nil
+	}
+	return result
 }
 
 func applyProviderInventoryNoteTemplate(currentNote, providerName, serverName string, meta map[string]string, match providerInventoryMatch) string {
@@ -902,6 +943,21 @@ func cloneProviderMeta(meta map[string]string) map[string]string {
 		cloned[key] = value
 	}
 	return cloned
+}
+
+func mergeProviderConfigMaps(base, override map[string]interface{}) map[string]interface{} {
+	if len(base) == 0 && len(override) == 0 {
+		return nil
+	}
+
+	result := make(map[string]interface{}, len(base)+len(override))
+	for key, value := range base {
+		result[key] = value
+	}
+	for key, value := range override {
+		result[key] = value
+	}
+	return result
 }
 
 func parseSecretRef(ref string) (string, string, error) {
