@@ -31,3 +31,5 @@
 /provider-connector-*
 /provider-secret-*
 /provider-mixed-*
+
+*.test

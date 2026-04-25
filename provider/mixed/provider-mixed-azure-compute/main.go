@@ -196,11 +196,10 @@ func listAzure(config map[string]interface{}) ([]providerapi.InventoryServer, er
 	if err != nil {
 		return nil, err
 	}
-	statuses, err := client.listVMs(config, true)
+	powerStateByID, err := client.listAzurePowerStates(config)
 	if err != nil {
 		return nil, err
 	}
-	powerStateByID := azurePowerStateMap(statuses)
 
 	nameTemplate := providerapi.String(config, "server_name_template")
 	if nameTemplate == "" {
@@ -223,6 +222,37 @@ func listAzure(config map[string]interface{}) ([]providerapi.InventoryServer, er
 		out = append(out, *entry)
 	}
 	return out, nil
+}
+
+func azureSupportsVMStatusList(config map[string]interface{}) bool {
+	return strings.TrimSpace(providerapi.String(config, "resource_group")) == ""
+}
+
+func azureUsesExpandedVMInstanceView(config map[string]interface{}) bool {
+	return strings.TrimSpace(providerapi.String(config, "resource_group")) != ""
+}
+
+func (c *azureClient) listAzurePowerStates(config map[string]interface{}) (map[string]string, error) {
+	if !azureSupportsVMStatusList(config) && !azureUsesExpandedVMInstanceView(config) {
+		return map[string]string{}, nil
+	}
+
+	statuses, err := c.listVMs(config, true)
+	if err != nil {
+		if azureUsesExpandedVMInstanceView(config) && azureExpandedInstanceViewUnsupported(err) {
+			return map[string]string{}, nil
+		}
+		return nil, err
+	}
+	return azurePowerStateMap(statuses), nil
+}
+
+func azureExpandedInstanceViewUnsupported(err error) bool {
+	if err == nil {
+		return false
+	}
+	msg := strings.ToLower(err.Error())
+	return strings.Contains(msg, "expand instance view is only supported when virtual machine scale set resource filter is applied")
 }
 
 func (c *azureClient) buildInventoryEntries(vms []azureVM, powerStateByID map[string]string, filter azureInventoryFilter, nameTemplate, noteTemplate, addrStrategy string, includeTags []string) ([]*providerapi.InventoryServer, error) {
@@ -827,12 +857,16 @@ func (c *azureClient) listVMs(config map[string]interface{}, statusOnly bool) ([
 
 func azureVMListPath(baseURL, subscriptionID, resourceGroup string, statusOnly bool) string {
 	if resourceGroup != "" {
-		return fmt.Sprintf("%s/subscriptions/%s/resourceGroups/%s/providers/Microsoft.Compute/virtualMachines?api-version=%s",
+		path := fmt.Sprintf("%s/subscriptions/%s/resourceGroups/%s/providers/Microsoft.Compute/virtualMachines?api-version=%s",
 			baseURL,
 			url.PathEscape(subscriptionID),
 			url.PathEscape(resourceGroup),
 			azureComputeAPIVersion,
 		)
+		if statusOnly {
+			return path + "&$expand=instanceView"
+		}
+		return path
 	}
 
 	path := fmt.Sprintf("%s/subscriptions/%s/providers/Microsoft.Compute/virtualMachines?api-version=%s",

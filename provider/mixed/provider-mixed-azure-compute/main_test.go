@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -139,11 +140,39 @@ func TestAzureVMListPathSubscriptionScopeUsesStatusOnly(t *testing.T) {
 	}
 }
 
-func TestAzureVMListPathResourceGroupScopeDoesNotUseStatusOnlyOrExpand(t *testing.T) {
+func TestAzureVMListPathResourceGroupScopeUsesExpandForStatusLookup(t *testing.T) {
 	got := azureVMListPath("https://management.azure.com", "sub-1", "rg-demo", true)
-	want := "https://management.azure.com/subscriptions/sub-1/resourceGroups/rg-demo/providers/Microsoft.Compute/virtualMachines?api-version=" + azureComputeAPIVersion
+	want := "https://management.azure.com/subscriptions/sub-1/resourceGroups/rg-demo/providers/Microsoft.Compute/virtualMachines?api-version=" + azureComputeAPIVersion + "&$expand=instanceView"
 	if got != want {
 		t.Fatalf("azureVMListPath() = %q, want %q", got, want)
+	}
+}
+
+func TestAzureSupportsVMStatusList(t *testing.T) {
+	if !azureSupportsVMStatusList(map[string]interface{}{}) {
+		t.Fatal("azureSupportsVMStatusList() = false, want true without resource_group")
+	}
+	if azureSupportsVMStatusList(map[string]interface{}{"resource_group": "rg-demo"}) {
+		t.Fatal("azureSupportsVMStatusList() = true, want false with resource_group")
+	}
+}
+
+func TestAzureUsesExpandedVMInstanceView(t *testing.T) {
+	if azureUsesExpandedVMInstanceView(map[string]interface{}{}) {
+		t.Fatal("azureUsesExpandedVMInstanceView() = true, want false without resource_group")
+	}
+	if !azureUsesExpandedVMInstanceView(map[string]interface{}{"resource_group": "rg-demo"}) {
+		t.Fatal("azureUsesExpandedVMInstanceView() = false, want true with resource_group")
+	}
+}
+
+func TestAzureExpandedInstanceViewUnsupported(t *testing.T) {
+	err := fmt.Errorf("azure api request failed: status=400 Bad Request url=https://management.azure.com/... body={\"error\":{\"message\":\"Expand Instance View is only supported when Virtual Machine Scale Set resource filter is applied\"}}")
+	if !azureExpandedInstanceViewUnsupported(err) {
+		t.Fatal("azureExpandedInstanceViewUnsupported() = false, want true")
+	}
+	if azureExpandedInstanceViewUnsupported(fmt.Errorf("azure api request failed: status=401 Unauthorized")) {
+		t.Fatal("azureExpandedInstanceViewUnsupported() = true, want false")
 	}
 }
 

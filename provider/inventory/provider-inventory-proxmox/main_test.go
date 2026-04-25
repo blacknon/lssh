@@ -1,6 +1,11 @@
 package main
 
-import "testing"
+import (
+	"fmt"
+	"sync/atomic"
+	"testing"
+	"time"
+)
 
 func TestProxmoxInventoryFilterFromConfigDefaults(t *testing.T) {
 	filter := proxmoxInventoryFilterFromConfig(map[string]interface{}{})
@@ -81,6 +86,71 @@ func TestProxmoxNodeOfflineSkipsOSTypeLookup(t *testing.T) {
 	nodeStatuses := map[string]string{"sv-pve00": "offline"}
 	if nodeStatuses[resource.Node] != "offline" {
 		t.Fatalf("node status = %q", nodeStatuses[resource.Node])
+	}
+}
+
+func TestProxmoxResourceOSTypesWithLookupRunsInParallel(t *testing.T) {
+	resources := []proxmoxClusterResource{
+		{ID: "qemu/101", Node: "node-a", Type: "qemu", VMID: 101},
+		{ID: "qemu/102", Node: "node-a", Type: "qemu", VMID: 102},
+		{ID: "qemu/103", Node: "node-a", Type: "qemu", VMID: 103},
+		{ID: "qemu/104", Node: "node-a", Type: "qemu", VMID: 104},
+	}
+
+	var current int32
+	var maxConcurrent int32
+	lookup := func(resource proxmoxClusterResource) (string, error) {
+		active := atomic.AddInt32(&current, 1)
+		for {
+			seen := atomic.LoadInt32(&maxConcurrent)
+			if active <= seen || atomic.CompareAndSwapInt32(&maxConcurrent, seen, active) {
+				break
+			}
+		}
+
+		time.Sleep(50 * time.Millisecond)
+		atomic.AddInt32(&current, -1)
+		return fmt.Sprintf("linux-%d", resource.VMID), nil
+	}
+
+	start := time.Now()
+	got, err := proxmoxResourceOSTypesWithLookup(resources, map[string]string{"node-a": "online"}, lookup)
+	if err != nil {
+		t.Fatalf("proxmoxResourceOSTypesWithLookup() error = %v", err)
+	}
+	if len(got) != len(resources) {
+		t.Fatalf("got %d ostypes, want %d", len(got), len(resources))
+	}
+	if atomic.LoadInt32(&maxConcurrent) < 2 {
+		t.Fatalf("max concurrent lookups = %d, want at least 2", maxConcurrent)
+	}
+	if elapsed := time.Since(start); elapsed >= 180*time.Millisecond {
+		t.Fatalf("lookup took %v, want parallel execution", elapsed)
+	}
+}
+
+func TestProxmoxResourceOSTypesWithLookupSkipsOfflineNodes(t *testing.T) {
+	resources := []proxmoxClusterResource{
+		{ID: "qemu/101", Node: "node-a", Type: "qemu", VMID: 101},
+		{ID: "qemu/102", Node: "node-b", Type: "qemu", VMID: 102},
+	}
+
+	var calls int32
+	got, err := proxmoxResourceOSTypesWithLookup(resources, map[string]string{
+		"node-a": "online",
+		"node-b": "offline",
+	}, func(resource proxmoxClusterResource) (string, error) {
+		atomic.AddInt32(&calls, 1)
+		return "linux", nil
+	})
+	if err != nil {
+		t.Fatalf("proxmoxResourceOSTypesWithLookup() error = %v", err)
+	}
+	if calls != 1 {
+		t.Fatalf("lookup calls = %d, want 1", calls)
+	}
+	if _, ok := got["qemu/102"]; ok {
+		t.Fatalf("offline node result should not be included: %#v", got)
 	}
 }
 
