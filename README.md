@@ -62,42 +62,49 @@ lssh is built for a simple workflow:
 
 ## Examples
 
-Open the interactive host picker:
+<table>
+  <tr>
+    <td valign="top" width="50%">
+      <strong>Interactive host picker</strong><br />
+      Select one or more hosts from the TUI.
+      <p>
+        <img src="./images/example_lssh.gif" alt="lssh host picker" width="100%" />
+      </p>
+      <pre><code>lssh</code></pre>
+    </td>
+    <td valign="top" width="50%">
+      <strong>Parallel command execution</strong><br />
+      Pick hosts and run the same command across them.
+      <p>
+        <img src="./images/example_lssh_parallel.gif" alt="lssh parallel command execution" width="100%" />
+      </p>
+      <pre><code>lssh -p tail -f /var/log/syslog</code></pre>
+    </td>
+  </tr>
+  <tr>
+    <td valign="top" width="50%">
+      <strong>Mux workflow</strong><br />
+      Open the multi-pane terminal workflow.
+      <p>
+        <img src="./images/example_lssh_mux.gif" alt="lssh mux workflow" width="100%" />
+      </p>
+      <pre><code>lssh -P</code></pre>
+    </td>
+    <td valign="top" width="50%">
+      <strong>Mux workflow with command</strong><br />
+      Start the mux UI and launch a command immediately.
+      <p>
+        <img src="./images/example_lssh_mux_command.gif" alt="lssh mux workflow with command" width="100%" />
+      </p>
+      <pre><code>lssh -P 'htop'</code></pre>
+    </td>
+  </tr>
+</table>
 
-<img src="./images/example_lssh.gif" width="360" />
-
-```bash
-lssh
-```
-
-Connect to a specific host:
+You can still target a single host directly when you already know where to connect:
 
 ```bash
 lssh -H my-server
-```
-
-<img src="./images/example_lssh_parallel.gif" width="360" />
-
-Pick hosts and run a command:
-
-```bash
-lssh -p tail -f /var/log/syslog
-```
-
-<img src="./images/example_lssh_mux.gif" width="360" />
-
-Open the mux workflow:
-
-```bash
-lssh -P
-```
-
-<img src="./images/example_lssh_mux_command.gif" width="360" />
-
-Open the mux workflow and run a command:
-
-```bash
-lssh -P 'htop'
 ```
 
 For more details about config formats and settings, see [cmd/lssh/README.md](./cmd/lssh/README.md).
@@ -173,16 +180,19 @@ The lssh project includes multiple tools for SSH-centered workflows.
 <table>
   <tr>
     <td valign="top" width="33%">
+      <a href="./cmd/lssh/README.md"><img src="./images/example_lssh.gif" alt="lssh preview" width="100%" /></a><br />
       <strong><a href="./cmd/lssh/README.md">lssh</a></strong><br />
       <code>core</code> / <code>stable</code><br />
       Interactive SSH access, parallel commands, and forwarding modes.
     </td>
     <td valign="top" width="33%">
+      <a href="./cmd/lscp/README.md"><img src="./cmd/lscp/img/lscp.gif" alt="lscp preview" width="100%" /></a><br />
       <strong><a href="./cmd/lscp/README.md">lscp</a></strong><br />
       <code>transfer</code> / <code>stable</code><br />
       SCP-style copy over SSH/SFTP, including remote-to-remote transfers.
     </td>
     <td valign="top" width="33%">
+      <a href="./cmd/lsftp/README.md"><img src="./cmd/lsftp/img/lsftp.gif" alt="lsftp preview" width="100%" /></a><br />
       <strong><a href="./cmd/lsftp/README.md">lsftp</a></strong><br />
       <code>transfer</code> / <code>stable</code><br />
       Interactive SFTP shell for browsing and transferring files.
@@ -200,6 +210,7 @@ The lssh project includes multiple tools for SSH-centered workflows.
       Mount a remote directory through FUSE on Linux or NFS on macOS.
     </td>
     <td valign="top" width="33%">
+      <a href="./cmd/lsdiff/README.md"><img src="./cmd/lsdiff/img/lsdiff.png" alt="lsdiff preview" width="100%" /></a><br />
       <strong><a href="./cmd/lsdiff/README.md">lsdiff</a></strong><br />
       <code>sysadmin</code> / <code>beta</code><br />
       Compare remote files from multiple hosts in a synchronized TUI.
@@ -207,11 +218,13 @@ The lssh project includes multiple tools for SSH-centered workflows.
   </tr>
   <tr>
     <td valign="top" width="33%">
+      <a href="./cmd/lsshell/README.md"><img src="./cmd/lsshell/img/lsshell.gif" alt="lsshell preview" width="100%" /></a><br />
       <strong><a href="./cmd/lsshell/README.md">lsshell</a></strong><br />
       <code>sysadmin</code> / <code>beta</code><br />
       Parallel interactive shell with broadcast and targeted commands.
     </td>
     <td valign="top" width="33%">
+      <a href="./cmd/lsmux/README.md"><img src="./cmd/lsmux/img/lsmux_term.gif" alt="lsmux preview" width="100%" /></a><br />
       <strong><a href="./cmd/lsmux/README.md">lsmux</a></strong><br />
       <code>sysadmin</code> / <code>beta</code><br />
       Pane-based SSH workspace for multi-host terminal workflows.
@@ -224,6 +237,7 @@ The lssh project includes multiple tools for SSH-centered workflows.
   </tr>
   <tr>
     <td valign="top" width="33%">
+      <a href="./cmd/lsmon/README.md"><img src="./cmd/lsmon/img/lsmon.gif" alt="lsmon preview" width="100%" /></a><br />
       <strong><a href="./cmd/lsmon/README.md">lsmon</a></strong><br />
       <code>monitor</code> / <code>beta</code><br />
       Multi-host monitoring UI over SSH without extra remote agents.
