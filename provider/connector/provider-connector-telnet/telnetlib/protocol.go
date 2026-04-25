@@ -67,13 +67,11 @@ func (w *escapedWriter) Write(p []byte) (int, error) {
 		switch p[i] {
 		case '\r':
 			out = appendTelnetByte(out, '\r')
-			out = appendTelnetByte(out, '\n')
 			if i+1 < len(p) && p[i+1] == '\n' {
 				i++
 			}
 		case '\n':
 			out = appendTelnetByte(out, '\r')
-			out = appendTelnetByte(out, '\n')
 		default:
 			out = appendTelnetByte(out, p[i])
 		}
@@ -85,6 +83,12 @@ func (w *escapedWriter) Write(p []byte) (int, error) {
 }
 
 func (w *escapedWriter) Close() error {
+	if tcpConn, ok := w.w.(interface{ CloseWrite() error }); ok {
+		return tcpConn.CloseWrite()
+	}
+	if closer, ok := w.w.(io.Closer); ok {
+		return closer.Close()
+	}
 	return nil
 }
 

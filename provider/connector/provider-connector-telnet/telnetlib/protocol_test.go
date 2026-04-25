@@ -13,7 +13,7 @@ func TestEscapedWriterWrite(t *testing.T) {
 		t.Fatalf("Write() error = %v", err)
 	}
 
-	if got, want := dst.String(), "hello\r\nworld\r\n"; got != want {
+	if got, want := dst.String(), "hello\rworld\r"; got != want {
 		t.Fatalf("escaped output = %q, want %q", got, want)
 	}
 }

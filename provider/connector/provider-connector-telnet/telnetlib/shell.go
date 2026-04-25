@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"errors"
 	"io"
+	"net"
 	"sync"
 )
 
@@ -62,6 +63,18 @@ func OpenShell(cfg TargetConfig, term string, cols, rows int) (*Terminal, error)
 		return nil, err
 	}
 
+	return openShellWithConnect(con, term, cols, rows)
+}
+
+func OpenShellWithConn(cfg TargetConfig, conn net.Conn, term string, cols, rows int) (*Terminal, error) {
+	con := &Connect{
+		cfg:  cfg,
+		conn: conn,
+	}
+	return openShellWithConnect(con, term, cols, rows)
+}
+
+func openShellWithConnect(con *Connect, term string, cols, rows int) (*Terminal, error) {
 	sess, err := con.OpenTerminal(TerminalOptions{
 		Term:       term,
 		Cols:       cols,

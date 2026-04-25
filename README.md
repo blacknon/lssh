@@ -102,6 +102,7 @@ For more details about config formats and settings, see [cmd/lssh/README.md](./c
 
 Want to try `lssh` quickly with a ready-to-run local playground?
 Start with [`demo/README.md`](./demo/README.md).
+For the telnet connector + multi-hop provider flow, use [`demo-telnet-provider/README.md`](./demo-telnet-provider/README.md).
 
 ## OpenSSH config and lssh config
 

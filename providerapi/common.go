@@ -13,8 +13,9 @@ import (
 )
 
 const (
-	RequestEnvVar = "LSSH_PROVIDER_REQUEST"
-	ResultEnvVar  = "LSSH_PROVIDER_RESULT"
+	RequestEnvVar           = "LSSH_PROVIDER_REQUEST"
+	ResultEnvVar            = "LSSH_PROVIDER_RESULT"
+	RuntimeBridgeAddrEnvVar = "LSSH_PROVIDER_BRIDGE_ADDR"
 )
 
 func ReadRequest() (Request, error) {

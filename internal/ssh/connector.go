@@ -24,6 +24,10 @@ func (r *Run) usesConnector(server string) bool {
 	return r.UsesConnector(server)
 }
 
+func (r *Run) ProviderBridgeDialer(server string) connectorruntime.Dialer {
+	return r.providerBridgeDialer(server)
+}
+
 func (r *Run) RunConnectorShell(server string) error {
 	config := r.resolveShellConfig(server)
 	return r.runConnectorShellWithConfig(server, config)
@@ -52,6 +56,7 @@ func (r *Run) runConnectorShellWithConfig(server string, config conf.ServerConfi
 
 func (r *Run) runConnectorShellOnly(server string, config conf.ServerConfig, prepared conf.PreparedConnector) error {
 	r.PrintSelectServer()
+	r.printProxy(server)
 	if !prepared.Supported {
 		return fmt.Errorf("server %q connector %q: %v", server, prepared.ConnectorName, prepared.Reason)
 	}
@@ -72,16 +77,19 @@ func (r *Run) runConnectorShellOnly(server string, config conf.ServerConfig, pre
 		case prepared.ManagedSSH != nil:
 			return r.runConnectorManagedSSHTransportShell(server, config)
 		case prepared.ProviderManagedPlan != nil:
-			return r.providerManagedExecutor().RunShell(context.Background(), connectorruntime.ShellRequest{
-				Server:         server,
-				Plan:           *prepared.ProviderManagedPlan,
-				LocalRCCommand: startupCommand,
-				StartupMarker:  startupMarker,
-				Stream: connectorruntime.StreamConfig{
-					Stdin:  os.Stdin,
-					Stdout: os.Stdout,
-					Stderr: os.Stderr,
-				},
+			return runNativeInteractiveSession(func() error {
+				return r.providerManagedExecutor().RunShell(context.Background(), connectorruntime.ShellRequest{
+					Server:         server,
+					Plan:           *prepared.ProviderManagedPlan,
+					LocalRCCommand: startupCommand,
+					StartupMarker:  startupMarker,
+					Dialer:         r.providerBridgeDialer(server),
+					Stream: connectorruntime.StreamConfig{
+						Stdin:  os.Stdin,
+						Stdout: os.Stdout,
+						Stderr: os.Stderr,
+					},
+				})
 			})
 		default:
 			return fmt.Errorf("server %q connector %q returned unsupported plan kind %q", server, prepared.ConnectorName, prepared.PlanKind)
@@ -98,6 +106,7 @@ func (r *Run) runConnectorShellWithSharedForwarding(server string, config conf.S
 	}
 
 	r.PrintSelectServer()
+	r.printProxy(server)
 	switch {
 	case strings.TrimSpace(config.DynamicPortForward) != "":
 		r.printDynamicPortForward(config.DynamicPortForward)
@@ -131,16 +140,19 @@ func (r *Run) runConnectorShellWithSharedForwarding(server string, config conf.S
 		case prepared.ManagedSSH != nil:
 			shellErr = r.runConnectorManagedSSHTransportShell(server, config)
 		case prepared.ProviderManagedPlan != nil:
-			shellErr = r.providerManagedExecutor().RunShell(context.Background(), connectorruntime.ShellRequest{
-				Server:         server,
-				Plan:           *prepared.ProviderManagedPlan,
-				LocalRCCommand: startupCommand,
-				StartupMarker:  startupMarker,
-				Stream: connectorruntime.StreamConfig{
-					Stdin:  os.Stdin,
-					Stdout: os.Stdout,
-					Stderr: os.Stderr,
-				},
+			shellErr = runNativeInteractiveSession(func() error {
+				return r.providerManagedExecutor().RunShell(context.Background(), connectorruntime.ShellRequest{
+					Server:         server,
+					Plan:           *prepared.ProviderManagedPlan,
+					LocalRCCommand: startupCommand,
+					StartupMarker:  startupMarker,
+					Dialer:         r.providerBridgeDialer(server),
+					Stream: connectorruntime.StreamConfig{
+						Stdin:  os.Stdin,
+						Stdout: os.Stdout,
+						Stderr: os.Stderr,
+					},
+				})
 			})
 		default:
 			cancel()
@@ -204,6 +216,7 @@ func (r *Run) runConnectorCommandOperation(server string, operation conf.Connect
 		return r.providerManagedExecutor().RunExec(context.Background(), connectorruntime.ExecRequest{
 			Server: server,
 			Plan:   *prepared.ProviderManagedPlan,
+			Dialer: r.providerBridgeDialer(server),
 			Stream: connectorruntime.StreamConfig{
 				Stdin:  stdin,
 				Stdout: stdout,

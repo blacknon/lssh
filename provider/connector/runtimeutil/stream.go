@@ -20,6 +20,9 @@ func StreamInteractiveSession(stdin io.Writer, stdout, stderr io.Reader, wait fu
 	if stdin != nil {
 		go func() {
 			_, _ = io.Copy(stdin, os.Stdin)
+			if closer, ok := stdin.(io.Closer); ok {
+				_ = closer.Close()
+			}
 		}()
 	}
 	err := wait()

@@ -409,6 +409,30 @@ run = """
     docker compose exec --user demo client bash
 """
 
+[tasks.demo_telnet_provider_up]
+description = "Start the telnet provider demo containers with docker compose"
+depends = []
+dir = "demo-telnet-provider"
+run = """
+    docker compose up -d --build
+"""
+
+[tasks.demo_telnet_provider_down]
+description = "Stop the telnet provider demo containers with docker compose"
+depends = []
+dir = "demo-telnet-provider"
+run = """
+    docker compose down -v
+"""
+
+[tasks.demo_telnet_provider_client]
+description = "Open a shell in the telnet provider demo client container"
+depends = ["demo_telnet_provider_up"]
+dir = "demo-telnet-provider"
+run = """
+    docker compose exec --user demo client bash
+"""
+
 [tasks.demo_ssh]
 description = "Connect to the demo client bastion over SSH and start lssh"
 depends = ["demo_up"]
