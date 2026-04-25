@@ -10,6 +10,7 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"sync"
 
 	"github.com/blacknon/lssh/providerapi"
 )
@@ -97,6 +98,8 @@ type proxmoxNodeResource struct {
 	Node   string `json:"node"`
 	Status string `json:"status"`
 }
+
+const proxmoxOSTypeLookupParallelism = 4
 
 func listProxmox(config map[string]interface{}) ([]providerapi.InventoryServer, error) {
 	baseURL, err := proxmoxBaseURL(config)
@@ -237,21 +240,54 @@ func proxmoxNodeStatuses(client *http.Client, baseURL *url.URL, headers http.Hea
 }
 
 func proxmoxResourceOSTypes(client *http.Client, baseURL *url.URL, headers http.Header, resources []proxmoxClusterResource, nodeStatuses map[string]string) (map[string]string, error) {
+	return proxmoxResourceOSTypesWithLookup(resources, nodeStatuses, func(resource proxmoxClusterResource) (string, error) {
+		return proxmoxQEMUGuestOSType(client, baseURL, headers, resource.Node, resource.VMID)
+	})
+}
+
+func proxmoxResourceOSTypesWithLookup(resources []proxmoxClusterResource, nodeStatuses map[string]string, lookup func(proxmoxClusterResource) (string, error)) (map[string]string, error) {
 	result := map[string]string{}
+	var resultMu sync.Mutex
+	var warningMu sync.Mutex
+	warnings := make([]string, 0)
+	sem := make(chan struct{}, proxmoxOSTypeLookupParallelism)
+	var wg sync.WaitGroup
+
 	for _, resource := range resources {
 		if resource.Type != "qemu" {
 			continue
 		}
 		if nodeStatuses[resource.Node] != "" && nodeStatuses[resource.Node] != "online" {
-			fmt.Fprintf(os.Stderr, "warning: skip ostype lookup for %s because node %s is %s\n", resource.ID, resource.Node, nodeStatuses[resource.Node])
+			warningMu.Lock()
+			warnings = append(warnings, fmt.Sprintf("warning: skip ostype lookup for %s because node %s is %s", resource.ID, resource.Node, nodeStatuses[resource.Node]))
+			warningMu.Unlock()
 			continue
 		}
-		ostype, err := proxmoxQEMUGuestOSType(client, baseURL, headers, resource.Node, resource.VMID)
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "warning: failed to get ostype for %s: %v\n", resource.ID, err)
-			continue
-		}
-		result[resource.ID] = ostype
+
+		resource := resource
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			sem <- struct{}{}
+			defer func() { <-sem }()
+
+			ostype, err := lookup(resource)
+			if err != nil {
+				warningMu.Lock()
+				warnings = append(warnings, fmt.Sprintf("warning: failed to get ostype for %s: %v", resource.ID, err))
+				warningMu.Unlock()
+				return
+			}
+
+			resultMu.Lock()
+			result[resource.ID] = ostype
+			resultMu.Unlock()
+		}()
+	}
+
+	wg.Wait()
+	for _, warning := range warnings {
+		fmt.Fprintln(os.Stderr, warning)
 	}
 
 	return result, nil
