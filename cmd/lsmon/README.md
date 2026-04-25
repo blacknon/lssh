@@ -2,10 +2,8 @@ lsmon
 ===
 
 <p align="center">
-  <img src="./img/list.jpg" alt="lsmon host list" width="48%" />
-  <img src="./img/top.jpg" alt="lsmon monitor view" width="48%" />
+  <img src="./img/lsmon.gif" alt="lsmon" width="73%" />
 </p>
-
 
 ## About
 
@@ -51,6 +49,10 @@ USAGE:
 
 ### monitor targets
 
+<p align="center">
+  <img src="./img/list.png" alt="lsmon host list" width="73%" />
+</p>
+
 `lsmon` can monitor multiple hosts selected from the TUI list, or you can specify them directly with `-H`.
 It is designed for comparing host state across a server list.
 Connector-backed targets that do not advertise `sftp_transport` are excluded from the monitor target list.
@@ -65,13 +67,13 @@ lsmon -H web01 -H web02
 
 ### htop like viewer
 
+<p align="center">
+  <img src="./img/top.png" alt="lsmon host list" width="73%" />
+</p>
+
 Press `Ctrl + X` to open a top-screen-style window.
 
 ### Open Terminal
-
-<p align="center">
-  <img src="./img/lsmon_terminal.png" alt="lsmon terminal" width="48%" />
-</p>
 
 In the htop-like viewer, press `Ctrl + T` to open a terminal for the selected host.
 This lets you move directly from monitoring to interactive shell access without leaving the viewer.

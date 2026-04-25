@@ -1,6 +1,11 @@
 lssh
 ===
 
+<p align="center">
+<img src="../../images/demo.gif" width="720" />
+</p>
+
+
 ## About
 
 `lssh` is a TUI-based SSH client that lets you select hosts from a predefined configuration and connect to them interactively.

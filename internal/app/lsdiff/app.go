@@ -7,7 +7,9 @@ package lsdiff
 import (
 	"fmt"
 	"os"
+	"sort"
 
+	"github.com/blacknon/lssh/internal/check"
 	"github.com/blacknon/lssh/internal/common"
 	conf "github.com/blacknon/lssh/internal/config"
 	diffapp "github.com/blacknon/lssh/internal/lsdiff"
@@ -55,6 +57,8 @@ USAGE:
 	app.EnableBashCompletion = true
 	app.HideHelp = true
 	app.Flags = []cli.Flag{
+		cli.StringSliceFlag{Name: "host,H", Usage: "connect `servername`."},
+		cli.BoolFlag{Name: "list,l", Usage: "print server list from config."},
 		cli.StringFlag{Name: "file,F", Value: defConf, Usage: "config `filepath`."},
 		cli.StringFlag{Name: "generate-lssh-conf", Usage: "print generated lssh config from OpenSSH config to stdout (`~/.ssh/config` by default)."},
 		cli.BoolFlag{Name: "help,h", Usage: "print this help"},
@@ -65,11 +69,6 @@ USAGE:
 		if c.Bool("help") {
 			cli.ShowAppHelp(c)
 			os.Exit(0)
-		}
-
-		if c.NArg() == 0 {
-			cli.ShowAppHelp(c)
-			return fmt.Errorf("lsdiff requires at least one remote path")
 		}
 
 		if handled, err := conf.HandleGenerateConfigMode(c.String("generate-lssh-conf"), os.Stdout); handled {
@@ -86,7 +85,28 @@ USAGE:
 			return err
 		}
 
-		targets, err := resolveTargetsFn(config, c.Args())
+		allNames := conf.GetNameList(config)
+		names := append([]string(nil), allNames...)
+		names, err = config.FilterServersByOperation(names, "sftp_transport")
+		if err != nil {
+			return err
+		}
+		sort.Strings(names)
+
+		if c.Bool("list") {
+			fmt.Fprintln(os.Stdout, "lssh Server List:")
+			for _, name := range names {
+				fmt.Fprintf(os.Stdout, "  %s\n", name)
+			}
+			return nil
+		}
+
+		if c.NArg() == 0 {
+			cli.ShowAppHelp(c)
+			return fmt.Errorf("lsdiff requires at least one remote path")
+		}
+
+		targets, err := resolveDiffTargets(config, allNames, names, c.StringSlice("host"), c.Args())
 		if err != nil {
 			return err
 		}
@@ -104,4 +124,59 @@ USAGE:
 	}
 
 	return app
+}
+
+func resolveDiffTargets(config conf.Config, allNames, supportedNames, flagHosts, args []string) ([]diffapp.Target, error) {
+	if len(flagHosts) == 0 {
+		targets, err := resolveTargetsFn(config, args)
+		if err != nil {
+			return nil, err
+		}
+		if !check.ExistServer(targetHosts(targets), supportedNames) {
+			if !check.ExistServer(targetHosts(targets), allNames) {
+				return nil, fmt.Errorf("selected host not found from list")
+			}
+			return nil, fmt.Errorf("selected host does not support SFTP-based transfer")
+		}
+		return targets, nil
+	}
+
+	if len(args) != 1 {
+		return nil, fmt.Errorf("--host can only be used with a single common remote path")
+	}
+
+	target, err := diffapp.ParseTargetSpec(args[0])
+	if err != nil {
+		return nil, err
+	}
+	if target.Host != "" {
+		return nil, fmt.Errorf("--host cannot be used with explicit @host:/path targets")
+	}
+	if len(flagHosts) < 2 {
+		return nil, fmt.Errorf("select at least two hosts")
+	}
+	if !check.ExistServer(flagHosts, allNames) {
+		return nil, fmt.Errorf("selected host not found from list")
+	}
+	if !check.ExistServer(flagHosts, supportedNames) {
+		return nil, fmt.Errorf("selected host does not support SFTP-based transfer")
+	}
+
+	targets := make([]diffapp.Target, 0, len(flagHosts))
+	for _, host := range flagHosts {
+		targets = append(targets, diffapp.Target{
+			Host:       host,
+			RemotePath: target.RemotePath,
+			Title:      host + ":" + target.RemotePath,
+		})
+	}
+	return targets, nil
+}
+
+func targetHosts(targets []diffapp.Target) []string {
+	hosts := make([]string, 0, len(targets))
+	for _, target := range targets {
+		hosts = append(hosts, target.Host)
+	}
+	return hosts
 }

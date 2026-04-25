@@ -87,6 +87,26 @@ USAGE:
 		if handled, err := conf.HandleGenerateConfigMode(c.String("generate-lssh-conf"), os.Stdout); handled {
 			return err
 		}
+		data, err := conf.ReadWithFallback(confpath, os.Stderr)
+		if err != nil {
+			return err
+		}
+		allNames := conf.GetNameList(data)
+		names := append([]string(nil), allNames...)
+		names, err = data.FilterServersByOperation(names, "sftp_transport")
+		if err != nil {
+			return err
+		}
+		sort.Strings(names)
+
+		if c.Bool("list") {
+			fmt.Fprintf(os.Stdout, "lssh Server List:\n")
+			for _, name := range names {
+				fmt.Fprintf(os.Stdout, "  %s\n", name)
+			}
+			os.Exit(0)
+		}
+
 		if len(c.Args()) < 2 {
 			fmt.Fprintln(os.Stderr, "Too few arguments.")
 			cli.ShowAppHelp(c)
@@ -122,26 +142,6 @@ USAGE:
 		}
 		isToRemote := targetSpec.IsRemote
 		check.CheckTypeError(isFromInRemote, isFromInLocal, isToRemote, len(hosts))
-
-		data, err := conf.ReadWithFallback(confpath, os.Stderr)
-		if err != nil {
-			return err
-		}
-		allNames := conf.GetNameList(data)
-		names := append([]string(nil), allNames...)
-		names, err = data.FilterServersByOperation(names, "sftp_transport")
-		if err != nil {
-			return err
-		}
-		sort.Strings(names)
-
-		if c.Bool("list") {
-			fmt.Fprintf(os.Stdout, "lssh Server List:\n")
-			for _, name := range names {
-				fmt.Fprintf(os.Stdout, "  %s\n", name)
-			}
-			os.Exit(0)
-		}
 
 		selected := []string{}
 		toServer := []string{}

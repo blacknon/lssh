@@ -47,7 +47,14 @@ func ResolveTargets(config conf.Config, args []string) ([]Target, error) {
 	}
 
 	names := conf.GetNameList(config)
+	names, err := config.FilterServersByOperation(names, "sftp_transport")
+	if err != nil {
+		return nil, err
+	}
 	sort.Strings(names)
+	if len(names) == 0 {
+		return nil, fmt.Errorf("no servers matched the current config conditions")
+	}
 	l := &list.ListInfo{
 		Prompt:    "lsdiff>>",
 		NameList:  names,

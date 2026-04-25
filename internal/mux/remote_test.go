@@ -1,6 +1,7 @@
 package mux
 
 import (
+	"bytes"
 	"strings"
 	"testing"
 )
@@ -11,6 +12,44 @@ func TestBuildLocalRcCommandExportsTERM(t *testing.T) {
 	cmd := buildLocalRcCommand([]string{}, "", false, "")
 	if !strings.Contains(cmd, "export TERM=screen-256color;") {
 		t.Fatalf("buildLocalRcCommand() = %q, want TERM export", cmd)
+	}
+}
+
+func TestStartupMarkerFilterWriterStripsMarkerLineAcrossChunks(t *testing.T) {
+	var dst bytes.Buffer
+	filter := newStartupMarkerFilterWriter(&dst, "__LSSH_LOCALRC_READY__")
+
+	chunks := []string{
+		"hello\r\n__LSSH_LO",
+		"CALRC_READY__\r\nworld\r\n",
+	}
+	for _, chunk := range chunks {
+		if _, err := filter.Write([]byte(chunk)); err != nil {
+			t.Fatalf("Write(%q) error = %v", chunk, err)
+		}
+	}
+	if err := filter.Flush(); err != nil {
+		t.Fatalf("Flush() error = %v", err)
+	}
+
+	if got, want := dst.String(), "hello\r\nworld\r\n"; got != want {
+		t.Fatalf("filtered output = %q, want %q", got, want)
+	}
+}
+
+func TestStartupMarkerFilterWriterKeepsOutputWithoutMarker(t *testing.T) {
+	var dst bytes.Buffer
+	filter := newStartupMarkerFilterWriter(&dst, "__LSSH_LOCALRC_READY__")
+
+	if _, err := filter.Write([]byte("plain output")); err != nil {
+		t.Fatalf("Write() error = %v", err)
+	}
+	if err := filter.Flush(); err != nil {
+		t.Fatalf("Flush() error = %v", err)
+	}
+
+	if got, want := dst.String(), "plain output"; got != want {
+		t.Fatalf("filtered output = %q, want %q", got, want)
 	}
 }
 
