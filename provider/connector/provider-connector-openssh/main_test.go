@@ -4,7 +4,7 @@ import (
 	"runtime"
 	"testing"
 
-	"github.com/blacknon/lssh/internal/providerapi"
+	"github.com/blacknon/lssh/providerapi"
 )
 
 func TestOpenSSHDescribe(t *testing.T) {

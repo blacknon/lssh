@@ -9,8 +9,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/ssm"
 	ssmtypes "github.com/aws/aws-sdk-go-v2/service/ssm/types"
-	"github.com/blacknon/lssh/internal/providerapi"
-	"github.com/blacknon/lssh/internal/providerbuiltin"
+	"github.com/blacknon/lssh/providerapi"
 	"github.com/blacknon/lssh/provider/connector/provider-connector-openssh/opensshlib"
 	"github.com/blacknon/lssh/provider/mixed/provider-mixed-aws-ec2/eiceconnector"
 )
@@ -145,9 +144,9 @@ func awsConnectorPrepare(params providerapi.ConnectorPrepareParams) (providerapi
 			"instance_id":              target.InstanceID,
 			"region":                   target.Region,
 			"platform":                 awsFirstNonEmpty(probe.Platform, target.Platform),
-			"profile":                  providerbuiltin.String(params.Config, "profile"),
-			"shared_config_files":      providerbuiltin.StringSlice(params.Config, "shared_config_files"),
-			"shared_credentials_files": providerbuiltin.StringSlice(params.Config, "shared_credentials_files"),
+			"profile":                  providerapi.String(params.Config, "profile"),
+			"shared_config_files":      providerapi.StringSlice(params.Config, "shared_config_files"),
+			"shared_credentials_files": providerapi.StringSlice(params.Config, "shared_credentials_files"),
 			"poll_interval_sec":        2,
 			"timeout_sec":              60,
 			"operation":                params.Operation.Name,
@@ -194,7 +193,7 @@ func awsConnectorPrepare(params providerapi.ConnectorPrepareParams) (providerapi
 		plan.Details["listen_port"] = spec.ListenPort
 		plan.Details["target_host"] = spec.TargetHost
 		plan.Details["target_port"] = spec.TargetPort
-		if documentName := providerbuiltin.String(params.Config, "ssm_port_forward_document"); documentName != "" {
+		if documentName := providerapi.String(params.Config, "ssm_port_forward_document"); documentName != "" {
 			plan.Details["document_name"] = documentName
 		}
 	case "tcp_dial_transport":
@@ -205,7 +204,7 @@ func awsConnectorPrepare(params providerapi.ConnectorPrepareParams) (providerapi
 		plan.Details["session_mode"] = "tcp-dial-transport"
 		plan.Details["target_host"] = spec.TargetHost
 		plan.Details["target_port"] = spec.TargetPort
-		if documentName := providerbuiltin.String(params.Config, "ssm_port_forward_document"); documentName != "" {
+		if documentName := providerapi.String(params.Config, "ssm_port_forward_document"); documentName != "" {
 			plan.Details["document_name"] = documentName
 		}
 	default:
@@ -266,25 +265,25 @@ func awsSSMSessionActionFromOperation(operation providerapi.ConnectorOperation) 
 func awsSSMTargetFromParams(config map[string]interface{}, target providerapi.ConnectorTarget) (awsSSMTargetConfig, []string) {
 	instanceID := awsFirstNonEmpty(
 		target.Meta["instance_id"],
-		providerbuiltin.String(target.Config, "instance_id"),
-		providerbuiltin.String(config, "instance_id"),
+		providerapi.String(target.Config, "instance_id"),
+		providerapi.String(config, "instance_id"),
 	)
 	region := awsFirstNonEmpty(
 		target.Meta["region"],
-		providerbuiltin.String(target.Config, "region"),
-		providerbuiltin.String(config, "region"),
+		providerapi.String(target.Config, "region"),
+		providerapi.String(config, "region"),
 	)
 	platform := strings.ToLower(awsFirstNonEmpty(
 		target.Meta["platform"],
-		providerbuiltin.String(target.Config, "platform"),
-		providerbuiltin.String(config, "platform"),
+		providerapi.String(target.Config, "platform"),
+		providerapi.String(config, "platform"),
 	))
 	result := awsSSMTargetConfig{
 		InstanceID:                 instanceID,
 		Region:                     region,
 		Platform:                   platform,
-		ShellDocumentName:          providerbuiltin.String(config, "ssm_shell_document"),
-		InteractiveCommandDocument: providerbuiltin.String(config, "ssm_interactive_command_document"),
+		ShellDocumentName:          providerapi.String(config, "ssm_shell_document"),
+		InteractiveCommandDocument: providerapi.String(config, "ssm_interactive_command_document"),
 		RequireOnline:              awsBool(config, "ssm_require_online", true),
 	}
 
@@ -299,7 +298,7 @@ func awsSSMTargetFromParams(config map[string]interface{}, target providerapi.Co
 }
 
 func awsSSMShellRuntime(config map[string]interface{}) string {
-	switch strings.ToLower(strings.TrimSpace(providerbuiltin.String(config, "ssm_shell_runtime"))) {
+	switch strings.ToLower(strings.TrimSpace(providerapi.String(config, "ssm_shell_runtime"))) {
 	case "", "plugin":
 		return "plugin"
 	case "native":
@@ -310,7 +309,7 @@ func awsSSMShellRuntime(config map[string]interface{}) string {
 }
 
 func awsSSMPortForwardRuntime(config map[string]interface{}) string {
-	switch value := strings.ToLower(strings.TrimSpace(providerbuiltin.String(config, "ssm_port_forward_runtime"))); value {
+	switch value := strings.ToLower(strings.TrimSpace(providerapi.String(config, "ssm_port_forward_runtime"))); value {
 	case "":
 		return awsSSMShellRuntime(config)
 	case "plugin":
@@ -391,19 +390,19 @@ func awsIsLoopbackHost(host string) bool {
 }
 
 func awsConnectorName(params providerapi.ConnectorDescribeParams) string {
-	connectorName := strings.TrimSpace(providerbuiltin.String(params.Target.Config, "connector_name"))
+	connectorName := strings.TrimSpace(providerapi.String(params.Target.Config, "connector_name"))
 	if connectorName != "" {
 		return connectorName
 	}
-	return strings.TrimSpace(providerbuiltin.String(params.Config, "default_connector_name"))
+	return strings.TrimSpace(providerapi.String(params.Config, "default_connector_name"))
 }
 
 func awsConnectorNameFromPrepare(params providerapi.ConnectorPrepareParams) string {
-	connectorName := strings.TrimSpace(providerbuiltin.String(params.Target.Config, "connector_name"))
+	connectorName := strings.TrimSpace(providerapi.String(params.Target.Config, "connector_name"))
 	if connectorName != "" {
 		return connectorName
 	}
-	return strings.TrimSpace(providerbuiltin.String(params.Config, "default_connector_name"))
+	return strings.TrimSpace(providerapi.String(params.Config, "default_connector_name"))
 }
 
 type awsEICETargetConfig struct {
@@ -541,17 +540,17 @@ func awsEICEConnectorPrepare(params providerapi.ConnectorPrepareParams) (provide
 
 func awsEICETargetFromParams(config map[string]interface{}, target providerapi.ConnectorTarget) (awsEICETargetConfig, []string) {
 	result := awsEICETargetConfig{
-		InstanceID:             awsFirstNonEmpty(target.Meta["instance_id"], providerbuiltin.String(target.Config, "instance_id"), providerbuiltin.String(config, "instance_id")),
-		Region:                 awsFirstNonEmpty(target.Meta["region"], providerbuiltin.String(target.Config, "region"), providerbuiltin.String(config, "region")),
-		PrivateIPAddress:       awsFirstNonEmpty(target.Meta["private_ip"], providerbuiltin.String(target.Config, "private_ip_address"), providerbuiltin.String(config, "private_ip_address")),
-		Profile:                awsFirstNonEmpty(providerbuiltin.String(target.Config, "profile"), providerbuiltin.String(config, "profile")),
-		SharedConfigFiles:      providerbuiltin.ExpandPaths(providerbuiltin.StringSlice(config, "shared_config_files")),
-		SharedCredentialsFiles: providerbuiltin.ExpandPaths(providerbuiltin.StringSlice(config, "shared_credentials_files")),
-		EndpointID:             awsFirstNonEmpty(providerbuiltin.String(target.Config, "instance_connect_endpoint_id"), providerbuiltin.String(config, "instance_connect_endpoint_id")),
-		EndpointDNSName:        awsFirstNonEmpty(providerbuiltin.String(target.Config, "instance_connect_endpoint_dns_name"), providerbuiltin.String(config, "instance_connect_endpoint_dns_name")),
-		User:                   providerbuiltin.String(target.Config, "user"),
-		KeyFile:                providerbuiltin.ExpandPath(providerbuiltin.String(target.Config, "key")),
-		Port:                   awsFirstNonEmpty(providerbuiltin.String(target.Config, "port"), "22"),
+		InstanceID:             awsFirstNonEmpty(target.Meta["instance_id"], providerapi.String(target.Config, "instance_id"), providerapi.String(config, "instance_id")),
+		Region:                 awsFirstNonEmpty(target.Meta["region"], providerapi.String(target.Config, "region"), providerapi.String(config, "region")),
+		PrivateIPAddress:       awsFirstNonEmpty(target.Meta["private_ip"], providerapi.String(target.Config, "private_ip_address"), providerapi.String(config, "private_ip_address")),
+		Profile:                awsFirstNonEmpty(providerapi.String(target.Config, "profile"), providerapi.String(config, "profile")),
+		SharedConfigFiles:      providerapi.ExpandPaths(providerapi.StringSlice(config, "shared_config_files")),
+		SharedCredentialsFiles: providerapi.ExpandPaths(providerapi.StringSlice(config, "shared_credentials_files")),
+		EndpointID:             awsFirstNonEmpty(providerapi.String(target.Config, "instance_connect_endpoint_id"), providerapi.String(config, "instance_connect_endpoint_id")),
+		EndpointDNSName:        awsFirstNonEmpty(providerapi.String(target.Config, "instance_connect_endpoint_dns_name"), providerapi.String(config, "instance_connect_endpoint_dns_name")),
+		User:                   providerapi.String(target.Config, "user"),
+		KeyFile:                providerapi.ExpandPath(providerapi.String(target.Config, "key")),
+		Port:                   awsFirstNonEmpty(providerapi.String(target.Config, "port"), "22"),
 	}
 
 	var missing []string
@@ -566,8 +565,8 @@ func awsEICETargetFromParams(config map[string]interface{}, target providerapi.C
 
 func awsEICERuntime(config map[string]interface{}, targetConfig map[string]interface{}) string {
 	switch strings.ToLower(strings.TrimSpace(awsFirstNonEmpty(
-		providerbuiltin.String(targetConfig, "eice_runtime"),
-		providerbuiltin.String(config, "eice_runtime"),
+		providerapi.String(targetConfig, "eice_runtime"),
+		providerapi.String(config, "eice_runtime"),
 	))) {
 	case "", "sdk":
 		return "sdk"
@@ -734,7 +733,7 @@ func awsFirstNonEmpty(values ...string) string {
 }
 
 func awsBool(raw map[string]interface{}, key string, def bool) bool {
-	value := strings.TrimSpace(strings.ToLower(providerbuiltin.String(raw, key)))
+	value := strings.TrimSpace(strings.ToLower(providerapi.String(raw, key)))
 	if value == "" {
 		return def
 	}

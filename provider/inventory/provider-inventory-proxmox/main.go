@@ -11,20 +11,19 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/blacknon/lssh/internal/providerapi"
-	"github.com/blacknon/lssh/internal/providerbuiltin"
+	"github.com/blacknon/lssh/providerapi"
 )
 
 func main() {
-	req, err := providerbuiltin.ReadRequest()
+	req, err := providerapi.ReadRequest()
 	if err != nil {
-		_ = providerbuiltin.WriteError(err.Error())
+		_ = providerapi.WriteError(err.Error())
 		os.Exit(1)
 	}
 
 	switch req.Method {
 	case providerapi.MethodPluginDescribe:
-		_ = providerbuiltin.WriteResponse(req, providerapi.PluginDescribeResult{
+		_ = providerapi.WriteResponse(req, providerapi.PluginDescribeResult{
 			Name:            "provider-inventory-proxmox",
 			Capabilities:    []string{"inventory"},
 			Methods:         []string{providerapi.MethodPluginDescribe, providerapi.MethodHealthCheck, providerapi.MethodInventoryList},
@@ -33,30 +32,30 @@ func main() {
 	case providerapi.MethodInventoryList:
 		var params providerapi.InventoryListParams
 		if err := decodeParams(req.Params, &params); err != nil {
-			_ = providerbuiltin.WriteErrorResponse(req, "invalid_params", err.Error())
+			_ = providerapi.WriteErrorResponse(req, "invalid_params", err.Error())
 			os.Exit(1)
 		}
 
 		servers, err := listProxmox(params.Config)
 		if err != nil {
-			_ = providerbuiltin.WriteErrorResponse(req, "inventory_failed", err.Error())
+			_ = providerapi.WriteErrorResponse(req, "inventory_failed", err.Error())
 			os.Exit(1)
 		}
-		_ = providerbuiltin.WriteResponse(req, providerapi.InventoryListResult{Servers: servers}, nil)
+		_ = providerapi.WriteResponse(req, providerapi.InventoryListResult{Servers: servers}, nil)
 	case providerapi.MethodHealthCheck:
 		var params providerapi.HealthCheckParams
 		if err := decodeParams(req.Params, &params); err != nil {
-			_ = providerbuiltin.WriteErrorResponse(req, "invalid_params", err.Error())
+			_ = providerapi.WriteErrorResponse(req, "invalid_params", err.Error())
 			os.Exit(1)
 		}
 		result, err := proxmoxHealthCheck(params.Config)
 		if err != nil {
-			_ = providerbuiltin.WriteErrorResponse(req, "health_check_failed", err.Error())
+			_ = providerapi.WriteErrorResponse(req, "health_check_failed", err.Error())
 			os.Exit(1)
 		}
-		_ = providerbuiltin.WriteResponse(req, result, nil)
+		_ = providerapi.WriteResponse(req, result, nil)
 	default:
-		_ = providerbuiltin.WriteErrorResponse(req, "unsupported_method", fmt.Sprintf("unsupported method %q", req.Method))
+		_ = providerapi.WriteErrorResponse(req, "unsupported_method", fmt.Sprintf("unsupported method %q", req.Method))
 		os.Exit(1)
 	}
 }
@@ -115,13 +114,13 @@ func listProxmox(config map[string]interface{}) ([]providerapi.InventoryServer, 
 		return nil, err
 	}
 
-	nameTemplate := providerbuiltin.String(config, "server_name_template")
+	nameTemplate := providerapi.String(config, "server_name_template")
 	if nameTemplate == "" {
 		nameTemplate = "pve:${node}:${name}"
 	}
-	noteTemplate := providerbuiltin.String(config, "note_template")
-	addrTemplate := providerbuiltin.String(config, "addr_template")
-	nodeAddrPrefix := providerbuiltin.String(config, "node_addr_prefix")
+	noteTemplate := providerapi.String(config, "note_template")
+	addrTemplate := providerapi.String(config, "addr_template")
+	nodeAddrPrefix := providerapi.String(config, "node_addr_prefix")
 	filter := proxmoxInventoryFilterFromConfig(config)
 	nodeStatuses, err := proxmoxNodeStatuses(client, baseURL, headers)
 	if err != nil {
@@ -175,9 +174,9 @@ func listProxmox(config map[string]interface{}) ([]providerapi.InventoryServer, 
 func proxmoxInventoryFilterFromConfig(config map[string]interface{}) proxmoxInventoryFilter {
 	filter := proxmoxInventoryFilter{
 		IncludeTemplates: proxmoxBool(config, "include_templates"),
-		Statuses:         stringSet(providerbuiltin.StringSlice(config, "statuses")),
-		VMTypes:          stringSet(providerbuiltin.StringSlice(config, "vm_types")),
-		OSFamilies:       normalizedStringSet(providerbuiltin.StringSlice(config, "os_families")),
+		Statuses:         stringSet(providerapi.StringSlice(config, "statuses")),
+		VMTypes:          stringSet(providerapi.StringSlice(config, "vm_types")),
+		OSFamilies:       normalizedStringSet(providerapi.StringSlice(config, "os_families")),
 	}
 
 	if len(filter.Statuses) == 0 {
@@ -281,17 +280,17 @@ func proxmoxOSFamily(resourceType, ostype string) string {
 }
 
 func proxmoxBaseURL(config map[string]interface{}) (*url.URL, error) {
-	host := providerbuiltin.String(config, "host")
+	host := providerapi.String(config, "host")
 	if host == "" {
 		return nil, fmt.Errorf("host is required")
 	}
 
-	scheme := providerbuiltin.String(config, "scheme")
+	scheme := providerapi.String(config, "scheme")
 	if scheme == "" {
 		scheme = "https"
 	}
 
-	port := providerbuiltin.String(config, "port")
+	port := providerapi.String(config, "port")
 	if port == "" {
 		port = "8006"
 	}
@@ -315,11 +314,11 @@ func proxmoxHTTPClient(config map[string]interface{}) *http.Client {
 }
 
 func proxmoxAuthHeaders(client *http.Client, baseURL *url.URL, config map[string]interface{}) (http.Header, error) {
-	tokenID, err := providerbuiltin.ResolveConfigValue(config, "token_id")
+	tokenID, err := providerapi.ResolveConfigValue(config, "token_id")
 	if err != nil {
 		return nil, err
 	}
-	tokenSecret, err := providerbuiltin.ResolveConfigValue(config, "token_secret")
+	tokenSecret, err := providerapi.ResolveConfigValue(config, "token_secret")
 	if err != nil {
 		return nil, err
 	}
@@ -332,11 +331,11 @@ func proxmoxAuthHeaders(client *http.Client, baseURL *url.URL, config map[string
 		return headers, nil
 	}
 
-	username := providerbuiltin.String(config, "username")
+	username := providerapi.String(config, "username")
 	if username == "" {
-		username = providerbuiltin.String(config, "user")
+		username = providerapi.String(config, "user")
 	}
-	password, err := providerbuiltin.ResolveConfigValue(config, "password")
+	password, err := providerapi.ResolveConfigValue(config, "password")
 	if err != nil {
 		return nil, err
 	}

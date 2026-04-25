@@ -5,14 +5,12 @@
 package mux
 
 import (
-	"context"
 	"fmt"
 	"io"
 	"os"
 	"os/exec"
 	"os/user"
 	"regexp"
-	"runtime"
 	"strings"
 	"sync"
 	"time"
@@ -21,14 +19,8 @@ import (
 	sshlib "github.com/blacknon/go-sshlib"
 	"github.com/blacknon/lssh/internal/common"
 	conf "github.com/blacknon/lssh/internal/config"
-	"github.com/blacknon/lssh/internal/connectorruntime"
-	"github.com/blacknon/lssh/internal/providerapi"
 	sshcmd "github.com/blacknon/lssh/internal/ssh"
 	"github.com/blacknon/lssh/internal/termenv"
-	"github.com/blacknon/lssh/provider/connector/provider-connector-telnet/telnetlib"
-	"github.com/blacknon/lssh/provider/connector/provider-connector-winrm/winrmlib"
-	ssmconnector "github.com/blacknon/lssh/provider/mixed/provider-mixed-aws-ec2/ssmconnector"
-	"github.com/blacknon/lssh/provider/mixed/provider-mixed-aws-ec2/ssmsession"
 	"github.com/blacknon/tvxterm"
 	"github.com/creack/pty"
 	"github.com/kballard/go-shellquote"
@@ -244,20 +236,20 @@ func (n nopWriteCloser) Close() error {
 }
 
 func newConnectorRemoteSession(cfg conf.Config, server string, serverConf conf.ServerConfig, notices []string, command []string, cols, rows int) (*RemoteSession, error) {
-	operation := providerapi.ConnectorOperation{Name: "shell"}
+	operation := conf.ConnectorOperation{Name: "shell"}
 	if len(command) > 0 {
-		operation = providerapi.ConnectorOperation{
+		operation = conf.ConnectorOperation{
 			Name:    "exec_pty",
 			Command: append([]string(nil), command...),
 		}
 	}
 
-	prepared, err := cfg.PrepareConnector(server, operation)
+	prepared, err := cfg.PrepareConnectorRuntime(server, operation)
 	if err != nil {
 		return nil, err
 	}
 	if len(command) > 0 && !prepared.Supported {
-		fallbackPrepared, fallbackErr := cfg.PrepareConnector(server, providerapi.ConnectorOperation{
+		fallbackPrepared, fallbackErr := cfg.PrepareConnectorRuntime(server, conf.ConnectorOperation{
 			Name:    "exec",
 			Command: append([]string(nil), command...),
 		})
@@ -267,57 +259,32 @@ func newConnectorRemoteSession(cfg conf.Config, server string, serverConf conf.S
 		prepared = fallbackPrepared
 	}
 	if !prepared.Supported {
-		reason := detailString(prepared.Plan.Details, "reason")
+		reason := prepared.Reason
 		if reason == "" {
 			reason = "connector operation is not supported"
 		}
 		return nil, fmt.Errorf("%s", reason)
 	}
 
-	connectorName := connectorNameFromPlan(prepared.Plan, cfg.ServerConnectorName(server))
-	switch prepared.Plan.Kind {
-	case "command":
+	switch {
+	case prepared.Command != nil:
 		if len(command) == 0 {
-			return newCommandShellRemoteSession(cfg, server, serverConf, notices, prepared.Plan, cols, rows)
+			return newCommandShellRemoteSession(cfg, server, serverConf, notices, *prepared.Command, cols, rows)
 		}
-		return newCommandExecRemoteSession(cfg, server, serverConf, notices, prepared.Plan)
-	case "provider-managed":
-		if sshcmd.IsConnectorManagedSSHRuntime(prepared.Plan, connectorName) {
-			run := &sshcmd.Run{
-				ServerList: []string{server},
-				Conf:       cfg,
-			}
-			run.CreateAuthMethodMap()
-			connect, err := run.CreateConnectorManagedSSHConnectDirect(server)
-			if err != nil {
-				return nil, err
-			}
-			return newSSHRemoteSession(cfg, server, serverConf, notices, connect, command, cols, rows, conf.ServerConfig{})
+		return newCommandExecRemoteSession(cfg, server, serverConf, notices, *prepared.Command)
+	case prepared.ManagedSSH != nil:
+		run := &sshcmd.Run{
+			ServerList: []string{server},
+			Conf:       cfg,
 		}
-		switch connectorName {
-		case "aws-ssm":
-			if len(command) == 0 {
-				return newAWSShellRemoteSession(cfg, server, serverConf, notices, prepared.Plan, cols, rows)
-			}
-			if detailString(prepared.Plan.Details, "session_mode") == "interactive-command" {
-				return newAWSShellRemoteSession(cfg, server, serverConf, notices, prepared.Plan, cols, rows)
-			}
-			return newAWSExecRemoteSession(cfg, server, serverConf, notices, prepared.Plan)
-		case "winrm":
-			if len(command) == 0 {
-				return newWinRMShellRemoteSession(cfg, server, serverConf, notices, prepared.Plan)
-			}
-			return newWinRMExecRemoteSession(cfg, server, serverConf, notices, prepared.Plan)
-		case "telnet":
-			if len(command) > 0 {
-				return nil, fmt.Errorf("connector %q does not support exec in lsmux yet", connectorName)
-			}
-			return newTelnetShellRemoteSession(cfg, server, serverConf, notices, prepared.Plan)
-		default:
-			return nil, fmt.Errorf("server %q connector %q is not supported in lsmux yet", server, connectorName)
+		run.CreateAuthMethodMap()
+		connect, err := run.CreateConnectorManagedSSHConnectDirect(server)
+		if err != nil {
+			return nil, err
 		}
+		return newSSHRemoteSession(cfg, server, serverConf, notices, connect, command, cols, rows, conf.ServerConfig{})
 	default:
-		return nil, fmt.Errorf("server %q connector %q returned unsupported plan kind %q", server, connectorName, prepared.Plan.Kind)
+		return nil, fmt.Errorf("server %q connector %q returned unsupported plan kind %q", server, prepared.ConnectorName, prepared.PlanKind)
 	}
 }
 
@@ -431,14 +398,7 @@ func newSSHRemoteSession(cfg conf.Config, server string, serverConf conf.ServerC
 	}, nil
 }
 
-func connectorNameFromPlan(plan providerapi.ConnectorPlan, fallback string) string {
-	if value := detailString(plan.Details, "connector"); value != "" {
-		return value
-	}
-	return fallback
-}
-
-func newCommandShellRemoteSession(cfg conf.Config, server string, serverConf conf.ServerConfig, notices []string, plan providerapi.ConnectorPlan, cols, rows int) (*RemoteSession, error) {
+func newCommandShellRemoteSession(cfg conf.Config, server string, serverConf conf.ServerConfig, notices []string, plan conf.ConnectorCommandPlan, cols, rows int) (*RemoteSession, error) {
 	if plan.Program == "" {
 		return nil, fmt.Errorf("connector command plan is missing program")
 	}
@@ -539,252 +499,7 @@ func newCommandShellRemoteSession(cfg conf.Config, server string, serverConf con
 	}, nil
 }
 
-func newAWSShellRemoteSession(cfg conf.Config, server string, serverConf conf.ServerConfig, notices []string, plan providerapi.ConnectorPlan, cols, rows int) (*RemoteSession, error) {
-	shellCfg, err := ssmconnector.ShellConfigFromPlan(plan)
-	if err != nil {
-		return nil, err
-	}
-	if shouldUseAWSNativeShellInMux(shellCfg) {
-		return newAWSNativeShellRemoteSession(cfg, server, serverConf, notices, shellCfg, cols, rows)
-	}
-	cmd := ssmconnector.BuildStartSessionCommand(context.Background(), shellCfg)
-	tty, err := pty.StartWithSize(cmd, &pty.Winsize{
-		Cols: uint16(maxInt(cols, 80)),
-		Rows: uint16(maxInt(rows, 24)),
-	})
-	if err != nil {
-		return nil, err
-	}
-
-	outputReader, outputWriter := io.Pipe()
-	var logWriter *terminalLogWriter
-	logPath := ""
-	if cfg.Log.Enable {
-		logPath, err = buildMuxLogPath(cfg.Log, server)
-		if err != nil {
-			_ = outputWriter.CloseWithError(err)
-			_ = tty.Close()
-			_ = cmd.Process.Kill()
-			_ = cmd.Wait()
-			return nil, err
-		}
-		logWriter, err = newTerminalLogWriter(logPath, cfg.Log.Timestamp, cfg.Log.RemoveAnsiCode)
-		if err != nil {
-			_ = outputWriter.CloseWithError(err)
-			_ = tty.Close()
-			_ = cmd.Process.Kill()
-			_ = cmd.Wait()
-			return nil, err
-		}
-	}
-
-	var copyWG sync.WaitGroup
-	copyWG.Add(1)
-	go copyPipe(&copyWG, writerWithLog(outputWriter, logWriter), tty)
-
-	var waitErr error
-	waitDone := make(chan struct{})
-	go func() {
-		waitErr = cmd.Wait()
-		close(waitDone)
-	}()
-	go func() {
-		defer func() {
-			copyWG.Wait()
-		}()
-		<-waitDone
-		if waitErr != nil {
-			_ = outputWriter.CloseWithError(waitErr)
-			return
-		}
-		_ = outputWriter.Close()
-	}()
-
-	var closeOnce sync.Once
-	closeFn := func() error {
-		var closeErr error
-		closeOnce.Do(func() {
-			_ = outputWriter.Close()
-			if logWriter != nil {
-				_ = logWriter.Close()
-			}
-			if err := tty.Close(); closeErr == nil && err != nil {
-				closeErr = err
-			}
-			if cmd.Process != nil {
-				_ = cmd.Process.Kill()
-			}
-			<-waitDone
-			if closeErr == nil && waitErr != nil && !isExpectedProcessExit(waitErr) {
-				closeErr = waitErr
-			}
-		})
-		return closeErr
-	}
-
-	return &RemoteSession{
-		Server:  server,
-		Config:  serverConf,
-		Notices: append([]string(nil), notices...),
-		Input:   tty,
-		LogPath: logPath,
-		Backend: tvxterm.NewStreamBackend(
-			outputReader,
-			tty,
-			dedupeResizeFunc(maxInt(cols, 80), maxInt(rows, 24), func(cols, rows int) error {
-				return pty.Setsize(tty, &pty.Winsize{
-					Cols: uint16(cols),
-					Rows: uint16(rows),
-				})
-			}),
-			closeFn,
-		),
-	}, nil
-}
-
-func shouldUseAWSNativeShellInMux(shellCfg ssmconnector.ShellConfig) bool {
-	if runtime.GOOS == "windows" {
-		return false
-	}
-	if len(shellCfg.Command) > 0 {
-		return false
-	}
-
-	switch shellCfg.SessionAction {
-	case "", "start":
-		return true
-	default:
-		return shellCfg.Runtime == "native"
-	}
-}
-
-func newAWSNativeShellRemoteSession(cfg conf.Config, server string, serverConf conf.ServerConfig, notices []string, shellCfg ssmconnector.ShellConfig, cols, rows int) (*RemoteSession, error) {
-	stdinReader, stdinWriter := io.Pipe()
-	outputReader, outputWriter := io.Pipe()
-
-	var logWriter *terminalLogWriter
-	logPath := ""
-	var err error
-	if cfg.Log.Enable {
-		logPath, err = buildMuxLogPath(cfg.Log, server)
-		if err != nil {
-			_ = stdinReader.Close()
-			_ = stdinWriter.Close()
-			_ = outputWriter.CloseWithError(err)
-			return nil, err
-		}
-		logWriter, err = newTerminalLogWriter(logPath, cfg.Log.Timestamp, cfg.Log.RemoveAnsiCode)
-		if err != nil {
-			_ = stdinReader.Close()
-			_ = stdinWriter.Close()
-			_ = outputWriter.CloseWithError(err)
-			return nil, err
-		}
-	}
-
-	sessionCfg := buildAWSNativeShellSessionConfig(serverConf, shellCfg)
-	sessionCfg.InitialCols = maxInt(cols, 80)
-	sessionCfg.InitialRows = maxInt(rows, 24)
-	session := ssmsession.New(sessionCfg)
-	ctx, cancel := context.WithCancel(context.Background())
-
-	var runErr error
-	waitDone := make(chan struct{})
-	writer := writerWithLog(outputWriter, logWriter)
-	go func() {
-		runErr = session.Run(ctx, connectorruntime.StreamConfig{
-			Stdin:  stdinReader,
-			Stdout: writer,
-			Stderr: writer,
-		})
-		close(waitDone)
-	}()
-
-	go func() {
-		<-waitDone
-		if runErr != nil {
-			_ = outputWriter.CloseWithError(runErr)
-			return
-		}
-		_ = outputWriter.Close()
-	}()
-
-	var closeOnce sync.Once
-	closeFn := func() error {
-		var closeErr error
-		closeOnce.Do(func() {
-			cancel()
-			if err := stdinWriter.Close(); closeErr == nil && err != nil {
-				closeErr = err
-			}
-			if err := stdinReader.Close(); closeErr == nil && err != nil {
-				closeErr = err
-			}
-			if err := session.Close(); closeErr == nil && err != nil {
-				closeErr = err
-			}
-			<-waitDone
-			if logWriter != nil {
-				if err := logWriter.Close(); closeErr == nil && err != nil {
-					closeErr = err
-				}
-			}
-			if runErr != nil && closeErr == nil && !isExpectedProcessExit(runErr) {
-				closeErr = runErr
-			}
-			_ = outputWriter.Close()
-		})
-		return closeErr
-	}
-
-	return &RemoteSession{
-		Server:  server,
-		Config:  serverConf,
-		Notices: append([]string(nil), notices...),
-		Input:   stdinWriter,
-		LogPath: logPath,
-		Backend: tvxterm.NewStreamBackend(
-			outputReader,
-			stdinWriter,
-			dedupeResizeFunc(sessionCfg.InitialCols, sessionCfg.InitialRows, func(cols, rows int) error {
-				return session.Resize(ctx, connectorruntime.TerminalSize{
-					Cols: cols,
-					Rows: rows,
-				})
-			}),
-			closeFn,
-		),
-	}, nil
-}
-
-func buildAWSNativeShellSessionConfig(serverConf conf.ServerConfig, shellCfg ssmconnector.ShellConfig) ssmsession.Config {
-	sessionCfg := ssmsession.Config{
-		InstanceID:             shellCfg.InstanceID,
-		Region:                 shellCfg.Region,
-		Platform:               shellCfg.Platform,
-		Profile:                shellCfg.Profile,
-		SharedConfigFiles:      append([]string(nil), shellCfg.SharedConfigFiles...),
-		SharedCredentialsFiles: append([]string(nil), shellCfg.SharedCredentialsFiles...),
-		DocumentName:           shellCfg.DocumentName,
-	}
-	if len(shellCfg.Command) > 0 {
-		sessionCfg.StartupMarker = ssmsession.StartupEchoMarker()
-		sessionCfg.StartupCommand = ssmsession.BuildStartupCommand(shellquote.Join(shellCfg.Command...), sessionCfg.StartupMarker)
-		return sessionCfg
-	}
-	if serverConf.LocalRcUse == "yes" {
-		sessionCfg.StartupCommand = sshcmd.BuildInteractiveLocalRCShellCommand(
-			serverConf.LocalRcPath,
-			serverConf.LocalRcDecodeCmd,
-			serverConf.LocalRcCompress,
-			serverConf.LocalRcUncompressCmd,
-		)
-		sessionCfg.StartupMarker = sshcmd.InteractiveLocalRCStartupMarker()
-	}
-	return sessionCfg
-}
-
-func newCommandExecRemoteSession(cfg conf.Config, server string, serverConf conf.ServerConfig, notices []string, plan providerapi.ConnectorPlan) (*RemoteSession, error) {
+func newCommandExecRemoteSession(cfg conf.Config, server string, serverConf conf.ServerConfig, notices []string, plan conf.ConnectorCommandPlan) (*RemoteSession, error) {
 	if plan.Program == "" {
 		return nil, fmt.Errorf("connector command plan is missing program")
 	}
@@ -878,135 +593,6 @@ func newCommandExecRemoteSession(cfg conf.Config, server string, serverConf conf
 			closeFn,
 		),
 	}, nil
-}
-
-func newAWSExecRemoteSession(cfg conf.Config, server string, serverConf conf.ServerConfig, notices []string, plan providerapi.ConnectorPlan) (*RemoteSession, error) {
-	commandCfg, err := ssmconnector.CommandConfigFromPlan(plan)
-	if err != nil {
-		return nil, err
-	}
-
-	outputReader, outputWriter := io.Pipe()
-	var logWriter *terminalLogWriter
-	logPath := ""
-	if cfg.Log.Enable {
-		logPath, err = buildMuxLogPath(cfg.Log, server)
-		if err != nil {
-			_ = outputWriter.CloseWithError(err)
-			return nil, err
-		}
-		logWriter, err = newTerminalLogWriter(logPath, cfg.Log.Timestamp, cfg.Log.RemoveAnsiCode)
-		if err != nil {
-			_ = outputWriter.CloseWithError(err)
-			return nil, err
-		}
-	}
-
-	writer := writerWithLog(outputWriter, logWriter)
-	ctx, cancel := context.WithCancel(context.Background())
-	go func() {
-		code, runErr := ssmconnector.RunCommand(ctx, commandCfg, writer, writer)
-		if runErr != nil {
-			_ = outputWriter.CloseWithError(runErr)
-			return
-		}
-		if code != 0 {
-			_ = outputWriter.CloseWithError(fmt.Errorf("exit status %d", code))
-			return
-		}
-		_ = outputWriter.Close()
-	}()
-
-	var closeOnce sync.Once
-	closeFn := func() error {
-		var closeErr error
-		closeOnce.Do(func() {
-			cancel()
-			_ = outputWriter.Close()
-			if logWriter != nil {
-				if err := logWriter.Close(); err != nil {
-					closeErr = err
-				}
-			}
-		})
-		return closeErr
-	}
-
-	return &RemoteSession{
-		Server:  server,
-		Config:  serverConf,
-		Notices: append([]string(nil), notices...),
-		Input:   nopWriteCloser{Writer: io.Discard},
-		LogPath: logPath,
-		Backend: tvxterm.NewStreamBackend(
-			outputReader,
-			nopWriteCloser{Writer: io.Discard},
-			func(cols, rows int) error { return nil },
-			closeFn,
-		),
-	}, nil
-}
-
-func newWinRMShellRemoteSession(cfg conf.Config, server string, serverConf conf.ServerConfig, notices []string, plan providerapi.ConnectorPlan) (*RemoteSession, error) {
-	targetCfg, err := winrmlib.ConfigFromPlanDetails(plan.Details)
-	if err != nil {
-		return nil, err
-	}
-
-	connect, err := winrmlib.CreateConnect(targetCfg)
-	if err != nil {
-		return nil, err
-	}
-	terminal, err := connect.OpenShell()
-	if err != nil {
-		return nil, err
-	}
-
-	return newReaderBackedRemoteSession(cfg, server, serverConf, notices, terminal.Stdin(), terminal.Stdout(), terminal.Stderr(), terminal.Wait, terminal.Close)
-}
-
-func newWinRMExecRemoteSession(cfg conf.Config, server string, serverConf conf.ServerConfig, notices []string, plan providerapi.ConnectorPlan) (*RemoteSession, error) {
-	targetCfg, err := winrmlib.ConfigFromPlanDetails(plan.Details)
-	if err != nil {
-		return nil, err
-	}
-
-	connect, err := winrmlib.CreateConnect(targetCfg)
-	if err != nil {
-		return nil, err
-	}
-	commandLine := detailString(plan.Details, "command_line")
-	if commandLine == "" {
-		commandLine = strings.Join(detailStringSlice(plan.Details, "command"), " ")
-	}
-	command, err := connect.ExecuteCommand(commandLine)
-	if err != nil {
-		return nil, err
-	}
-
-	waitFn := func() error {
-		err := command.Wait()
-		if err == nil && command.ExitCode() != 0 {
-			return fmt.Errorf("exit status %d", command.ExitCode())
-		}
-		return err
-	}
-
-	return newReaderBackedRemoteSession(cfg, server, serverConf, notices, nopWriteCloser{Writer: io.Discard}, command.Stdout(), command.Stderr(), waitFn, command.Close)
-}
-
-func newTelnetShellRemoteSession(cfg conf.Config, server string, serverConf conf.ServerConfig, notices []string, plan providerapi.ConnectorPlan) (*RemoteSession, error) {
-	targetCfg, err := telnetlib.ConfigFromPlanDetails(plan.Details)
-	if err != nil {
-		return nil, err
-	}
-
-	terminal, err := telnetlib.OpenShell(targetCfg, "xterm-256color", 80, 24)
-	if err != nil {
-		return nil, err
-	}
-
-	return newReaderBackedRemoteSession(cfg, server, serverConf, notices, terminal.Stdin(), terminal.Stdout(), terminal.Stderr(), terminal.Wait, terminal.Close)
 }
 
 func newReaderBackedRemoteSession(cfg conf.Config, server string, serverConf conf.ServerConfig, notices []string, stdin io.Writer, stdout, stderr io.Reader, waitFn func() error, closeResource func() error) (*RemoteSession, error) {

@@ -25,7 +25,7 @@ import (
 	awsconfig "github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/service/ssm"
 	"github.com/blacknon/lssh/internal/connectorruntime"
-	"github.com/blacknon/lssh/internal/providerbuiltin"
+	"github.com/blacknon/lssh/providerapi"
 	"github.com/google/uuid"
 	"github.com/kballard/go-shellquote"
 	"golang.org/x/crypto/ssh/terminal"
@@ -37,6 +37,7 @@ const (
 	clientVersion        = "lssh-native"
 	sessionTypeStandard  = "Standard_Stream"
 	sessionTypePort      = "Port"
+	sessionTypeCommand   = "InteractiveCommands"
 
 	messageTypeInputStream  = "input_stream_data"
 	messageTypeOutputStream = "output_stream_data"
@@ -65,8 +66,10 @@ type Config struct {
 	SharedConfigFiles      []string
 	SharedCredentialsFiles []string
 	DocumentName           string
+	DocumentParameters     map[string][]string
 	StartupCommand         string
 	StartupMarker          string
+	SuppressStartupEcho    bool
 	ExpandNewlineToCRLF    bool
 	InitialCols            int
 	InitialRows            int
@@ -206,6 +209,9 @@ func (s *Session) Run(ctx context.Context, stream connectorruntime.StreamConfig)
 	}
 	if strings.TrimSpace(s.cfg.DocumentName) != "" {
 		startInput.DocumentName = aws.String(s.cfg.DocumentName)
+	}
+	if len(s.cfg.DocumentParameters) > 0 {
+		startInput.Parameters = s.cfg.DocumentParameters
 	}
 
 	client := ssm.NewFromConfig(ssmCfg)
@@ -526,7 +532,9 @@ func (s *Session) handleHandshakeRequest(payload []byte) error {
 				processed.ActionStatus = 2
 				processed.Error = err.Error()
 				response.Errors = append(response.Errors, err.Error())
-			} else if sessionReq.SessionType != sessionTypeStandard && sessionReq.SessionType != sessionTypePort {
+			} else if sessionReq.SessionType != sessionTypeStandard &&
+				sessionReq.SessionType != sessionTypePort &&
+				sessionReq.SessionType != sessionTypeCommand {
 				processed.ActionStatus = 3
 				processed.Error = fmt.Sprintf("unsupported session type %q", sessionReq.SessionType)
 				response.Errors = append(response.Errors, processed.Error)
@@ -609,7 +617,11 @@ func (s *Session) sendFlag(flag uint32) error {
 func (s *Session) sendStartupCommand(command string) error {
 	const chunkSize = 512
 
-	if s.startupMarker != "" {
+	if s.cfg.SuppressStartupEcho {
+		if err := s.prepareSuppressedStartup(); err != nil {
+			return err
+		}
+	} else if s.startupMarker != "" {
 		s.startStartupSuppress()
 	}
 
@@ -625,6 +637,41 @@ func (s *Session) sendStartupCommand(command string) error {
 		payload = payload[size:]
 	}
 
+	return s.sendInputPayload(payloadTypeOutput, []byte{'\r'})
+}
+
+func (s *Session) prepareSuppressedStartup() error {
+	if s.startupMarker == "" {
+		return s.sendStartupPrelude("stty -echo 2>/dev/null || true")
+	}
+
+	s.startStartupSuppress()
+	prelude := fmt.Sprintf("stty -echo 2>/dev/null || true; printf '%%s\\n' %s", shellSingleQuote(s.startupMarker))
+	if err := s.sendStartupPrelude(prelude); err != nil {
+		return err
+	}
+
+	deadline := time.Now().Add(startupMarkerWaitLimit)
+	for time.Now().Before(deadline) {
+		s.startupMu.Lock()
+		suppressing := s.startupSuppress
+		s.startupMu.Unlock()
+		if !suppressing {
+			return nil
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+
+	return fmt.Errorf("wait startup echo suppression: timeout")
+}
+
+func (s *Session) sendStartupPrelude(command string) error {
+	payload := []byte(command)
+	if len(payload) > 0 {
+		if err := s.sendInputPayload(payloadTypeOutput, payload); err != nil {
+			return err
+		}
+	}
 	return s.sendInputPayload(payloadTypeOutput, []byte{'\r'})
 }
 
@@ -877,10 +924,10 @@ func loadAWSConfig(ctx context.Context, cfg Config) (aws.Config, error) {
 	if cfg.Profile != "" {
 		opts = append(opts, awsconfig.WithSharedConfigProfile(cfg.Profile))
 	}
-	if files := providerbuiltin.ExpandPaths(cfg.SharedConfigFiles); len(files) > 0 {
+	if files := providerapi.ExpandPaths(cfg.SharedConfigFiles); len(files) > 0 {
 		opts = append(opts, awsconfig.WithSharedConfigFiles(files))
 	}
-	if files := providerbuiltin.ExpandPaths(cfg.SharedCredentialsFiles); len(files) > 0 {
+	if files := providerapi.ExpandPaths(cfg.SharedCredentialsFiles); len(files) > 0 {
 		opts = append(opts, awsconfig.WithSharedCredentialsFiles(files))
 	}
 	return awsconfig.LoadDefaultConfig(ctx, opts...)
@@ -943,10 +990,14 @@ func BuildStartupCommand(commandLine, marker string) string {
 	base := buildStreamCommandLine(commandLine)
 	marker = strings.TrimSpace(marker)
 	if marker == "" {
-		return base
+		return withStartupEchoRestore(base)
 	}
 
-	return fmt.Sprintf("printf '%%s\\n' %s; %s", shellSingleQuote(marker), base)
+	return fmt.Sprintf("printf '%%s\\n' %s; %s", shellSingleQuote(marker), withStartupEchoRestore(base))
+}
+
+func withStartupEchoRestore(command string) string {
+	return fmt.Sprintf("%s; stty echo 2>/dev/null || true", command)
 }
 
 type streamExitStatusWriter struct {

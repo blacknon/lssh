@@ -7,21 +7,20 @@ import (
 	"os/exec"
 	"runtime"
 
-	"github.com/blacknon/lssh/internal/providerapi"
-	"github.com/blacknon/lssh/internal/providerbuiltin"
+	"github.com/blacknon/lssh/providerapi"
 	"github.com/blacknon/lssh/provider/connector/provider-connector-openssh/opensshlib"
 )
 
 func main() {
-	req, err := providerbuiltin.ReadRequest()
+	req, err := providerapi.ReadRequest()
 	if err != nil {
-		_ = providerbuiltin.WriteError(err.Error())
+		_ = providerapi.WriteError(err.Error())
 		os.Exit(1)
 	}
 
 	switch req.Method {
 	case providerapi.MethodPluginDescribe:
-		_ = providerbuiltin.WriteResponse(req, providerapi.PluginDescribeResult{
+		_ = providerapi.WriteResponse(req, providerapi.PluginDescribeResult{
 			Name:            "provider-connector-openssh",
 			Capabilities:    []string{"connector"},
 			ConnectorNames:  []string{"openssh"},
@@ -31,41 +30,41 @@ func main() {
 	case providerapi.MethodHealthCheck:
 		var params providerapi.HealthCheckParams
 		if err := decodeParams(req.Params, &params); err != nil {
-			_ = providerbuiltin.WriteErrorResponse(req, "invalid_params", err.Error())
+			_ = providerapi.WriteErrorResponse(req, "invalid_params", err.Error())
 			os.Exit(1)
 		}
 		result, err := opensshHealthCheck(params.Config)
 		if err != nil {
-			_ = providerbuiltin.WriteErrorResponse(req, "health_check_failed", err.Error())
+			_ = providerapi.WriteErrorResponse(req, "health_check_failed", err.Error())
 			os.Exit(1)
 		}
-		_ = providerbuiltin.WriteResponse(req, result, nil)
+		_ = providerapi.WriteResponse(req, result, nil)
 	case providerapi.MethodConnectorDescribe:
 		var params providerapi.ConnectorDescribeParams
 		if err := decodeParams(req.Params, &params); err != nil {
-			_ = providerbuiltin.WriteErrorResponse(req, "invalid_params", err.Error())
+			_ = providerapi.WriteErrorResponse(req, "invalid_params", err.Error())
 			os.Exit(1)
 		}
 		result, err := opensshDescribe(params)
 		if err != nil {
-			_ = providerbuiltin.WriteErrorResponse(req, "connector_describe_failed", err.Error())
+			_ = providerapi.WriteErrorResponse(req, "connector_describe_failed", err.Error())
 			os.Exit(1)
 		}
-		_ = providerbuiltin.WriteResponse(req, result, nil)
+		_ = providerapi.WriteResponse(req, result, nil)
 	case providerapi.MethodConnectorPrepare, providerapi.MethodTransportPrep:
 		var params providerapi.ConnectorPrepareParams
 		if err := decodeParams(req.Params, &params); err != nil {
-			_ = providerbuiltin.WriteErrorResponse(req, "invalid_params", err.Error())
+			_ = providerapi.WriteErrorResponse(req, "invalid_params", err.Error())
 			os.Exit(1)
 		}
 		result, err := opensshPrepare(params)
 		if err != nil {
-			_ = providerbuiltin.WriteErrorResponse(req, "connector_prepare_failed", err.Error())
+			_ = providerapi.WriteErrorResponse(req, "connector_prepare_failed", err.Error())
 			os.Exit(1)
 		}
-		_ = providerbuiltin.WriteResponse(req, result, nil)
+		_ = providerapi.WriteResponse(req, result, nil)
 	default:
-		_ = providerbuiltin.WriteErrorResponse(req, "unsupported_method", fmt.Sprintf("unsupported method %q", req.Method))
+		_ = providerapi.WriteErrorResponse(req, "unsupported_method", fmt.Sprintf("unsupported method %q", req.Method))
 		os.Exit(1)
 	}
 }
@@ -79,7 +78,7 @@ func decodeParams(raw interface{}, out interface{}) error {
 }
 
 func opensshHealthCheck(config map[string]interface{}) (providerapi.HealthCheckResult, error) {
-	path := providerbuiltin.String(config, "ssh_path")
+	path := providerapi.String(config, "ssh_path")
 	if path == "" {
 		path = "ssh"
 	}

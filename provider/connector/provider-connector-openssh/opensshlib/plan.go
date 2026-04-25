@@ -5,8 +5,7 @@ import (
 	"net"
 	"strings"
 
-	"github.com/blacknon/lssh/internal/providerapi"
-	"github.com/blacknon/lssh/internal/providerbuiltin"
+	"github.com/blacknon/lssh/providerapi"
 )
 
 type Config struct {
@@ -25,17 +24,17 @@ type Config struct {
 
 func ConfigFromMaps(provider map[string]interface{}, target map[string]interface{}) (Config, error) {
 	cfg := Config{
-		SSHPath:               firstNonEmpty(providerbuiltin.String(target, "ssh_path"), providerbuiltin.String(provider, "ssh_path"), "ssh"),
-		Host:                  firstNonEmpty(providerbuiltin.String(target, "addr"), providerbuiltin.String(provider, "addr")),
-		User:                  firstNonEmpty(providerbuiltin.String(target, "user"), providerbuiltin.String(provider, "user")),
-		Port:                  firstNonEmpty(providerbuiltin.String(target, "port"), providerbuiltin.String(provider, "port")),
-		IdentityFile:          firstNonEmpty(providerbuiltin.String(target, "key"), providerbuiltin.String(target, "identity_file"), providerbuiltin.String(provider, "identity_file")),
-		SSHConfigFile:         firstNonEmpty(providerbuiltin.String(target, "ssh_config_file"), providerbuiltin.String(provider, "ssh_config_file")),
-		UserKnownHostsFile:    firstNonEmpty(providerbuiltin.String(target, "user_known_hosts_file"), providerbuiltin.String(provider, "user_known_hosts_file")),
-		StrictHostKeyChecking: firstNonEmpty(providerbuiltin.String(target, "strict_host_key_checking"), providerbuiltin.String(provider, "strict_host_key_checking")),
+		SSHPath:               firstNonEmpty(providerapi.String(target, "ssh_path"), providerapi.String(provider, "ssh_path"), "ssh"),
+		Host:                  firstNonEmpty(providerapi.String(target, "addr"), providerapi.String(provider, "addr")),
+		User:                  firstNonEmpty(providerapi.String(target, "user"), providerapi.String(provider, "user")),
+		Port:                  firstNonEmpty(providerapi.String(target, "port"), providerapi.String(provider, "port")),
+		IdentityFile:          firstNonEmpty(providerapi.String(target, "key"), providerapi.String(target, "identity_file"), providerapi.String(provider, "identity_file")),
+		SSHConfigFile:         firstNonEmpty(providerapi.String(target, "ssh_config_file"), providerapi.String(provider, "ssh_config_file")),
+		UserKnownHostsFile:    firstNonEmpty(providerapi.String(target, "user_known_hosts_file"), providerapi.String(provider, "user_known_hosts_file")),
+		StrictHostKeyChecking: firstNonEmpty(providerapi.String(target, "strict_host_key_checking"), providerapi.String(provider, "strict_host_key_checking")),
 		BatchMode:             parseBool(target, "batch_mode") || parseBool(provider, "batch_mode"),
 		ForwardAgent:          parseBool(target, "forward_agent") || parseBool(provider, "forward_agent"),
-		ExtraOptions:          firstStringSlice(providerbuiltin.StringSlice(target, "ssh_options"), providerbuiltin.StringSlice(provider, "ssh_options")),
+		ExtraOptions:          firstStringSlice(providerapi.StringSlice(target, "ssh_options"), providerapi.StringSlice(provider, "ssh_options")),
 	}
 
 	if strings.TrimSpace(cfg.Host) == "" {
@@ -172,7 +171,7 @@ func firstStringSlice(values ...[]string) []string {
 }
 
 func parseBool(raw map[string]interface{}, key string) bool {
-	switch strings.ToLower(providerbuiltin.String(raw, key)) {
+	switch strings.ToLower(providerapi.String(raw, key)) {
 	case "1", "true", "yes", "on":
 		return true
 	default:

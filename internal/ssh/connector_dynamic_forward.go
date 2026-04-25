@@ -16,7 +16,6 @@ import (
 	"time"
 
 	conf "github.com/blacknon/lssh/internal/config"
-	"github.com/blacknon/lssh/internal/providerapi"
 )
 
 func (r *Run) runConnectorDynamicPortForward(server string, config conf.ServerConfig, connectorName string) error {
@@ -58,8 +57,8 @@ func connectorDynamicForwardSpec(config conf.ServerConfig) (string, error) {
 	return port, nil
 }
 
-func (r *Run) prepareConnectorDialTransport(server, targetHost, targetPort string) (providerapi.ConnectorPrepareResult, error) {
-	operation := providerapi.ConnectorOperation{
+func (r *Run) prepareConnectorDialTransport(server, targetHost, targetPort string) (conf.PreparedConnector, error) {
+	operation := conf.ConnectorOperation{
 		Name: "tcp_dial_transport",
 		Options: map[string]interface{}{
 			"target_host": targetHost,
@@ -67,15 +66,12 @@ func (r *Run) prepareConnectorDialTransport(server, targetHost, targetPort strin
 		},
 	}
 
-	prepared, err := r.Conf.PrepareConnector(server, operation)
+	prepared, err := r.prepareConnectorOperation(server, operation)
 	if err != nil {
-		return providerapi.ConnectorPrepareResult{}, err
+		return conf.PreparedConnector{}, err
 	}
-
-	connectorName := r.Conf.ServerConnectorName(server)
-	planConnector := connectorNameFromPlan(prepared.Plan, connectorName)
 	if !prepared.Supported {
-		return providerapi.ConnectorPrepareResult{}, fmt.Errorf("server %q connector %q: %v", server, planConnector, prepared.Plan.Details["reason"])
+		return conf.PreparedConnector{}, fmt.Errorf("server %q connector %q: %v", server, prepared.ConnectorName, prepared.Reason)
 	}
 
 	return prepared, nil
@@ -99,12 +95,14 @@ func (r *Run) dialConnectorTarget(ctx context.Context, server, network, address 
 		return nil, err
 	}
 
-	planConnector := connectorNameFromPlan(prepared.Plan, r.Conf.ServerConnectorName(server))
-	switch prepared.Plan.Kind {
-	case "provider-managed":
-		return dialProviderManagedTransport(prepared.Plan, planConnector)
+	switch {
+	case prepared.ManagedSSH != nil:
+		return r.dialConnectorManagedSSHTarget(ctx, server, network, address)
 	default:
-		return nil, fmt.Errorf("server %q connector %q returned unsupported dial plan kind %q", server, planConnector, prepared.Plan.Kind)
+		if prepared.PlanKind != "" {
+			return nil, fmt.Errorf("server %q connector %q returned unsupported dial plan kind %q", server, prepared.ConnectorName, prepared.PlanKind)
+		}
+		return nil, fmt.Errorf("server %q connector %q returned unsupported dial runtime", server, prepared.ConnectorName)
 	}
 }
 

@@ -674,6 +674,8 @@ note = "matched web"
 - `port_in`, `port_not_in`
 
 These branches are applied in ascending `priority` order, and later matches overwrite earlier values.
+Within one `*_in` or `*_not_in` list, values are matched as OR.
+Different keys are combined as AND.
 
 You can also generate a starter `~/.lssh.toml` from any suite command and write
 it with shell redirection:
@@ -976,10 +978,15 @@ Notes:
 
 - Lower `priority` values are applied first
 - Higher `priority` values win when the same field is set multiple times
+- Within one `when.*_in` or `when.*_not_in` list, values are matched as OR
+- Different `when.*` keys are combined as AND
 - `os_*` matches `runtime.GOOS` values such as `darwin`, `linux`, or `windows`
 - `term_*` mainly matches normalized values from `TERM_PROGRAM` and `TERM` such as `iterm2`, `apple_terminal`, `xterm`, or `tmux`
 - `env_*` checks whether the named environment variables exist
 - `env_value_*` matches exact `KEY=value` pairs
+
+For inventory-provider matches such as `provider.<name>.match.<branch>`, `meta_in` is OR inside the list.
+Use `meta_all_in` when you want all listed metadata rules to match.
 
 ## Parallel Interactive shell settings with `[shell]`
 

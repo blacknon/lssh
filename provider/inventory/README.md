@@ -3,10 +3,9 @@ Inventory Providers
 
 Inventory providers generate `server` entries dynamically from external systems.
 
-- [`provider-mixed-aws-ec2`](../mixed/provider-mixed-aws-ec2/README.md)
-- [`provider-inventory-azure-compute`](./provider-inventory-azure-compute/README.md)
-- [`provider-inventory-gcp-compute`](./provider-inventory-gcp-compute/README.md)
 - [`provider-inventory-proxmox`](./provider-inventory-proxmox/README.md)
+
+Mixed-capability providers that also implement `inventory.list` are documented under [../mixed/README.md](../mixed/README.md).
 
 ## Role
 
@@ -128,6 +127,21 @@ When multiple `provider.<name>.match.*` branches match the same generated host, 
 
 This matches the ordering model used by `server.<name>.match.*`.
 
+Condition combination rules:
+
+- values inside one `name_in`, `provider_in`, or `meta_in` list are matched as OR
+- different condition keys are combined as AND
+- `meta_all_in` and `meta_all_not_in` match all listed metadata rules as AND inside the list
+
+Examples:
+
+- `meta_in = ["tag.Connection=winrm", "os_type=windows"]`
+  - matches when either rule matches
+- `meta_all_in = ["tag.Connection=winrm", "os_type=windows"]`
+  - matches only when both rules match
+- `name_in = ["azure:win-*"]` with `meta_in = ["tag.Connection=winrm"]`
+  - matches only when both keys match
+
 Good metadata fields are:
 
 - stable
@@ -223,31 +237,6 @@ Recommended updates:
 - add `connector.describe`
 - later add `connector.prepare`
 - define stable warning/error codes
-
-### `provider-inventory-gcp-compute`
-
-Current fit:
-
-- good fit for `inventory.list`
-- metadata already useful for match rules
-
-Recommended updates:
-
-- add `plugin.describe`
-- add `health.check`
-- define stable warning/error codes
-
-### `provider-inventory-azure-compute`
-
-Current fit:
-
-- good fit for `inventory.list`
-- metadata is useful for match rules and cloud-aware note templates
-
-Recommended updates:
-
-- define stable warning/error codes
-- move non-fatal network enrichment failures into protocol `warnings` when the core supports them
 
 ### `provider-inventory-proxmox`
 

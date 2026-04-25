@@ -12,16 +12,7 @@ import (
 	"sync"
 
 	conf "github.com/blacknon/lssh/internal/config"
-	"github.com/blacknon/lssh/internal/providerapi"
 	"github.com/blacknon/lssh/internal/termenv"
-	"github.com/blacknon/lssh/provider/connector/provider-connector-telnet/telnetlib"
-	"github.com/blacknon/lssh/provider/connector/provider-connector-winrm/winrmlib"
-	azurebastionconnector "github.com/blacknon/lssh/provider/inventory/provider-inventory-azure-compute/bastionconnector"
-	gcpiapconnector "github.com/blacknon/lssh/provider/inventory/provider-inventory-gcp-compute/iapconnector"
-	awseiceconnector "github.com/blacknon/lssh/provider/mixed/provider-mixed-aws-ec2/eiceconnector"
-	ssmconnector "github.com/blacknon/lssh/provider/mixed/provider-mixed-aws-ec2/ssmconnector"
-	"github.com/blacknon/lssh/provider/mixed/provider-mixed-aws-ec2/ssmsession"
-	"golang.org/x/crypto/ssh/terminal"
 )
 
 func (r *Run) UsesConnector(server string) bool {
@@ -38,71 +29,53 @@ func (r *Run) RunConnectorShell(server string) error {
 }
 
 func (r *Run) runConnectorShellWithConfig(server string, config conf.ServerConfig) error {
-	connectorName := r.Conf.ServerConnectorName(server)
-	if connectorName == "" || connectorName == "ssh" {
+	prepared, err := r.prepareConnectorOperation(server, conf.ConnectorOperation{Name: "shell"})
+	if err != nil {
+		return err
+	}
+	if prepared.ConnectorName == "" || prepared.ConnectorName == "ssh" {
 		return fmt.Errorf("server %q does not use an external connector", server)
 	}
 	if r.TunnelEnabled {
-		return fmt.Errorf("server %q uses connector %q; ssh tunnel devices are not supported", server, connectorName)
+		return fmt.Errorf("server %q uses connector %q; ssh tunnel devices are not supported", server, prepared.ConnectorName)
 	}
 	if connectorHasForwarding(config) {
-		if r.connectorForwardingSharesShell(config, connectorName) {
-			return r.runConnectorShellWithSharedForwarding(server, config, connectorName)
+		if r.connectorForwardingSharesShell(config, prepared) {
+			return r.runConnectorShellWithSharedForwarding(server, config, prepared)
 		}
-		return r.runConnectorForwarding(server, config, connectorName)
+		return r.runConnectorForwarding(server, config, prepared.ConnectorName)
 	}
 
-	return r.runConnectorShellOnly(server, config, connectorName)
+	return r.runConnectorShellOnly(server, config, prepared)
 }
 
-func (r *Run) runConnectorShellOnly(server string, config conf.ServerConfig, connectorName string) error {
+func (r *Run) runConnectorShellOnly(server string, config conf.ServerConfig, prepared conf.PreparedConnector) error {
 	r.PrintSelectServer()
-
-	operation, err := r.connectorShellOperation(connectorName)
-	if err != nil {
-		return err
-	}
-
-	prepared, err := r.Conf.PrepareConnector(server, operation)
-	if err != nil {
-		return err
-	}
-	planConnector := connectorNameFromPlan(prepared.Plan, connectorName)
 	if !prepared.Supported {
-		return fmt.Errorf("server %q connector %q: %v", server, planConnector, prepared.Plan.Details["reason"])
+		return fmt.Errorf("server %q connector %q: %v", server, prepared.ConnectorName, prepared.Reason)
 	}
-	if connectorLocalRCEnabled(r, config) && !connectorPlanSupportsLocalRC(prepared.Plan, planConnector) {
-		return fmt.Errorf("server %q uses connector %q; localrc is not supported", server, planConnector)
+	if connectorLocalRCEnabled(r, config) && !connectorPlanSupportsLocalRC(prepared) {
+		return fmt.Errorf("server %q uses connector %q; localrc is not supported", server, prepared.ConnectorName)
 	}
 
 	return runConnectorWithPrePost(config, func() error {
-		switch prepared.Plan.Kind {
-		case "command":
-			return runCommandPlanShell(prepared.Plan)
-		case "provider-managed":
-			return runProviderManagedShell(r, config, prepared.Plan, planConnector)
+		switch {
+		case prepared.Command != nil:
+			return runCommandPlanShell(*prepared.Command)
+		case prepared.ManagedSSH != nil:
+			return r.runConnectorManagedSSHTransportShell(server, config)
 		default:
-			return fmt.Errorf("server %q connector %q returned unsupported plan kind %q", server, planConnector, prepared.Plan.Kind)
+			return fmt.Errorf("server %q connector %q returned unsupported plan kind %q", server, prepared.ConnectorName, prepared.PlanKind)
 		}
 	})
 }
 
-func (r *Run) runConnectorShellWithSharedForwarding(server string, config conf.ServerConfig, connectorName string) error {
-	operation, err := r.connectorShellOperation(connectorName)
-	if err != nil {
-		return err
-	}
-
-	prepared, err := r.Conf.PrepareConnector(server, operation)
-	if err != nil {
-		return err
-	}
-	planConnector := connectorNameFromPlan(prepared.Plan, connectorName)
+func (r *Run) runConnectorShellWithSharedForwarding(server string, config conf.ServerConfig, prepared conf.PreparedConnector) error {
 	if !prepared.Supported {
-		return fmt.Errorf("server %q connector %q: %v", server, planConnector, prepared.Plan.Details["reason"])
+		return fmt.Errorf("server %q connector %q: %v", server, prepared.ConnectorName, prepared.Reason)
 	}
-	if connectorLocalRCEnabled(r, config) && !connectorPlanSupportsLocalRC(prepared.Plan, planConnector) {
-		return fmt.Errorf("server %q uses connector %q; localrc is not supported", server, planConnector)
+	if connectorLocalRCEnabled(r, config) && !connectorPlanSupportsLocalRC(prepared) {
+		return fmt.Errorf("server %q uses connector %q; localrc is not supported", server, prepared.ConnectorName)
 	}
 
 	r.PrintSelectServer()
@@ -121,15 +94,21 @@ func (r *Run) runConnectorShellWithSharedForwarding(server string, config conf.S
 		go func() {
 			switch {
 			case strings.TrimSpace(config.DynamicPortForward) != "":
-				forwardErrCh <- r.runConnectorDynamicPortForwardSession(ctx, server, config, connectorName, false)
+				forwardErrCh <- r.runConnectorDynamicPortForwardSession(ctx, server, config, prepared.ConnectorName, false)
 			case strings.TrimSpace(config.HTTPDynamicPortForward) != "":
-				forwardErrCh <- r.runConnectorHTTPDynamicPortForwardSession(ctx, server, config, connectorName, false)
+				forwardErrCh <- r.runConnectorHTTPDynamicPortForwardSession(ctx, server, config, prepared.ConnectorName, false)
 			default:
 				forwardErrCh <- nil
 			}
 		}()
 
-		shellErr := runProviderManagedShell(r, config, prepared.Plan, planConnector)
+		if prepared.ManagedSSH == nil {
+			cancel()
+			<-forwardErrCh
+			return fmt.Errorf("connector %q is not supported in the core runtime yet", prepared.ConnectorName)
+		}
+
+		shellErr := r.runConnectorManagedSSHTransportShell(server, config)
 		cancel()
 		forwardErr := <-forwardErrCh
 		if shellErr != nil {
@@ -152,7 +131,7 @@ func (r *Run) RunConnectorLocalPortForward(server string) error {
 }
 
 func (r *Run) RunConnectorCommand(server string, command []string, stdin io.Reader, stdout, stderr io.Writer) (int, error) {
-	operation := providerapi.ConnectorOperation{
+	operation := conf.ConnectorOperation{
 		Name:    "exec",
 		Command: append([]string(nil), command...),
 	}
@@ -160,7 +139,7 @@ func (r *Run) RunConnectorCommand(server string, command []string, stdin io.Read
 }
 
 func (r *Run) RunConnectorCommandLine(server, commandLine string, stdin io.Reader, stdout, stderr io.Writer) (int, error) {
-	operation := providerapi.ConnectorOperation{
+	operation := conf.ConnectorOperation{
 		Name: "exec",
 		Options: map[string]interface{}{
 			"command_line": commandLine,
@@ -169,31 +148,22 @@ func (r *Run) RunConnectorCommandLine(server, commandLine string, stdin io.Reade
 	return r.runConnectorCommandOperation(server, operation, stdin, stdout, stderr)
 }
 
-func (r *Run) runConnectorCommandOperation(server string, operation providerapi.ConnectorOperation, stdin io.Reader, stdout, stderr io.Writer) (int, error) {
-	connectorName := r.Conf.ServerConnectorName(server)
-	if connectorName == "" || connectorName == "ssh" {
-		return 0, fmt.Errorf("server %q does not use an external connector", server)
-	}
-
-	prepared, err := r.Conf.PrepareConnector(server, operation)
+func (r *Run) runConnectorCommandOperation(server string, operation conf.ConnectorOperation, stdin io.Reader, stdout, stderr io.Writer) (int, error) {
+	prepared, err := r.prepareConnectorOperation(server, operation)
 	if err != nil {
 		return 0, err
 	}
-	planConnector := connectorNameFromPlan(prepared.Plan, connectorName)
 	if !prepared.Supported {
-		return 0, fmt.Errorf("server %q connector %q: %v", server, planConnector, prepared.Plan.Details["reason"])
+		return 0, fmt.Errorf("server %q connector %q: %v", server, prepared.ConnectorName, prepared.Reason)
 	}
 
-	switch prepared.Plan.Kind {
-	case "command":
-		return runCommandPlanExec(prepared.Plan, stdin, stdout, stderr)
-	case "provider-managed":
-		if connectorManagedSSHRuntime(prepared.Plan, planConnector) {
-			return r.runConnectorManagedSSHTransportExec(server, r.Conf.Server[server], operation.Command, connectorOptionString(operation.Options, "command_line"), stdin, stdout, stderr, operation.Name == "exec_pty")
-		}
-		return runProviderManagedExec(prepared.Plan, planConnector, stdin, stdout, stderr)
+	switch {
+	case prepared.Command != nil:
+		return runCommandPlanExec(*prepared.Command, stdin, stdout, stderr)
+	case prepared.ManagedSSH != nil:
+		return r.runConnectorManagedSSHTransportExec(server, r.Conf.Server[server], operation.Command, connectorOptionString(operation.Options, "command_line"), stdin, stdout, stderr, operation.Name == "exec_pty")
 	default:
-		return 0, fmt.Errorf("server %q connector %q returned unsupported plan kind %q", server, planConnector, prepared.Plan.Kind)
+		return 0, fmt.Errorf("connector %q does not support exec in the core runtime yet", prepared.ConnectorName)
 	}
 }
 
@@ -201,7 +171,7 @@ func (r *Run) runConnectorCommand(server string, stdout, stderr io.Writer) (int,
 	return r.RunConnectorCommand(server, r.ExecCmd, nil, stdout, stderr)
 }
 
-func (r *Run) connectorShellOperation(connectorName string) (providerapi.ConnectorOperation, error) {
+func (r *Run) connectorShellOperation(connectorName string) (conf.ConnectorOperation, error) {
 	options := map[string]interface{}{}
 	if r.ConnectorAttachSession != "" {
 		options["attach"] = true
@@ -212,180 +182,17 @@ func (r *Run) connectorShellOperation(connectorName string) (providerapi.Connect
 	}
 
 	if len(options) > 0 && connectorName != "aws-ssm" {
-		return providerapi.ConnectorOperation{}, fmt.Errorf("connector %q does not support --attach/--detach", connectorName)
+		return conf.ConnectorOperation{}, fmt.Errorf("connector %q does not support --attach/--detach", connectorName)
 	}
 
-	operation := providerapi.ConnectorOperation{Name: "shell"}
+	operation := conf.ConnectorOperation{Name: "shell"}
 	if len(options) > 0 {
 		operation.Options = options
 	}
 	return operation, nil
 }
 
-func connectorNameFromPlan(plan providerapi.ConnectorPlan, fallback string) string {
-	if value := detailString(plan.Details, "connector"); value != "" {
-		return value
-	}
-	return fallback
-}
-
-func runProviderManagedShell(r *Run, config conf.ServerConfig, plan providerapi.ConnectorPlan, connectorName string) error {
-	if connectorManagedSSHRuntime(plan, connectorName) {
-		server := ""
-		if len(r.ServerList) > 0 {
-			server = r.ServerList[0]
-		}
-		return r.runConnectorManagedSSHTransportShell(server, config)
-	}
-
-	switch connectorName {
-	case "aws-ssm":
-		shellConfig, err := ssmconnector.ShellConfigFromPlan(plan)
-		if err != nil {
-			return err
-		}
-		if shellConfig.Runtime == "native" {
-			if shellConfig.SessionAction != "start" {
-				return fmt.Errorf("aws ssm native shell does not support session_action %q yet", shellConfig.SessionAction)
-			}
-			startupCommand := connectorLocalRCCommand(r, config)
-			startupMarker := ""
-			if startupCommand != "" {
-				startupMarker = InteractiveLocalRCStartupMarker()
-			}
-			return runNativeSSMShell(ssmsession.Config{
-				InstanceID:             shellConfig.InstanceID,
-				Region:                 shellConfig.Region,
-				Platform:               shellConfig.Platform,
-				Profile:                shellConfig.Profile,
-				SharedConfigFiles:      append([]string(nil), shellConfig.SharedConfigFiles...),
-				SharedCredentialsFiles: append([]string(nil), shellConfig.SharedCredentialsFiles...),
-				DocumentName:           shellConfig.DocumentName,
-				StartupCommand:         startupCommand,
-				StartupMarker:          startupMarker,
-			}, os.Stdin, os.Stdout, os.Stderr)
-		}
-		if shellConfig.SessionAction == "detach" {
-			sessionID, err := ssmconnector.StartDetachedShell(context.Background(), shellConfig)
-			if err != nil {
-				return err
-			}
-			fmt.Fprintf(os.Stderr, "Detached Session:%s\n", sessionID)
-			return nil
-		}
-		return ssmconnector.StartShell(context.Background(), shellConfig)
-	case "winrm":
-		return runWinRMShell(plan)
-	case "telnet":
-		return runTelnetShell(plan)
-	default:
-		return fmt.Errorf("connector %q is not supported yet", connectorName)
-	}
-}
-
-func runProviderManagedExec(plan providerapi.ConnectorPlan, connectorName string, stdin io.Reader, stdout, stderr io.Writer) (int, error) {
-	if connectorManagedSSHRuntime(plan, connectorName) {
-		return 0, fmt.Errorf("connector %q managed ssh exec requires run context", connectorName)
-	}
-
-	switch connectorName {
-	case "aws-ssm":
-		if detailString(plan.Details, "shell_runtime") == "native" && detailString(plan.Details, "command_line") != "" {
-			cfg, err := ssmconnector.CommandConfigFromPlan(plan)
-			if err != nil {
-				return 0, err
-			}
-			return ssmsession.RunStreamCommand(context.Background(), ssmsession.Config{
-				InstanceID:             cfg.InstanceID,
-				Region:                 cfg.Region,
-				Platform:               cfg.Platform,
-				Profile:                cfg.Profile,
-				SharedConfigFiles:      append([]string(nil), cfg.SharedConfigFiles...),
-				SharedCredentialsFiles: append([]string(nil), cfg.SharedCredentialsFiles...),
-			}, detailString(plan.Details, "command_line"), stdin, stdout, stderr)
-		}
-		cmdConfig, err := ssmconnector.CommandConfigFromPlan(plan)
-		if err != nil {
-			return 0, err
-		}
-		return ssmconnector.RunCommand(context.Background(), cmdConfig, stdout, stderr)
-	case "winrm":
-		return runWinRMExec(plan, stdout, stderr)
-	default:
-		return 0, fmt.Errorf("connector %q does not support exec in the core runtime yet", connectorName)
-	}
-}
-
-func runProviderManagedLocalPortForward(plan providerapi.ConnectorPlan, connectorName string) error {
-	switch connectorName {
-	case "aws-ssm":
-		cfg, err := ssmconnector.PortForwardLocalConfigFromPlan(plan)
-		if err != nil {
-			return err
-		}
-		if cfg.Runtime == "native" {
-			return runNativeSSMLocalPortForward(plan, cfg)
-		}
-		return ssmconnector.StartLocalPortForward(context.Background(), cfg)
-	default:
-		return fmt.Errorf("connector %q does not support local port forwarding in the core runtime yet", connectorName)
-	}
-}
-
-func dialProviderManagedTransport(plan providerapi.ConnectorPlan, connectorName string) (net.Conn, error) {
-	switch connectorName {
-	case "aws-ssm":
-		cfg, err := ssmconnector.PortForwardDialConfigFromPlan(plan)
-		if err != nil {
-			return nil, err
-		}
-		if cfg.Runtime == "native" && !awsSSMDynamicDialNeedsPluginFallback(plan) {
-			return ssmsession.DialTarget(context.Background(), ssmsession.Config{
-				InstanceID:             cfg.InstanceID,
-				Region:                 cfg.Region,
-				Platform:               cfg.Platform,
-				Profile:                cfg.Profile,
-				SharedConfigFiles:      append([]string(nil), cfg.SharedConfigFiles...),
-				SharedCredentialsFiles: append([]string(nil), cfg.SharedCredentialsFiles...),
-				DocumentName:           cfg.DocumentName,
-				PortForwardHost:        cfg.TargetHost,
-				PortForwardPort:        cfg.TargetPort,
-				PortForwardLocalPort:   "0",
-			})
-		}
-		if cfg.Runtime == "native" {
-			cfg.Runtime = "plugin"
-		}
-		return ssmconnector.DialTarget(context.Background(), cfg)
-	case "aws-eice":
-		cfg, err := awseiceconnector.ConfigFromPlan(plan)
-		if err != nil {
-			return nil, err
-		}
-		return awseiceconnector.DialTarget(context.Background(), cfg)
-	case "gcp-iap":
-		cfg, err := gcpiapconnector.ConfigFromPlan(plan)
-		if err != nil {
-			return nil, err
-		}
-		return gcpiapconnector.DialTarget(context.Background(), cfg)
-	case "azure-bastion":
-		cfg, err := azurebastionconnector.ConfigFromPlan(plan)
-		if err != nil {
-			return nil, err
-		}
-		return azurebastionconnector.DialTarget(context.Background(), cfg)
-	default:
-		return nil, fmt.Errorf("connector %q does not support dial transport in the core runtime yet", connectorName)
-	}
-}
-
-func awsSSMDynamicDialNeedsPluginFallback(plan providerapi.ConnectorPlan) bool {
-	return detailString(plan.Details, "connector") == "aws-ssm" &&
-		detailString(plan.Details, "session_mode") == "tcp-dial-transport"
-}
-
-func runCommandPlanShell(plan providerapi.ConnectorPlan) error {
+func runCommandPlanShell(plan conf.ConnectorCommandPlan) error {
 	if strings.TrimSpace(plan.Program) == "" {
 		return fmt.Errorf("connector command plan is missing program")
 	}
@@ -398,7 +205,7 @@ func runCommandPlanShell(plan providerapi.ConnectorPlan) error {
 	return cmd.Run()
 }
 
-func runCommandPlanExec(plan providerapi.ConnectorPlan, stdin io.Reader, stdout, stderr io.Writer) (int, error) {
+func runCommandPlanExec(plan conf.ConnectorCommandPlan, stdin io.Reader, stdout, stderr io.Writer) (int, error) {
 	if strings.TrimSpace(plan.Program) == "" {
 		return 0, fmt.Errorf("connector command plan is missing program")
 	}
@@ -450,7 +257,7 @@ func (r *Run) runConnectorLocalPortForward(server string, config conf.ServerConf
 	r.PrintSelectServer()
 	r.printPortForward(spec.Mode, spec.Local, spec.Remote)
 
-	operation := providerapi.ConnectorOperation{
+	operation := conf.ConnectorOperation{
 		Name: "port_forward_local",
 		Options: map[string]interface{}{
 			"listen_host": spec.ListenHost,
@@ -460,26 +267,22 @@ func (r *Run) runConnectorLocalPortForward(server string, config conf.ServerConf
 		},
 	}
 
-	prepared, err := r.Conf.PrepareConnector(server, operation)
+	prepared, err := r.prepareConnectorOperation(server, operation)
 	if err != nil {
 		return err
 	}
-	planConnector := connectorNameFromPlan(prepared.Plan, connectorName)
 	if !prepared.Supported {
-		return fmt.Errorf("server %q connector %q: %v", server, planConnector, prepared.Plan.Details["reason"])
+		return fmt.Errorf("server %q connector %q: %v", server, prepared.ConnectorName, prepared.Reason)
 	}
 
 	return runConnectorWithPrePost(config, func() error {
-		switch prepared.Plan.Kind {
-		case "command":
-			return runCommandPlanShell(prepared.Plan)
-		case "provider-managed":
-			if connectorManagedSSHRuntime(prepared.Plan, planConnector) {
-				return r.runConnectorManagedSSHLocalPortForward(server, config)
-			}
-			return runProviderManagedLocalPortForward(prepared.Plan, planConnector)
+		switch {
+		case prepared.Command != nil:
+			return runCommandPlanShell(*prepared.Command)
+		case prepared.ManagedSSH != nil:
+			return r.runConnectorManagedSSHLocalPortForward(server, config)
 		default:
-			return fmt.Errorf("server %q connector %q returned unsupported plan kind %q", server, planConnector, prepared.Plan.Kind)
+			return fmt.Errorf("server %q connector %q returned unsupported plan kind %q", server, prepared.ConnectorName, prepared.PlanKind)
 		}
 	})
 }
@@ -488,151 +291,9 @@ func mergedCommandPlanEnv(env map[string]string) []string {
 	return termenv.MergeEnv(env)
 }
 
-func runWinRMShell(plan providerapi.ConnectorPlan) error {
-	cfg, err := winrmlib.ConfigFromPlanDetails(plan.Details)
-	if err != nil {
-		return err
-	}
-
-	connect, err := winrmlib.CreateConnect(cfg)
-	if err != nil {
-		return err
-	}
-	terminal, err := connect.OpenShell()
-	if err != nil {
-		return err
-	}
-	defer terminal.Close()
-
-	return streamInteractiveSession(terminal.Stdin(), terminal.Stdout(), terminal.Stderr(), terminal.Wait)
-}
-
-func runTelnetShell(plan providerapi.ConnectorPlan) error {
-	cfg, err := telnetlib.ConfigFromPlanDetails(plan.Details)
-	if err != nil {
-		return err
-	}
-
-	terminal, err := telnetlib.OpenShell(cfg, "xterm-256color", 80, 24)
-	if err != nil {
-		return err
-	}
-	defer terminal.Close()
-
-	return streamInteractiveSession(terminal.Stdin(), terminal.Stdout(), terminal.Stderr(), terminal.Wait)
-}
-
-func runWinRMExec(plan providerapi.ConnectorPlan, stdout, stderr io.Writer) (int, error) {
-	cfg, err := winrmlib.ConfigFromPlanDetails(plan.Details)
-	if err != nil {
-		return 0, err
-	}
-
-	connect, err := winrmlib.CreateConnect(cfg)
-	if err != nil {
-		return 0, err
-	}
-	commandLine := detailString(plan.Details, "command_line")
-	if commandLine == "" {
-		commandLine = strings.Join(detailStringSlice(plan.Details, "command"), " ")
-	}
-	command, err := connect.ExecuteCommand(commandLine)
-	if err != nil {
-		return 0, err
-	}
-	defer command.Close()
-
-	var wg sync.WaitGroup
-	if stdout != nil {
-		wg.Add(1)
-		go copyConnectorStream(&wg, stdout, command.Stdout())
-	}
-	if stderr != nil {
-		wg.Add(1)
-		go copyConnectorStream(&wg, stderr, command.Stderr())
-	}
-
-	waitErr := command.Wait()
-	wg.Wait()
-	return command.ExitCode(), waitErr
-}
-
-func streamInteractiveSession(stdin io.Writer, stdout, stderr io.Reader, wait func() error) error {
-	var wg sync.WaitGroup
-	if stdout != nil {
-		wg.Add(1)
-		go copyConnectorStream(&wg, os.Stdout, stdout)
-	}
-	if stderr != nil {
-		wg.Add(1)
-		go copyConnectorStream(&wg, os.Stderr, stderr)
-	}
-	if stdin != nil {
-		go func() {
-			_, _ = io.Copy(stdin, os.Stdin)
-		}()
-	}
-
-	err := wait()
-	wg.Wait()
-	return err
-}
-
 func copyConnectorStream(wg *sync.WaitGroup, dst io.Writer, src io.Reader) {
 	defer wg.Done()
 	_, _ = io.Copy(dst, src)
-}
-
-func runNativeInteractiveSession(run func() error) error {
-	fd := int(os.Stdin.Fd())
-	if !terminal.IsTerminal(fd) {
-		return run()
-	}
-
-	state, err := terminal.MakeRaw(fd)
-	if err != nil {
-		return err
-	}
-	defer func() {
-		_ = terminal.Restore(fd, state)
-	}()
-
-	return run()
-}
-
-func detailString(details map[string]interface{}, key string) string {
-	if details == nil {
-		return ""
-	}
-	if value, ok := details[key]; ok && value != nil {
-		return fmt.Sprint(value)
-	}
-	return ""
-}
-
-func detailStringSlice(details map[string]interface{}, key string) []string {
-	if details == nil {
-		return nil
-	}
-	raw, ok := details[key]
-	if !ok || raw == nil {
-		return nil
-	}
-	switch typed := raw.(type) {
-	case []string:
-		return append([]string(nil), typed...)
-	case []interface{}:
-		out := make([]string, 0, len(typed))
-		for _, item := range typed {
-			if item == nil {
-				continue
-			}
-			out = append(out, fmt.Sprint(item))
-		}
-		return out
-	default:
-		return []string{fmt.Sprint(typed)}
-	}
 }
 
 func connectorHasForwarding(config conf.ServerConfig) bool {
@@ -647,11 +308,11 @@ func connectorHasForwarding(config conf.ServerConfig) bool {
 		config.SMBReverseDynamicForwardPort != ""
 }
 
-func (r *Run) connectorForwardingSharesShell(config conf.ServerConfig, connectorName string) bool {
+func (r *Run) connectorForwardingSharesShell(config conf.ServerConfig, prepared conf.PreparedConnector) bool {
 	if r == nil || r.IsNone {
 		return false
 	}
-	if connectorName != "aws-ssm" {
+	if prepared.ManagedSSH == nil || !prepared.ManagedSSH.ShareForwardingWithShell {
 		return false
 	}
 	if strings.TrimSpace(config.DynamicPortForward) != "" && strings.TrimSpace(config.HTTPDynamicPortForward) != "" {
@@ -838,17 +499,8 @@ func connectorLocalRCCommand(r *Run, config conf.ServerConfig) string {
 	return BuildInteractiveLocalRCShellCommand(config.LocalRcPath, config.LocalRcDecodeCmd, config.LocalRcCompress, config.LocalRcUncompressCmd)
 }
 
-func connectorPlanSupportsLocalRC(plan providerapi.ConnectorPlan, connectorName string) bool {
-	if connectorManagedSSHRuntime(plan, connectorName) {
-		return true
-	}
-	if connectorName != "aws-ssm" {
-		return false
-	}
-	if detailString(plan.Details, "shell_runtime") != "native" {
-		return false
-	}
-	return detailString(plan.Details, "session_action") == "start"
+func connectorPlanSupportsLocalRC(prepared conf.PreparedConnector) bool {
+	return prepared.ManagedSSH != nil && prepared.ManagedSSH.SupportsLocalRC
 }
 
 func connectorErrorString(server string, err error) string {
@@ -889,4 +541,17 @@ func connectorOptionString(raw map[string]interface{}, key string) string {
 		return ""
 	}
 	return strings.TrimSpace(fmt.Sprint(value))
+}
+
+func (r *Run) prepareConnectorOperation(server string, operation conf.ConnectorOperation) (conf.PreparedConnector, error) {
+	connectorName := r.Conf.ServerConnectorName(server)
+	if connectorName == "" || connectorName == "ssh" {
+		return conf.PreparedConnector{}, fmt.Errorf("server %q does not use an external connector", server)
+	}
+
+	if operation.Name == "shell" && len(operation.Options) > 0 && !r.Conf.ConnectorSupportsSessionControl(server) {
+		return conf.PreparedConnector{}, fmt.Errorf("connector %q does not support --attach/--detach", connectorName)
+	}
+
+	return r.Conf.PrepareConnectorRuntime(server, operation)
 }

@@ -19,3 +19,15 @@ func TestParseIntDefault(t *testing.T) {
 		t.Fatalf("parseIntDefault(invalid) = %d, want 60", got)
 	}
 }
+
+func TestShouldClearLocally(t *testing.T) {
+	if !shouldClearLocally("clear\n") {
+		t.Fatal("shouldClearLocally(clear) = false, want true")
+	}
+	if !shouldClearLocally(" Clear-Host \r\n") {
+		t.Fatal("shouldClearLocally(Clear-Host) = false, want true")
+	}
+	if shouldClearLocally("Get-Location\n") {
+		t.Fatal("shouldClearLocally(Get-Location) = true, want false")
+	}
+}

@@ -49,7 +49,7 @@ func TestValidateConnectorShellOptionsAllowsSingleConnectorShell(t *testing.T) {
 	}
 }
 
-func TestValidateConnectorShellOptionsRejectsNonAWSSSMConnector(t *testing.T) {
+func TestValidateConnectorShellOptionsRejectsUnsupportedConnector(t *testing.T) {
 	err := validateConnectorShellOptions(connectorFlagOptions{
 		AttachSession: "session-123",
 	}, []string{"web01"}, conf.Config{
@@ -60,7 +60,7 @@ func TestValidateConnectorShellOptionsRejectsNonAWSSSMConnector(t *testing.T) {
 	if err == nil {
 		t.Fatal("validateConnectorShellOptions() error = nil, want non-nil")
 	}
-	if !strings.Contains(err.Error(), "aws-ssm") {
-		t.Fatalf("validateConnectorShellOptions() error = %q, want aws-ssm", err)
+	if !strings.Contains(err.Error(), "supported for this connector") {
+		t.Fatalf("validateConnectorShellOptions() error = %q, want connector support hint", err)
 	}
 }

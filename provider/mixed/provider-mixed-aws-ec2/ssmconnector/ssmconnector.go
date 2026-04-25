@@ -17,8 +17,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/ssm"
 	ssmtypes "github.com/aws/aws-sdk-go-v2/service/ssm/types"
 	"github.com/aws/smithy-go"
-	"github.com/blacknon/lssh/internal/providerapi"
-	"github.com/blacknon/lssh/internal/providerbuiltin"
+	"github.com/blacknon/lssh/providerapi"
 	"github.com/blacknon/lssh/internal/termenv"
 	"github.com/kballard/go-shellquote"
 )
@@ -346,10 +345,10 @@ func loadAWSConfig(ctx context.Context, cfg BaseConfig) (aws.Config, error) {
 	if cfg.Profile != "" {
 		opts = append(opts, awsconfig.WithSharedConfigProfile(cfg.Profile))
 	}
-	if files := providerbuiltin.ExpandPaths(cfg.SharedConfigFiles); len(files) > 0 {
+	if files := providerapi.ExpandPaths(cfg.SharedConfigFiles); len(files) > 0 {
 		opts = append(opts, awsconfig.WithSharedConfigFiles(files))
 	}
-	if files := providerbuiltin.ExpandPaths(cfg.SharedCredentialsFiles); len(files) > 0 {
+	if files := providerapi.ExpandPaths(cfg.SharedCredentialsFiles); len(files) > 0 {
 		opts = append(opts, awsconfig.WithSharedCredentialsFiles(files))
 	}
 	return awsconfig.LoadDefaultConfig(ctx, opts...)
@@ -365,8 +364,8 @@ func portForwardEnvironment(cfg PortForwardLocalConfig) []string {
 
 func baseEnvironment(cfg BaseConfig) []string {
 	env := []string{}
-	sharedConfigFiles := providerbuiltin.ExpandPaths(cfg.SharedConfigFiles)
-	sharedCredentialsFiles := providerbuiltin.ExpandPaths(cfg.SharedCredentialsFiles)
+	sharedConfigFiles := providerapi.ExpandPaths(cfg.SharedConfigFiles)
+	sharedCredentialsFiles := providerapi.ExpandPaths(cfg.SharedCredentialsFiles)
 	if len(sharedConfigFiles) > 0 && sharedConfigFiles[0] != "" {
 		env = append(env, "AWS_CONFIG_FILE="+sharedConfigFiles[0])
 	}

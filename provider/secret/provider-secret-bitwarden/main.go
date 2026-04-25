@@ -6,8 +6,7 @@ import (
 	"os"
 	"strings"
 
-	"github.com/blacknon/lssh/internal/providerapi"
-	"github.com/blacknon/lssh/internal/providerbuiltin"
+	"github.com/blacknon/lssh/providerapi"
 )
 
 const (
@@ -42,22 +41,22 @@ var runBitwardenCLI = func(config map[string]interface{}, args ...string) ([]byt
 	commandArgs := make([]string, 0, len(args)+3)
 	commandArgs = append(commandArgs, args...)
 	commandArgs = append(commandArgs, "--nointeraction")
-	if session, err := providerbuiltin.ResolveConfigValue(config, "session"); err == nil && session != "" {
+	if session, err := providerapi.ResolveConfigValue(config, "session"); err == nil && session != "" {
 		commandArgs = append(commandArgs, "--session", session)
 	}
-	return providerbuiltin.RunWithEnv(bitwardenCLIEnv(config), bitwardenCLIPath(config), commandArgs...)
+	return providerapi.RunWithEnv(bitwardenCLIEnv(config), bitwardenCLIPath(config), commandArgs...)
 }
 
 func main() {
-	req, err := providerbuiltin.ReadRequest()
+	req, err := providerapi.ReadRequest()
 	if err != nil {
-		_ = providerbuiltin.WriteError(err.Error())
+		_ = providerapi.WriteError(err.Error())
 		os.Exit(1)
 	}
 
 	switch req.Method {
 	case providerapi.MethodPluginDescribe:
-		_ = providerbuiltin.WriteResponse(req, providerapi.PluginDescribeResult{
+		_ = providerapi.WriteResponse(req, providerapi.PluginDescribeResult{
 			Name:            "provider-secret-bitwarden",
 			Capabilities:    []string{"secret"},
 			Methods:         []string{providerapi.MethodPluginDescribe, providerapi.MethodHealthCheck, providerapi.MethodSecretGet},
@@ -66,30 +65,30 @@ func main() {
 	case providerapi.MethodSecretGet:
 		var params providerapi.SecretGetParams
 		if err := decodeParams(req.Params, &params); err != nil {
-			_ = providerbuiltin.WriteErrorResponse(req, "invalid_params", err.Error())
+			_ = providerapi.WriteErrorResponse(req, "invalid_params", err.Error())
 			os.Exit(1)
 		}
 
 		value, resultType, err := getSecret(params)
 		if err != nil {
-			_ = providerbuiltin.WriteErrorResponse(req, "secret_get_failed", err.Error())
+			_ = providerapi.WriteErrorResponse(req, "secret_get_failed", err.Error())
 			os.Exit(1)
 		}
-		_ = providerbuiltin.WriteResponse(req, providerapi.SecretGetResult{Value: value, Type: resultType}, nil)
+		_ = providerapi.WriteResponse(req, providerapi.SecretGetResult{Value: value, Type: resultType}, nil)
 	case providerapi.MethodHealthCheck:
 		var params providerapi.HealthCheckParams
 		if err := decodeParams(req.Params, &params); err != nil {
-			_ = providerbuiltin.WriteErrorResponse(req, "invalid_params", err.Error())
+			_ = providerapi.WriteErrorResponse(req, "invalid_params", err.Error())
 			os.Exit(1)
 		}
 		result, err := bitwardenHealthCheck(params.Config)
 		if err != nil {
-			_ = providerbuiltin.WriteErrorResponse(req, "health_check_failed", err.Error())
+			_ = providerapi.WriteErrorResponse(req, "health_check_failed", err.Error())
 			os.Exit(1)
 		}
-		_ = providerbuiltin.WriteResponse(req, result, nil)
+		_ = providerapi.WriteResponse(req, result, nil)
 	default:
-		_ = providerbuiltin.WriteErrorResponse(req, "unsupported_method", fmt.Sprintf("unsupported method %q", req.Method))
+		_ = providerapi.WriteErrorResponse(req, "unsupported_method", fmt.Sprintf("unsupported method %q", req.Method))
 		os.Exit(1)
 	}
 }
@@ -294,7 +293,7 @@ func bitwardenCLIHealthCheck(config map[string]interface{}) error {
 }
 
 func bitwardenAuthMode(config map[string]interface{}) (string, error) {
-	mode := strings.ToLower(providerbuiltin.String(config, "auth_mode"))
+	mode := strings.ToLower(providerapi.String(config, "auth_mode"))
 	if mode == "" {
 		return bitwardenAuthModeAuto, nil
 	}
@@ -307,7 +306,7 @@ func bitwardenAuthMode(config map[string]interface{}) (string, error) {
 }
 
 func bitwardenCLIPath(config map[string]interface{}) string {
-	if path := providerbuiltin.String(config, "bw_path"); path != "" {
+	if path := providerapi.String(config, "bw_path"); path != "" {
 		return path
 	}
 	return "bw"
@@ -316,7 +315,7 @@ func bitwardenCLIPath(config map[string]interface{}) string {
 func bitwardenCLIEnv(config map[string]interface{}) []string {
 	env := []string{}
 
-	if appdataDir, err := providerbuiltin.ResolveConfigValue(config, "appdata_dir"); err == nil && appdataDir != "" {
+	if appdataDir, err := providerapi.ResolveConfigValue(config, "appdata_dir"); err == nil && appdataDir != "" {
 		env = append(env, "BITWARDENCLI_APPDATA_DIR="+appdataDir)
 	}
 

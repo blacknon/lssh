@@ -4,7 +4,7 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/blacknon/lssh/internal/providerapi"
+	"github.com/blacknon/lssh/providerapi"
 )
 
 func TestOnePasswordAuthMode(t *testing.T) {

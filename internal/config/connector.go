@@ -5,7 +5,7 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/blacknon/lssh/internal/providerapi"
+	"github.com/blacknon/lssh/providerapi"
 )
 
 func (c *Config) ServerConnectorName(server string) string {
