@@ -27,6 +27,7 @@ import (
 	"github.com/creack/pty"
 	"github.com/kballard/go-shellquote"
 	"github.com/pkg/sftp"
+	"golang.org/x/crypto/ssh/terminal"
 )
 
 // RemoteSession owns a mux pane SSH connection.
@@ -615,31 +616,69 @@ func newProviderManagedShellRemoteSession(cfg conf.Config, server string, server
 		startupMarker = sshcmd.InteractiveLocalRCStartupMarker()
 	}
 
-	cmd, resultPath, err := cfg.PrepareProviderRuntimeCommand(context.Background(), server, plan, providerapi.MethodConnectorShell, startupCommand, startupMarker, false)
+	run := &sshcmd.Run{
+		ServerList: []string{server},
+		Conf:       cfg,
+	}
+	run.CreateAuthMethodMap()
+
+	cmd, resultPath, bridgeCloser, err := cfg.PrepareProviderRuntimeCommandWithDialer(
+		context.Background(),
+		server,
+		plan,
+		providerapi.MethodConnectorShell,
+		startupCommand,
+		startupMarker,
+		false,
+		run.ProviderBridgeDialer(server),
+	)
 	if err != nil {
 		return nil, err
 	}
-	return newProviderRuntimePTYRemoteSession(cfg, server, serverConf, notices, cmd, resultPath, cols, rows)
+	return newProviderRuntimePTYRemoteSession(cfg, server, serverConf, notices, cmd, resultPath, bridgeCloser, cols, rows)
 }
 
 func newProviderManagedExecRemoteSession(cfg conf.Config, server string, serverConf conf.ServerConfig, notices []string, plan providerapi.ConnectorPlan, cols, rows int) (*RemoteSession, error) {
-	cmd, resultPath, err := cfg.PrepareProviderRuntimeCommand(context.Background(), server, plan, providerapi.MethodConnectorExec, "", "", true)
+	run := &sshcmd.Run{
+		ServerList: []string{server},
+		Conf:       cfg,
+	}
+	run.CreateAuthMethodMap()
+
+	cmd, resultPath, bridgeCloser, err := cfg.PrepareProviderRuntimeCommandWithDialer(
+		context.Background(),
+		server,
+		plan,
+		providerapi.MethodConnectorExec,
+		"",
+		"",
+		true,
+		run.ProviderBridgeDialer(server),
+	)
 	if err != nil {
 		return nil, err
 	}
-	return newProviderRuntimePTYRemoteSession(cfg, server, serverConf, notices, cmd, resultPath, cols, rows)
+	return newProviderRuntimePTYRemoteSession(cfg, server, serverConf, notices, cmd, resultPath, bridgeCloser, cols, rows)
 }
 
-func newProviderRuntimePTYRemoteSession(cfg conf.Config, server string, serverConf conf.ServerConfig, notices []string, cmd *exec.Cmd, resultPath string, cols, rows int) (*RemoteSession, error) {
+func newProviderRuntimePTYRemoteSession(cfg conf.Config, server string, serverConf conf.ServerConfig, notices []string, cmd *exec.Cmd, resultPath string, bridgeCloser io.Closer, cols, rows int) (*RemoteSession, error) {
 	tty, err := pty.StartWithSize(cmd, &pty.Winsize{
 		Cols: uint16(maxInt(cols, 80)),
 		Rows: uint16(maxInt(rows, 24)),
 	})
 	if err != nil {
+		if bridgeCloser != nil {
+			_ = bridgeCloser.Close()
+		}
 		if resultPath != "" {
 			_ = os.Remove(resultPath)
 		}
 		return nil, err
+	}
+
+	var ttyState *terminal.State
+	if state, rawErr := terminal.MakeRaw(int(tty.Fd())); rawErr == nil {
+		ttyState = state
 	}
 
 	outputReader, outputWriter := io.Pipe()
@@ -654,6 +693,9 @@ func newProviderRuntimePTYRemoteSession(cfg conf.Config, server string, serverCo
 				_ = cmd.Process.Kill()
 			}
 			_ = cmd.Wait()
+			if bridgeCloser != nil {
+				_ = bridgeCloser.Close()
+			}
 			if resultPath != "" {
 				_ = os.Remove(resultPath)
 			}
@@ -667,6 +709,9 @@ func newProviderRuntimePTYRemoteSession(cfg conf.Config, server string, serverCo
 				_ = cmd.Process.Kill()
 			}
 			_ = cmd.Wait()
+			if bridgeCloser != nil {
+				_ = bridgeCloser.Close()
+			}
 			if resultPath != "" {
 				_ = os.Remove(resultPath)
 			}
@@ -704,6 +749,9 @@ func newProviderRuntimePTYRemoteSession(cfg conf.Config, server string, serverCo
 			if logWriter != nil {
 				_ = logWriter.Close()
 			}
+			if ttyState != nil {
+				_ = terminal.Restore(int(tty.Fd()), ttyState)
+			}
 			if err := tty.Close(); closeErr == nil && err != nil {
 				closeErr = err
 			}
@@ -711,6 +759,11 @@ func newProviderRuntimePTYRemoteSession(cfg conf.Config, server string, serverCo
 				_ = cmd.Process.Kill()
 			}
 			<-waitDone
+			if bridgeCloser != nil {
+				if err := bridgeCloser.Close(); closeErr == nil && err != nil {
+					closeErr = err
+				}
+			}
 			if resultPath != "" {
 				_ = os.Remove(resultPath)
 			}

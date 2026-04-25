@@ -46,4 +46,7 @@ func TestTelnetPrepareShell(t *testing.T) {
 	if result.Plan.Kind != "provider-managed" {
 		t.Fatalf("Plan.Kind = %q, want %q", result.Plan.Kind, "provider-managed")
 	}
+	if got := result.Plan.Details["runtime_dial_address"]; got != "router.local:2323" {
+		t.Fatalf("Plan.Details[runtime_dial_address] = %v, want router.local:2323", got)
+	}
 }

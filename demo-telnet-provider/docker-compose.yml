@@ -1,0 +1,99 @@
+name: lssh-demo-telnet-provider
+
+services:
+  client:
+    build:
+      context: ..
+      dockerfile: demo-telnet-provider/client/Dockerfile
+    container_name: lssh-demo-telnet-provider-client
+    hostname: client
+    depends_on:
+      - ssh_bastion_one
+      - ssh_bastion_two
+      - telnet_direct
+      - telnet_private
+    stdin_open: true
+    tty: true
+    command: ["su", "-s", "/bin/bash", "demo", "-c", "sleep infinity"]
+    networks:
+      frontend:
+        ipv4_address: 172.41.0.10
+
+  ssh_bastion_one:
+    build:
+      context: ..
+      dockerfile: demo/images/sshd/Dockerfile
+    container_name: lssh-demo-telnet-provider-ssh-bastion-one
+    hostname: ssh-bastion-one
+    environment:
+      SSH_USER: demo
+      ENABLE_PASSWORD_AUTH: "false"
+      ENABLE_PUBKEY_AUTH: "true"
+      AUTHORIZED_KEY: "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAINX/x+7sNsuzX3JMiLPYgN+1SxmOJAgWGTXD4O1K+pRH demo-client@lssh"
+    networks:
+      frontend:
+        ipv4_address: 172.41.0.31
+      middle:
+        ipv4_address: 172.41.1.31
+
+  ssh_bastion_two:
+    build:
+      context: ..
+      dockerfile: demo/images/sshd/Dockerfile
+    container_name: lssh-demo-telnet-provider-ssh-bastion-two
+    hostname: ssh-bastion-two
+    environment:
+      SSH_USER: demo
+      ENABLE_PASSWORD_AUTH: "false"
+      ENABLE_PUBKEY_AUTH: "true"
+      AUTHORIZED_KEY: "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAINX/x+7sNsuzX3JMiLPYgN+1SxmOJAgWGTXD4O1K+pRH demo-client@lssh"
+    networks:
+      middle:
+        ipv4_address: 172.41.1.41
+      private:
+        ipv4_address: 172.41.2.41
+
+  telnet_direct:
+    build:
+      context: ..
+      dockerfile: demo-telnet-provider/images/telnetd/Dockerfile
+    container_name: lssh-demo-telnet-provider-telnet-direct
+    hostname: telnet-direct
+    environment:
+      TELNET_USER: demo
+      TELNET_PASSWORD: demo-password
+      TELNET_HOST_ALIAS: telnet-direct
+    networks:
+      frontend:
+        ipv4_address: 172.41.0.21
+
+  telnet_private:
+    build:
+      context: ..
+      dockerfile: demo-telnet-provider/images/telnetd/Dockerfile
+    container_name: lssh-demo-telnet-provider-telnet-private
+    hostname: telnet-private
+    environment:
+      TELNET_USER: demo
+      TELNET_PASSWORD: demo-password
+      TELNET_HOST_ALIAS: telnet-private
+    networks:
+      private:
+        ipv4_address: 172.41.2.51
+
+networks:
+  frontend:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.41.0.0/24
+  middle:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.41.1.0/24
+  private:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.41.2.0/24
