@@ -11,6 +11,9 @@ const (
 	MethodHealthCheck       = "health.check"
 	MethodConnectorDescribe = "connector.describe"
 	MethodConnectorPrepare  = "connector.prepare"
+	MethodConnectorShell    = "connector.shell"
+	MethodConnectorExec     = "connector.exec"
+	MethodConnectorDial     = "connector.dial"
 	// MethodTransportPrep is kept as a legacy alias while the connector API
 	// moves from transport.* naming to connector.* naming.
 	MethodTransportPrep = "transport.prepare"
@@ -48,6 +51,7 @@ type PluginDescribeResult struct {
 	Capabilities    []string `json:"capabilities,omitempty"`
 	ConnectorNames  []string `json:"connector_names,omitempty"`
 	Methods         []string `json:"methods,omitempty"`
+	ReservedKeys    []string `json:"reserved_keys,omitempty"`
 	ProtocolVersion string   `json:"protocol_version,omitempty"`
 	PluginVersion   string   `json:"plugin_version,omitempty"`
 }
@@ -141,4 +145,17 @@ type ConnectorPlan struct {
 type ConnectorPrepareResult struct {
 	Supported bool          `json:"supported"`
 	Plan      ConnectorPlan `json:"plan,omitempty"`
+}
+
+type ConnectorRuntimeParams struct {
+	Provider       string                 `json:"provider"`
+	Config         map[string]interface{} `json:"config,omitempty"`
+	Target         ConnectorTarget        `json:"target"`
+	Plan           ConnectorPlan          `json:"plan"`
+	LocalRCCommand string                 `json:"local_rc_command,omitempty"`
+	StartupMarker  string                 `json:"startup_marker,omitempty"`
+}
+
+type ConnectorExecResult struct {
+	ExitCode int `json:"exit_code"`
 }

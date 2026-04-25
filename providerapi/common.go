@@ -2,6 +2,7 @@ package providerapi
 
 import (
 	"bufio"
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -11,14 +12,26 @@ import (
 	"strings"
 )
 
+const (
+	RequestEnvVar = "LSSH_PROVIDER_REQUEST"
+	ResultEnvVar  = "LSSH_PROVIDER_RESULT"
+)
+
 func ReadRequest() (Request, error) {
 	var req Request
-	data, err := io.ReadAll(os.Stdin)
+	data, err := readRequestBytes()
 	if err != nil {
 		return req, err
 	}
 	err = json.Unmarshal(data, &req)
 	return req, err
+}
+
+func readRequestBytes() ([]byte, error) {
+	if encoded := strings.TrimSpace(os.Getenv(RequestEnvVar)); encoded != "" {
+		return base64.StdEncoding.DecodeString(encoded)
+	}
+	return io.ReadAll(os.Stdin)
 }
 
 func WriteResult(v interface{}) error {
@@ -38,10 +51,10 @@ func WriteResult(v interface{}) error {
 
 func WriteResponse(req Request, result interface{}, warnings []Warning) error {
 	data, err := json.Marshal(struct {
-		Version  string    `json:"version"`
-		ID       string    `json:"id,omitempty"`
+		Version  string      `json:"version"`
+		ID       string      `json:"id,omitempty"`
 		Result   interface{} `json:"result,omitempty"`
-		Warnings []Warning `json:"warnings,omitempty"`
+		Warnings []Warning   `json:"warnings,omitempty"`
 	}{
 		Version:  Version,
 		ID:       req.ID,
@@ -85,6 +98,18 @@ func WriteErrorResponse(req Request, code, message string) error {
 	}
 	_, err = os.Stdout.Write(data)
 	return err
+}
+
+func WriteRuntimeResult(v interface{}) error {
+	path := strings.TrimSpace(os.Getenv(ResultEnvVar))
+	if path == "" {
+		return fmt.Errorf("%s is not set", ResultEnvVar)
+	}
+	data, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+	return os.WriteFile(path, data, 0600)
 }
 
 func String(raw map[string]interface{}, key string) string {

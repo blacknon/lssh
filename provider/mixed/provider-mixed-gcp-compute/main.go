@@ -25,10 +25,14 @@ func main() {
 	switch req.Method {
 	case providerapi.MethodPluginDescribe:
 		_ = providerapi.WriteResponse(req, providerapi.PluginDescribeResult{
-			Name:            "provider-mixed-gcp-compute",
-			Capabilities:    []string{"inventory", "connector"},
-			ConnectorNames:  []string{"gcp-iap"},
-			Methods:         []string{providerapi.MethodPluginDescribe, providerapi.MethodHealthCheck, providerapi.MethodInventoryList, providerapi.MethodConnectorDescribe, providerapi.MethodConnectorPrepare},
+			Name:           "provider-mixed-gcp-compute",
+			Capabilities:   []string{"inventory", "connector"},
+			ConnectorNames: []string{"gcp-iap"},
+			Methods:        []string{providerapi.MethodPluginDescribe, providerapi.MethodHealthCheck, providerapi.MethodInventoryList, providerapi.MethodConnectorDescribe, providerapi.MethodConnectorPrepare, providerapi.MethodConnectorDial},
+			ReservedKeys: []string{
+				"project", "zone", "credentials_file", "endpoint", "scopes",
+				"server_name_template", "note_template", "iap_runtime",
+			},
 			ProtocolVersion: providerapi.Version,
 		}, nil)
 	case providerapi.MethodInventoryList:
@@ -80,6 +84,16 @@ func main() {
 			os.Exit(1)
 		}
 		_ = providerapi.WriteResponse(req, result, nil)
+	case providerapi.MethodConnectorDial:
+		var params providerapi.ConnectorRuntimeParams
+		if err := decodeParams(req.Params, &params); err != nil {
+			_ = providerapi.WriteErrorResponse(req, "invalid_params", err.Error())
+			os.Exit(1)
+		}
+		if err := gcpConnectorRunDial(params); err != nil {
+			_, _ = fmt.Fprintln(os.Stderr, err)
+			os.Exit(1)
+		}
 	default:
 		_ = providerapi.WriteErrorResponse(req, "unsupported_method", fmt.Sprintf("unsupported method %q", req.Method))
 		os.Exit(1)

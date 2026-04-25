@@ -28,25 +28,21 @@ func TestConnectorLocalRCEnabledRespectsLocalRCFlag(t *testing.T) {
 	}
 }
 
-func TestConnectorPlanSupportsLocalRCForAWSNativeOnly(t *testing.T) {
+func TestConnectorPlanSupportsLocalRCForNativeRuntimeOnly(t *testing.T) {
 	nativePlan := conf.PreparedConnector{
-		ManagedSSH: &conf.ConnectorManagedSSHPlan{
-			SupportsLocalRC: true,
-		},
+		SupportsLocalRC: true,
 	}
 	if !connectorPlanSupportsLocalRC(nativePlan) {
-		t.Fatal("connectorPlanSupportsLocalRC(native aws-ssm) = false, want true")
+		t.Fatal("connectorPlanSupportsLocalRC(native runtime) = false, want true")
 	}
 
 	pluginPlan := conf.PreparedConnector{}
 	if connectorPlanSupportsLocalRC(pluginPlan) {
-		t.Fatal("connectorPlanSupportsLocalRC(plugin aws-ssm) = true, want false")
+		t.Fatal("connectorPlanSupportsLocalRC(non-native runtime) = true, want false")
 	}
 
 	managedSSHPlan := conf.PreparedConnector{
-		ManagedSSH: &conf.ConnectorManagedSSHPlan{
-			SupportsLocalRC: true,
-		},
+		ManagedSSH: &conf.ConnectorManagedSSHPlan{},
 	}
 	if !connectorPlanSupportsLocalRC(managedSSHPlan) {
 		t.Fatal("connectorPlanSupportsLocalRC(managed ssh) = false, want true")
@@ -133,18 +129,18 @@ func TestConnectorDynamicForwardSpecRejectsInvalidPort(t *testing.T) {
 	}
 }
 
-func TestConnectorForwardingSharesShellForAWSSSMDynamicOnly(t *testing.T) {
+func TestConnectorForwardingSharesShellForSharedRuntimeOnly(t *testing.T) {
 	r := &Run{}
-	shared := conf.PreparedConnector{ManagedSSH: &conf.ConnectorManagedSSHPlan{ShareForwardingWithShell: true}}
+	shared := conf.PreparedConnector{SharedShellForward: true}
 	notShared := conf.PreparedConnector{ManagedSSH: &conf.ConnectorManagedSSHPlan{}}
 	if !r.connectorForwardingSharesShell(conf.ServerConfig{DynamicPortForward: "11080"}, shared) {
-		t.Fatal("connectorForwardingSharesShell() = false, want true for aws-ssm dynamic forward")
+		t.Fatal("connectorForwardingSharesShell() = false, want true for shared dynamic forward")
 	}
 	if !r.connectorForwardingSharesShell(conf.ServerConfig{HTTPDynamicPortForward: "18080"}, shared) {
-		t.Fatal("connectorForwardingSharesShell() = false, want true for aws-ssm http dynamic forward")
+		t.Fatal("connectorForwardingSharesShell() = false, want true for shared http dynamic forward")
 	}
 	if r.connectorForwardingSharesShell(conf.ServerConfig{DynamicPortForward: "11080"}, notShared) {
-		t.Fatal("connectorForwardingSharesShell() = true, want false for non aws-ssm connector")
+		t.Fatal("connectorForwardingSharesShell() = true, want false for non-shared runtime")
 	}
 	if r.connectorForwardingSharesShell(conf.ServerConfig{
 		DynamicPortForward: "11080",

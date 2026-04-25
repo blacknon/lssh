@@ -17,12 +17,15 @@ type ConnectorOperation struct {
 }
 
 type PreparedConnector struct {
-	Supported     bool
-	ConnectorName string
-	Reason        string
-	PlanKind      string
-	Command       *ConnectorCommandPlan
-	ManagedSSH    *ConnectorManagedSSHPlan
+	Supported           bool
+	ConnectorName       string
+	Reason              string
+	PlanKind            string
+	Command             *ConnectorCommandPlan
+	ManagedSSH          *ConnectorManagedSSHPlan
+	ProviderManagedPlan *providerapi.ConnectorPlan
+	SupportsLocalRC     bool
+	SharedShellForward  bool
 }
 
 type ConnectorCommandPlan struct {
@@ -32,8 +35,6 @@ type ConnectorCommandPlan struct {
 }
 
 type ConnectorManagedSSHPlan struct {
-	ShareForwardingWithShell bool
-	SupportsLocalRC          bool
 }
 
 func (c *Config) PrepareConnectorRuntime(server string, operation ConnectorOperation) (PreparedConnector, error) {
@@ -59,18 +60,10 @@ func (c *Config) PrepareConnectorRuntime(server string, operation ConnectorOpera
 		return PreparedConnector{}, err
 	}
 
-	return preparedConnectorFromProvider(prepared, connectorName), nil
+	return preparedConnectorFromProvider(prepared, connectorName, operation), nil
 }
 
-func (c *Config) ConnectorSupportsSessionControl(server string) bool {
-	return strings.TrimSpace(c.ServerConnectorName(server)) == "aws-ssm"
-}
-
-func (c *Config) ConnectorSupportsLSPipe(server string) bool {
-	return strings.TrimSpace(c.ServerConnectorName(server)) == "aws-ssm"
-}
-
-func preparedConnectorFromProvider(result providerapi.ConnectorPrepareResult, fallback string) PreparedConnector {
+func preparedConnectorFromProvider(result providerapi.ConnectorPrepareResult, fallback string, operation ConnectorOperation) PreparedConnector {
 	connectorName := connectorNameFromPlan(result.Plan, fallback)
 	prepared := PreparedConnector{
 		Supported:     result.Supported,
@@ -87,7 +80,11 @@ func preparedConnectorFromProvider(result providerapi.ConnectorPrepareResult, fa
 			Env:     cloneStringMap(result.Plan.Env),
 		}
 	case "provider-managed":
-		if managed := managedSSHPlanFromProvider(result.Plan, connectorName); managed != nil {
+		planCopy := result.Plan
+		prepared.ProviderManagedPlan = &planCopy
+		prepared.SupportsLocalRC = providerManagedSupportsLocalRC(result.Plan, operation)
+		prepared.SharedShellForward = providerManagedSharesShellForward(result.Plan, operation)
+		if managed := managedSSHPlanFromProvider(result.Plan, operation); managed != nil {
 			prepared.ManagedSSH = managed
 		}
 	}
@@ -95,24 +92,45 @@ func preparedConnectorFromProvider(result providerapi.ConnectorPrepareResult, fa
 	return prepared
 }
 
-func managedSSHPlanFromProvider(plan providerapi.ConnectorPlan, connectorName string) *ConnectorManagedSSHPlan {
+func managedSSHPlanFromProvider(plan providerapi.ConnectorPlan, operation ConnectorOperation) *ConnectorManagedSSHPlan {
 	if plan.Kind != "provider-managed" {
-		return nil
-	}
-	if detailString(plan.Details, "ssh_runtime") != "sdk" {
 		return nil
 	}
 
 	transport := detailString(plan.Details, "transport")
+	sshRuntime := detailString(plan.Details, "ssh_runtime")
 	shellRuntime := detailString(plan.Details, "shell_runtime")
-	if transport != "ssh_transport" && !(connectorName == "aws-ssm" && shellRuntime == "native") {
+	portForwardRuntime := detailString(plan.Details, "port_forward_runtime")
+	sessionAction := detailString(plan.Details, "session_action")
+
+	switch {
+	case transport == "ssh_transport" && sshRuntime == "sdk" && operation.Name != "tcp_dial_transport":
+		return &ConnectorManagedSSHPlan{}
+	default:
+		_ = shellRuntime
+		_ = portForwardRuntime
+		_ = sessionAction
 		return nil
 	}
+}
 
-	return &ConnectorManagedSSHPlan{
-		ShareForwardingWithShell: connectorName == "aws-ssm" && shellRuntime == "native",
-		SupportsLocalRC:          true,
+func providerManagedSupportsLocalRC(plan providerapi.ConnectorPlan, operation ConnectorOperation) bool {
+	return plan.Kind == "provider-managed" &&
+		operation.Name == "shell" &&
+		detailString(plan.Details, "shell_runtime") == "native" &&
+		detailString(plan.Details, "session_action") == "start"
+}
+
+func providerManagedSharesShellForward(plan providerapi.ConnectorPlan, operation ConnectorOperation) bool {
+	if plan.Kind != "provider-managed" {
+		return false
 	}
+	if operation.Name == "shell" &&
+		detailString(plan.Details, "shell_runtime") == "native" &&
+		detailString(plan.Details, "session_action") == "start" {
+		return true
+	}
+	return false
 }
 
 func connectorNameFromPlan(plan providerapi.ConnectorPlan, fallback string) string {

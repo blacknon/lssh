@@ -325,10 +325,6 @@ func (d *Daemon) runCommand(host string, req Request, sendEvent func(Event)) (in
 }
 
 func (d *Daemon) runConnectorCommand(host string, req Request, sendEvent func(Event)) (int, error) {
-	if !d.Config.ConnectorSupportsLSPipe(host) {
-		return 1, fmt.Errorf("connector-backed host %s does not support lspipe yet", host)
-	}
-
 	var stdoutWriter io.Writer
 	var stderrWriter io.Writer
 	if req.Raw {

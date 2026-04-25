@@ -24,10 +24,18 @@ func main() {
 	switch req.Method {
 	case providerapi.MethodPluginDescribe:
 		_ = providerapi.WriteResponse(req, providerapi.PluginDescribeResult{
-			Name:            "provider-mixed-aws-ec2",
-			Capabilities:    []string{"inventory", "connector"},
-			ConnectorNames:  []string{"aws-ssm", "aws-eice"},
-			Methods:         []string{providerapi.MethodPluginDescribe, providerapi.MethodHealthCheck, providerapi.MethodInventoryList, providerapi.MethodConnectorDescribe, providerapi.MethodConnectorPrepare},
+			Name:           "provider-mixed-aws-ec2",
+			Capabilities:   []string{"inventory", "connector"},
+			ConnectorNames: []string{"aws-ssm", "aws-eice"},
+			Methods:        []string{providerapi.MethodPluginDescribe, providerapi.MethodHealthCheck, providerapi.MethodInventoryList, providerapi.MethodConnectorDescribe, providerapi.MethodConnectorPrepare, providerapi.MethodConnectorShell, providerapi.MethodConnectorExec, providerapi.MethodConnectorDial},
+			ReservedKeys: []string{
+				"regions", "region", "profile",
+				"shared_config_files", "shared_credentials_files",
+				"include_tags", "server_name_template", "note_template", "addr_strategy",
+				"ssm_shell_runtime", "ssm_port_forward_runtime",
+				"eice_runtime", "instance_connect_endpoint_id", "instance_connect_endpoint_dns_name", "private_ip_address",
+				"ssm_require_online", "ssm_shell_document", "ssm_interactive_command_document", "ssm_port_forward_document",
+			},
 			ProtocolVersion: providerapi.Version,
 		}, nil)
 	case providerapi.MethodInventoryList:
@@ -79,6 +87,41 @@ func main() {
 			os.Exit(1)
 		}
 		_ = providerapi.WriteResponse(req, result, nil)
+	case providerapi.MethodConnectorShell:
+		var params providerapi.ConnectorRuntimeParams
+		if err := decodeParams(req.Params, &params); err != nil {
+			_, _ = fmt.Fprintln(os.Stderr, err)
+			os.Exit(1)
+		}
+		if err := awsConnectorRunShell(params); err != nil {
+			_, _ = fmt.Fprintln(os.Stderr, err)
+			os.Exit(1)
+		}
+	case providerapi.MethodConnectorExec:
+		var params providerapi.ConnectorRuntimeParams
+		if err := decodeParams(req.Params, &params); err != nil {
+			_, _ = fmt.Fprintln(os.Stderr, err)
+			os.Exit(1)
+		}
+		result, err := awsConnectorRunExec(params)
+		if err != nil {
+			_, _ = fmt.Fprintln(os.Stderr, err)
+			os.Exit(1)
+		}
+		if err := providerapi.WriteRuntimeResult(result); err != nil {
+			_, _ = fmt.Fprintln(os.Stderr, err)
+			os.Exit(1)
+		}
+	case providerapi.MethodConnectorDial:
+		var params providerapi.ConnectorRuntimeParams
+		if err := decodeParams(req.Params, &params); err != nil {
+			_, _ = fmt.Fprintln(os.Stderr, err)
+			os.Exit(1)
+		}
+		if err := awsConnectorRunDial(params); err != nil {
+			_, _ = fmt.Fprintln(os.Stderr, err)
+			os.Exit(1)
+		}
 	default:
 		_ = providerapi.WriteErrorResponse(req, "unsupported_method", fmt.Sprintf("unsupported method %q", req.Method))
 		os.Exit(1)

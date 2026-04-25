@@ -78,9 +78,6 @@ func validateConnectorShellOptions(opts connectorFlagOptions, selected []string,
 	if !data.ServerUsesConnector(selected[0]) {
 		return fmt.Errorf("--attach/--detach can only be used with connector-backed hosts")
 	}
-	if !data.ConnectorSupportsSessionControl(selected[0]) {
-		return fmt.Errorf("--attach/--detach are only supported for this connector")
-	}
 
 	return nil
 }

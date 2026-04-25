@@ -1,6 +1,8 @@
 package providerapi
 
 import (
+	"encoding/base64"
+	"encoding/json"
 	"os"
 	"path/filepath"
 	"testing"
@@ -85,5 +87,64 @@ func TestExpandPaths(t *testing.T) {
 		if got[i] != want[i] {
 			t.Fatalf("ExpandPaths()[%d] = %q, want %q", i, got[i], want[i])
 		}
+	}
+}
+
+func TestReadRequestFromEnv(t *testing.T) {
+	t.Parallel()
+
+	request := Request{
+		Version: Version,
+		Method:  MethodConnectorShell,
+		Params: map[string]interface{}{
+			"provider": "aws",
+		},
+	}
+	data, err := json.Marshal(request)
+	if err != nil {
+		t.Fatalf("Marshal() error = %v", err)
+	}
+	if err := os.Setenv(RequestEnvVar, base64.StdEncoding.EncodeToString(data)); err != nil {
+		t.Fatalf("Setenv() error = %v", err)
+	}
+	t.Cleanup(func() {
+		_ = os.Unsetenv(RequestEnvVar)
+	})
+
+	got, err := ReadRequest()
+	if err != nil {
+		t.Fatalf("ReadRequest() error = %v", err)
+	}
+	if got.Method != MethodConnectorShell {
+		t.Fatalf("ReadRequest().Method = %q, want %q", got.Method, MethodConnectorShell)
+	}
+}
+
+func TestWriteRuntimeResult(t *testing.T) {
+	t.Parallel()
+
+	path := filepath.Join(t.TempDir(), "result.json")
+	if err := os.Setenv(ResultEnvVar, path); err != nil {
+		t.Fatalf("Setenv() error = %v", err)
+	}
+	t.Cleanup(func() {
+		_ = os.Unsetenv(ResultEnvVar)
+	})
+
+	want := ConnectorExecResult{ExitCode: 23}
+	if err := WriteRuntimeResult(want); err != nil {
+		t.Fatalf("WriteRuntimeResult() error = %v", err)
+	}
+
+	data, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatalf("ReadFile() error = %v", err)
+	}
+	var got ConnectorExecResult
+	if err := json.Unmarshal(data, &got); err != nil {
+		t.Fatalf("Unmarshal() error = %v", err)
+	}
+	if got.ExitCode != want.ExitCode {
+		t.Fatalf("ExitCode = %d, want %d", got.ExitCode, want.ExitCode)
 	}
 }

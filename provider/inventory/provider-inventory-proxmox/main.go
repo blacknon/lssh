@@ -24,9 +24,17 @@ func main() {
 	switch req.Method {
 	case providerapi.MethodPluginDescribe:
 		_ = providerapi.WriteResponse(req, providerapi.PluginDescribeResult{
-			Name:            "provider-inventory-proxmox",
-			Capabilities:    []string{"inventory"},
-			Methods:         []string{providerapi.MethodPluginDescribe, providerapi.MethodHealthCheck, providerapi.MethodInventoryList},
+			Name:         "provider-inventory-proxmox",
+			Capabilities: []string{"inventory"},
+			Methods:      []string{providerapi.MethodPluginDescribe, providerapi.MethodHealthCheck, providerapi.MethodInventoryList},
+			ReservedKeys: []string{
+				"host", "scheme", "port", "insecure",
+				"token_id", "token_id_env", "token_id_source", "token_id_source_env",
+				"token_secret", "token_secret_env", "token_secret_source", "token_secret_source_env",
+				"username", "user", "password", "password_env", "password_source", "password_source_env",
+				"server_name_template", "note_template", "addr_template", "node_addr_prefix",
+				"include_stopped", "include_templates", "vm_types", "statuses", "os_families",
+			},
 			ProtocolVersion: providerapi.Version,
 		}, nil)
 	case providerapi.MethodInventoryList:

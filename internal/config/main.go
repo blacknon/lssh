@@ -18,9 +18,9 @@ conf is a package used to read configuration file (~/.lssh.conf).
 //
 // 　　　　　　　　　　　　　　　　　　　　　　　　　　　※ 上位コマンドを作成し、そちらで統合させる（その中から呼び出す1プログラムとしてlsshは残す）
 // TODO(blacknon): 各種クラウドの踏み台経由でのアクセスに対応する => pluginで処理させたいお気持ち
-//   - AWS SSM(セッションマネージャー)
-//   - Azure Bastion
-//   - GCP(gcloud compute ssh)
+//   - クラウド提供のセッション管理/踏み台
+//   - マネージド bastion/tunnel
+//   - provider plugin 経由の接続
 
 // TODO(blacknon): configの中に`plugin`structwを追加して、そこにプラグインの設定を記述できるようにする(v0.8.X)
 //                  このとき、このstruct側でプラグインファイルのパスを指定するほか、どのようなプラグインなのかをこのstructもしくは対象化で持たせるようにすることで、ファイルの転送やコマンドの実行など、機能の制限を付けられるようにする。これにより、lsshや　lscpで実行する際に表示の制御や実行対象外を拾えるようにできる。

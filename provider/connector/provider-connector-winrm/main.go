@@ -6,8 +6,8 @@ import (
 	"os"
 	"strings"
 
-	"github.com/blacknon/lssh/providerapi"
 	"github.com/blacknon/lssh/provider/connector/provider-connector-winrm/winrmlib"
+	"github.com/blacknon/lssh/providerapi"
 )
 
 func main() {
@@ -23,7 +23,7 @@ func main() {
 			Name:            "provider-connector-winrm",
 			Capabilities:    []string{"connector"},
 			ConnectorNames:  []string{"winrm"},
-			Methods:         []string{providerapi.MethodPluginDescribe, providerapi.MethodHealthCheck, providerapi.MethodConnectorDescribe, providerapi.MethodConnectorPrepare},
+			Methods:         []string{providerapi.MethodPluginDescribe, providerapi.MethodHealthCheck, providerapi.MethodConnectorDescribe, providerapi.MethodConnectorPrepare, providerapi.MethodConnectorShell, providerapi.MethodConnectorExec},
 			ProtocolVersion: providerapi.Version,
 		}, nil)
 	case providerapi.MethodHealthCheck:
@@ -62,6 +62,31 @@ func main() {
 			os.Exit(1)
 		}
 		_ = providerapi.WriteResponse(req, result, nil)
+	case providerapi.MethodConnectorShell:
+		var params providerapi.ConnectorRuntimeParams
+		if err := decodeParams(req.Params, &params); err != nil {
+			_, _ = fmt.Fprintln(os.Stderr, err)
+			os.Exit(1)
+		}
+		if err := winrmRunShell(params); err != nil {
+			_, _ = fmt.Fprintln(os.Stderr, err)
+			os.Exit(1)
+		}
+	case providerapi.MethodConnectorExec:
+		var params providerapi.ConnectorRuntimeParams
+		if err := decodeParams(req.Params, &params); err != nil {
+			_, _ = fmt.Fprintln(os.Stderr, err)
+			os.Exit(1)
+		}
+		result, err := winrmRunExec(params)
+		if err != nil {
+			_, _ = fmt.Fprintln(os.Stderr, err)
+			os.Exit(1)
+		}
+		if err := providerapi.WriteRuntimeResult(result); err != nil {
+			_, _ = fmt.Fprintln(os.Stderr, err)
+			os.Exit(1)
+		}
 	default:
 		_ = providerapi.WriteErrorResponse(req, "unsupported_method", fmt.Sprintf("unsupported method %q", req.Method))
 		os.Exit(1)

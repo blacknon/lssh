@@ -11,7 +11,7 @@ func TestValidateConnectorShellOptionsRejectsMutuallyExclusiveFlags(t *testing.T
 	err := validateConnectorShellOptions(connectorFlagOptions{
 		AttachSession: "session-123",
 		Detach:        true,
-	}, []string{"aws:web-01"}, conf.Config{})
+	}, []string{"connector-host"}, conf.Config{})
 	if err == nil {
 		t.Fatal("validateConnectorShellOptions() error = nil, want non-nil")
 	}
@@ -39,9 +39,9 @@ func TestValidateConnectorShellOptionsRejectsNonConnectorServer(t *testing.T) {
 func TestValidateConnectorShellOptionsAllowsSingleConnectorShell(t *testing.T) {
 	err := validateConnectorShellOptions(connectorFlagOptions{
 		AttachSession: "session-123",
-	}, []string{"aws:web-01"}, conf.Config{
+	}, []string{"connector-host"}, conf.Config{
 		Server: map[string]conf.ServerConfig{
-			"aws:web-01": {ConnectorName: "aws-ssm"},
+			"connector-host": {ConnectorName: "session-capable"},
 		},
 	})
 	if err != nil {
@@ -49,7 +49,7 @@ func TestValidateConnectorShellOptionsAllowsSingleConnectorShell(t *testing.T) {
 	}
 }
 
-func TestValidateConnectorShellOptionsRejectsUnsupportedConnector(t *testing.T) {
+func TestValidateConnectorShellOptionsDefersConnectorSpecificChecks(t *testing.T) {
 	err := validateConnectorShellOptions(connectorFlagOptions{
 		AttachSession: "session-123",
 	}, []string{"web01"}, conf.Config{
@@ -57,10 +57,7 @@ func TestValidateConnectorShellOptionsRejectsUnsupportedConnector(t *testing.T) 
 			"web01": {ConnectorName: "openssh"},
 		},
 	})
-	if err == nil {
-		t.Fatal("validateConnectorShellOptions() error = nil, want non-nil")
-	}
-	if !strings.Contains(err.Error(), "supported for this connector") {
-		t.Fatalf("validateConnectorShellOptions() error = %q, want connector support hint", err)
+	if err != nil {
+		t.Fatalf("validateConnectorShellOptions() error = %v, want nil", err)
 	}
 }

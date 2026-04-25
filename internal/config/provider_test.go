@@ -796,10 +796,18 @@ printf '%s' '{"version":"v1","result":{"servers":[{"name":"pve:node:vm1","config
 			"proxmox": {
 				"plugin":       "provider-inventory-proxmox",
 				"capabilities": []interface{}{"inventory"},
-				"host":         "sv-pve.blckn",
-				"port":         "8006",
-				"username":     "root@pam",
-				"user":         "provider-user-should-not-leak",
+				"reserved_keys": []interface{}{
+					"host", "scheme", "port", "insecure",
+					"token_id", "token_id_env", "token_id_source", "token_id_source_env",
+					"token_secret", "token_secret_env", "token_secret_source", "token_secret_source_env",
+					"username", "user", "password", "password_env", "password_source", "password_source_env",
+					"server_name_template", "note_template", "addr_template", "node_addr_prefix",
+					"include_stopped", "include_templates", "vm_types", "statuses", "os_families",
+				},
+				"host":     "sv-pve.blckn",
+				"port":     "8006",
+				"username": "root@pam",
+				"user":     "provider-user-should-not-leak",
 			},
 		},
 	}
@@ -841,6 +849,7 @@ printf '%s' '{"version":"v1","result":{"servers":[{"name":"azure:vm1","config":{
 			"azure": {
 				"plugin":          "provider-inventory-azure-compute",
 				"capabilities":    []interface{}{"inventory"},
+				"reserved_keys":   []interface{}{"subscription_id", "tenant_id", "client_id", "client_secret", "resource_group", "user"},
 				"subscription_id": "sub-1",
 				"tenant_id":       "tenant-1",
 				"client_id":       "client-1",
@@ -869,17 +878,17 @@ printf '%s' '{"version":"v1","result":{"servers":[{"name":"azure:vm1","config":{
 
 func TestProviderReservedKeysSupportsMixedProviderAliases(t *testing.T) {
 	gcpKeys := providerReservedKeys(map[string]interface{}{
-		"plugin": "provider-mixed-gcp-compute",
+		"reserved_keys": []interface{}{"iap_runtime"},
 	})
 	if !containsString(gcpKeys, "iap_runtime") {
-		t.Fatalf("providerReservedKeys(gcp mixed) missing iap_runtime: %#v", gcpKeys)
+		t.Fatalf("providerReservedKeys(gcp metadata) missing iap_runtime: %#v", gcpKeys)
 	}
 
 	azureKeys := providerReservedKeys(map[string]interface{}{
-		"plugin": "provider-mixed-azure-compute",
+		"reserved_keys": []interface{}{"bastion_runtime"},
 	})
 	if !containsString(azureKeys, "bastion_runtime") {
-		t.Fatalf("providerReservedKeys(azure mixed) missing bastion_runtime: %#v", azureKeys)
+		t.Fatalf("providerReservedKeys(azure metadata) missing bastion_runtime: %#v", azureKeys)
 	}
 }
 

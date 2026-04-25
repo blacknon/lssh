@@ -33,10 +33,22 @@ func main() {
 	switch req.Method {
 	case providerapi.MethodPluginDescribe:
 		_ = providerapi.WriteResponse(req, providerapi.PluginDescribeResult{
-			Name:            "provider-mixed-azure-compute",
-			Capabilities:    []string{"inventory", "connector"},
-			ConnectorNames:  []string{"azure-bastion"},
-			Methods:         []string{providerapi.MethodPluginDescribe, providerapi.MethodHealthCheck, providerapi.MethodInventoryList, providerapi.MethodConnectorDescribe, providerapi.MethodConnectorPrepare},
+			Name:           "provider-mixed-azure-compute",
+			Capabilities:   []string{"inventory", "connector"},
+			ConnectorNames: []string{"azure-bastion"},
+			Methods:        []string{providerapi.MethodPluginDescribe, providerapi.MethodHealthCheck, providerapi.MethodInventoryList, providerapi.MethodConnectorDescribe, providerapi.MethodConnectorPrepare, providerapi.MethodConnectorDial},
+			ReservedKeys: []string{
+				"subscription_id",
+				"username", "user",
+				"tenant_id", "tenant_id_env", "tenant_id_source", "tenant_id_source_env",
+				"client_id", "client_id_env", "client_id_source", "client_id_source_env",
+				"client_secret", "client_secret_env", "client_secret_source", "client_secret_source_env",
+				"access_token", "access_token_env", "access_token_source", "access_token_source_env",
+				"authority_host", "endpoint", "resource_group",
+				"statuses", "include_stopped", "include_tags",
+				"server_name_template", "note_template",
+				"bastion_runtime", "bastion_name", "bastion_resource_group", "bastion_auth_type",
+			},
 			ProtocolVersion: providerapi.Version,
 		}, nil)
 	case providerapi.MethodInventoryList:
@@ -87,6 +99,16 @@ func main() {
 			os.Exit(1)
 		}
 		_ = providerapi.WriteResponse(req, result, nil)
+	case providerapi.MethodConnectorDial:
+		var params providerapi.ConnectorRuntimeParams
+		if err := decodeParams(req.Params, &params); err != nil {
+			_ = providerapi.WriteErrorResponse(req, "invalid_params", err.Error())
+			os.Exit(1)
+		}
+		if err := azureConnectorRunDial(params); err != nil {
+			_, _ = fmt.Fprintln(os.Stderr, err)
+			os.Exit(1)
+		}
 	default:
 		_ = providerapi.WriteErrorResponse(req, "unsupported_method", fmt.Sprintf("unsupported method %q", req.Method))
 		os.Exit(1)

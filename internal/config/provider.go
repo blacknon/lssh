@@ -63,11 +63,13 @@ func (c *Config) ReadInventoryProviders() error {
 			return result.err
 		}
 
-		defaults, err := providerServerDefaults(result.raw)
+		rawWithMeta := mergeProviderDescribeMetadata(result.raw, result.describe)
+
+		defaults, err := providerServerDefaults(rawWithMeta)
 		if err != nil {
 			return fmt.Errorf("provider %q defaults: %w", item.name, err)
 		}
-		matches, err := providerInventoryMatches(result.raw)
+		matches, err := providerInventoryMatches(rawWithMeta)
 		if err != nil {
 			return fmt.Errorf("provider %q matches: %w", item.name, err)
 		}
@@ -97,6 +99,7 @@ func (c *Config) ReadInventoryProviders() error {
 
 type inventoryProviderResult struct {
 	raw       map[string]interface{}
+	describe  providerapi.PluginDescribeResult
 	inventory providerapi.InventoryListResult
 	err       error
 	skip      bool
@@ -127,6 +130,9 @@ func (c *Config) fetchInventoryProviderResults(providers []namedProviderConfig) 
 			}
 
 			results[i].raw = raw
+			if providerNeedsDescribeReservedKeys(raw) {
+				_ = c.callProvider(name, providerapi.MethodPluginDescribe, nil, &results[i].describe)
+			}
 			err := c.callProvider(name, providerapi.MethodInventoryList, providerapi.InventoryListParams{
 				Provider: name,
 				Config:   raw,
@@ -378,6 +384,25 @@ func providerServerDefaultMap(raw map[string]interface{}) map[string]interface{}
 	return filtered
 }
 
+func mergeProviderDescribeMetadata(raw map[string]interface{}, describe providerapi.PluginDescribeResult) map[string]interface{} {
+	if raw == nil && len(describe.ReservedKeys) == 0 {
+		return nil
+	}
+
+	merged := make(map[string]interface{}, len(raw)+1)
+	for key, value := range raw {
+		merged[key] = value
+	}
+	if len(describe.ReservedKeys) > 0 {
+		values := make([]interface{}, 0, len(describe.ReservedKeys))
+		for _, key := range describe.ReservedKeys {
+			values = append(values, key)
+		}
+		merged["reserved_keys"] = values
+	}
+	return merged
+}
+
 func providerReservedKeys(raw map[string]interface{}) []string {
 	keys := map[string]struct{}{
 		"plugin":                 {},
@@ -390,51 +415,8 @@ func providerReservedKeys(raw map[string]interface{}) []string {
 		"match":                  {},
 	}
 
-	switch canonicalProviderPluginName(providerString(raw, "plugin")) {
-	case "provider-inventory-proxmox":
-		for _, key := range []string{
-			"host", "scheme", "port", "insecure",
-			"token_id", "token_id_env", "token_id_source", "token_id_source_env",
-			"token_secret", "token_secret_env", "token_secret_source", "token_secret_source_env",
-			"username", "user", "password", "password_env", "password_source", "password_source_env",
-			"server_name_template", "note_template", "addr_template", "node_addr_prefix",
-			"include_stopped", "include_templates", "vm_types", "statuses", "os_families",
-		} {
-			keys[key] = struct{}{}
-		}
-	case "provider-mixed-aws-ec2":
-		for _, key := range []string{
-			"regions", "region", "profile",
-			"shared_config_files", "shared_credentials_files",
-			"include_tags", "server_name_template", "note_template", "addr_strategy",
-			"ssm_shell_runtime", "ssm_port_forward_runtime",
-			"eice_runtime", "instance_connect_endpoint_id", "instance_connect_endpoint_dns_name", "private_ip_address",
-			"ssm_require_online", "ssm_shell_document", "ssm_interactive_command_document", "ssm_port_forward_document",
-		} {
-			keys[key] = struct{}{}
-		}
-	case "provider-mixed-gcp-compute":
-		for _, key := range []string{
-			"project", "zone", "credentials_file", "endpoint", "scopes",
-			"server_name_template", "note_template", "iap_runtime",
-		} {
-			keys[key] = struct{}{}
-		}
-	case "provider-mixed-azure-compute":
-		for _, key := range []string{
-			"subscription_id",
-			"username", "user",
-			"tenant_id", "tenant_id_env", "tenant_id_source", "tenant_id_source_env",
-			"client_id", "client_id_env", "client_id_source", "client_id_source_env",
-			"client_secret", "client_secret_env", "client_secret_source", "client_secret_source_env",
-			"access_token", "access_token_env", "access_token_source", "access_token_source_env",
-			"authority_host", "endpoint", "resource_group",
-			"statuses", "include_stopped", "include_tags",
-			"server_name_template", "note_template",
-			"bastion_runtime", "bastion_name", "bastion_resource_group", "bastion_auth_type",
-		} {
-			keys[key] = struct{}{}
-		}
+	for _, key := range providerStringSlice(raw, "reserved_keys") {
+		keys[key] = struct{}{}
 	}
 
 	result := make([]string, 0, len(keys))
@@ -445,27 +427,31 @@ func providerReservedKeys(raw map[string]interface{}) []string {
 	return result
 }
 
-func canonicalProviderPluginName(plugin string) string {
-	switch plugin {
-	case "provider-inventory-gcp-compute":
-		return "provider-mixed-gcp-compute"
-	case "provider-inventory-azure-compute":
-		return "provider-mixed-azure-compute"
-	default:
-		return plugin
+func providerNeedsDescribeReservedKeys(raw map[string]interface{}) bool {
+	if raw == nil {
+		return false
 	}
+	if len(providerStringSlice(raw, "reserved_keys")) > 0 {
+		return false
+	}
+	for key := range raw {
+		switch key {
+		case "plugin", "capabilities", "default_connector_name", "enabled", "fail_open", "timeout", "debug_log", "match":
+			continue
+		default:
+			return true
+		}
+	}
+	return false
 }
 
 func providerExecutableCandidates(plugin string) []string {
 	names := []string{plugin}
-	if canonical := canonicalProviderPluginName(plugin); canonical != "" && canonical != plugin {
-		names = append(names, canonical)
-	}
-	switch plugin {
-	case "provider-mixed-gcp-compute":
-		names = append(names, "provider-inventory-gcp-compute")
-	case "provider-mixed-azure-compute":
-		names = append(names, "provider-inventory-azure-compute")
+	switch {
+	case strings.HasPrefix(plugin, "provider-mixed-"):
+		names = append(names, strings.Replace(plugin, "provider-mixed-", "provider-inventory-", 1))
+	case strings.HasPrefix(plugin, "provider-inventory-"):
+		names = append(names, strings.Replace(plugin, "provider-inventory-", "provider-mixed-", 1))
 	}
 
 	seen := map[string]struct{}{}
