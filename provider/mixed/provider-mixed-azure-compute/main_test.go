@@ -1,11 +1,12 @@
 package main
 
 import (
-	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"sync/atomic"
 	"testing"
+	"time"
 
 	"github.com/blacknon/lssh/providerapi"
 )
@@ -140,9 +141,9 @@ func TestAzureVMListPathSubscriptionScopeUsesStatusOnly(t *testing.T) {
 	}
 }
 
-func TestAzureVMListPathResourceGroupScopeUsesExpandForStatusLookup(t *testing.T) {
+func TestAzureVMListPathResourceGroupScopeIgnoresStatusOnly(t *testing.T) {
 	got := azureVMListPath("https://management.azure.com", "sub-1", "rg-demo", true)
-	want := "https://management.azure.com/subscriptions/sub-1/resourceGroups/rg-demo/providers/Microsoft.Compute/virtualMachines?api-version=" + azureComputeAPIVersion + "&$expand=instanceView"
+	want := "https://management.azure.com/subscriptions/sub-1/resourceGroups/rg-demo/providers/Microsoft.Compute/virtualMachines?api-version=" + azureComputeAPIVersion
 	if got != want {
 		t.Fatalf("azureVMListPath() = %q, want %q", got, want)
 	}
@@ -154,25 +155,6 @@ func TestAzureSupportsVMStatusList(t *testing.T) {
 	}
 	if azureSupportsVMStatusList(map[string]interface{}{"resource_group": "rg-demo"}) {
 		t.Fatal("azureSupportsVMStatusList() = true, want false with resource_group")
-	}
-}
-
-func TestAzureUsesExpandedVMInstanceView(t *testing.T) {
-	if azureUsesExpandedVMInstanceView(map[string]interface{}{}) {
-		t.Fatal("azureUsesExpandedVMInstanceView() = true, want false without resource_group")
-	}
-	if !azureUsesExpandedVMInstanceView(map[string]interface{}{"resource_group": "rg-demo"}) {
-		t.Fatal("azureUsesExpandedVMInstanceView() = false, want true with resource_group")
-	}
-}
-
-func TestAzureExpandedInstanceViewUnsupported(t *testing.T) {
-	err := fmt.Errorf("azure api request failed: status=400 Bad Request url=https://management.azure.com/... body={\"error\":{\"message\":\"Expand Instance View is only supported when Virtual Machine Scale Set resource filter is applied\"}}")
-	if !azureExpandedInstanceViewUnsupported(err) {
-		t.Fatal("azureExpandedInstanceViewUnsupported() = false, want true")
-	}
-	if azureExpandedInstanceViewUnsupported(fmt.Errorf("azure api request failed: status=401 Unauthorized")) {
-		t.Fatal("azureExpandedInstanceViewUnsupported() = true, want false")
 	}
 }
 
@@ -209,6 +191,82 @@ func TestBuildInventoryEntryFallsBackToInstanceView(t *testing.T) {
 	}
 	if got := serverEntry.Meta["power_state"]; got != "running" {
 		t.Fatalf("serverEntry.Meta[power_state] = %q, want running", got)
+	}
+}
+
+func TestBuildInventoryEntryNetworkStateRunsStatusAndNetworkInParallel(t *testing.T) {
+	var current int32
+	var maxConcurrent int32
+
+	recordStart := func() {
+		active := atomic.AddInt32(&current, 1)
+		for {
+			seen := atomic.LoadInt32(&maxConcurrent)
+			if active <= seen || atomic.CompareAndSwapInt32(&maxConcurrent, seen, active) {
+				return
+			}
+		}
+	}
+	recordDone := func() {
+		atomic.AddInt32(&current, -1)
+	}
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		recordStart()
+		defer recordDone()
+		time.Sleep(50 * time.Millisecond)
+
+		w.Header().Set("Content-Type", "application/json")
+		switch r.URL.Path {
+		case "/subscriptions/sub-1/resourceGroups/rg-demo/providers/Microsoft.Compute/virtualMachines/vm1/instanceView":
+			_, _ = w.Write([]byte(`{"statuses":[{"code":"PowerState/running"}]}`))
+		case "/subscriptions/sub-1/resourceGroups/rg-demo/providers/Microsoft.Network/networkInterfaces/nic-1":
+			_, _ = w.Write([]byte(`{"properties":{"ipConfigurations":[{"properties":{"privateIPAddress":"10.0.0.4","publicIPAddress":{"id":"/subscriptions/sub-1/resourceGroups/rg-demo/providers/Microsoft.Network/publicIPAddresses/pip-1"}}}]}}`))
+		case "/subscriptions/sub-1/resourceGroups/rg-demo/providers/Microsoft.Network/publicIPAddresses/pip-1":
+			_, _ = w.Write([]byte(`{"properties":{"ipAddress":"20.1.2.3"}}`))
+		default:
+			t.Fatalf("unexpected request path: %s", r.URL.Path)
+		}
+	}))
+	defer server.Close()
+
+	client := &azureClient{
+		baseURL:        server.URL,
+		httpClient:     server.Client(),
+		token:          "test-token",
+		subscriptionID: "sub-1",
+		nicCache:       map[string]azureNIC{},
+		publicIPCache:  map[string]string{},
+	}
+	vm := azureVM{ID: "/subscriptions/sub-1/resourceGroups/rg-demo/providers/Microsoft.Compute/virtualMachines/vm1"}
+	vm.Properties.NetworkProfile.NetworkInterfaces = []struct {
+		ID string `json:"id"`
+	}{
+		{ID: "/subscriptions/sub-1/resourceGroups/rg-demo/providers/Microsoft.Network/networkInterfaces/nic-1"},
+	}
+
+	start := time.Now()
+	powerState, privateIP, publicIP, ipErr, err := client.buildInventoryEntryNetworkState(vm, "")
+	if err != nil {
+		t.Fatalf("buildInventoryEntryNetworkState() error = %v", err)
+	}
+	if ipErr != nil {
+		t.Fatalf("buildInventoryEntryNetworkState() ipErr = %v", ipErr)
+	}
+	if powerState != "running" || privateIP != "10.0.0.4" || publicIP != "20.1.2.3" {
+		t.Fatalf("unexpected network state: power=%q private=%q public=%q", powerState, privateIP, publicIP)
+	}
+	if atomic.LoadInt32(&maxConcurrent) < 2 {
+		t.Fatalf("max concurrent azure requests = %d, want at least 2", maxConcurrent)
+	}
+	if elapsed := time.Since(start); elapsed >= 140*time.Millisecond {
+		t.Fatalf("buildInventoryEntryNetworkState() took %v, want parallel request overlap", elapsed)
+	}
+}
+
+func TestAzureInventoryBuildParallelismConstant(t *testing.T) {
+	if azureInventoryBuildParallelism < 4 {
+		t.Fatalf("azureInventoryBuildParallelism = %d, want at least 4", azureInventoryBuildParallelism)
 	}
 }
 

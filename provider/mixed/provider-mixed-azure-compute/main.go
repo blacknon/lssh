@@ -186,6 +186,8 @@ type azurePublicIP struct {
 	} `json:"properties"`
 }
 
+const azureInventoryBuildParallelism = 8
+
 func listAzure(config map[string]interface{}) ([]providerapi.InventoryServer, error) {
 	client, err := newAzureClient(context.Background(), config)
 	if err != nil {
@@ -228,37 +230,22 @@ func azureSupportsVMStatusList(config map[string]interface{}) bool {
 	return strings.TrimSpace(providerapi.String(config, "resource_group")) == ""
 }
 
-func azureUsesExpandedVMInstanceView(config map[string]interface{}) bool {
-	return strings.TrimSpace(providerapi.String(config, "resource_group")) != ""
-}
-
 func (c *azureClient) listAzurePowerStates(config map[string]interface{}) (map[string]string, error) {
-	if !azureSupportsVMStatusList(config) && !azureUsesExpandedVMInstanceView(config) {
+	if !azureSupportsVMStatusList(config) {
 		return map[string]string{}, nil
 	}
 
 	statuses, err := c.listVMs(config, true)
 	if err != nil {
-		if azureUsesExpandedVMInstanceView(config) && azureExpandedInstanceViewUnsupported(err) {
-			return map[string]string{}, nil
-		}
 		return nil, err
 	}
 	return azurePowerStateMap(statuses), nil
 }
 
-func azureExpandedInstanceViewUnsupported(err error) bool {
-	if err == nil {
-		return false
-	}
-	msg := strings.ToLower(err.Error())
-	return strings.Contains(msg, "expand instance view is only supported when virtual machine scale set resource filter is applied")
-}
-
 func (c *azureClient) buildInventoryEntries(vms []azureVM, powerStateByID map[string]string, filter azureInventoryFilter, nameTemplate, noteTemplate, addrStrategy string, includeTags []string) ([]*providerapi.InventoryServer, error) {
 	results := make([]*providerapi.InventoryServer, len(vms))
 	errCh := make(chan error, 1)
-	sem := make(chan struct{}, 4)
+	sem := make(chan struct{}, azureInventoryBuildParallelism)
 	var wg sync.WaitGroup
 
 	for i, vm := range vms {
@@ -296,21 +283,13 @@ func (c *azureClient) buildInventoryEntries(vms []azureVM, powerStateByID map[st
 
 func (c *azureClient) buildInventoryEntry(vm azureVM, powerStateByID map[string]string, filter azureInventoryFilter, nameTemplate, noteTemplate, addrStrategy string, includeTags []string) (*providerapi.InventoryServer, string, error) {
 	powerState := powerStateByID[strings.ToLower(vm.ID)]
-	if powerState == "" {
-		powerState = azurePowerState(vm.Properties.InstanceView.Statuses)
-	}
-	if powerState == "" && vm.ID != "" {
-		statuses, err := c.getVMInstanceViewStatuses(vm.ID)
-		if err != nil {
-			return nil, "", err
-		}
-		powerState = azurePowerState(statuses)
+	powerState, privateIP, publicIP, ipErr, err := c.buildInventoryEntryNetworkState(vm, powerState)
+	if err != nil {
+		return nil, "", err
 	}
 	if !filter.matches(powerState) {
 		return nil, "", nil
 	}
-
-	privateIP, publicIP, ipErr := c.vmIPs(vm)
 	warn := ""
 	if ipErr != nil {
 		warn = fmt.Sprintf("warning: failed to resolve VM network for %s: %v", vm.Name, ipErr)
@@ -357,6 +336,49 @@ func (c *azureClient) buildInventoryEntry(vm azureVM, powerStateByID map[string]
 		Config: cfgMap,
 		Meta:   meta,
 	}, warn, nil
+}
+
+func (c *azureClient) buildInventoryEntryNetworkState(vm azureVM, knownPowerState string) (string, string, string, error, error) {
+	type networkResult struct {
+		privateIP string
+		publicIP  string
+		err       error
+	}
+	type powerStateResult struct {
+		powerState string
+		err        error
+	}
+
+	powerStateCh := make(chan powerStateResult, 1)
+	networkCh := make(chan networkResult, 1)
+
+	go func() {
+		powerState := knownPowerState
+		if powerState == "" {
+			powerState = azurePowerState(vm.Properties.InstanceView.Statuses)
+		}
+		if powerState == "" && vm.ID != "" {
+			statuses, err := c.getVMInstanceViewStatuses(vm.ID)
+			if err != nil {
+				powerStateCh <- powerStateResult{err: err}
+				return
+			}
+			powerState = azurePowerState(statuses)
+		}
+		powerStateCh <- powerStateResult{powerState: powerState}
+	}()
+
+	go func() {
+		privateIP, publicIP, err := c.vmIPs(vm)
+		networkCh <- networkResult{privateIP: privateIP, publicIP: publicIP, err: err}
+	}()
+
+	powerResult := <-powerStateCh
+	networkResultValue := <-networkCh
+	if powerResult.err != nil {
+		return "", "", "", nil, powerResult.err
+	}
+	return powerResult.powerState, networkResultValue.privateIP, networkResultValue.publicIP, networkResultValue.err, nil
 }
 
 type azureInventoryFilter struct {
@@ -857,16 +879,12 @@ func (c *azureClient) listVMs(config map[string]interface{}, statusOnly bool) ([
 
 func azureVMListPath(baseURL, subscriptionID, resourceGroup string, statusOnly bool) string {
 	if resourceGroup != "" {
-		path := fmt.Sprintf("%s/subscriptions/%s/resourceGroups/%s/providers/Microsoft.Compute/virtualMachines?api-version=%s",
+		return fmt.Sprintf("%s/subscriptions/%s/resourceGroups/%s/providers/Microsoft.Compute/virtualMachines?api-version=%s",
 			baseURL,
 			url.PathEscape(subscriptionID),
 			url.PathEscape(resourceGroup),
 			azureComputeAPIVersion,
 		)
-		if statusOnly {
-			return path + "&$expand=instanceView"
-		}
-		return path
 	}
 
 	path := fmt.Sprintf("%s/subscriptions/%s/providers/Microsoft.Compute/virtualMachines?api-version=%s",
