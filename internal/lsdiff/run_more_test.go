@@ -30,3 +30,10 @@ func TestResolveTargetsRejectsMixedCommonAndExplicitArgs(t *testing.T) {
 		t.Fatalf("ResolveTargets() error = %v", err)
 	}
 }
+
+func TestResolveTargetsRejectsWhenNoSFTPTargetsMatch(t *testing.T) {
+	_, err := ResolveTargets(conf.Config{}, []string{"/etc/hosts"})
+	if err == nil || !strings.Contains(err.Error(), "no servers matched") {
+		t.Fatalf("ResolveTargets() error = %v", err)
+	}
+}

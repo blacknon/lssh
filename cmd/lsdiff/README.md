@@ -21,6 +21,8 @@ USAGE:
     lsdiff [options] remote_path | @host:/path...
 
 OPTIONS:
+    --host servername, -H servername    connect servername.
+    --list, -l                          print server list from config.
     --file filepath, -F filepath        config filepath. (default: "/Users/blacknon/.lssh.conf")
     --generate-lssh-conf ~/.ssh/config  print generated lssh config from OpenSSH config to stdout (~/.ssh/config by default).
     --help, -h                          print this help
@@ -46,10 +48,18 @@ USAGE:
 
 When you pass a single remote path like `/etc/hosts`, `lsdiff` opens the usual host selector and asks you to choose at least two hosts.
 It then fetches that same path from each host and aligns the content into a synchronized multi-pane diff view.
+If you already know the targets, you can skip the selector with repeated `-H`.
+`-l` prints only hosts that currently support `sftp_transport`, matching the actual compare target set.
 
 ```bash
 # select multiple hosts, compare the same remote path
 lsdiff /etc/hosts
+
+# compare the same path on specific hosts without opening the selector
+lsdiff -H web01 -H web02 /etc/hosts
+
+# show selectable hosts
+lsdiff -l
 ```
 
 ### compare explicit host and path pairs

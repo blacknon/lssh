@@ -9,6 +9,7 @@ import (
 	"os"
 	"sort"
 
+	"github.com/blacknon/lssh/internal/check"
 	"github.com/blacknon/lssh/internal/common"
 	conf "github.com/blacknon/lssh/internal/config"
 	"github.com/blacknon/lssh/internal/list"
@@ -54,6 +55,8 @@ USAGE:
 	app.Version = version.AppVersion(app.Name)
 
 	app.Flags = []cli.Flag{
+		cli.StringSliceFlag{Name: "host,H", Usage: "connect `servername`"},
+		cli.BoolFlag{Name: "list,l", Usage: "print server list from config"},
 		cli.StringFlag{Name: "file,F", Value: defConf, Usage: "config file path"},
 		cli.StringFlag{Name: "generate-lssh-conf", Usage: "print generated lssh config from OpenSSH config to stdout (`~/.ssh/config` by default)."},
 		cli.BoolFlag{Name: "auto-reconnect", Usage: "automatically reconnect disconnected hosts before commands"},
@@ -76,7 +79,7 @@ USAGE:
 			return controlMasterErr
 		}
 
-		// hosts := c.StringSlice("host")
+		hosts := c.StringSlice("host")
 		confpath := c.String("file")
 
 		if handled, err := conf.HandleGenerateConfigMode(c.String("generate-lssh-conf"), os.Stdout); handled {
@@ -90,37 +93,59 @@ USAGE:
 		}
 
 		// Get Server Name List (and sort List)
-		names := conf.GetNameList(data)
+		allNames := conf.GetNameList(data)
+		names := append([]string(nil), allNames...)
 		names, err = data.FilterServersByOperation(names, "sftp_transport")
 		if err != nil {
 			return err
 		}
 		sort.Strings(names)
 
-		// create select list
-		if len(names) == 0 {
-			fmt.Fprintln(os.Stderr, "No servers matched the current config conditions.")
-			os.Exit(1)
+		if c.Bool("list") {
+			fmt.Fprintln(os.Stdout, "lssh Server List:")
+			for _, name := range names {
+				fmt.Fprintf(os.Stdout, "  %s\n", name)
+			}
+			os.Exit(0)
 		}
 
-		l := new(list.ListInfo)
-		l.Prompt = "lsftp>>"
-		l.NameList = names
-		l.DataList = data
-		l.MultiFlag = true
-		l.View()
+		selected := []string{}
+		if len(hosts) > 0 {
+			filteredHosts, err := data.FilterServersByOperation(hosts, "sftp_transport")
+			if err != nil {
+				return err
+			}
+			if !check.ExistServer(hosts, allNames) {
+				fmt.Fprintln(os.Stderr, "Input Server not found from list.")
+				os.Exit(1)
+			}
+			if len(filteredHosts) != len(hosts) {
+				fmt.Fprintln(os.Stderr, "Input Server does not support SFTP-based transfer.")
+				os.Exit(1)
+			}
+			selected = hosts
+		} else {
+			if len(names) == 0 {
+				fmt.Fprintln(os.Stderr, "No servers matched the current config conditions.")
+				os.Exit(1)
+			}
 
-		// selected check
-		selected := l.SelectName
+			l := new(list.ListInfo)
+			l.Prompt = "lsftp>>"
+			l.NameList = names
+			l.DataList = data
+			l.MultiFlag = true
+			l.View()
 
-		// Check selected
-		if len(selected) == 0 {
-			fmt.Fprintln(os.Stderr, "Selection cancelled.")
-			os.Exit(1)
-		}
-		if selected[0] == "ServerName" {
-			fmt.Fprintln(os.Stderr, "Server not selected.")
-			os.Exit(1)
+			selected = l.SelectName
+			if len(selected) == 0 {
+				fmt.Fprintln(os.Stderr, "Selection cancelled.")
+				os.Exit(1)
+			}
+			if selected[0] == "ServerName" {
+				fmt.Fprintln(os.Stderr, "Server not selected.")
+				os.Exit(1)
+			}
 		}
 
 		// scp struct

@@ -5,6 +5,7 @@
 package mux
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"io"
@@ -104,6 +105,85 @@ func writerWithLog(outputWriter *io.PipeWriter, logWriter *terminalLogWriter) io
 		return outputWriter
 	}
 	return io.MultiWriter(outputWriter, logWriter)
+}
+
+type startupMarkerFilterWriter struct {
+	dst      io.Writer
+	marker   []byte
+	pending  []byte
+	stripped bool
+}
+
+func newStartupMarkerFilterWriter(dst io.Writer, marker string) *startupMarkerFilterWriter {
+	return &startupMarkerFilterWriter{
+		dst:    dst,
+		marker: []byte(marker),
+	}
+}
+
+func (w *startupMarkerFilterWriter) Write(p []byte) (int, error) {
+	if len(w.marker) == 0 || w.stripped {
+		_, err := w.dst.Write(p)
+		return len(p), err
+	}
+
+	w.pending = append(w.pending, p...)
+	if idx := bytes.Index(w.pending, w.marker); idx >= 0 {
+		end := idx + len(w.marker)
+		if end < len(w.pending) && w.pending[end] == '\r' {
+			end++
+		}
+		if end < len(w.pending) && w.pending[end] == '\n' {
+			end++
+		}
+
+		filtered := append([]byte{}, w.pending[:idx]...)
+		filtered = append(filtered, w.pending[end:]...)
+		w.pending = nil
+		w.stripped = true
+		if len(filtered) > 0 {
+			_, err := w.dst.Write(filtered)
+			return len(p), err
+		}
+		return len(p), nil
+	}
+
+	keep := len(w.marker) + 4
+	if len(w.pending) > keep {
+		flushLen := len(w.pending) - keep
+		if _, err := w.dst.Write(w.pending[:flushLen]); err != nil {
+			return len(p), err
+		}
+		w.pending = append([]byte{}, w.pending[flushLen:]...)
+	}
+
+	return len(p), nil
+}
+
+func (w *startupMarkerFilterWriter) Flush() error {
+	if len(w.pending) == 0 {
+		return nil
+	}
+	_, err := w.dst.Write(w.pending)
+	w.pending = nil
+	return err
+}
+
+func filterStartupMarkerReader(reader io.Reader, marker string) io.Reader {
+	if marker == "" {
+		return reader
+	}
+
+	pipeReader, pipeWriter := io.Pipe()
+	filter := newStartupMarkerFilterWriter(pipeWriter, marker)
+	go func() {
+		_, err := io.Copy(filter, reader)
+		if flushErr := filter.Flush(); err == nil {
+			err = flushErr
+		}
+		_ = pipeWriter.CloseWithError(err)
+	}()
+	return pipeReader
 }
 
 type terminalLogWriter struct {
@@ -297,6 +377,7 @@ func newConnectorRemoteSession(cfg conf.Config, server string, serverConf conf.S
 }
 
 func newSSHRemoteSession(cfg conf.Config, server string, serverConf conf.ServerConfig, notices []string, connect *sshlib.Connect, command []string, cols, rows int, forwardConf conf.ServerConfig) (*RemoteSession, error) {
+	startupMarker := ""
 	if len(forwardConf.Forwards) > 0 || forwardConf.DynamicPortForward != "" || forwardConf.HTTPDynamicPortForward != "" || forwardConf.ReverseDynamicPortForward != "" || forwardConf.HTTPReverseDynamicPortForward != "" || forwardConf.NFSReverseDynamicForwardPort != "" || forwardConf.SMBReverseDynamicForwardPort != "" {
 		if err := sshcmd.StartParallelForwards(connect, forwardConf); err != nil {
 			if connect.Client != nil {
@@ -324,6 +405,7 @@ func newSSHRemoteSession(cfg conf.Config, server string, serverConf conf.ServerC
 			serverConf.LocalRcCompress,
 			serverConf.LocalRcUncompressCmd,
 		)
+		startupMarker = sshcmd.InteractiveLocalRCStartupMarker()
 	}
 
 	terminal, err := connect.OpenTerminal(opts)
@@ -396,7 +478,7 @@ func newSSHRemoteSession(cfg conf.Config, server string, serverConf conf.ServerC
 		Terminal: terminal,
 		LogPath:  logPath,
 		Backend: tvxterm.NewStreamBackend(
-			outputReader,
+			filterStartupMarkerReader(outputReader, startupMarker),
 			terminal.Stdin,
 			dedupeResizeFunc(opts.Cols, opts.Rows, func(cols, rows int) error {
 				return terminal.Resize(cols, rows)

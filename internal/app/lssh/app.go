@@ -186,7 +186,7 @@ USAGE:
 
 		// Set `exec command` or `shell` flag
 		isMulti := false
-		if (len(c.Args()) > 0 || c.Bool("pshell")) && !c.Bool("not-execute") {
+		if len(c.Args()) > 0 && !c.Bool("not-execute") {
 			isMulti = true
 		}
 
@@ -488,8 +488,6 @@ USAGE:
 		r.Conf = data
 		r.ControlMasterOverride = controlMasterOverride
 		switch {
-		case c.Bool("pshell") == true && !c.Bool("not-execute"):
-			r.Mode = "pshell"
 		case len(c.Args()) > 0 && !c.Bool("not-execute"):
 			// Becomes a shell when not-execute is given.
 			r.Mode = "cmd"

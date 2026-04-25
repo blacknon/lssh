@@ -93,6 +93,29 @@ USAGE:
 			return err
 		}
 
+		// Get config data
+		data, err := conf.ReadWithFallback(confpath, os.Stderr)
+		if err != nil {
+			return err
+		}
+
+		// Get Server Name List (and sort List)
+		allNames := conf.GetNameList(data)
+		names := append([]string(nil), allNames...)
+		names, err = data.FilterServersByOperation(names, "sftp_transport")
+		if err != nil {
+			return err
+		}
+		sort.Strings(names)
+
+		if c.Bool("list") {
+			fmt.Fprintln(os.Stdout, "lssh Server List:")
+			for _, name := range names {
+				fmt.Fprintf(os.Stdout, "  %s\n", name)
+			}
+			os.Exit(0)
+		}
+
 		// check count args
 		if len(c.Args()) < 2 {
 			fmt.Fprintln(os.Stderr, "Too few arguments.")
@@ -120,21 +143,6 @@ USAGE:
 
 		// Check from and to Type
 		check.CheckTypeError(isFromInRemote, isFromInLocal, isToRemote, len(hosts))
-
-		// Get config data
-		data, err := conf.ReadWithFallback(confpath, os.Stderr)
-		if err != nil {
-			return err
-		}
-
-		// Get Server Name List (and sort List)
-		allNames := conf.GetNameList(data)
-		names := append([]string(nil), allNames...)
-		names, err = data.FilterServersByOperation(names, "sftp_transport")
-		if err != nil {
-			return err
-		}
-		sort.Strings(names)
 
 		selected := []string{}
 		toServer := []string{}
