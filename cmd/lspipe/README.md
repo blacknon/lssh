@@ -38,7 +38,7 @@ OPTIONS:
     --version, -v                            print the version
     
 VERSION:
-    lssh-suite 0.9.0 (alpha/sysadmin)
+    lssh-suite 0.9.1 (alpha/sysadmin)
     
 USAGE:
     # create default session from TUI
@@ -142,5 +142,5 @@ echo 'cat' > ~/.cache/lssh/lspipe/fifo/default/ops/web01.cmd
 - Windows supports normal `lspipe` session creation and command execution through the local TCP fallback.
 - `--mkfifo` creates `all.*` pipes plus one `host.*` set per host: `.cmd`, `.stdin`, `.out`.
 - Write stdin into `.stdin`, then write the remote command into `.cmd`; read the result from `.out`.
-- `--mkfifo` is currently Unix-only. Windows does not support the FIFO bridge workflow in `0.9.0`.
+- `--mkfifo` is currently Unix-only. Windows does not support the FIFO bridge workflow in `0.9.1`.
 - The default config search order is `~/.lssh.toml`, `~/.lssh.yaml`, `~/.lssh.yml`, then `~/.lssh.conf`.

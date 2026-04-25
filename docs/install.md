@@ -10,7 +10,7 @@ Prebuilt binaries are available on GitHub Releases.
 ### Linux (amd64, tar.gz)
 
 ```bash
-VERSION=0.9.0
+VERSION=0.9.1
 curl -fL -o /tmp/lssh.tar.gz \
   "https://github.com/blacknon/lssh/releases/download/v${VERSION}/lssh_${VERSION}_linux_amd64.tar.gz"
 sudo tar -xzf /tmp/lssh.tar.gz -C /tmp
@@ -20,7 +20,7 @@ sudo install -m 0755 /tmp/lssh_${VERSION}_linux_amd64/bin/* /usr/local/bin/
 ### Debian / Ubuntu (.deb)
 
 ```bash
-VERSION=0.9.0
+VERSION=0.9.1
 curl -fL -o /tmp/lssh.deb \
   "https://github.com/blacknon/lssh/releases/download/v${VERSION}/lssh_${VERSION}_amd64.deb"
 sudo apt install /tmp/lssh.deb
@@ -29,7 +29,7 @@ sudo apt install /tmp/lssh.deb
 ### RHEL / Fedora / Rocky / AlmaLinux (.rpm)
 
 ```bash
-VERSION=0.9.0
+VERSION=0.9.1
 curl -fL -o /tmp/lssh.rpm \
   "https://github.com/blacknon/lssh/releases/download/v${VERSION}/lssh-${VERSION}-1.x86_64.rpm"
 sudo dnf install -y /tmp/lssh.rpm
@@ -76,7 +76,7 @@ brew install blacknon/lssh/lssh
 - `lsshfs` uses a different local mount backend on each OS:
 - Linux: FUSE support and a working `fusermount`/FUSE setup are required.
 - macOS: `mount_nfs` is used locally, so the client must allow local NFS mounts.
-- Windows: `lsshfs` is not supported in `0.9.0`.
+- Windows: `lsshfs` is not supported in `0.9.1`.
 - The repository intentionally replaces `github.com/kevinburke/ssh_config` with the vendored fork at `./internal/ssh_config` so the generated config and parser behavior stay in sync with `lssh`.
 
 ## Shell completion

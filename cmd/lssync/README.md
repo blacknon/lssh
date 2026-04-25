@@ -38,7 +38,7 @@ COPYRIGHT:
     blacknon(blacknon@orebibou.com)
 
 VERSION:
-    lssh-suite 0.9.0 (beta/transfer)
+    lssh-suite 0.9.1 (beta/transfer)
 
 USAGE:
     # local to remote sync

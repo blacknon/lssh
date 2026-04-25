@@ -39,7 +39,7 @@ COPYRIGHT:
     blacknon(blacknon@orebibou.com)
 
 VERSION:
-    lssh-suite 0.9.0 (beta/monitor)
+    lssh-suite 0.9.1 (beta/monitor)
 
 USAGE:
     # connect parallel ssh monitoring command

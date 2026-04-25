@@ -30,12 +30,14 @@ OPTIONS:
     -m port:/path/to/local                      NFS Reverse Dynamic forward mode. Specify a port:/path/to/local.
     --hold                                      keep command panes after remote command exits.
     --allow-layout-change                       allow opening new pages/panes even in command mode.
-    --session name                             persistent mux session name.
-    --socket-path path                         socket path for persistent mux sessions.
-    --attach                                   attach to an existing persistent mux session.
-    --detach                                   create or keep a persistent mux session without attaching.
-    --list-sessions                            list persistent mux sessions.
-    --kill-session                             kill the named persistent mux session.
+    --localrc                                   use local bashrc shell.
+    --not-localrc                               not use local bashrc shell.
+    --session name                              persistent mux session name.
+    --socket-path path                          socket path for persistent mux session.
+    --attach                                    attach to an existing persistent mux session.
+    --detach                                    create or keep a persistent mux session without attaching.
+    --list-sessions                             list persistent mux sessions.
+    --kill-session                              kill the named persistent mux session.
     --enable-transfer                           enable file transfer UI even if disabled in config.
     --disable-transfer                          disable file transfer UI for this session.
     --list, -l                                  print server list from config.
@@ -45,7 +47,7 @@ OPTIONS:
     --version, -v                               print the version
 
 VERSION:
-    lssh-suite 0.9.0 (beta/sysadmin)
+    lssh-suite 0.9.1 (beta/sysadmin)
 
 USAGE:
     lsmux

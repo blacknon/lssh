@@ -10,6 +10,7 @@ import (
 	"net/netip"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/BurntSushi/toml"
@@ -744,10 +745,31 @@ func TestReadOpenSSHConfigSkipsMissingDefaultConfig(t *testing.T) {
 		},
 	}
 
-	cfg.ReadOpenSSHConfig()
+	if err := cfg.ReadOpenSSHConfig(); err != nil {
+		t.Fatalf("ReadOpenSSHConfig() error = %v", err)
+	}
 
 	if got := cfg.Server["vm-mng"].User; got != "admin" {
 		t.Fatalf("cfg.Server[vm-mng].User = %q, want %q", got, "admin")
+	}
+}
+
+func TestReadOpenSSHConfigReturnsConfiguredImportError(t *testing.T) {
+	cfg := Config{
+		Server: map[string]ServerConfig{},
+		SSHConfig: map[string]OpenSSHConfig{
+			"broken": {
+				Path: filepath.Join(t.TempDir(), "missing_config"),
+			},
+		},
+	}
+
+	err := cfg.ReadOpenSSHConfig()
+	if err == nil {
+		t.Fatal("ReadOpenSSHConfig() error = nil, want error")
+	}
+	if !strings.Contains(err.Error(), "no such file or directory") {
+		t.Fatalf("ReadOpenSSHConfig() error = %q, want missing file error", err)
 	}
 }
 
