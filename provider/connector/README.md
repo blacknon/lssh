@@ -9,6 +9,7 @@ If older discussion or notes use the spelling `connecter`, they refer to the sam
 Current prototype providers:
 
 - [`provider-connector-openssh`](./provider-connector-openssh/README.md)
+- [`provider-connector-psrp`](./provider-connector-psrp/README.md)
 - [`provider-connector-telnet`](./provider-connector-telnet/README.md)
 - [`provider-connector-winrm`](./provider-connector-winrm/README.md)
 
@@ -23,6 +24,7 @@ Some targets are not well described by ordinary SSH fields alone.
 
 Examples:
 
+- PSRP
 - WinRM
 - telnet
 - serial console
@@ -494,13 +496,13 @@ Recommended direction by cloud:
     - `ssh`
     - `bastion_ssh`
 - GCP
-  - `provider-inventory-gcp-compute`
+  - `provider-mixed-gcp-compute`
   - later `provider-connector-gcp-ssh`
     - direct SSH
     - OS Login SSH
     - IAP-backed SSH transport
 - Azure
-  - `provider-inventory-azure-compute`
+  - `provider-mixed-azure-compute`
   - later connector candidates:
     - `provider-connector-azure-run-command`
     - `provider-connector-azure-ssh`
@@ -822,7 +824,7 @@ Current fit:
 
 - no connector plugins exist yet
 - no connector methods are implemented in the repository today
-- only a placeholder `transport.prepare` constant exists in `internal/providerapi/protocol.go`
+- only a placeholder `transport.prepare` constant exists in `providerapi/protocol.go`
 
 Recommended migration:
 

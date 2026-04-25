@@ -11,20 +11,19 @@ import (
 	awsconfig "github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/service/ec2"
 	ec2types "github.com/aws/aws-sdk-go-v2/service/ec2/types"
-	"github.com/blacknon/lssh/internal/providerapi"
-	"github.com/blacknon/lssh/internal/providerbuiltin"
+	"github.com/blacknon/lssh/providerapi"
 )
 
 func main() {
-	req, err := providerbuiltin.ReadRequest()
+	req, err := providerapi.ReadRequest()
 	if err != nil {
-		_ = providerbuiltin.WriteError(err.Error())
+		_ = providerapi.WriteError(err.Error())
 		os.Exit(1)
 	}
 
 	switch req.Method {
 	case providerapi.MethodPluginDescribe:
-		_ = providerbuiltin.WriteResponse(req, providerapi.PluginDescribeResult{
+		_ = providerapi.WriteResponse(req, providerapi.PluginDescribeResult{
 			Name:            "provider-mixed-aws-ec2",
 			Capabilities:    []string{"inventory", "connector"},
 			ConnectorNames:  []string{"aws-ssm", "aws-eice"},
@@ -34,54 +33,54 @@ func main() {
 	case providerapi.MethodInventoryList:
 		var params providerapi.InventoryListParams
 		if err := decodeParams(req.Params, &params); err != nil {
-			_ = providerbuiltin.WriteErrorResponse(req, "invalid_params", err.Error())
+			_ = providerapi.WriteErrorResponse(req, "invalid_params", err.Error())
 			os.Exit(1)
 		}
 
 		servers, err := listAWS(params.Config)
 		if err != nil {
-			_ = providerbuiltin.WriteErrorResponse(req, "inventory_failed", err.Error())
+			_ = providerapi.WriteErrorResponse(req, "inventory_failed", err.Error())
 			os.Exit(1)
 		}
-		_ = providerbuiltin.WriteResponse(req, providerapi.InventoryListResult{Servers: servers}, nil)
+		_ = providerapi.WriteResponse(req, providerapi.InventoryListResult{Servers: servers}, nil)
 	case providerapi.MethodHealthCheck:
 		var params providerapi.HealthCheckParams
 		if err := decodeParams(req.Params, &params); err != nil {
-			_ = providerbuiltin.WriteErrorResponse(req, "invalid_params", err.Error())
+			_ = providerapi.WriteErrorResponse(req, "invalid_params", err.Error())
 			os.Exit(1)
 		}
 		result, err := awsHealthCheck(params.Config)
 		if err != nil {
-			_ = providerbuiltin.WriteErrorResponse(req, "health_check_failed", err.Error())
+			_ = providerapi.WriteErrorResponse(req, "health_check_failed", err.Error())
 			os.Exit(1)
 		}
-		_ = providerbuiltin.WriteResponse(req, result, nil)
+		_ = providerapi.WriteResponse(req, result, nil)
 	case providerapi.MethodConnectorDescribe:
 		var params providerapi.ConnectorDescribeParams
 		if err := decodeParams(req.Params, &params); err != nil {
-			_ = providerbuiltin.WriteErrorResponse(req, "invalid_params", err.Error())
+			_ = providerapi.WriteErrorResponse(req, "invalid_params", err.Error())
 			os.Exit(1)
 		}
 		result, err := awsConnectorDescribe(params)
 		if err != nil {
-			_ = providerbuiltin.WriteErrorResponse(req, "connector_describe_failed", err.Error())
+			_ = providerapi.WriteErrorResponse(req, "connector_describe_failed", err.Error())
 			os.Exit(1)
 		}
-		_ = providerbuiltin.WriteResponse(req, result, nil)
+		_ = providerapi.WriteResponse(req, result, nil)
 	case providerapi.MethodConnectorPrepare, providerapi.MethodTransportPrep:
 		var params providerapi.ConnectorPrepareParams
 		if err := decodeParams(req.Params, &params); err != nil {
-			_ = providerbuiltin.WriteErrorResponse(req, "invalid_params", err.Error())
+			_ = providerapi.WriteErrorResponse(req, "invalid_params", err.Error())
 			os.Exit(1)
 		}
 		result, err := awsConnectorPrepare(params)
 		if err != nil {
-			_ = providerbuiltin.WriteErrorResponse(req, "connector_prepare_failed", err.Error())
+			_ = providerapi.WriteErrorResponse(req, "connector_prepare_failed", err.Error())
 			os.Exit(1)
 		}
-		_ = providerbuiltin.WriteResponse(req, result, nil)
+		_ = providerapi.WriteResponse(req, result, nil)
 	default:
-		_ = providerbuiltin.WriteErrorResponse(req, "unsupported_method", fmt.Sprintf("unsupported method %q", req.Method))
+		_ = providerapi.WriteErrorResponse(req, "unsupported_method", fmt.Sprintf("unsupported method %q", req.Method))
 		os.Exit(1)
 	}
 }
@@ -95,21 +94,21 @@ func decodeParams(raw interface{}, out interface{}) error {
 }
 
 func listAWS(config map[string]interface{}) ([]providerapi.InventoryServer, error) {
-	regions := providerbuiltin.StringSlice(config, "regions")
+	regions := providerapi.StringSlice(config, "regions")
 	if len(regions) == 0 {
-		regions = []string{providerbuiltin.String(config, "region")}
+		regions = []string{providerapi.String(config, "region")}
 	}
 	if len(regions) == 0 || regions[0] == "" {
 		regions = []string{"us-east-1"}
 	}
 
-	includeTags := providerbuiltin.StringSlice(config, "include_tags")
+	includeTags := providerapi.StringSlice(config, "include_tags")
 	addrStrategy := awsAddrStrategy(config)
-	nameTemplate := providerbuiltin.String(config, "server_name_template")
+	nameTemplate := providerapi.String(config, "server_name_template")
 	if nameTemplate == "" {
 		nameTemplate = "aws:${tags.Name}"
 	}
-	noteTemplate := providerbuiltin.String(config, "note_template")
+	noteTemplate := providerapi.String(config, "note_template")
 
 	ctx := context.Background()
 	var out []providerapi.InventoryServer
@@ -186,7 +185,7 @@ func listAWS(config map[string]interface{}) ([]providerapi.InventoryServer, erro
 }
 
 func awsAddrStrategy(config map[string]interface{}) string {
-	switch strings.TrimSpace(strings.ToLower(providerbuiltin.String(config, "addr_strategy"))) {
+	switch strings.TrimSpace(strings.ToLower(providerapi.String(config, "addr_strategy"))) {
 	case "", "private_first":
 		return "private_first"
 	case "public_first":
@@ -223,22 +222,22 @@ func loadAWSConfig(ctx context.Context, raw map[string]interface{}, region strin
 	opts := []func(*awsconfig.LoadOptions) error{
 		awsconfig.WithRegion(region),
 	}
-	if profile := providerbuiltin.String(raw, "profile"); profile != "" {
+	if profile := providerapi.String(raw, "profile"); profile != "" {
 		opts = append(opts, awsconfig.WithSharedConfigProfile(profile))
 	}
-	if v := providerbuiltin.ExpandPaths(providerbuiltin.StringSlice(raw, "shared_config_files")); len(v) > 0 {
+	if v := providerapi.ExpandPaths(providerapi.StringSlice(raw, "shared_config_files")); len(v) > 0 {
 		opts = append(opts, awsconfig.WithSharedConfigFiles(v))
 	}
-	if v := providerbuiltin.ExpandPaths(providerbuiltin.StringSlice(raw, "shared_credentials_files")); len(v) > 0 {
+	if v := providerapi.ExpandPaths(providerapi.StringSlice(raw, "shared_credentials_files")); len(v) > 0 {
 		opts = append(opts, awsconfig.WithSharedCredentialsFiles(v))
 	}
 	return awsconfig.LoadDefaultConfig(ctx, opts...)
 }
 
 func awsHealthCheck(config map[string]interface{}) (providerapi.HealthCheckResult, error) {
-	regions := providerbuiltin.StringSlice(config, "regions")
+	regions := providerapi.StringSlice(config, "regions")
 	if len(regions) == 0 {
-		regions = []string{providerbuiltin.String(config, "region")}
+		regions = []string{providerapi.String(config, "region")}
 	}
 	if len(regions) == 0 || regions[0] == "" {
 		regions = []string{"us-east-1"}

@@ -8,8 +8,7 @@ import (
 	"strings"
 
 	onepassword "github.com/1password/onepassword-sdk-go"
-	"github.com/blacknon/lssh/internal/providerapi"
-	"github.com/blacknon/lssh/internal/providerbuiltin"
+	"github.com/blacknon/lssh/providerapi"
 )
 
 const (
@@ -19,19 +18,19 @@ const (
 )
 
 var runOnePasswordCLI = func(config map[string]interface{}, args ...string) ([]byte, error) {
-	return providerbuiltin.Run(onePasswordCLIPath(config), args...)
+	return providerapi.Run(onePasswordCLIPath(config), args...)
 }
 
 func main() {
-	req, err := providerbuiltin.ReadRequest()
+	req, err := providerapi.ReadRequest()
 	if err != nil {
-		_ = providerbuiltin.WriteError(err.Error())
+		_ = providerapi.WriteError(err.Error())
 		os.Exit(1)
 	}
 
 	switch req.Method {
 	case providerapi.MethodPluginDescribe:
-		_ = providerbuiltin.WriteResponse(req, providerapi.PluginDescribeResult{
+		_ = providerapi.WriteResponse(req, providerapi.PluginDescribeResult{
 			Name:            "provider-secret-onepassword",
 			Capabilities:    []string{"secret"},
 			Methods:         []string{providerapi.MethodPluginDescribe, providerapi.MethodHealthCheck, providerapi.MethodSecretGet},
@@ -40,30 +39,30 @@ func main() {
 	case providerapi.MethodSecretGet:
 		var params providerapi.SecretGetParams
 		if err := decodeParams(req.Params, &params); err != nil {
-			_ = providerbuiltin.WriteErrorResponse(req, "invalid_params", err.Error())
+			_ = providerapi.WriteErrorResponse(req, "invalid_params", err.Error())
 			os.Exit(1)
 		}
 
 		value, err := getSecret(params)
 		if err != nil {
-			_ = providerbuiltin.WriteErrorResponse(req, onePasswordProviderErrorCode(err, "secret_get_failed"), err.Error())
+			_ = providerapi.WriteErrorResponse(req, onePasswordProviderErrorCode(err, "secret_get_failed"), err.Error())
 			os.Exit(1)
 		}
-		_ = providerbuiltin.WriteResponse(req, providerapi.SecretGetResult{Value: value}, nil)
+		_ = providerapi.WriteResponse(req, providerapi.SecretGetResult{Value: value}, nil)
 	case providerapi.MethodHealthCheck:
 		var params providerapi.HealthCheckParams
 		if err := decodeParams(req.Params, &params); err != nil {
-			_ = providerbuiltin.WriteErrorResponse(req, "invalid_params", err.Error())
+			_ = providerapi.WriteErrorResponse(req, "invalid_params", err.Error())
 			os.Exit(1)
 		}
 		result, err := onePasswordHealthCheck(params.Config)
 		if err != nil {
-			_ = providerbuiltin.WriteErrorResponse(req, onePasswordProviderErrorCode(err, "health_check_failed"), err.Error())
+			_ = providerapi.WriteErrorResponse(req, onePasswordProviderErrorCode(err, "health_check_failed"), err.Error())
 			os.Exit(1)
 		}
-		_ = providerbuiltin.WriteResponse(req, result, nil)
+		_ = providerapi.WriteResponse(req, result, nil)
 	default:
-		_ = providerbuiltin.WriteErrorResponse(req, "unsupported_method", fmt.Sprintf("unsupported method %q", req.Method))
+		_ = providerapi.WriteErrorResponse(req, "unsupported_method", fmt.Sprintf("unsupported method %q", req.Method))
 		os.Exit(1)
 	}
 }
@@ -92,7 +91,7 @@ func getSecret(params providerapi.SecretGetParams) (string, error) {
 	case onePasswordAuthModeCLI:
 		return getSecretWithCLI(params.Config, params.Ref)
 	case onePasswordAuthModeAuto:
-		token, err := providerbuiltin.ResolveConfigValue(params.Config, "token")
+		token, err := providerapi.ResolveConfigValue(params.Config, "token")
 		if err != nil {
 			return "", err
 		}
@@ -146,7 +145,7 @@ func onePasswordHealthCheck(config map[string]interface{}) (providerapi.HealthCh
 			Message: "onepassword secret provider can use the op CLI session",
 		}, nil
 	case onePasswordAuthModeAuto:
-		token, err := providerbuiltin.ResolveConfigValue(config, "token")
+		token, err := providerapi.ResolveConfigValue(config, "token")
 		if err != nil {
 			return providerapi.HealthCheckResult{}, err
 		}
@@ -198,7 +197,7 @@ func getSecretWithCLI(config map[string]interface{}, ref string) (string, error)
 }
 
 func onePasswordToken(config map[string]interface{}) (string, error) {
-	token, err := providerbuiltin.ResolveConfigValue(config, "token")
+	token, err := providerapi.ResolveConfigValue(config, "token")
 	if err != nil {
 		return "", err
 	}
@@ -209,7 +208,7 @@ func onePasswordToken(config map[string]interface{}) (string, error) {
 }
 
 func onePasswordAuthMode(config map[string]interface{}) (string, error) {
-	mode := strings.ToLower(providerbuiltin.String(config, "auth_mode"))
+	mode := strings.ToLower(providerapi.String(config, "auth_mode"))
 	if mode == "" {
 		return onePasswordAuthModeAuto, nil
 	}
@@ -222,7 +221,7 @@ func onePasswordAuthMode(config map[string]interface{}) (string, error) {
 }
 
 func onePasswordCLIPath(config map[string]interface{}) string {
-	if path := providerbuiltin.String(config, "op_path"); path != "" {
+	if path := providerapi.String(config, "op_path"); path != "" {
 		return path
 	}
 	return "op"

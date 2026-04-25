@@ -8,7 +8,6 @@ import (
 	"testing"
 
 	conf "github.com/blacknon/lssh/internal/config"
-	"github.com/blacknon/lssh/internal/providerapi"
 )
 
 func TestConnectorLocalRCEnabledDefaultConfig(t *testing.T) {
@@ -30,37 +29,26 @@ func TestConnectorLocalRCEnabledRespectsLocalRCFlag(t *testing.T) {
 }
 
 func TestConnectorPlanSupportsLocalRCForAWSNativeOnly(t *testing.T) {
-	nativePlan := providerapi.ConnectorPlan{
-		Details: map[string]interface{}{
-			"connector":      "aws-ssm",
-			"shell_runtime":  "native",
-			"session_action": "start",
+	nativePlan := conf.PreparedConnector{
+		ManagedSSH: &conf.ConnectorManagedSSHPlan{
+			SupportsLocalRC: true,
 		},
 	}
-	if !connectorPlanSupportsLocalRC(nativePlan, "aws-ssm") {
+	if !connectorPlanSupportsLocalRC(nativePlan) {
 		t.Fatal("connectorPlanSupportsLocalRC(native aws-ssm) = false, want true")
 	}
 
-	pluginPlan := providerapi.ConnectorPlan{
-		Details: map[string]interface{}{
-			"connector":      "aws-ssm",
-			"shell_runtime":  "plugin",
-			"session_action": "start",
-		},
-	}
-	if connectorPlanSupportsLocalRC(pluginPlan, "aws-ssm") {
+	pluginPlan := conf.PreparedConnector{}
+	if connectorPlanSupportsLocalRC(pluginPlan) {
 		t.Fatal("connectorPlanSupportsLocalRC(plugin aws-ssm) = true, want false")
 	}
 
-	managedSSHPlan := providerapi.ConnectorPlan{
-		Kind: "provider-managed",
-		Details: map[string]interface{}{
-			"connector":   "gcp-iap",
-			"ssh_runtime": "sdk",
-			"transport":   "ssh_transport",
+	managedSSHPlan := conf.PreparedConnector{
+		ManagedSSH: &conf.ConnectorManagedSSHPlan{
+			SupportsLocalRC: true,
 		},
 	}
-	if !connectorPlanSupportsLocalRC(managedSSHPlan, "gcp-iap") {
+	if !connectorPlanSupportsLocalRC(managedSSHPlan) {
 		t.Fatal("connectorPlanSupportsLocalRC(managed ssh) = false, want true")
 	}
 }
@@ -145,44 +133,26 @@ func TestConnectorDynamicForwardSpecRejectsInvalidPort(t *testing.T) {
 	}
 }
 
-func TestAWSSSMDynamicDialNeedsPluginFallback(t *testing.T) {
-	if !awsSSMDynamicDialNeedsPluginFallback(providerapi.ConnectorPlan{
-		Details: map[string]interface{}{
-			"connector":    "aws-ssm",
-			"session_mode": "tcp-dial-transport",
-		},
-	}) {
-		t.Fatal("awsSSMDynamicDialNeedsPluginFallback() = false, want true for aws-ssm tcp-dial-transport")
-	}
-
-	if awsSSMDynamicDialNeedsPluginFallback(providerapi.ConnectorPlan{
-		Details: map[string]interface{}{
-			"connector":    "aws-ssm",
-			"session_mode": "port-forward-local",
-		},
-	}) {
-		t.Fatal("awsSSMDynamicDialNeedsPluginFallback() = true, want false for local port forward")
-	}
-}
-
 func TestConnectorForwardingSharesShellForAWSSSMDynamicOnly(t *testing.T) {
 	r := &Run{}
-	if !r.connectorForwardingSharesShell(conf.ServerConfig{DynamicPortForward: "11080"}, "aws-ssm") {
+	shared := conf.PreparedConnector{ManagedSSH: &conf.ConnectorManagedSSHPlan{ShareForwardingWithShell: true}}
+	notShared := conf.PreparedConnector{ManagedSSH: &conf.ConnectorManagedSSHPlan{}}
+	if !r.connectorForwardingSharesShell(conf.ServerConfig{DynamicPortForward: "11080"}, shared) {
 		t.Fatal("connectorForwardingSharesShell() = false, want true for aws-ssm dynamic forward")
 	}
-	if !r.connectorForwardingSharesShell(conf.ServerConfig{HTTPDynamicPortForward: "18080"}, "aws-ssm") {
+	if !r.connectorForwardingSharesShell(conf.ServerConfig{HTTPDynamicPortForward: "18080"}, shared) {
 		t.Fatal("connectorForwardingSharesShell() = false, want true for aws-ssm http dynamic forward")
 	}
-	if r.connectorForwardingSharesShell(conf.ServerConfig{DynamicPortForward: "11080"}, "winrm") {
+	if r.connectorForwardingSharesShell(conf.ServerConfig{DynamicPortForward: "11080"}, notShared) {
 		t.Fatal("connectorForwardingSharesShell() = true, want false for non aws-ssm connector")
 	}
 	if r.connectorForwardingSharesShell(conf.ServerConfig{
 		DynamicPortForward: "11080",
 		Forwards:           []*conf.PortForward{{Mode: "L", Local: "localhost:15432", Remote: "db.internal:5432"}},
-	}, "aws-ssm") {
+	}, shared) {
 		t.Fatal("connectorForwardingSharesShell() = true, want false when local forward is also configured")
 	}
-	if (&Run{IsNone: true}).connectorForwardingSharesShell(conf.ServerConfig{DynamicPortForward: "11080"}, "aws-ssm") {
+	if (&Run{IsNone: true}).connectorForwardingSharesShell(conf.ServerConfig{DynamicPortForward: "11080"}, shared) {
 		t.Fatal("connectorForwardingSharesShell() = true, want false with --not-execute")
 	}
 }

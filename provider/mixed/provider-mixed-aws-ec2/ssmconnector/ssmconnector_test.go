@@ -10,7 +10,7 @@ import (
 	"testing"
 
 	"github.com/aws/smithy-go"
-	"github.com/blacknon/lssh/internal/providerapi"
+	"github.com/blacknon/lssh/providerapi"
 )
 
 func TestBuildStartSessionCommand(t *testing.T) {

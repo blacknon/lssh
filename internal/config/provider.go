@@ -16,7 +16,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/blacknon/lssh/internal/providerapi"
+	"github.com/blacknon/lssh/providerapi"
 )
 
 func mergeProvidersConfig(base, override ProvidersConfig) ProvidersConfig {
@@ -390,7 +390,7 @@ func providerReservedKeys(raw map[string]interface{}) []string {
 		"match":                  {},
 	}
 
-	switch providerString(raw, "plugin") {
+	switch canonicalProviderPluginName(providerString(raw, "plugin")) {
 	case "provider-inventory-proxmox":
 		for _, key := range []string{
 			"host", "scheme", "port", "insecure",
@@ -413,14 +413,14 @@ func providerReservedKeys(raw map[string]interface{}) []string {
 		} {
 			keys[key] = struct{}{}
 		}
-	case "provider-inventory-gcp-compute":
+	case "provider-mixed-gcp-compute":
 		for _, key := range []string{
 			"project", "zone", "credentials_file", "endpoint", "scopes",
 			"server_name_template", "note_template", "iap_runtime",
 		} {
 			keys[key] = struct{}{}
 		}
-	case "provider-inventory-azure-compute":
+	case "provider-mixed-azure-compute":
 		for _, key := range []string{
 			"subscription_id",
 			"username", "user",
@@ -445,6 +445,46 @@ func providerReservedKeys(raw map[string]interface{}) []string {
 	return result
 }
 
+func canonicalProviderPluginName(plugin string) string {
+	switch plugin {
+	case "provider-inventory-gcp-compute":
+		return "provider-mixed-gcp-compute"
+	case "provider-inventory-azure-compute":
+		return "provider-mixed-azure-compute"
+	default:
+		return plugin
+	}
+}
+
+func providerExecutableCandidates(plugin string) []string {
+	names := []string{plugin}
+	if canonical := canonicalProviderPluginName(plugin); canonical != "" && canonical != plugin {
+		names = append(names, canonical)
+	}
+	switch plugin {
+	case "provider-mixed-gcp-compute":
+		names = append(names, "provider-inventory-gcp-compute")
+	case "provider-mixed-azure-compute":
+		names = append(names, "provider-inventory-azure-compute")
+	}
+
+	seen := map[string]struct{}{}
+	candidates := make([]string, 0, len(names)*2)
+	for _, name := range names {
+		if name == "" {
+			continue
+		}
+		for _, candidate := range []string{name, "lssh-provider-" + name} {
+			if _, ok := seen[candidate]; ok {
+				continue
+			}
+			seen[candidate] = struct{}{}
+			candidates = append(candidates, candidate)
+		}
+	}
+	return candidates
+}
+
 type providerInventoryMatchWhen struct {
 	NameIn        []string
 	NameNotIn     []string
@@ -452,6 +492,8 @@ type providerInventoryMatchWhen struct {
 	ProviderNotIn []string
 	MetaIn        []string
 	MetaNotIn     []string
+	MetaAllIn     []string
+	MetaAllNotIn  []string
 }
 
 type providerInventoryMatch struct {
@@ -556,6 +598,8 @@ func decodeProviderInventoryWhen(raw interface{}) (providerInventoryMatchWhen, e
 	when.ProviderNotIn = providerStringSlice(table, "provider_not_in")
 	when.MetaIn = providerStringSlice(table, "meta_in")
 	when.MetaNotIn = providerStringSlice(table, "meta_not_in")
+	when.MetaAllIn = providerStringSlice(table, "meta_all_in")
+	when.MetaAllNotIn = providerStringSlice(table, "meta_all_not_in")
 
 	// Backward-compatible fallback for the older nested form.
 	if nested, ok := table["when"]; ok {
@@ -580,6 +624,12 @@ func decodeProviderInventoryWhen(raw interface{}) (providerInventoryMatchWhen, e
 		}
 		if len(when.MetaNotIn) == 0 {
 			when.MetaNotIn = nestedWhen.MetaNotIn
+		}
+		if len(when.MetaAllIn) == 0 {
+			when.MetaAllIn = nestedWhen.MetaAllIn
+		}
+		if len(when.MetaAllNotIn) == 0 {
+			when.MetaAllNotIn = nestedWhen.MetaAllNotIn
 		}
 	}
 
@@ -610,6 +660,8 @@ func providerInventoryMatchExtraConfig(branchMap map[string]interface{}) map[str
 		"provider_not_in": {},
 		"meta_in":         {},
 		"meta_not_in":     {},
+		"meta_all_in":     {},
+		"meta_all_not_in": {},
 		"note_template":   {},
 		"note_append":     {},
 		"priority":        {},
@@ -678,6 +730,12 @@ func providerInventoryMatchApplies(when providerInventoryMatchWhen, providerName
 	if !matchMetaRules(meta, when.MetaNotIn, true) {
 		return false
 	}
+	if !matchMetaRulesAll(meta, when.MetaAllIn, false) {
+		return false
+	}
+	if !matchMetaRulesAll(meta, when.MetaAllNotIn, true) {
+		return false
+	}
 	return true
 }
 
@@ -721,6 +779,31 @@ func matchMetaRules(meta map[string]string, rules []string, negative bool) bool 
 		return !matched
 	}
 	return matched
+}
+
+func matchMetaRulesAll(meta map[string]string, rules []string, negative bool) bool {
+	if len(rules) == 0 {
+		return true
+	}
+
+	matchedAll := true
+	for _, rule := range rules {
+		parts := strings.SplitN(rule, "=", 2)
+		if len(parts) != 2 {
+			matchedAll = false
+			break
+		}
+		value := meta[parts[0]]
+		ok, err := path.Match(parts[1], value)
+		if err != nil || !ok {
+			matchedAll = false
+			break
+		}
+	}
+	if negative {
+		return !matchedAll
+	}
+	return matchedAll
 }
 
 func providerEnabled(raw map[string]interface{}) bool {
@@ -969,7 +1052,7 @@ func parseSecretRef(ref string) (string, string, error) {
 }
 
 func resolveProviderExecutable(global ProvidersConfig, plugin string) (string, error) {
-	candidates := []string{plugin, "lssh-provider-" + plugin}
+	candidates := providerExecutableCandidates(plugin)
 	paths := providerSearchPaths(global)
 	if strings.Contains(plugin, string(filepath.Separator)) {
 		full := expandProviderPath(plugin)

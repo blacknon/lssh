@@ -8,7 +8,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/blacknon/lssh/internal/providerapi"
+	"github.com/blacknon/lssh/providerapi"
 	"github.com/blacknon/lssh/provider/connector/tunnelcmd"
 )
 

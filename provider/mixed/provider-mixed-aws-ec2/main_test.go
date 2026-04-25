@@ -5,7 +5,7 @@ import (
 	"testing"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
-	"github.com/blacknon/lssh/internal/providerapi"
+	"github.com/blacknon/lssh/providerapi"
 )
 
 func TestAWSConnectorDescribeSupported(t *testing.T) {

@@ -12,13 +12,31 @@ import (
 
 	"github.com/blacknon/go-sshlib"
 	conf "github.com/blacknon/lssh/internal/config"
-	"github.com/blacknon/lssh/internal/providerapi"
 	"github.com/pkg/sftp"
 	"golang.org/x/net/proxy"
 )
 
 type connectorContextDialer struct {
 	dial func(ctx context.Context, network, addr string) (net.Conn, error)
+}
+
+type connectorManagedSSHNetConn struct {
+	net.Conn
+	closeResource io.Closer
+}
+
+func (c *connectorManagedSSHNetConn) Close() error {
+	var closeErr error
+	if c.Conn != nil {
+		closeErr = c.Conn.Close()
+	}
+	if c.closeResource != nil {
+		if err := c.closeResource.Close(); closeErr == nil {
+			closeErr = err
+		}
+		c.closeResource = nil
+	}
+	return closeErr
 }
 
 func (d connectorContextDialer) Dial(network, addr string) (net.Conn, error) {
@@ -29,19 +47,8 @@ func (d connectorContextDialer) DialContext(ctx context.Context, network, addr s
 	return d.dial(ctx, network, addr)
 }
 
-func connectorManagedSSHRuntime(plan providerapi.ConnectorPlan, connectorName string) bool {
-	if plan.Kind != "provider-managed" {
-		return false
-	}
-	if detailString(plan.Details, "ssh_runtime") != "sdk" {
-		return false
-	}
-	transport := detailString(plan.Details, "transport")
-	return transport == "ssh_transport" || connectorName == "aws-ssm" && detailString(plan.Details, "shell_runtime") == "native"
-}
-
-func IsConnectorManagedSSHRuntime(plan providerapi.ConnectorPlan, connectorName string) bool {
-	return connectorManagedSSHRuntime(plan, connectorName)
+func IsConnectorManagedSSHRuntime(prepared conf.PreparedConnector) bool {
+	return prepared.ManagedSSH != nil
 }
 
 func (r *Run) connectorManagedDialer(server string) (proxy.ContextDialer, error) {
@@ -93,22 +100,40 @@ func (r *Run) createConnectorManagedSSHConnect(server string, config conf.Server
 	return connect, nil
 }
 
+func (r *Run) dialConnectorManagedSSHTarget(ctx context.Context, server, network, addr string) (net.Conn, error) {
+	config := r.effectiveServerConfig(server, true)
+	connect, err := r.createConnectorManagedSSHConnect(server, config)
+	if err != nil {
+		return nil, err
+	}
+
+	conn, err := connect.Client.DialContext(ctx, network, addr)
+	if err != nil {
+		_ = connect.Close()
+		return nil, err
+	}
+
+	return &connectorManagedSSHNetConn{
+		Conn:          conn,
+		closeResource: connect,
+	}, nil
+}
+
 func (r *Run) CreateConnectorManagedSSHConnectDirect(server string) (*sshlib.Connect, error) {
 	connectorName := r.Conf.ServerConnectorName(server)
 	if connectorName == "" || connectorName == "ssh" {
 		return nil, fmt.Errorf("server %q does not use an external connector", server)
 	}
 
-	prepared, err := r.Conf.PrepareConnector(server, providerapi.ConnectorOperation{Name: "shell"})
+	prepared, err := r.prepareConnectorOperation(server, conf.ConnectorOperation{Name: "shell"})
 	if err != nil {
 		return nil, err
 	}
-	planConnector := connectorNameFromPlan(prepared.Plan, connectorName)
 	if !prepared.Supported {
-		return nil, fmt.Errorf("server %q connector %q: %v", server, planConnector, prepared.Plan.Details["reason"])
+		return nil, fmt.Errorf("server %q connector %q: %v", server, prepared.ConnectorName, prepared.Reason)
 	}
-	if !connectorManagedSSHRuntime(prepared.Plan, planConnector) {
-		return nil, fmt.Errorf("server %q connector %q does not provide managed ssh transport", server, planConnector)
+	if prepared.ManagedSSH == nil {
+		return nil, fmt.Errorf("server %q connector %q does not provide managed ssh transport", server, prepared.ConnectorName)
 	}
 
 	return r.createConnectorManagedSSHConnect(server, r.effectiveServerConfig(server, true))

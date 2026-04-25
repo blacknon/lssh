@@ -8,20 +8,19 @@ import (
 	"runtime"
 	"strings"
 
-	"github.com/blacknon/lssh/internal/providerapi"
-	"github.com/blacknon/lssh/internal/providerbuiltin"
+	"github.com/blacknon/lssh/providerapi"
 )
 
 func main() {
-	req, err := providerbuiltin.ReadRequest()
+	req, err := providerapi.ReadRequest()
 	if err != nil {
-		_ = providerbuiltin.WriteError(err.Error())
+		_ = providerapi.WriteError(err.Error())
 		os.Exit(1)
 	}
 
 	switch req.Method {
 	case providerapi.MethodPluginDescribe:
-		_ = providerbuiltin.WriteResponse(req, providerapi.PluginDescribeResult{
+		_ = providerapi.WriteResponse(req, providerapi.PluginDescribeResult{
 			Name:            "provider-secret-os-keychain",
 			Capabilities:    []string{"secret"},
 			Methods:         []string{providerapi.MethodPluginDescribe, providerapi.MethodHealthCheck, providerapi.MethodSecretGet},
@@ -30,31 +29,31 @@ func main() {
 	case providerapi.MethodSecretGet:
 		var params providerapi.SecretGetParams
 		if err := decodeParams(req.Params, &params); err != nil {
-			_ = providerbuiltin.WriteErrorResponse(req, "invalid_params", err.Error())
+			_ = providerapi.WriteErrorResponse(req, "invalid_params", err.Error())
 			os.Exit(1)
 		}
 
 		service, account, err := parseKeychainRef(params.Ref)
 		if err != nil {
-			_ = providerbuiltin.WriteErrorResponse(req, "invalid_ref", err.Error())
+			_ = providerapi.WriteErrorResponse(req, "invalid_ref", err.Error())
 			os.Exit(1)
 		}
 
-		output, err := providerbuiltin.Run("security", "find-generic-password", "-s", service, "-a", account, "-w")
+		output, err := providerapi.Run("security", "find-generic-password", "-s", service, "-a", account, "-w")
 		if err != nil {
-			_ = providerbuiltin.WriteErrorResponse(req, "secret_get_failed", err.Error())
+			_ = providerapi.WriteErrorResponse(req, "secret_get_failed", err.Error())
 			os.Exit(1)
 		}
-		_ = providerbuiltin.WriteResponse(req, providerapi.SecretGetResult{Value: strings.TrimSpace(string(output)), Type: "password"}, nil)
+		_ = providerapi.WriteResponse(req, providerapi.SecretGetResult{Value: strings.TrimSpace(string(output)), Type: "password"}, nil)
 	case providerapi.MethodHealthCheck:
 		result, err := keychainHealthCheck()
 		if err != nil {
-			_ = providerbuiltin.WriteErrorResponse(req, "health_check_failed", err.Error())
+			_ = providerapi.WriteErrorResponse(req, "health_check_failed", err.Error())
 			os.Exit(1)
 		}
-		_ = providerbuiltin.WriteResponse(req, result, nil)
+		_ = providerapi.WriteResponse(req, result, nil)
 	default:
-		_ = providerbuiltin.WriteErrorResponse(req, "unsupported_method", fmt.Sprintf("unsupported method %q", req.Method))
+		_ = providerapi.WriteErrorResponse(req, "unsupported_method", fmt.Sprintf("unsupported method %q", req.Method))
 		os.Exit(1)
 	}
 }

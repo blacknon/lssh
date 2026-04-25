@@ -3,7 +3,7 @@ package main
 import (
 	"testing"
 
-	"github.com/blacknon/lssh/internal/providerapi"
+	"github.com/blacknon/lssh/providerapi"
 )
 
 func TestTelnetDescribe(t *testing.T) {

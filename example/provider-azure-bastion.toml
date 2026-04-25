@@ -1,10 +1,10 @@
 # Example: Azure Bastion
 
 [providers]
-paths = ["~/.config/lssh/providers/provider-inventory-azure-compute"]
+paths = ["~/.config/lssh/providers/provider-mixed-azure-compute"]
 
 [provider.azure]
-plugin = "provider-inventory-azure-compute"
+plugin = "provider-mixed-azure-compute"
 enabled = true
 capabilities = ["inventory", "connector"]
 subscription_id = "00000000-0000-0000-0000-000000000000"

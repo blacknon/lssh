@@ -5,7 +5,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/blacknon/lssh/internal/providerapi"
+	"github.com/blacknon/lssh/providerapi"
 )
 
 func TestBitwardenAuthMode(t *testing.T) {

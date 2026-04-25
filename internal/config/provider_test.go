@@ -9,7 +9,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/blacknon/lssh/internal/providerapi"
+	"github.com/blacknon/lssh/providerapi"
 )
 
 func TestReadInventoryProviders(t *testing.T) {
@@ -304,6 +304,47 @@ connector_name = "winrm"
 	server := cfg.Server["aws:win-1"]
 	if server.ConnectorName != "winrm" {
 		t.Fatalf("connector_name = %q, want winrm", server.ConnectorName)
+	}
+}
+
+func TestReadInventoryProvidersMatchMetaAllInRequiresAllRules(t *testing.T) {
+	dir := t.TempDir()
+	providerPath := filepath.Join(dir, "lssh-provider-fake-inventory")
+	script := `#!/bin/sh
+cat >/dev/null
+printf '%s' '{"version":"v1","result":{"servers":[{"name":"azure:win-1","config":{"addr":"10.0.0.12"},"meta":{"tag.Connector":"direct-winrm","os_type":"windows"}},{"name":"azure:linux-1","config":{"addr":"10.0.0.13"},"meta":{"tag.Connector":"direct-winrm","os_type":"linux"}}]}}'
+`
+	if err := os.WriteFile(providerPath, []byte(script), 0o755); err != nil {
+		t.Fatalf("write provider: %v", err)
+	}
+
+	configPath := filepath.Join(dir, "lssh.toml")
+	body := `
+[providers]
+paths = ["` + providerPath + `"]
+
+[common]
+user = "tester"
+key = "~/.ssh/test"
+
+[provider.azure]
+plugin = "lssh-provider-fake-inventory"
+capabilities = ["inventory"]
+
+[provider.azure.match.windows]
+meta_all_in = ["tag.Connector=direct-winrm", "os_type=windows"]
+connector_name = "winrm"
+`
+	if err := os.WriteFile(configPath, []byte(body), 0o600); err != nil {
+		t.Fatalf("write config: %v", err)
+	}
+
+	cfg := Read(configPath)
+	if got := cfg.Server["azure:win-1"].ConnectorName; got != "winrm" {
+		t.Fatalf("connector_name for windows host = %q, want winrm", got)
+	}
+	if got := cfg.Server["azure:linux-1"].ConnectorName; got != "" {
+		t.Fatalf("connector_name for linux host = %q, want empty", got)
 	}
 }
 
@@ -826,6 +867,47 @@ printf '%s' '{"version":"v1","result":{"servers":[{"name":"azure:vm1","config":{
 	}
 }
 
+func TestProviderReservedKeysSupportsMixedProviderAliases(t *testing.T) {
+	gcpKeys := providerReservedKeys(map[string]interface{}{
+		"plugin": "provider-mixed-gcp-compute",
+	})
+	if !containsString(gcpKeys, "iap_runtime") {
+		t.Fatalf("providerReservedKeys(gcp mixed) missing iap_runtime: %#v", gcpKeys)
+	}
+
+	azureKeys := providerReservedKeys(map[string]interface{}{
+		"plugin": "provider-mixed-azure-compute",
+	})
+	if !containsString(azureKeys, "bastion_runtime") {
+		t.Fatalf("providerReservedKeys(azure mixed) missing bastion_runtime: %#v", azureKeys)
+	}
+}
+
+func TestResolveProviderExecutableSupportsMixedProviderAliases(t *testing.T) {
+	dir := t.TempDir()
+	legacyPath := filepath.Join(dir, "provider-inventory-gcp-compute")
+	if err := os.WriteFile(legacyPath, []byte("#!/bin/sh\nexit 0\n"), 0o755); err != nil {
+		t.Fatalf("write provider: %v", err)
+	}
+
+	got, err := resolveProviderExecutable(ProvidersConfig{Paths: []string{dir}}, "provider-mixed-gcp-compute")
+	if err != nil {
+		t.Fatalf("resolveProviderExecutable() error = %v", err)
+	}
+	if got != legacyPath {
+		t.Fatalf("resolveProviderExecutable() = %q, want %q", got, legacyPath)
+	}
+}
+
+func containsString(values []string, want string) bool {
+	for _, value := range values {
+		if value == want {
+			return true
+		}
+	}
+	return false
+}
+
 func TestApplyProviderInventoryMatchesNoteTemplate(t *testing.T) {
 	base := ServerConfig{Note: "base-note"}
 	matches := []providerInventoryMatch{
@@ -850,6 +932,23 @@ func TestApplyProviderInventoryMatchesNoteTemplate(t *testing.T) {
 	want := "base-note [proxmox:sv-pve01:running] -> pve:sv-pve01:vm1"
 	if got.Note != want {
 		t.Fatalf("note = %q, want %q", got.Note, want)
+	}
+}
+
+func TestProviderInventoryMatchMetaRulesAll(t *testing.T) {
+	meta := map[string]string{
+		"tag.Connector": "direct-winrm",
+		"os_type":       "windows",
+	}
+
+	if !matchMetaRulesAll(meta, []string{"tag.Connector=direct-winrm", "os_type=windows"}, false) {
+		t.Fatal("matchMetaRulesAll() = false, want true when all rules match")
+	}
+	if matchMetaRulesAll(meta, []string{"tag.Connector=direct-winrm", "os_type=linux"}, false) {
+		t.Fatal("matchMetaRulesAll() = true, want false when one rule does not match")
+	}
+	if !matchMetaRulesAll(meta, []string{"tag.Connector=direct-winrm", "os_type=linux"}, true) {
+		t.Fatal("matchMetaRulesAll(negative) = false, want true when not all rules match")
 	}
 }
 

@@ -6,21 +6,20 @@ import (
 	"os"
 	"strings"
 
-	"github.com/blacknon/lssh/internal/providerapi"
-	"github.com/blacknon/lssh/internal/providerbuiltin"
+	"github.com/blacknon/lssh/providerapi"
 	"github.com/blacknon/lssh/provider/connector/provider-connector-winrm/winrmlib"
 )
 
 func main() {
-	req, err := providerbuiltin.ReadRequest()
+	req, err := providerapi.ReadRequest()
 	if err != nil {
-		_ = providerbuiltin.WriteError(err.Error())
+		_ = providerapi.WriteError(err.Error())
 		os.Exit(1)
 	}
 
 	switch req.Method {
 	case providerapi.MethodPluginDescribe:
-		_ = providerbuiltin.WriteResponse(req, providerapi.PluginDescribeResult{
+		_ = providerapi.WriteResponse(req, providerapi.PluginDescribeResult{
 			Name:            "provider-connector-winrm",
 			Capabilities:    []string{"connector"},
 			ConnectorNames:  []string{"winrm"},
@@ -30,41 +29,41 @@ func main() {
 	case providerapi.MethodHealthCheck:
 		var params providerapi.HealthCheckParams
 		if err := decodeParams(req.Params, &params); err != nil {
-			_ = providerbuiltin.WriteErrorResponse(req, "invalid_params", err.Error())
+			_ = providerapi.WriteErrorResponse(req, "invalid_params", err.Error())
 			os.Exit(1)
 		}
 		result, err := winrmHealthCheck(params.Config)
 		if err != nil {
-			_ = providerbuiltin.WriteErrorResponse(req, "health_check_failed", err.Error())
+			_ = providerapi.WriteErrorResponse(req, "health_check_failed", err.Error())
 			os.Exit(1)
 		}
-		_ = providerbuiltin.WriteResponse(req, result, nil)
+		_ = providerapi.WriteResponse(req, result, nil)
 	case providerapi.MethodConnectorDescribe:
 		var params providerapi.ConnectorDescribeParams
 		if err := decodeParams(req.Params, &params); err != nil {
-			_ = providerbuiltin.WriteErrorResponse(req, "invalid_params", err.Error())
+			_ = providerapi.WriteErrorResponse(req, "invalid_params", err.Error())
 			os.Exit(1)
 		}
 		result, err := winrmDescribe(params)
 		if err != nil {
-			_ = providerbuiltin.WriteErrorResponse(req, "connector_describe_failed", err.Error())
+			_ = providerapi.WriteErrorResponse(req, "connector_describe_failed", err.Error())
 			os.Exit(1)
 		}
-		_ = providerbuiltin.WriteResponse(req, result, nil)
+		_ = providerapi.WriteResponse(req, result, nil)
 	case providerapi.MethodConnectorPrepare, providerapi.MethodTransportPrep:
 		var params providerapi.ConnectorPrepareParams
 		if err := decodeParams(req.Params, &params); err != nil {
-			_ = providerbuiltin.WriteErrorResponse(req, "invalid_params", err.Error())
+			_ = providerapi.WriteErrorResponse(req, "invalid_params", err.Error())
 			os.Exit(1)
 		}
 		result, err := winrmPrepare(params)
 		if err != nil {
-			_ = providerbuiltin.WriteErrorResponse(req, "connector_prepare_failed", err.Error())
+			_ = providerapi.WriteErrorResponse(req, "connector_prepare_failed", err.Error())
 			os.Exit(1)
 		}
-		_ = providerbuiltin.WriteResponse(req, result, nil)
+		_ = providerapi.WriteResponse(req, result, nil)
 	default:
-		_ = providerbuiltin.WriteErrorResponse(req, "unsupported_method", fmt.Sprintf("unsupported method %q", req.Method))
+		_ = providerapi.WriteErrorResponse(req, "unsupported_method", fmt.Sprintf("unsupported method %q", req.Method))
 		os.Exit(1)
 	}
 }
@@ -78,7 +77,7 @@ func decodeParams(raw interface{}, out interface{}) error {
 }
 
 func winrmHealthCheck(config map[string]interface{}) (providerapi.HealthCheckResult, error) {
-	if providerbuiltin.String(config, "addr") != "" {
+	if providerapi.String(config, "addr") != "" {
 		if _, err := winrmlib.ConfigFromMaps(config, nil); err != nil {
 			return providerapi.HealthCheckResult{}, err
 		}
@@ -90,9 +89,9 @@ func winrmHealthCheck(config map[string]interface{}) (providerapi.HealthCheckRes
 }
 
 func winrmDescribe(params providerapi.ConnectorDescribeParams) (providerapi.ConnectorDescribeResult, error) {
-	addr := providerbuiltin.String(params.Target.Config, "addr")
+	addr := providerapi.String(params.Target.Config, "addr")
 	if addr == "" {
-		addr = providerbuiltin.String(params.Config, "addr")
+		addr = providerapi.String(params.Config, "addr")
 	}
 	shellSupported := addr != "" && winrmInteractiveShellEnabled(params.Config, params.Target)
 	execSupported := addr != ""
@@ -206,10 +205,10 @@ func winrmPrepare(params providerapi.ConnectorPrepareParams) (providerapi.Connec
 }
 
 func winrmTransport(config map[string]interface{}, target providerapi.ConnectorTarget) string {
-	if transport := providerbuiltin.String(target.Config, "transport"); transport != "" {
+	if transport := providerapi.String(target.Config, "transport"); transport != "" {
 		return strings.ToLower(transport)
 	}
-	if transport := providerbuiltin.String(config, "transport"); transport != "" {
+	if transport := providerapi.String(config, "transport"); transport != "" {
 		return strings.ToLower(transport)
 	}
 	if winrmBool(target.Config, "insecure") || winrmBool(config, "insecure") {
@@ -226,7 +225,7 @@ func winrmInteractiveShellEnabled(config map[string]interface{}, target provider
 }
 
 func winrmBool(raw map[string]interface{}, key string) bool {
-	switch strings.ToLower(providerbuiltin.String(raw, key)) {
+	switch strings.ToLower(providerapi.String(raw, key)) {
 	case "1", "true", "yes", "on":
 		return true
 	default:

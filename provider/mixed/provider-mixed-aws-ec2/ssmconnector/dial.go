@@ -10,7 +10,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/blacknon/lssh/internal/providerapi"
+	"github.com/blacknon/lssh/providerapi"
 )
 
 type PortForwardDialConfig struct {

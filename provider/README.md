@@ -4,9 +4,10 @@ Provider
 ## About
 
 The `provider` directory contains external provider implementations used by `lssh`.
-Providers are grouped by capability:
+Providers are grouped by capability or implementation style:
 
 - [`inventory`](./inventory/README.md): generate `server` entries from cloud or API inventories
+- [`mixed`](./mixed/README.md): multi-capability providers that combine inventory with connector behavior
 - [`connector`](./connector/README.md): define or mediate how a resolved `server` can actually be connected
 - [`secret`](./secret/README.md): resolve `*_ref` values just before connect
 
@@ -378,7 +379,8 @@ Missing or partial pieces today:
 Current plugins:
 
 - `provider-mixed-aws-ec2`
-- `provider-inventory-gcp-compute`
+- `provider-mixed-azure-compute`
+- `provider-mixed-gcp-compute`
 - `provider-inventory-proxmox`
 
 Planned connector-oriented plugins or families:

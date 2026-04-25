@@ -153,6 +153,19 @@ func TestBuildStartupCommandAddsMarker(t *testing.T) {
 	}
 }
 
+func TestBuildStartupCommandWithoutMarkerKeepsWrapperHidden(t *testing.T) {
+	got := BuildStartupCommand("stty size", "")
+	if strings.Contains(got, StartupEchoMarker()) {
+		t.Fatalf("BuildStartupCommand() = %q, want no startup marker in command", got)
+	}
+	if !strings.Contains(got, "sh -c 'stty size'") {
+		t.Fatalf("BuildStartupCommand() = %q, want wrapped command", got)
+	}
+	if !strings.Contains(got, "stty echo 2>/dev/null || true") {
+		t.Fatalf("BuildStartupCommand() = %q, want terminal echo restore", got)
+	}
+}
+
 func TestNormalizeInteractiveInputPayload(t *testing.T) {
 	tests := []struct {
 		name string
@@ -284,6 +297,32 @@ func TestHandleHandshakeRequestAcceptsPortSession(t *testing.T) {
 	}
 	if session.sessionType != sessionTypePort {
 		t.Fatalf("session.sessionType = %q, want %q", session.sessionType, sessionTypePort)
+	}
+}
+
+func TestHandleHandshakeRequestAcceptsInteractiveCommandSession(t *testing.T) {
+	session := New(Config{})
+	session.conn = &wsConn{conn: discardConn{}}
+
+	requestBody, err := json.Marshal(handshakeRequestPayload{
+		RequestedClientActions: []requestedClientAction{
+			{
+				ActionType: "SessionType",
+				ActionParameters: mustMarshalJSON(t, sessionTypeRequest{
+					SessionType: sessionTypeCommand,
+				}),
+			},
+		},
+	})
+	if err != nil {
+		t.Fatalf("Marshal(handshakeRequestPayload) error = %v", err)
+	}
+
+	if err := session.handleHandshakeRequest(requestBody); err != nil {
+		t.Fatalf("handleHandshakeRequest() error = %v", err)
+	}
+	if session.sessionType != sessionTypeCommand {
+		t.Fatalf("session.sessionType = %q, want %q", session.sessionType, sessionTypeCommand)
 	}
 }
 
