@@ -5,6 +5,7 @@
 package mux
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"os"
@@ -21,6 +22,7 @@ import (
 	conf "github.com/blacknon/lssh/internal/config"
 	sshcmd "github.com/blacknon/lssh/internal/ssh"
 	"github.com/blacknon/lssh/internal/termenv"
+	"github.com/blacknon/lssh/providerapi"
 	"github.com/blacknon/tvxterm"
 	"github.com/creack/pty"
 	"github.com/kballard/go-shellquote"
@@ -283,6 +285,11 @@ func newConnectorRemoteSession(cfg conf.Config, server string, serverConf conf.S
 			return nil, err
 		}
 		return newSSHRemoteSession(cfg, server, serverConf, notices, connect, command, cols, rows, conf.ServerConfig{})
+	case prepared.ProviderManagedPlan != nil:
+		if len(command) == 0 {
+			return newProviderManagedShellRemoteSession(cfg, server, serverConf, notices, *prepared.ProviderManagedPlan, cols, rows)
+		}
+		return newProviderManagedExecRemoteSession(cfg, server, serverConf, notices, *prepared.ProviderManagedPlan, cols, rows)
 	default:
 		return nil, fmt.Errorf("server %q connector %q returned unsupported plan kind %q", server, prepared.ConnectorName, prepared.PlanKind)
 	}
@@ -595,6 +602,145 @@ func newCommandExecRemoteSession(cfg conf.Config, server string, serverConf conf
 	}, nil
 }
 
+func newProviderManagedShellRemoteSession(cfg conf.Config, server string, serverConf conf.ServerConfig, notices []string, plan providerapi.ConnectorPlan, cols, rows int) (*RemoteSession, error) {
+	startupCommand := ""
+	startupMarker := ""
+	if serverConf.LocalRcUse == "yes" {
+		startupCommand = buildLocalRcCommand(
+			serverConf.LocalRcPath,
+			serverConf.LocalRcDecodeCmd,
+			serverConf.LocalRcCompress,
+			serverConf.LocalRcUncompressCmd,
+		)
+		startupMarker = sshcmd.InteractiveLocalRCStartupMarker()
+	}
+
+	cmd, resultPath, err := cfg.PrepareProviderRuntimeCommand(context.Background(), server, plan, providerapi.MethodConnectorShell, startupCommand, startupMarker, false)
+	if err != nil {
+		return nil, err
+	}
+	return newProviderRuntimePTYRemoteSession(cfg, server, serverConf, notices, cmd, resultPath, cols, rows)
+}
+
+func newProviderManagedExecRemoteSession(cfg conf.Config, server string, serverConf conf.ServerConfig, notices []string, plan providerapi.ConnectorPlan, cols, rows int) (*RemoteSession, error) {
+	cmd, resultPath, err := cfg.PrepareProviderRuntimeCommand(context.Background(), server, plan, providerapi.MethodConnectorExec, "", "", true)
+	if err != nil {
+		return nil, err
+	}
+	return newProviderRuntimePTYRemoteSession(cfg, server, serverConf, notices, cmd, resultPath, cols, rows)
+}
+
+func newProviderRuntimePTYRemoteSession(cfg conf.Config, server string, serverConf conf.ServerConfig, notices []string, cmd *exec.Cmd, resultPath string, cols, rows int) (*RemoteSession, error) {
+	tty, err := pty.StartWithSize(cmd, &pty.Winsize{
+		Cols: uint16(maxInt(cols, 80)),
+		Rows: uint16(maxInt(rows, 24)),
+	})
+	if err != nil {
+		if resultPath != "" {
+			_ = os.Remove(resultPath)
+		}
+		return nil, err
+	}
+
+	outputReader, outputWriter := io.Pipe()
+	var logWriter *terminalLogWriter
+	logPath := ""
+	if cfg.Log.Enable {
+		logPath, err = buildMuxLogPath(cfg.Log, server)
+		if err != nil {
+			_ = outputWriter.CloseWithError(err)
+			_ = tty.Close()
+			if cmd.Process != nil {
+				_ = cmd.Process.Kill()
+			}
+			_ = cmd.Wait()
+			if resultPath != "" {
+				_ = os.Remove(resultPath)
+			}
+			return nil, err
+		}
+		logWriter, err = newTerminalLogWriter(logPath, cfg.Log.Timestamp, cfg.Log.RemoveAnsiCode)
+		if err != nil {
+			_ = outputWriter.CloseWithError(err)
+			_ = tty.Close()
+			if cmd.Process != nil {
+				_ = cmd.Process.Kill()
+			}
+			_ = cmd.Wait()
+			if resultPath != "" {
+				_ = os.Remove(resultPath)
+			}
+			return nil, err
+		}
+	}
+
+	var copyWG sync.WaitGroup
+	copyWG.Add(1)
+	go copyPipe(&copyWG, writerWithLog(outputWriter, logWriter), tty)
+
+	var waitErr error
+	waitDone := make(chan struct{})
+	go func() {
+		waitErr = cmd.Wait()
+		close(waitDone)
+	}()
+	go func() {
+		defer func() {
+			copyWG.Wait()
+		}()
+		<-waitDone
+		if waitErr != nil {
+			_ = outputWriter.CloseWithError(waitErr)
+			return
+		}
+		_ = outputWriter.Close()
+	}()
+
+	var closeOnce sync.Once
+	closeFn := func() error {
+		var closeErr error
+		closeOnce.Do(func() {
+			_ = outputWriter.Close()
+			if logWriter != nil {
+				_ = logWriter.Close()
+			}
+			if err := tty.Close(); closeErr == nil && err != nil {
+				closeErr = err
+			}
+			if cmd.Process != nil {
+				_ = cmd.Process.Kill()
+			}
+			<-waitDone
+			if resultPath != "" {
+				_ = os.Remove(resultPath)
+			}
+			if closeErr == nil && waitErr != nil && !isExpectedProcessExit(waitErr) {
+				closeErr = waitErr
+			}
+		})
+		return closeErr
+	}
+
+	return &RemoteSession{
+		Server:  server,
+		Config:  serverConf,
+		Notices: append([]string(nil), notices...),
+		Input:   tty,
+		LogPath: logPath,
+		Backend: tvxterm.NewStreamBackend(
+			outputReader,
+			tty,
+			dedupeResizeFunc(maxInt(cols, 80), maxInt(rows, 24), func(cols, rows int) error {
+				return pty.Setsize(tty, &pty.Winsize{
+					Cols: uint16(cols),
+					Rows: uint16(rows),
+				})
+			}),
+			closeFn,
+		),
+	}, nil
+}
+
 func newReaderBackedRemoteSession(cfg conf.Config, server string, serverConf conf.ServerConfig, notices []string, stdin io.Writer, stdout, stderr io.Reader, waitFn func() error, closeResource func() error) (*RemoteSession, error) {
 	outputReader, outputWriter := io.Pipe()
 	var logWriter *terminalLogWriter
@@ -758,27 +904,11 @@ func buildMuxLogPath(logConf conf.LogConfig, server string) (string, error) {
 }
 
 func buildLocalRcCommand(localrcPath []string, decoder string, compress bool, uncompress string) string {
-	if len(localrcPath) == 0 {
-		localrcPath = []string{"~/.bashrc"}
-	}
-
-	rcData, _ := common.GetFilesBase64(localrcPath, localrcArchiveMode(compress))
-	prefixCommand := fmt.Sprintf("export TERM=%s; ", shellquote.Join(termenv.Current()))
-
-	if uncompress == "" {
-		uncompress = "gzip -d"
-	}
-
-	switch {
-	case !compress && decoder != "":
-		return fmt.Sprintf("%sbash --noprofile --rcfile <(echo %s | %s); exit 0", prefixCommand, rcData, decoder)
-	case !compress && decoder == "":
-		return fmt.Sprintf("%sbash --noprofile --rcfile <(echo %s | ( (base64 --help | grep -q coreutils) && base64 -d <(cat) || base64 -D <(cat) ) ); exit 0", prefixCommand, rcData)
-	case compress && decoder != "":
-		return fmt.Sprintf("%sbash --noprofile --rcfile <(echo %s | %s | %s); exit 0", prefixCommand, rcData, decoder, uncompress)
-	default:
-		return fmt.Sprintf("%sbash --noprofile --rcfile <(echo %s | ( (base64 --help | grep -q coreutils) && base64 -d <(cat) || base64 -D <(cat) ) | %s); exit 0", prefixCommand, rcData, uncompress)
-	}
+	return fmt.Sprintf(
+		"export TERM=%s; %s",
+		shellquote.Join(termenv.Current()),
+		sshcmd.BuildInteractiveLocalRCShellCommand(localrcPath, decoder, compress, uncompress),
+	)
 }
 
 func localrcArchiveMode(compress bool) int {

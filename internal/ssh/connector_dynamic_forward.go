@@ -98,6 +98,8 @@ func (r *Run) dialConnectorTarget(ctx context.Context, server, network, address 
 	switch {
 	case prepared.ManagedSSH != nil:
 		return r.dialConnectorManagedSSHTarget(ctx, server, network, address)
+	case prepared.ProviderManagedPlan != nil:
+		return r.dialConnectorProviderManagedTarget(ctx, server, *prepared.ProviderManagedPlan)
 	default:
 		if prepared.PlanKind != "" {
 			return nil, fmt.Errorf("server %q connector %q returned unsupported dial plan kind %q", server, prepared.ConnectorName, prepared.PlanKind)
@@ -248,7 +250,7 @@ func (s *connectorSOCKS5Server) handleConn(client net.Conn) error {
 }
 
 func debugConnectorSOCKS5f(format string, args ...interface{}) {
-	if os.Getenv("LSSH_DEBUG_AWS_SSM_DYN") == "" {
+	if os.Getenv("LSSH_DEBUG_CONNECTOR_SOCKS5") == "" {
 		return
 	}
 	fmt.Fprintf(os.Stderr, "[lssh socks5] "+format+"\n", args...)
