@@ -28,7 +28,7 @@ OPTIONS:
     -m port:/path/to/local                      NFS Reverse Dynamic forward mode. Specify a port:/path/to/local. Only single connection works.
     -S port:/path/to/remote                     SMB Dynamic forward mode. Specify a port:/path/to/remote. Only single connection works.
     -s port:/path/to/local                      SMB Reverse Dynamic forward mode. Specify a port:/path/to/local. Only single connection works.
-    --tunnel ${local}:${remote}                 Enable tunnel device. Specify ${local}:${remote} (use 'any' to request next available). Supported on Linux and macOS only.
+    --tunnel ${local}:${remote}                 Enable tunnel device. Specify ${local}:${remote} (use 'any' to request next available).
     -w                                          Displays the server header when in command execution mode.
     -W                                          Not displays the server header when in command execution mode.
     --not-execute, -N                           not execute remote command and shell.
@@ -49,6 +49,8 @@ OPTIONS:
     --detach                                    start a connector shell session without attaching when supported.
     --localrc                                   use local bashrc shell.
     --not-localrc                               not use local bashrc shell.
+    --enable-transfer                           enable file transfer UI in mux mode even if disabled in config.
+    --disable-transfer                          disable file transfer UI in mux mode.
     --list, -l                                  print server list from config.
     --help, -h                                  print this help
     -f                                          Run in background after forwarding/connection (ssh -f like).
@@ -60,7 +62,7 @@ COPYRIGHT:
     blacknon(blacknon@orebibou.com)
 
 VERSION:
-    lssh-suite 0.9.0 (stable/core)
+    lssh-suite 0.9.1 (stable/core)
 
 USAGE:
     # connect ssh
@@ -74,10 +76,23 @@ USAGE:
 
     # run command or shell in mux UI.
     lssh -P [command...]
-
 ```
 
 ## OverView
+
+### providers
+
+`lssh` can target hosts that come from plain config files as well as hosts resolved through providers.
+In practice, providers are used for three main things:
+
+- inventory expansion: load hosts from cloud or API-backed inventories
+- connector-backed access: connect through backends such as managed sessions instead of built-in SSH alone
+- secret resolution: fetch credentials from secret stores just before execution
+
+When a target is connector-backed, the exact feature set depends on that connector's capabilities.
+For example, some connectors support interactive shell plus forwarding, while others may support only remote command execution or selected transfer features.
+
+For the provider model and current provider families, see [provider/README.md](../../provider/README.md).
 
 ### connect Terminal
 

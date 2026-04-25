@@ -32,7 +32,7 @@ COPYRIGHT:
     blacknon(blacknon@orebibou.com)
 
 VERSION:
-    lssh-suite 0.9.0 (stable/transfer)
+    lssh-suite 0.9.1 (stable/transfer)
 
 USAGE:
     # start lsftp shell

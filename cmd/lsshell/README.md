@@ -38,7 +38,7 @@ COPYRIGHT:
     blacknon(blacknon@orebibou.com)
 
 VERSION:
-    lssh-suite 0.9.0 (beta/sysadmin)
+    lssh-suite 0.9.1 (beta/sysadmin)
 
 USAGE:
     # connect parallel ssh shell

@@ -66,29 +66,33 @@ func (c *Config) ReduceCommon() {
 	}
 }
 
-// ReadOpenSSHConfig read OpenSSH config file and append to Config.Server.
-func (c *Config) ReadOpenSSHConfig() {
+// ReadOpenSSHConfig reads OpenSSH config file(s) and appends them to Config.Server.
+func (c *Config) ReadOpenSSHConfig() error {
 	if len(c.SSHConfig) == 0 {
 		defaultPath := defaultOpenSSHConfigCandidate()
 		if defaultPath == "" || !common.IsExist(defaultPath) {
-			return
+			return nil
 		}
 
 		openSSHServerConfig, err := getOpenSSHConfig(defaultPath, "")
-		if err == nil {
-			// append data
-			for key, value := range openSSHServerConfig {
-				value := serverConfigReduct(c.Common, value)
-				c.Server[key] = value
-			}
+		if err != nil {
+			return err
+		}
+
+		// append data
+		for key, value := range openSSHServerConfig {
+			value := serverConfigReduct(c.Common, value)
+			c.Server[key] = value
 		}
 	} else {
 		for _, sc := range c.activeOpenSSHConfigs() {
 			if err := c.readConfiguredOpenSSHConfig(sc); err != nil {
-				continue
+				return err
 			}
 		}
 	}
+
+	return nil
 }
 
 func defaultOpenSSHConfigCandidate() string {
@@ -227,8 +231,11 @@ func Read(confPath string) (c Config) {
 	// reduce common setting (in .lssh.conf servers)
 	c.ReduceCommon()
 
-	// Read OpensSH configs
-	c.ReadOpenSSHConfig()
+	// Read OpenSSH configs
+	if err := c.ReadOpenSSHConfig(); err != nil {
+		log.Println(err)
+		os.Exit(1)
+	}
 
 	// for append includes to include.path
 	c.ReadIncludeFiles()

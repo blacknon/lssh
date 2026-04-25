@@ -57,13 +57,13 @@ func PrintColumns(w io.Writer, strs []string, margin int, padding int) {
 		numSpacesRequired := maxLength - strLen
 		spaceStr := strings.Repeat(" ", numSpacesRequired)
 
-		fmt.Fprintf(w, str)
+		_, _ = io.WriteString(w, str)
 
 		if x+1 == numCols {
-			fmt.Fprintf(w, "\n")
+			_, _ = io.WriteString(w, "\n")
 		} else {
-			fmt.Fprintf(w, spaceStr)
-			fmt.Fprintf(w, marginStr)
+			_, _ = io.WriteString(w, spaceStr)
+			_, _ = io.WriteString(w, marginStr)
 		}
 	}
 }
