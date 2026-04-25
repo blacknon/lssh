@@ -8,9 +8,6 @@ import (
 
 func TestWinRMDescribe(t *testing.T) {
 	result, err := winrmDescribe(providerapi.ConnectorDescribeParams{
-		Config: map[string]interface{}{
-			"enable_shell": "true",
-		},
 		Target: providerapi.ConnectorTarget{
 			Config: map[string]interface{}{
 				"addr": "windows.local",
@@ -25,14 +22,36 @@ func TestWinRMDescribe(t *testing.T) {
 	if !result.Capabilities["exec"].Supported {
 		t.Fatal("exec capability = unsupported, want supported")
 	}
-	if !result.Capabilities["shell"].Supported {
-		t.Fatal("shell capability = unsupported, want supported")
+	if result.Capabilities["shell"].Supported {
+		t.Fatal("shell capability = supported, want unsupported")
 	}
 	if result.Capabilities["port_forward_local"].Supported {
 		t.Fatal("port_forward_local capability = supported, want unsupported")
 	}
 	if result.Capabilities["exec_pty"].Supported {
 		t.Fatal("exec_pty capability = supported, want unsupported")
+	}
+}
+
+func TestWinRMPrepareShellUnsupported(t *testing.T) {
+	result, err := winrmPrepare(providerapi.ConnectorPrepareParams{
+		Target: providerapi.ConnectorTarget{
+			Config: map[string]interface{}{
+				"addr":      "windows.local",
+				"user":      "Administrator",
+				"pass":      "secret",
+				"transport": "https",
+			},
+		},
+		Operation: providerapi.ConnectorOperation{
+			Name: "shell",
+		},
+	})
+	if err != nil {
+		t.Fatalf("winrmPrepare() error = %v", err)
+	}
+	if result.Supported {
+		t.Fatal("Supported = true, want false")
 	}
 }
 
