@@ -9,7 +9,6 @@ If older discussion or notes use the spelling `connecter`, they refer to the sam
 Current prototype providers:
 
 - [`provider-connector-openssh`](./provider-connector-openssh/README.md)
-- [`provider-connector-psrp`](./provider-connector-psrp/README.md)
 - [`provider-connector-telnet`](./provider-connector-telnet/README.md)
 - [`provider-connector-winrm`](./provider-connector-winrm/README.md)
 
@@ -24,7 +23,6 @@ Some targets are not well described by ordinary SSH fields alone.
 
 Examples:
 
-- PSRP
 - WinRM
 - telnet
 - serial console

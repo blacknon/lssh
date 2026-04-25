@@ -23,7 +23,7 @@ func main() {
 			Name:            "provider-connector-winrm",
 			Capabilities:    []string{"connector"},
 			ConnectorNames:  []string{"winrm"},
-			Methods:         []string{providerapi.MethodPluginDescribe, providerapi.MethodHealthCheck, providerapi.MethodConnectorDescribe, providerapi.MethodConnectorPrepare, providerapi.MethodConnectorShell, providerapi.MethodConnectorExec},
+			Methods:         []string{providerapi.MethodPluginDescribe, providerapi.MethodHealthCheck, providerapi.MethodConnectorDescribe, providerapi.MethodConnectorPrepare, providerapi.MethodConnectorExec},
 			ProtocolVersion: providerapi.Version,
 		}, nil)
 	case providerapi.MethodHealthCheck:
@@ -62,16 +62,6 @@ func main() {
 			os.Exit(1)
 		}
 		_ = providerapi.WriteResponse(req, result, nil)
-	case providerapi.MethodConnectorShell:
-		var params providerapi.ConnectorRuntimeParams
-		if err := decodeParams(req.Params, &params); err != nil {
-			_, _ = fmt.Fprintln(os.Stderr, err)
-			os.Exit(1)
-		}
-		if err := winrmRunShell(params); err != nil {
-			_, _ = fmt.Fprintln(os.Stderr, err)
-			os.Exit(1)
-		}
 	case providerapi.MethodConnectorExec:
 		var params providerapi.ConnectorRuntimeParams
 		if err := decodeParams(req.Params, &params); err != nil {
@@ -118,13 +108,11 @@ func winrmDescribe(params providerapi.ConnectorDescribeParams) (providerapi.Conn
 	if addr == "" {
 		addr = providerapi.String(params.Config, "addr")
 	}
-	shellSupported := addr != "" && winrmInteractiveShellEnabled(params.Config, params.Target)
 	execSupported := addr != ""
 	capabilities := map[string]providerapi.ConnectorCapability{
 		"shell": {
-			Supported: shellSupported,
-			Reason:    unsupportedReason(shellSupported, "interactive shell support is disabled unless enable_shell=true"),
-			Requires:  []string{"winrm:credentials"},
+			Supported: false,
+			Reason:    "interactive shell is not supported by the winrm connector",
 		},
 		"exec": {
 			Supported: execSupported,
@@ -194,9 +182,8 @@ func winrmPrepare(params providerapi.ConnectorPrepareParams) (providerapi.Connec
 			},
 		}, nil
 	case "shell":
-		supported := winrmInteractiveShellEnabled(params.Config, params.Target)
 		return providerapi.ConnectorPrepareResult{
-			Supported: supported,
+			Supported: false,
 			Plan: providerapi.ConnectorPlan{
 				Kind: "provider-managed",
 				Details: map[string]interface{}{
@@ -208,7 +195,7 @@ func winrmPrepare(params providerapi.ConnectorPrepareParams) (providerapi.Connec
 					"https":                 cfg.HTTPS,
 					"insecure":              cfg.Insecure,
 					"transport":             winrmTransport(params.Config, params.Target),
-					"reason":                unsupportedReason(supported, "interactive shell support is disabled unless enable_shell=true"),
+					"reason":                "interactive shell is not supported by the winrm connector",
 					"shell_command":         cfg.ShellCommand,
 					"tls_server_name":       cfg.TLSServerName,
 					"operation_timeout_sec": cfg.OperationTimeoutSec,
@@ -240,13 +227,6 @@ func winrmTransport(config map[string]interface{}, target providerapi.ConnectorT
 		return "http"
 	}
 	return "https"
-}
-
-func winrmInteractiveShellEnabled(config map[string]interface{}, target providerapi.ConnectorTarget) bool {
-	if winrmBool(target.Config, "enable_shell") {
-		return true
-	}
-	return winrmBool(config, "enable_shell")
 }
 
 func winrmBool(raw map[string]interface{}, key string) bool {
