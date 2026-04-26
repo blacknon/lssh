@@ -214,6 +214,7 @@ func (d *Daemon) execRequest(enc *json.Encoder, req Request) error {
 	if req.Raw && len(targets) != 1 {
 		return fmt.Errorf("--raw requires exactly one host after resolution")
 	}
+	singleTarget := len(targets) == 1
 
 	var encMu sync.Mutex
 	sendEvent := func(event Event) {
@@ -232,7 +233,11 @@ func (d *Daemon) execRequest(enc *json.Encoder, req Request) error {
 			defer wg.Done()
 			code, runErr := runCommand(host, req, sendEvent)
 			if runErr != nil {
-				sendEvent(Event{Type: "stderr", Host: host, Stream: "stderr", Data: []byte(fmt.Sprintf("%s :: %v\n", host, runErr))})
+				message := fmt.Sprintf("%s :: %v\n", host, runErr)
+				if singleTarget {
+					message = fmt.Sprintf("%v\n", runErr)
+				}
+				sendEvent(Event{Type: "stderr", Host: host, Stream: "stderr", Data: []byte(message)})
 			}
 			results <- code
 		}()
@@ -304,8 +309,9 @@ func (d *Daemon) runCommand(host string, req Request, sendEvent func(Event)) (in
 		stdoutWriter = &eventWriter{host: host, stream: "stdout", raw: true, send: sendEvent}
 		stderrWriter = &eventWriter{host: host, stream: "stderr", raw: true, send: sendEvent}
 	} else {
-		stdout := &eventWriter{host: host, stream: "stdout", send: sendEvent}
-		stderr := &eventWriter{host: host, stream: "stderr", send: sendEvent}
+		suppressHeader := len(req.Hosts) == 1
+		stdout := &eventWriter{host: host, stream: "stdout", suppressHeader: suppressHeader, send: sendEvent}
+		stderr := &eventWriter{host: host, stream: "stderr", suppressHeader: suppressHeader, send: sendEvent}
 		stdoutWriter = stdout
 		stderrWriter = stderr
 		defer stdout.Flush()
@@ -331,8 +337,9 @@ func (d *Daemon) runConnectorCommand(host string, req Request, sendEvent func(Ev
 		stdoutWriter = &eventWriter{host: host, stream: "stdout", raw: true, send: sendEvent}
 		stderrWriter = &eventWriter{host: host, stream: "stderr", raw: true, send: sendEvent}
 	} else {
-		stdout := &eventWriter{host: host, stream: "stdout", send: sendEvent}
-		stderr := &eventWriter{host: host, stream: "stderr", send: sendEvent}
+		suppressHeader := len(req.Hosts) == 1
+		stdout := &eventWriter{host: host, stream: "stdout", suppressHeader: suppressHeader, send: sendEvent}
+		stderr := &eventWriter{host: host, stream: "stderr", suppressHeader: suppressHeader, send: sendEvent}
 		stdoutWriter = stdout
 		stderrWriter = stderr
 		defer stdout.Flush()
@@ -512,12 +519,13 @@ func (d *Daemon) snapshotHealth() map[string]HostHealth {
 }
 
 type eventWriter struct {
-	host   string
-	stream string
-	raw    bool
-	send   func(Event)
-	mu     sync.Mutex
-	buf    bytes.Buffer
+	host           string
+	stream         string
+	raw            bool
+	suppressHeader bool
+	send           func(Event)
+	mu             sync.Mutex
+	buf            bytes.Buffer
 }
 
 func (w *eventWriter) Write(p []byte) (int, error) {
@@ -589,8 +597,10 @@ func (w *eventWriter) flushLocked(hadNewline bool) {
 		if w.stream == "stderr" && shouldSuppressSttyNoise(line) {
 			continue
 		}
-		out.WriteString(w.host)
-		out.WriteString(" :: ")
+		if !w.suppressHeader {
+			out.WriteString(w.host)
+			out.WriteString(" :: ")
+		}
 		out.WriteString(line)
 		if !strings.HasSuffix(line, "\n") {
 			out.WriteByte('\n')

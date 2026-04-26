@@ -77,37 +77,65 @@ lssh is built for a simple workflow:
 <table>
   <tr>
     <td valign="top" width="50%">
-      <strong>Interactive host picker</strong><br />
+      <img src="./images/example_lssh.gif" alt="lssh host picker" width="100%" />
+    </td>
+    <td valign="top" width="50%">
+      <img src="./images/example_lssh_parallel.gif" alt="lssh parallel command execution" width="100%" />
+    </td>
+  </tr>
+  <tr>
+    <td valign="top" width="50%">
+      <strong>Interactive host picker</strong>
+    </td>
+    <td valign="top" width="50%">
+      <strong>Parallel command execution</strong>
+    </td>
+  </tr>
+  <tr>
+    <td valign="top" width="50%">
       Select one or more hosts from the TUI.
-      <p>
-        <img src="./images/example_lssh.gif" alt="lssh host picker" width="100%" />
-      </p>
+    </td>
+    <td valign="top" width="50%">
+      Pick hosts and run the same command across them.
+    </td>
+  </tr>
+  <tr>
+    <td valign="top" width="50%">
       <pre><code>lssh</code></pre>
     </td>
     <td valign="top" width="50%">
-      <strong>Parallel command execution</strong><br />
-      Pick hosts and run the same command across them.
-      <p>
-        <img src="./images/example_lssh_parallel.gif" alt="lssh parallel command execution" width="100%" />
-      </p>
       <pre><code>lssh -p tail -f /var/log/syslog</code></pre>
     </td>
   </tr>
   <tr>
     <td valign="top" width="50%">
-      <strong>Mux workflow</strong><br />
+      <img src="./images/example_lssh_mux.gif" alt="lssh mux workflow" width="100%" />
+    </td>
+    <td valign="top" width="50%">
+      <img src="./images/example_lssh_mux_command.gif" alt="lssh mux workflow with command" width="100%" />
+    </td>
+  </tr>
+  <tr>
+    <td valign="top" width="50%">
+      <strong>Mux workflow</strong>
+    </td>
+    <td valign="top" width="50%">
+      <strong>Mux workflow with command</strong>
+    </td>
+  </tr>
+  <tr>
+    <td valign="top" width="50%">
       Open the multi-pane terminal workflow.
-      <p>
-        <img src="./images/example_lssh_mux.gif" alt="lssh mux workflow" width="100%" />
-      </p>
+    </td>
+    <td valign="top" width="50%">
+      Start the mux UI and launch a command immediately.
+    </td>
+  </tr>
+  <tr>
+    <td valign="top" width="50%">
       <pre><code>lssh -P</code></pre>
     </td>
     <td valign="top" width="50%">
-      <strong>Mux workflow with command</strong><br />
-      Start the mux UI and launch a command immediately.
-      <p>
-        <img src="./images/example_lssh_mux_command.gif" alt="lssh mux workflow with command" width="100%" />
-      </p>
       <pre><code>lssh -P 'htop'</code></pre>
     </td>
   </tr>
@@ -249,6 +277,7 @@ The lssh project includes multiple tools for SSH-centered workflows.
       Compare remote files from multiple hosts in a synchronized TUI.
     </td>
     <td valign="top" width="33%">
+      <a href="./cmd/lspipe/README.md"><img src="./cmd/lspipe/img/lspipe.gif" alt="lspipe preview" width="100%" /></a><br />
       <strong><a href="./cmd/lspipe/README.md">lspipe</a></strong><br />
       <code>sysadmin</code> / <code>alpha</code><br />
       Persistent host sessions reusable from local pipelines and automation.
