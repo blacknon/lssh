@@ -106,32 +106,31 @@ Unlike many tools in this space, full-screen applications such as `vim` and `hto
 
 ### command execution
 
-<p align="center">
-  <img src="./img/command_exec_1.gif" width="33%" />
-  <img src="./img/command_exec_2.gif" width="33%" />
-  <img src="./img/command_exec_3.gif" width="33%" />
-</p>
-
 You can also create a block for command execution and pass a command as an argument, just like the OpenSSH client.
 This is useful when you want to run a single remote command without starting an interactive shell.
 
-For example, the following runs `hostname` on the selected host.
-
-```sh
-lssh hostname
-```
-
-If you add the `-p` option, the same command is executed in parallel on the selected hosts.
-
-```sh
-lssh -p hostname
-```
-
-If you pipe input before the command, `stdin` is sent to the selected server.
-
-```sh
-echo "hostname" | lssh cat
-```
+<table>
+  <tr>
+    <td valign="top" width="33%">
+      <img src="./img/command_exec_1.gif" alt="lssh single command execution" width="100%" /><br />
+      <strong>Single command</strong><br /><br />
+      <pre><code>lssh hostname</code></pre>
+      Run one remote command on the selected host without starting an interactive shell.
+    </td>
+    <td valign="top" width="33%">
+      <img src="./img/command_exec_2.gif" alt="lssh parallel command execution" width="100%" /><br />
+      <strong>Parallel command</strong><br /><br />
+      <pre><code>lssh -p hostname</code></pre>
+      Execute the same command in parallel on the selected hosts.
+    </td>
+    <td valign="top" width="33%">
+      <img src="./img/command_exec_3.gif" alt="lssh command execution with stdin" width="100%" /><br />
+      <strong>Pipe stdin</strong><br /><br />
+      <pre><code>echo "hostname" | lssh cat</code></pre>
+      Send piped <code>stdin</code> to the selected server while running a remote command.
+    </td>
+  </tr>
+</table>
 
 If you want the `lsmux` style pane UI from `lssh`, use `-P`.
 When a command is given, piped `stdin` is copied to each pane, and `--hold` keeps finished panes open.
@@ -184,7 +183,7 @@ These options are useful for changing the local terminal state only while the SS
 
 For example, if your terminal supports OSC escape sequences, you can switch the terminal theme or colors when connecting to a host and restore them after disconnecting.
 
-`~/.lssh.toml` example.
+TOML:
 
 ```toml
 [server.theme]
@@ -200,7 +199,7 @@ pre_cmd = 'printf "\e]10;#ffffff\a\e]11;#503000\a"'  # change foreground/backgro
 post_cmd = 'printf "\e]10;#ffffff\a\e]11;#000000\a"' # restore local colors
 ```
 
-YAML version:
+YAML:
 
 ```yaml
 server:
@@ -220,7 +219,7 @@ server:
 
 `lssh` supports `ssh-agent`, so you can use keys already loaded into your agent without specifying a private key file for each host.
 
-`~/.lssh.toml` example.
+TOML:
 
 ```toml
 [server.agent]
@@ -230,7 +229,7 @@ ssh_agent = true
 note = "use keys from ssh-agent"
 ```
 
-YAML version:
+YAML:
 
 ```yaml
 server:
@@ -359,7 +358,7 @@ lssh -Y
 
 #### if use config file
 
-`~/.lssh.toml` examples.
+TOML:
 
 ```toml
 # local port forwarding
@@ -422,7 +421,7 @@ x11 = true
 x11_trusted = true
 ```
 
-YAML version:
+YAML:
 
 ```yaml
 server:
@@ -476,7 +475,7 @@ You can connect using a local bashrc file (if the ssh login shell is bash), with
 
 If you need to transfer a large bashrc, you can enable compression during transfer by setting `local_rc_compress = true`.
 
-`~/.lssh.toml` example.
+TOML:
 
 ```toml
 [server.localrc]
@@ -494,7 +493,7 @@ local_rc_file = [
 ]
 ```
 
-YAML version:
+YAML:
 
 ```yaml
 server:

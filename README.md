@@ -78,13 +78,13 @@ lssh is built for a simple workflow:
   <tr>
     <td valign="top" width="50%">
       <img src="./images/example_lssh.gif" alt="lssh host picker" width="100%" /><br />
-      <strong>Interactive host picker</strong><br />
+      <strong>Interactive host picker</strong><br /><br />
       <pre><code>lssh</code></pre>
       Select one or more hosts from the TUI.<br />
     </td>
     <td valign="top" width="50%">
       <img src="./images/example_lssh_parallel.gif" alt="lssh parallel command execution" width="100%" /><br />
-      <strong>Parallel command execution</strong><br />
+      <strong>Parallel command execution</strong><br /><br />
       <pre><code>lssh -p tail -f /var/log/syslog</code></pre>
       Pick hosts and run the same command across them.<br />
     </td>
@@ -92,13 +92,13 @@ lssh is built for a simple workflow:
   <tr>
     <td valign="top" width="50%">
       <img src="./images/example_lssh_mux.gif" alt="lssh mux workflow" width="100%" /><br />
-      <strong>Mux workflow</strong><br />
+      <strong>Mux workflow</strong><br /><br />
       <pre><code>lssh -P</code></pre>
       Open the multi-pane terminal workflow.<br />
     </td>
     <td valign="top" width="50%">
       <img src="./images/example_lssh_mux_command.gif" alt="lssh mux workflow with command" width="100%" /><br />
-      <strong>Mux workflow with command</strong><br />
+      <strong>Mux workflow with command</strong><br /><br />
       <pre><code>lssh -P 'htop'</code></pre>
       Start the mux UI and launch a command immediately.<br />
     </td>
@@ -258,7 +258,6 @@ The lssh project includes multiple tools for SSH-centered workflows.
   </tr>
 </table>
 
-
 ## Docs
 
 - [docs/README.md](./docs/README.md): documentation index
@@ -270,6 +269,27 @@ The lssh project includes multiple tools for SSH-centered workflows.
 
 - [go-sshlib](https://github.com/blacknon/go-sshlib): Go library for SSH connections, command execution, and interactive shells
 - [tvxterm](https://github.com/blacknon/tvxterm): tvxterm provides terminal widgets for tview
+- [boco](https://github.com/blacknon/boco): Bash Shell Function's Fuzzy Finder.
+
+## Alternatives
+
+If you are evaluating `lssh`, these projects are also worth a look.
+They overlap in some workflows, but usually cover a narrower slice of what the `lssh` suite does.
+
+| Project | Closest `lssh` command(s) | Main focus | How it differs from `lssh` |
+| --- | --- | --- | --- |
+| [`sshs`](https://github.com/quantumsheep/sshs) | [`lssh`](./cmd/lssh/README.md) | TUI-based SSH host picker | Similar single-tool host selection UX, but `lssh` also covers parallel execution, forwarding, mux workflow, and provider/connector-backed hosts. |
+| [`ClusterSSH (cssh)`](https://github.com/duncs/clusterssh) | [`lssh -P`](./cmd/lssh/README.md), [`lsmux`](./cmd/lsmux/README.md), [`lsshell`](./cmd/lsshell/README.md) | Multi-host interactive administration | Strong for broadcast typing into multiple terminals; `lsshell` and `lsmux` are closer when you want synchronized shell workflows inside one suite. |
+| [`pssh`](https://github.com/lilydjwg/pssh) | [`lssh -p`](./cmd/lssh/README.md), [`lscp`](./cmd/lscp/README.md), [`lssync`](./cmd/lssync/README.md) | Parallel command execution and transfer tools | Good fit for parallel CLI jobs, while `lssh` adds TUI host selection, interactive workflows, and a more integrated multi-command toolset. |
+| [`tmuxinator`](https://github.com/tmuxinator/tmuxinator) | [`lssh -P`](./cmd/lssh/README.md), [`lsmux`](./cmd/lsmux/README.md) | tmux session layout management | Great for predefined tmux workspaces, but it is not an SSH host picker or transfer tool by itself; `lsmux` is SSH-oriented from the start. |
+
+### How the `lssh` suite is different
+
+- [`lssh`](./cmd/lssh/README.md) combines host selection, interactive SSH, parallel command execution, forwarding, and connector/provider-backed targets.
+- [`lsshell`](./cmd/lsshell/README.md) focuses on parallel interactive shell workflows instead of just launching many terminals.
+- [`lscp`](./cmd/lscp/README.md), [`lsftp`](./cmd/lsftp/README.md), and [`lssync`](./cmd/lssync/README.md) cover file transfer and synchronization as first-class commands in the same suite.
+- [`lsmux`](./cmd/lsmux/README.md) provides a pane-based SSH workspace rather than only session templating.
+- [`lspipe`](./cmd/lspipe/README.md) keeps selected hosts reusable from local pipelines and automation.
 
 ## Licence
 
