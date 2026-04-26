@@ -9,7 +9,7 @@ import (
 	"time"
 
 	"github.com/blacknon/lssh/providerapi"
-	"github.com/blacknon/lssh/provider/connector/tunnelcmd"
+	"github.com/blacknon/lssh/providerutil/tunnelcmd"
 )
 
 type Config struct {

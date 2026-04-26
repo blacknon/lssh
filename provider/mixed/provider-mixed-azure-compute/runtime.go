@@ -3,7 +3,7 @@ package main
 import (
 	"context"
 
-	"github.com/blacknon/lssh/provider/connector/runtimeutil"
+	"github.com/blacknon/lssh/providerutil/runtimeutil"
 	"github.com/blacknon/lssh/provider/mixed/provider-mixed-azure-compute/bastionconnector"
 	"github.com/blacknon/lssh/providerapi"
 )

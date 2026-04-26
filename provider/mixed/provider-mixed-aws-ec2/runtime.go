@@ -6,7 +6,7 @@ import (
 	"net"
 	"os"
 
-	"github.com/blacknon/lssh/provider/connector/runtimeutil"
+	"github.com/blacknon/lssh/providerutil/runtimeutil"
 	"github.com/blacknon/lssh/provider/mixed/provider-mixed-aws-ec2/eiceconnector"
 	ssmconnector "github.com/blacknon/lssh/provider/mixed/provider-mixed-aws-ec2/ssmconnector"
 	"github.com/blacknon/lssh/provider/mixed/provider-mixed-aws-ec2/ssmsession"

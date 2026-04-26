@@ -11,6 +11,9 @@ Providers are grouped by capability or implementation style:
 - [`connector`](./connector/README.md): define or mediate how a resolved `server` can actually be connected
 - [`secret`](./secret/README.md): resolve `*_ref` values just before connect
 
+Shared provider-side helper libraries live under `../providerutil/`.
+Those packages are reusable support code for provider implementations and are intentionally kept outside the capability-oriented `provider/*` layout.
+
 Each provider is a standalone executable that communicates with `lssh` over JSON via stdin/stdout.
 
 A single provider implementation may support one capability or multiple capabilities.
