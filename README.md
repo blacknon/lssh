@@ -1,5 +1,5 @@
 [![Go Report Card](https://goreportcard.com/badge/github.com/blacknon/lssh)](https://goreportcard.com/report/github.com/blacknon/lssh)
-[![Version](https://img.shields.io/badge/version-0.10.0-2ea44f)](./internal/version/main.go)
+[![Version](https://img.shields.io/badge/version-0.10.1-2ea44f)](./internal/version/main.go)
 [![Go](https://img.shields.io/badge/go-1.25.1-00ADD8?logo=go)](./go.mod)
 [![Platforms](https://img.shields.io/badge/platforms-Linux%20%7C%20macOS%20%7C%20Windows-6f42c1)](./cmd/README.md)
 [![License](https://img.shields.io/badge/license-MIT-blue)](./LICENSE.md)
