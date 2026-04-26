@@ -18,7 +18,7 @@ plugin = "provider-secret-onepassword"
 enabled = true
 capabilities = ["secret"]
 auth_mode = "service_account"
-token = "ops_xxx"
+token_env = "OP_SERVICE_ACCOUNT_TOKEN"
 
 [server.prod]
 addr = "10.0.0.10"
@@ -43,6 +43,7 @@ auth_mode = "cli"
 ## Notes
 
 - `providers.paths` is intended to list provider executable files.
+- Avoid storing service account tokens directly in `~/.lssh.toml` when `token_env` or `token_source` can be used instead.
 - `auth_mode` can be one of:
   - `auto`
   - `service_account`
@@ -57,10 +58,10 @@ auth_mode = "cli"
 - In `cli` mode:
   - the provider uses `op read <ref>`
   - `op signin` or Desktop integration must already be available in the local environment
-- You can provide the service account token in one of these forms:
-  - `token = "ops_xxx"`
+- Recommended token configuration order:
   - `token_env = "OP_SERVICE_ACCOUNT_TOKEN"`
   - `token_source = "~/.config/lssh/provider-onepassword.env"`
+  - `token = "ops_xxx"` for minimal local examples only
 - When `token_source` is used, the file is parsed as an env file like `KEY=value` or `export KEY=value`.
 - `token_source_env` can be used to select the variable name inside the source file. If omitted, `TOKEN` is used.
 - `op_path` can be used to override the CLI path. If omitted, `op` is used.

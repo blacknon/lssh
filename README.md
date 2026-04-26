@@ -46,6 +46,8 @@ For local development, install the bundled providers with:
 mise run provider_install
 ```
 
+For release builds, either install the all-in-one `lssh-complete_*` archive or add the matching `lssh-providers_*` archive from GitHub Releases.
+
 For more installation details, including other options and platform-specific notes, see [docs/install.md](./docs/install.md).
 
 ## Quick start
@@ -145,8 +147,8 @@ For more details about config formats and settings, see [docs/configuration.md](
 `lssh` can work with more than static SSH config entries.
 Providers let it pull hosts from external inventory sources, resolve secrets just before connect, and use non-SSH connection backends such as cloud-managed connectors.
 
-At a high level, providers fall into four roles: `inventory`, `connector`, `secret`, and `mixed`.
-That split makes cloud inventory lookup, secret-manager-backed credentials, and connector-backed sessions possible without hardcoding those workflows into the base config format.
+In `v0.10.0`, provider-backed inventory and secret workflows are best treated as `beta`.
+Connector-backed access beyond native SSH is still `experimental`, especially for cloud-managed runtimes and non-SSH backends.
 
 If you want to try provider-oriented flows locally, start from these demos:
 
@@ -185,7 +187,7 @@ These provider implementations are currently bundled in this repository.
     </td>
     <td valign="top" width="33%">
       <strong><a href="./provider/connector/provider-connector-winrm/README.md">provider-connector-winrm</a></strong><br />
-      Run command and shell workflows against WinRM targets.
+      Run command execution workflows against WinRM targets. Interactive shell support is not available in v0.10.0.
     </td>
   </tr>
 </table>
@@ -196,7 +198,7 @@ These provider implementations are currently bundled in this repository.
   <tr>
     <td valign="top" width="33%">
       <strong><a href="./provider/mixed/provider-mixed-aws-ec2/README.md">provider-mixed-aws-ec2</a></strong><br />
-      Combine EC2 inventory with AWS SSM and EC2 Instance Connect Endpoint connectors.
+      Combine EC2 inventory with AWS SSM and EC2 Instance Connect Endpoint connectors. Native SSH-adjacent flows are usable, while connector-specific behavior remains experimental.
     </td>
     <td valign="top" width="33%">
       <strong><a href="./provider/mixed/provider-mixed-azure-compute/README.md">provider-mixed-azure-compute</a></strong><br />

@@ -66,7 +66,7 @@ jobs:
           GOARCH: ${{ matrix.goarch }}
         run: |
           set -euo pipefail
-          mkdir -p dist/bin
+          mkdir -p dist/bin dist/providers
           ext=""
           if [ "${GOOS}" = "windows" ]; then
             ext=".exe"
@@ -81,6 +81,20 @@ jobs:
             go build -o "dist/bin/${cmd}${ext}" "./cmd/${cmd}"
           done
 
+          go build -o "dist/providers/provider-mixed-aws-ec2${ext}" ./provider/mixed/provider-mixed-aws-ec2
+          go build -o "dist/providers/provider-connector-openssh${ext}" ./provider/connector/provider-connector-openssh
+          go build -o "dist/providers/provider-connector-telnet${ext}" ./provider/connector/provider-connector-telnet
+          go build -o "dist/providers/provider-connector-winrm${ext}" ./provider/connector/provider-connector-winrm
+          go build -o "dist/providers/provider-mixed-azure-compute${ext}" ./provider/mixed/provider-mixed-azure-compute
+          go build -o "dist/providers/provider-inventory-azure-compute${ext}" ./provider/mixed/provider-mixed-azure-compute
+          go build -o "dist/providers/provider-mixed-gcp-compute${ext}" ./provider/mixed/provider-mixed-gcp-compute
+          go build -o "dist/providers/provider-inventory-gcp-compute${ext}" ./provider/mixed/provider-mixed-gcp-compute
+          go build -o "dist/providers/provider-inventory-proxmox${ext}" ./provider/inventory/provider-inventory-proxmox
+          go build -o "dist/providers/provider-secret-onepassword${ext}" ./provider/secret/provider-secret-onepassword
+          go build -o "dist/providers/provider-secret-bitwarden${ext}" ./provider/secret/provider-secret-bitwarden
+          go build -o "dist/providers/provider-secret-os-keychain${ext}" ./provider/secret/provider-secret-os-keychain
+          go build -o "dist/providers/provider-secret-custom-script${ext}" ./provider/secret/provider-secret-custom-script
+
       - name: Create release packages
         shell: bash
         env:
@@ -94,16 +108,19 @@ jobs:
 
           package_name() {
             case "$1" in
+              complete) echo "lssh-complete" ;;
               full) echo "lssh" ;;
               core) echo "lssh-core" ;;
               transfer) echo "lssh-transfer" ;;
               monitor) echo "lssh-monitor" ;;
               sysadmin) echo "lssh-sysadmin" ;;
+              providers) echo "lssh-providers" ;;
             esac
           }
 
           package_description() {
             case "$1" in
+              complete) echo "Complete lssh suite including bundled provider binaries and command completions." ;;
               full) echo "Full lssh suite with SSH, transfer, monitoring, and parallel shell tools." ;;
               core) echo "Core SSH client package for the lssh suite." ;;
               transfer)
@@ -115,11 +132,19 @@ jobs:
                 ;;
               monitor) echo "Monitoring tools package for the lssh suite, including lsmon." ;;
               sysadmin) echo "Sysadmin tools package for the lssh suite, including lsshell, lsmux, and lspipe." ;;
+              providers) echo "Bundled provider binaries for inventory, connector, mixed, and secret workflows in the lssh suite." ;;
             esac
           }
 
           package_binaries() {
             case "$1" in
+              complete)
+                if [ "$GOOS" = "windows" ]; then
+                  echo "lssh lscp lsftp lssync lsdiff lsmon lsshell lsmux lspipe"
+                else
+                  echo "lssh lscp lsftp lssync lsdiff lsshfs lsmon lsshell lsmux lspipe"
+                fi
+                ;;
               full)
                 if [ "$GOOS" = "windows" ]; then
                   echo "lssh lscp lsftp lssync lsdiff lsmon lsshell lsmux lspipe"
@@ -137,6 +162,15 @@ jobs:
                 ;;
               monitor) echo "lsmon" ;;
               sysadmin) echo "lsshell lsmux lspipe" ;;
+              providers) echo "" ;;
+            esac
+          }
+
+          package_provider_binaries() {
+            case "$1" in
+              complete|providers)
+                echo "provider-mixed-aws-ec2 provider-connector-openssh provider-connector-telnet provider-connector-winrm provider-mixed-azure-compute provider-inventory-azure-compute provider-mixed-gcp-compute provider-inventory-gcp-compute provider-inventory-proxmox provider-secret-onepassword provider-secret-bitwarden provider-secret-os-keychain provider-secret-custom-script"
+                ;;
             esac
           }
 
@@ -185,6 +219,18 @@ jobs:
                 cp "completion/zsh/_${bin}" "$root/completion/zsh/_${bin}"
               fi
             done
+
+            provider_bins="$(package_provider_binaries "$package_id")"
+            if [ -n "$provider_bins" ]; then
+              mkdir -p "$root/providers"
+              for bin in ${provider_bins}; do
+                local ext=""
+                if [ "$GOOS" = "windows" ]; then
+                  ext=".exe"
+                fi
+                cp "dist/providers/${bin}${ext}" "$root/providers/${bin}${ext}"
+              done
+            fi
 
             if [ "$GOOS" = "windows" ]; then
               powershell -NoLogo -NoProfile -Command "\$source = Join-Path (Get-Location) '${root}'; \$destination = Join-Path (Get-Location) 'dist/packages/${base}.zip'; Compress-Archive -Path (Join-Path \$source '*') -DestinationPath \$destination -Force"
@@ -259,10 +305,10 @@ jobs:
             done
           }
 
-          for package_id in full core transfer monitor sysadmin; do
+          for package_id in complete full core transfer monitor sysadmin providers; do
             create_archive "$package_id"
 
-            if [ "$GOOS" = "linux" ]; then
+            if [ "$GOOS" = "linux" ] && [ "$package_id" != "providers" ]; then
               pkg="$(package_name "$package_id")"
               create_nfpm_config "$package_id"
               nfpm package --packager deb --config "dist/nfpm/${pkg}.yaml" --target "dist/packages/${pkg}_${VERSION}_$(deb_arch "$GOARCH").deb"

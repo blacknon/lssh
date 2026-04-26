@@ -16,6 +16,11 @@ Each provider is a standalone executable that communicates with `lssh` over JSON
 A single provider implementation may support one capability or multiple capabilities.
 For example, one executable may expose only `inventory`, while another may expose both `inventory` and `connector`.
 
+Current maturity in `v0.10.0` is intentionally mixed:
+
+- provider-backed inventory and secret resolution are usable as `beta`
+- connector-backed access beyond native SSH is still `experimental`
+
 ## Design Goals
 
 The provider protocol should be:
