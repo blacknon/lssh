@@ -77,66 +77,30 @@ lssh is built for a simple workflow:
 <table>
   <tr>
     <td valign="top" width="50%">
-      <img src="./images/example_lssh.gif" alt="lssh host picker" width="100%" />
-    </td>
-    <td valign="top" width="50%">
-      <img src="./images/example_lssh_parallel.gif" alt="lssh parallel command execution" width="100%" />
-    </td>
-  </tr>
-  <tr>
-    <td valign="top" width="50%">
-      <strong>Interactive host picker</strong>
-    </td>
-    <td valign="top" width="50%">
-      <strong>Parallel command execution</strong>
-    </td>
-  </tr>
-  <tr>
-    <td valign="top" width="50%">
-      Select one or more hosts from the TUI.
-    </td>
-    <td valign="top" width="50%">
-      Pick hosts and run the same command across them.
-    </td>
-  </tr>
-  <tr>
-    <td valign="top" width="50%">
+      <img src="./images/example_lssh.gif" alt="lssh host picker" width="100%" /><br />
+      <strong>Interactive host picker</strong><br />
       <pre><code>lssh</code></pre>
+      Select one or more hosts from the TUI.<br />
     </td>
     <td valign="top" width="50%">
+      <img src="./images/example_lssh_parallel.gif" alt="lssh parallel command execution" width="100%" /><br />
+      <strong>Parallel command execution</strong><br />
       <pre><code>lssh -p tail -f /var/log/syslog</code></pre>
+      Pick hosts and run the same command across them.<br />
     </td>
   </tr>
   <tr>
     <td valign="top" width="50%">
-      <img src="./images/example_lssh_mux.gif" alt="lssh mux workflow" width="100%" />
-    </td>
-    <td valign="top" width="50%">
-      <img src="./images/example_lssh_mux_command.gif" alt="lssh mux workflow with command" width="100%" />
-    </td>
-  </tr>
-  <tr>
-    <td valign="top" width="50%">
-      <strong>Mux workflow</strong>
-    </td>
-    <td valign="top" width="50%">
-      <strong>Mux workflow with command</strong>
-    </td>
-  </tr>
-  <tr>
-    <td valign="top" width="50%">
-      Open the multi-pane terminal workflow.
-    </td>
-    <td valign="top" width="50%">
-      Start the mux UI and launch a command immediately.
-    </td>
-  </tr>
-  <tr>
-    <td valign="top" width="50%">
+      <img src="./images/example_lssh_mux.gif" alt="lssh mux workflow" width="100%" /><br />
+      <strong>Mux workflow</strong><br />
       <pre><code>lssh -P</code></pre>
+      Open the multi-pane terminal workflow.<br />
     </td>
     <td valign="top" width="50%">
+      <img src="./images/example_lssh_mux_command.gif" alt="lssh mux workflow with command" width="100%" /><br />
+      <strong>Mux workflow with command</strong><br />
       <pre><code>lssh -P 'htop'</code></pre>
+      Start the mux UI and launch a command immediately.<br />
     </td>
   </tr>
 </table>
