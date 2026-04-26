@@ -13,11 +13,11 @@ lssh
 <img src="./images/demo.gif" width="720" />
 </p>
 
-lssh is a terminal-native remote access suite for SSH workflows, cloud inventories, and provider-backed connectors.
+`lssh` is a terminal-native remote access suite for SSH workflows, cloud inventories, and provider-backed connectors.
 
-It lets you select hosts from OpenSSH config, lssh config, or provider inventories, then operate them through native SSH or connector backends such as AWS SSM, EC2 Instance Connect Endpoint, WinRM, Telnet, and custom providers.
+It lets you select hosts from OpenSSH config, `lssh` config, or provider inventories, then operate them through native SSH or connector backends such as AWS SSM, EC2 Instance Connect Endpoint, WinRM, Telnet, and custom providers.
 
-Use it for interactive shells, parallel commands, mux workspaces, file transfer, sync, mount, and monitoring. Connector-backed hosts expose only the operations supported by that connector.
+Use it for interactive shells, parallel commands, mux workspaces, file transfer, sync, mount, and monitoring. Connector-backed hosts expose only the operations their connector supports.
 
 - works with your existing SSH config
 - interactive host selection
@@ -60,7 +60,7 @@ lssh
 
 Want to generate an `lssh` config from your existing SSH config?
 
-```bash id="w2e9m1"
+```bash
 lssh --generate-lssh-conf > ~/.lssh.toml
 ```
 
@@ -121,9 +121,9 @@ For the telnet connector + multi-hop provider flow, use [`demo-telnet-provider/R
 
 ## OpenSSH config and lssh config
 
-lssh supports both your existing OpenSSH config and its own `lssh` config format.
+`lssh` supports both your existing OpenSSH config and its own config format.
 
-If you want to get started quickly, you can keep using `~/.ssh/config` as-is. If you want more advanced host metadata and workflow-oriented settings, you can use an `lssh` config instead.
+If you want to get started quickly, you can keep using `~/.ssh/config` as-is. If you want richer host metadata and workflow-oriented settings, you can move to an `lssh` config instead.
 
 You can also generate an `lssh` config from your existing SSH config:
 
@@ -131,7 +131,7 @@ You can also generate an `lssh` config from your existing SSH config:
 lssh --generate-lssh-conf > ~/.lssh.toml
 ```
 
-And even after moving to `lssh` config, you can still point it at your existing OpenSSH config to load hosts from there:
+Even after moving to `lssh` config, you can still point it at your existing OpenSSH config and load hosts from there:
 
 ```toml
 [sshconfig.default]
@@ -143,42 +143,18 @@ For more details about config formats and settings, see [docs/configuration.md](
 ## Providers
 
 `lssh` can work with more than static SSH config entries.
-Providers let it pull hosts from external inventory sources, resolve secrets just before connect, or use non-SSH connection backends such as cloud-managed connectors.
+Providers let it pull hosts from external inventory sources, resolve secrets just before connect, and use non-SSH connection backends such as cloud-managed connectors.
 
-Provider capabilities are grouped into a few roles:
-
-- `inventory`: generate `server` entries from APIs or cloud inventories
-- `connector`: define how a resolved target is actually reached
-- `secret`: resolve `*_ref` values at execution time
-- `mixed`: combine multiple roles in one provider implementation
-
-This is what makes workflows such as cloud inventory lookup, secret-manager-backed credentials, and connector-backed sessions possible without hardcoding them into the base config format.
+At a high level, providers fall into four roles: `inventory`, `connector`, `secret`, and `mixed`.
+That split makes cloud inventory lookup, secret-manager-backed credentials, and connector-backed sessions possible without hardcoding those workflows into the base config format.
 
 If you want to try provider-oriented flows locally, start from these demos:
 
 - [demo/README.md](./demo/README.md): core SSH, proxy chains, and general multi-host workflow examples
 - [demo-telnet-provider/README.md](./demo-telnet-provider/README.md): provider-managed telnet connector flow, including direct telnet access and telnet behind a double SSH hop
 
-<table>
-  <tr>
-    <td valign="top" width="25%">
-      <strong><a href="./provider/inventory/README.md">Inventory</a></strong><br />
-      Generate <code>server</code> entries from cloud or API-backed inventories.
-    </td>
-    <td valign="top" width="25%">
-      <strong><a href="./provider/connector/README.md">Connector</a></strong><br />
-      Reach targets through connector-backed runtimes such as managed sessions.
-    </td>
-    <td valign="top" width="25%">
-      <strong><a href="./provider/secret/README.md">Secret</a></strong><br />
-      Resolve <code>*_ref</code> values from secret stores at execution time.
-    </td>
-    <td valign="top" width="25%">
-      <strong><a href="./provider/mixed/README.md">Mixed</a></strong><br />
-      Combine inventory, connector, or secret roles in one provider.
-    </td>
-  </tr>
-</table>
+For the provider architecture and protocol overview, start with [provider/README.md](./provider/README.md).
+Category details are also documented under [inventory](./provider/inventory/README.md), [connector](./provider/connector/README.md), [secret](./provider/secret/README.md), and [mixed](./provider/mixed/README.md).
 
 ### Bundled providers
 
@@ -239,15 +215,15 @@ These provider implementations are currently bundled in this repository.
   <tr>
     <td valign="top" width="33%">
       <strong><a href="./provider/secret/provider-secret-bitwarden/README.md">provider-secret-bitwarden</a></strong><br />
-      Resolve secret references from Bitwarden.
+      Resolve secret references from [Bitwarden](https://bitwarden.com/).
+    </td>
+    <td valign="top" width="33%">
+      <strong><a href="./provider/secret/provider-secret-onepassword/README.md">provider-secret-onepassword</a></strong><br />
+      Resolve secret references from [1Password](https://1password.com/).
     </td>
     <td valign="top" width="33%">
       <strong><a href="./provider/secret/provider-secret-custom-script/README.md">provider-secret-custom-script</a></strong><br />
       Resolve secret references through custom local scripts.
-    </td>
-    <td valign="top" width="33%">
-      <strong><a href="./provider/secret/provider-secret-onepassword/README.md">provider-secret-onepassword</a></strong><br />
-      Resolve secret references from 1Password.
     </td>
   </tr>
   <tr>
@@ -260,11 +236,9 @@ These provider implementations are currently bundled in this repository.
   </tr>
 </table>
 
-For the provider architecture and protocol overview, start with [provider/README.md](./provider/README.md).
-
 ## Tools in the lssh suite
 
-The lssh project includes multiple tools for SSH-centered workflows.
+The `lssh` project includes multiple tools for SSH-centered workflows.
 
 <table>
   <tr>
@@ -354,14 +328,14 @@ The lssh project includes multiple tools for SSH-centered workflows.
 ## Alternatives
 
 If you are evaluating `lssh`, these projects are also worth a look.
-They overlap in some workflows, but usually cover a narrower slice of what the `lssh` suite does.
+They overlap with parts of the suite, but each usually covers a narrower slice of the overall workflow.
 
 | Project | Closest `lssh` command(s) | Main focus | How it differs from `lssh` |
 | --- | --- | --- | --- |
-| [`sshs`](https://github.com/quantumsheep/sshs) | [`lssh`](./cmd/lssh/README.md) | TUI-based SSH host picker | Similar single-tool host selection UX, but `lssh` also covers parallel execution, forwarding, mux workflow, and provider/connector-backed hosts. |
-| [`ClusterSSH (cssh)`](https://github.com/duncs/clusterssh) | [`lssh -P`](./cmd/lssh/README.md), [`lsmux`](./cmd/lsmux/README.md), [`lsshell`](./cmd/lsshell/README.md) | Multi-host interactive administration | Strong for broadcast typing into multiple terminals; `lsshell` and `lsmux` are closer when you want synchronized shell workflows inside one suite. |
-| [`pssh`](https://github.com/lilydjwg/pssh) | [`lssh -p`](./cmd/lssh/README.md), [`lscp`](./cmd/lscp/README.md), [`lssync`](./cmd/lssync/README.md) | Parallel command execution and transfer tools | Good fit for parallel CLI jobs, while `lssh` adds TUI host selection, interactive workflows, and a more integrated multi-command toolset. |
-| [`tmuxinator`](https://github.com/tmuxinator/tmuxinator) | [`lssh -P`](./cmd/lssh/README.md), [`lsmux`](./cmd/lsmux/README.md) | tmux session layout management | Great for predefined tmux workspaces, but it is not an SSH host picker or transfer tool by itself; `lsmux` is SSH-oriented from the start. |
+| [`sshs`](https://github.com/quantumsheep/sshs) | [`lssh`](./cmd/lssh/README.md) | TUI-based SSH host picker | Similar in spirit to a focused host picker, but `lssh` also covers parallel execution, forwarding, mux workflows, and provider/connector-backed targets. |
+| [`ClusterSSH (cssh)`](https://github.com/duncs/clusterssh) | [`lssh -P`](./cmd/lssh/README.md), [`lsmux`](./cmd/lsmux/README.md), [`lsshell`](./cmd/lsshell/README.md) | Multi-host interactive administration | Strong for broadcast typing into multiple terminals; `lsshell` and `lsmux` are a closer fit when you want synchronized shell workflows inside one suite. |
+| [`pssh`](https://github.com/lilydjwg/pssh) | [`lssh -p`](./cmd/lssh/README.md), [`lscp`](./cmd/lscp/README.md), [`lssync`](./cmd/lssync/README.md) | Parallel command execution and transfer tools | A good fit for parallel CLI jobs, while `lssh` adds TUI host selection, interactive workflows, and a more integrated multi-command toolset. |
+| [`tmuxinator`](https://github.com/tmuxinator/tmuxinator) | [`lssh -P`](./cmd/lssh/README.md), [`lsmux`](./cmd/lsmux/README.md) | tmux session layout management | Great for predefined tmux workspaces, but it is not an SSH host picker or transfer tool by itself. `lsmux` is SSH-oriented from the start. |
 
 ### How the `lssh` suite is different
 
@@ -371,7 +345,7 @@ They overlap in some workflows, but usually cover a narrower slice of what the `
 - [`lsmux`](./cmd/lsmux/README.md) provides a pane-based SSH workspace rather than only session templating.
 - [`lspipe`](./cmd/lspipe/README.md) keeps selected hosts reusable from local pipelines and automation.
 
-## Licence
+## License
 
 [MIT](LICENSE.md)
 

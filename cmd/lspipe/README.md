@@ -157,5 +157,5 @@ echo 'cat' > ~/.cache/lssh/lspipe/fifo/default/ops/web01.cmd
 - Windows supports normal `lspipe` session creation and command execution through the local TCP fallback.
 - `--mkfifo` creates `all.*` pipes plus one `host.*` set per host: `.cmd`, `.stdin`, `.out`.
 - Write stdin into `.stdin`, then write the remote command into `.cmd`; read the result from `.out`.
-- `--mkfifo` is currently Unix-only. Windows does not support the FIFO bridge workflow in `0.10.0`.
+- `--mkfifo` is currently Unix-only. Windows does not support the FIFO bridge workflow yet.
 - The default config search order is `~/.lssh.toml`, `~/.lssh.yaml`, `~/.lssh.yml`, then `~/.lssh.conf`.

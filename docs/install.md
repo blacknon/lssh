@@ -104,7 +104,7 @@ brew install blacknon/lssh/lssh
 - `lsshfs` uses a different local mount backend on each OS:
 - Linux: FUSE support and a working `fusermount`/FUSE setup are required.
 - macOS: `mount_nfs` is used locally, so the client must allow local NFS mounts.
-- Windows: `lsshfs` is not supported in `0.10.0`.
+- Windows: `lsshfs` is currently not supported.
 - The repository intentionally replaces `github.com/kevinburke/ssh_config` with the vendored fork at `./internal/ssh_config` so the generated config and parser behavior stay in sync with `lssh`.
 
 ## Shell completion

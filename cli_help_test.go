@@ -26,7 +26,7 @@ func TestCLIAppsExposeExpectedVersionStrings(t *testing.T) {
 	}
 
 	for _, tt := range cases {
-		if !strings.Contains(tt.version, "lssh-suite 0.9.1") {
+		if !strings.Contains(tt.version, "lssh-suite 0.10.0") {
 			t.Fatalf("%s version = %q", tt.name, tt.version)
 		}
 	}
