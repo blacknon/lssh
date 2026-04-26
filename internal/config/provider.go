@@ -917,7 +917,7 @@ func sanitizeProviderDebugValue(method string, value interface{}, path []string,
 		for key, item := range typed {
 			nextPath := append(path, key)
 			if shouldRedactProviderDebugField(method, nextPath, isRequest) {
-				sanitized[key] = "<redacted>"
+				sanitized[key] = providerDebugRedactedValue(item)
 				continue
 			}
 			sanitized[key] = sanitizeProviderDebugValue(method, item, nextPath, isRequest)
@@ -931,6 +931,25 @@ func sanitizeProviderDebugValue(method string, value interface{}, path []string,
 		return sanitized
 	default:
 		return value
+	}
+}
+
+func providerDebugRedactedValue(value interface{}) interface{} {
+	switch typed := value.(type) {
+	case []interface{}:
+		redacted := make([]interface{}, len(typed))
+		for i := range typed {
+			redacted[i] = "<redacted>"
+		}
+		return redacted
+	case map[string]interface{}:
+		redacted := make(map[string]interface{}, len(typed))
+		for key := range typed {
+			redacted[key] = "<redacted>"
+		}
+		return redacted
+	default:
+		return "<redacted>"
 	}
 }
 

@@ -904,6 +904,75 @@ printf '%s' '{"version":"v1","error":{"code":"secret_get_failed","message":"toke
 	}
 }
 
+func TestDescribeConnectorDebugLogRedactsTargetPasswords(t *testing.T) {
+	dir := t.TempDir()
+	providerPath := filepath.Join(dir, "lssh-provider-fake-connector")
+	debugLogPath := filepath.Join(dir, "logs", "provider-debug.log")
+	script := `#!/bin/sh
+payload="$(cat)"
+case "$payload" in
+  *'"method":"plugin.describe"'*)
+    printf '%s' '{"version":"v1","result":{"name":"fake-connector","capabilities":["connector"],"connector_names":["gcp-iap"],"methods":["plugin.describe","connector.describe"]}}'
+    ;;
+  *'"method":"connector.describe"'*)
+    printf '%s' '{"version":"v1","result":{"capabilities":{"shell":{"supported":true}}}}'
+    ;;
+  *)
+    printf '%s' '{"version":"v1","error":{"message":"unsupported"}}'
+    exit 1
+    ;;
+esac
+`
+	if err := os.WriteFile(providerPath, []byte(script), 0o755); err != nil {
+		t.Fatalf("write provider: %v", err)
+	}
+
+	cfg := Config{
+		Providers: ProvidersConfig{Paths: []string{providerPath}, DebugLog: debugLogPath},
+		Server: map[string]ServerConfig{
+			"gcp:test": {
+				Addr:          "10.60.1.3",
+				User:          "lssh",
+				ConnectorName: "gcp-iap",
+				Pass:          "single-password",
+				Passes:        []string{"P@ssw0rd"},
+			},
+		},
+		Provider: map[string]map[string]interface{}{
+			"gcp": {
+				"plugin":       "lssh-provider-fake-connector",
+				"capabilities": []interface{}{"connector"},
+				"password":     "provider-password",
+			},
+		},
+	}
+
+	if _, err := cfg.DescribeConnector("gcp:test"); err != nil {
+		t.Fatalf("DescribeConnector() error = %v", err)
+	}
+
+	data, err := os.ReadFile(debugLogPath)
+	if err != nil {
+		t.Fatalf("ReadFile() error = %v", err)
+	}
+
+	got := string(data)
+	for _, secret := range []string{"single-password", "P@ssw0rd", "provider-password"} {
+		if strings.Contains(got, secret) {
+			t.Fatalf("debug log leaked secret %q: %q", secret, got)
+		}
+	}
+	if !strings.Contains(got, `"pass":"\u003credacted\u003e"`) {
+		t.Fatalf("debug log missing redacted pass: %q", got)
+	}
+	if !strings.Contains(got, `"passes":["\u003credacted\u003e"]`) {
+		t.Fatalf("debug log missing redacted passes: %q", got)
+	}
+	if !strings.Contains(got, `"password":"\u003credacted\u003e"`) {
+		t.Fatalf("debug log missing redacted provider password: %q", got)
+	}
+}
+
 func TestReadInventoryProvidersDoesNotLeakProxmoxAPISettingsIntoSSHConfig(t *testing.T) {
 	dir := t.TempDir()
 	providerPath := filepath.Join(dir, "provider-inventory-proxmox")
