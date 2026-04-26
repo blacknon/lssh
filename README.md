@@ -307,7 +307,7 @@ The `lssh` project includes multiple tools for SSH-centered workflows.
     <td valign="top" width="33%">
       <strong><a href="./cmd/lsshfs/README.md">lsshfs</a></strong><br />
       <code>transfer</code> / <code>beta</code><br />
-      Mount a remote directory through FUSE on Linux or NFS on macOS.
+      Mount a remote directory through `FUSE on Linux` or `NFS on macOS`.
     </td>
     <td valign="top" width="33%"></td>
     <td valign="top" width="33%"></td>

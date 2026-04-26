@@ -92,7 +92,9 @@ jobs:
           go build -o "dist/providers/provider-inventory-proxmox${ext}" ./provider/inventory/provider-inventory-proxmox
           go build -o "dist/providers/provider-secret-onepassword${ext}" ./provider/secret/provider-secret-onepassword
           go build -o "dist/providers/provider-secret-bitwarden${ext}" ./provider/secret/provider-secret-bitwarden
-          go build -o "dist/providers/provider-secret-os-keychain${ext}" ./provider/secret/provider-secret-os-keychain
+          if [ "${GOOS}" = "darwin" ]; then
+            go build -o "dist/providers/provider-secret-os-keychain${ext}" ./provider/secret/provider-secret-os-keychain
+          fi
           go build -o "dist/providers/provider-secret-custom-script${ext}" ./provider/secret/provider-secret-custom-script
 
       - name: Create release packages
@@ -169,7 +171,11 @@ jobs:
           package_provider_binaries() {
             case "$1" in
               complete|providers)
-                echo "provider-mixed-aws-ec2 provider-connector-openssh provider-connector-telnet provider-connector-winrm provider-mixed-azure-compute provider-inventory-azure-compute provider-mixed-gcp-compute provider-inventory-gcp-compute provider-inventory-proxmox provider-secret-onepassword provider-secret-bitwarden provider-secret-os-keychain provider-secret-custom-script"
+                providers="provider-mixed-aws-ec2 provider-connector-openssh provider-connector-telnet provider-connector-winrm provider-mixed-azure-compute provider-inventory-azure-compute provider-mixed-gcp-compute provider-inventory-gcp-compute provider-inventory-proxmox provider-secret-onepassword provider-secret-bitwarden provider-secret-custom-script"
+                if [ "$GOOS" = "darwin" ]; then
+                  providers="${providers} provider-secret-os-keychain"
+                fi
+                echo "$providers"
                 ;;
             esac
           }
