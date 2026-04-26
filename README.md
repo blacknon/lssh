@@ -180,6 +180,88 @@ If you want to try provider-oriented flows locally, start from these demos:
   </tr>
 </table>
 
+### Bundled providers
+
+These provider implementations are currently bundled in this repository.
+
+#### Inventory
+
+<table>
+  <tr>
+    <td valign="top" width="33%">
+      <strong><a href="./provider/inventory/provider-inventory-proxmox/README.md">provider-inventory-proxmox</a></strong><br />
+      Build host entries from Proxmox inventory.
+    </td>
+    <td valign="top" width="33%"></td>
+    <td valign="top" width="33%"></td>
+  </tr>
+</table>
+
+#### Connector
+
+<table>
+  <tr>
+    <td valign="top" width="33%">
+      <strong><a href="./provider/connector/provider-connector-openssh/README.md">provider-connector-openssh</a></strong><br />
+      Use OpenSSH-compatible connection handling as a provider-backed connector.
+    </td>
+    <td valign="top" width="33%">
+      <strong><a href="./provider/connector/provider-connector-telnet/README.md">provider-connector-telnet</a></strong><br />
+      Reach telnet targets through the connector interface.
+    </td>
+    <td valign="top" width="33%">
+      <strong><a href="./provider/connector/provider-connector-winrm/README.md">provider-connector-winrm</a></strong><br />
+      Run command and shell workflows against WinRM targets.
+    </td>
+  </tr>
+</table>
+
+#### Mixed
+
+<table>
+  <tr>
+    <td valign="top" width="33%">
+      <strong><a href="./provider/mixed/provider-mixed-aws-ec2/README.md">provider-mixed-aws-ec2</a></strong><br />
+      Combine EC2 inventory with AWS SSM and EC2 Instance Connect Endpoint connectors.
+    </td>
+    <td valign="top" width="33%">
+      <strong><a href="./provider/mixed/provider-mixed-azure-compute/README.md">provider-mixed-azure-compute</a></strong><br />
+      Build Azure Compute inventory with connector-aware access settings.
+    </td>
+    <td valign="top" width="33%">
+      <strong><a href="./provider/mixed/provider-mixed-gcp-compute/README.md">provider-mixed-gcp-compute</a></strong><br />
+      Build Google Compute Engine inventory with connector-aware access settings.
+    </td>
+  </tr>
+</table>
+
+#### Secret
+
+<table>
+  <tr>
+    <td valign="top" width="33%">
+      <strong><a href="./provider/secret/provider-secret-bitwarden/README.md">provider-secret-bitwarden</a></strong><br />
+      Resolve secret references from Bitwarden.
+    </td>
+    <td valign="top" width="33%">
+      <strong><a href="./provider/secret/provider-secret-custom-script/README.md">provider-secret-custom-script</a></strong><br />
+      Resolve secret references through custom local scripts.
+    </td>
+    <td valign="top" width="33%">
+      <strong><a href="./provider/secret/provider-secret-onepassword/README.md">provider-secret-onepassword</a></strong><br />
+      Resolve secret references from 1Password.
+    </td>
+  </tr>
+  <tr>
+    <td valign="top" width="33%">
+      <strong><a href="./provider/secret/provider-secret-os-keychain/README.md">provider-secret-os-keychain</a></strong><br />
+      Resolve secret references from the local OS keychain.
+    </td>
+    <td valign="top" width="33%"></td>
+    <td valign="top" width="33%"></td>
+  </tr>
+</table>
+
 For the provider architecture and protocol overview, start with [provider/README.md](./provider/README.md).
 
 ## Tools in the lssh suite
