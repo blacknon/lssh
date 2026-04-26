@@ -4,19 +4,21 @@ import "testing"
 
 func TestParseTargetSpec(t *testing.T) {
 	tests := []struct {
-		value string
-		host  string
-		path  string
-		ok    bool
+		value      string
+		knownHosts []string
+		host       string
+		path       string
+		ok         bool
 	}{
-		{value: "@host1:/tmp/a", host: "host1", path: "/tmp/a", ok: true},
-		{value: "host1:/tmp/a", host: "host1", path: "/tmp/a", ok: true},
+		{value: "@host1:/tmp/a", knownHosts: []string{"host1"}, host: "host1", path: "/tmp/a", ok: true},
+		{value: "host1:/tmp/a", knownHosts: []string{"host1"}, host: "host1", path: "/tmp/a", ok: true},
+		{value: "@pve:sv-pve01:vm-gitlab:/tmp/a", knownHosts: []string{"pve:sv-pve01:vm-gitlab"}, host: "pve:sv-pve01:vm-gitlab", path: "/tmp/a", ok: true},
 		{value: "/tmp/a", host: "", path: "/tmp/a", ok: true},
-		{value: "@host1", ok: false},
+		{value: "@host1", knownHosts: []string{"host1"}, ok: false},
 	}
 
 	for _, tt := range tests {
-		target, err := ParseTargetSpec(tt.value)
+		target, err := ParseTargetSpecWithHosts(tt.value, tt.knownHosts)
 		if tt.ok && err != nil {
 			t.Fatalf("ParseTargetSpec(%q) error = %v", tt.value, err)
 		}

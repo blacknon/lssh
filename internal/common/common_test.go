@@ -128,9 +128,52 @@ func TestGetMaxLength(t *testing.T) {
 // func TestGetFilesBase64(t *testing.T) {
 // }
 
-// func TestParseHostPath(t *testing.T) {
-// 	type TestData
-// }
+func TestParseHostPathWithHosts(t *testing.T) {
+	tests := []struct {
+		name       string
+		value      string
+		knownHosts []string
+		wantHosts  []string
+		wantPath   string
+	}{
+		{
+			name:       "plain host path",
+			value:      "web01:/srv/app",
+			knownHosts: []string{"web01"},
+			wantHosts:  []string{"web01"},
+			wantPath:   "/srv/app",
+		},
+		{
+			name:       "colon in host name",
+			value:      "pve:sv-pve01:vm-gitlab:/tmp",
+			knownHosts: []string{"pve:sv-pve01:vm-gitlab"},
+			wantHosts:  []string{"pve:sv-pve01:vm-gitlab"},
+			wantPath:   "/tmp",
+		},
+		{
+			name:       "multiple hosts with colon in host name",
+			value:      "pve:sv-pve01:vm-gitlab,pve:sv-pve02:vm-gitlab-runner2:/tmp",
+			knownHosts: []string{"pve:sv-pve01:vm-gitlab", "pve:sv-pve02:vm-gitlab-runner2"},
+			wantHosts:  []string{"pve:sv-pve01:vm-gitlab", "pve:sv-pve02:vm-gitlab-runner2"},
+			wantPath:   "/tmp",
+		},
+		{
+			name:       "fallback without known host match",
+			value:      "remote:path:with:colon",
+			knownHosts: []string{"web01"},
+			wantHosts:  []string{"remote"},
+			wantPath:   "path:with:colon",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			gotHosts, gotPath := ParseHostPathWithHosts(tt.value, tt.knownHosts)
+			assert.Equal(t, tt.wantHosts, gotHosts)
+			assert.Equal(t, tt.wantPath, gotPath)
+		})
+	}
+}
 
 func TestStringCompression(t *testing.T) {
 	type TestData struct {

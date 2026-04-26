@@ -8,7 +8,7 @@ It reuses the same host selection and SSH config flow as `lssh`, but exposes the
 
 - Linux clients use `FUSE`
 - macOS clients use `NFS`
-- Windows is not supported in `0.9.1`
+- Windows is not supported in `0.10.0`
 - connector-backed mounts that rely on `sftp_transport` are currently supported on Linux and macOS
 
 The command runs in the background by default and automatically unmounts when the SSH connection is lost.
@@ -40,7 +40,7 @@ OPTIONS:
     --version, -v                       print the version
 
 VERSION:
-    lssh-suite 0.9.1 (beta/transfer)
+    lssh-suite 0.10.0 (beta/transfer)
 
 USAGE:
     # mount a remote path from the selected host
@@ -82,7 +82,7 @@ lsshfs --list-mounts
 - `lsshfs` supports only one host at a time.
 - `@host:/path` is the preferred remote path format, but `host:/path` is still accepted for compatibility.
 - On macOS, the local mount is created with `mount_nfs`.
-- On Windows, `lsshfs` is not supported in `0.9.1`.
+- On Windows, `lsshfs` is not supported in `0.10.0`.
 - The default config search order is `~/.lssh.toml`, `~/.lssh.yaml`, `~/.lssh.yml`, then `~/.lssh.conf`.
 
 ### mount options

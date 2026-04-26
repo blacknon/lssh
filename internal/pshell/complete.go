@@ -17,7 +17,6 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/blacknon/lssh/internal/common"
 	"github.com/c-bata/go-prompt"
 	"golang.org/x/crypto/ssh"
 )
@@ -95,7 +94,7 @@ func (s *shell) Completer(t prompt.Document) []prompt.Suggest {
 	targets := []string{}
 	targeted := false
 
-	targets, commandLeft, targetToken, inTargetSelector := parseLeadingTargetSelector(left)
+	targets, commandLeft, targetToken, inTargetSelector := parseLeadingTargetSelector(left, knownHostsFromConnects(s.Connects))
 	if targetToken != "" {
 		targeted = true
 		if inTargetSelector {
@@ -148,7 +147,7 @@ func (s *shell) Completer(t prompt.Document) []prompt.Suggest {
 	}
 
 	if sl >= 1 && ll >= 1 {
-		c := stripTargetPrefix(pslice[sl-1][ll-1].Args[0])
+		c := stripTargetPrefix(pslice[sl-1][ll-1].Args[0], knownHostsFromConnects(s.Connects))
 
 		// switch suggest
 		switch {
@@ -169,6 +168,7 @@ func (s *shell) Completer(t prompt.Document) []prompt.Suggest {
 				{Text: "%reconnect", Description: "%reconnect [host...], reconnect disconnected hosts."},
 				{Text: "%status", Description: "%status, show current connection status."},
 				{Text: "%sync", Description: "%sync [--delete] [--dry-run] [-p] [-P num] (local|remote):source... (local|remote):target"},
+				{Text: "%diff", Description: "%diff remote_path | @host:/path..., compare remote files in a synchronized TUI."},
 				{Text: "%save", Description: "reserved built-in command."},
 				{Text: "%set", Description: "reserved built-in command."},
 				// outの出力でdiffをするためのローカルコマンド。すべての出力と比較するのはあまりに辛いと思われるため、最初の出力との比較、といった方式で対応するのが良いか？？
@@ -191,17 +191,17 @@ func (s *shell) Completer(t prompt.Document) []prompt.Suggest {
 			suggest := s.getBuildInCommandSuggest(c, t, targetConns, num, char)
 			return prompt.FilterHasPrefix(suggest, t.GetWordBeforeCursor(), false)
 
-	default:
-		switch {
-		case strings.Contains(wordBeforeCursor, "/"):
-			s.PathComplete = s.GetPathCompleteForConnects(targetConns, !checkLocalCommand(c), wordBeforeCursor)
+		default:
+			switch {
+			case strings.Contains(wordBeforeCursor, "/"):
+				s.PathComplete = s.GetPathCompleteForConnects(targetConns, !checkLocalCommand(c), wordBeforeCursor)
 			case strings.Count(t.CurrentLineBeforeCursor(), " ") >= 1:
 				s.PathComplete = s.GetPathCompleteForConnects(targetConns, !checkLocalCommand(c), wordBeforeCursor)
-		case contains([]string{" ", ":"}, char) && strings.Count(t.CurrentLineBeforeCursor(), " ") == 1:
-			s.PathComplete = s.GetPathCompleteForConnects(targetConns, !checkLocalCommand(c), wordBeforeCursor)
-		}
+			case contains([]string{" ", ":"}, char) && strings.Count(t.CurrentLineBeforeCursor(), " ") == 1:
+				s.PathComplete = s.GetPathCompleteForConnects(targetConns, !checkLocalCommand(c), wordBeforeCursor)
+			}
 
-		return prompt.FilterHasPrefix(s.PathComplete, pathCompletionFilterWord(wordBeforeCursor), false)
+			return prompt.FilterHasPrefix(s.PathComplete, pathCompletionFilterWord(wordBeforeCursor), false)
 		}
 	}
 
@@ -278,6 +278,14 @@ func (s *shell) getBuildInCommandSuggest(command string, t prompt.Document, targ
 				s.GetPathCompleteForConnects(targetConns, true, t.GetWordBeforeCursor()),
 			)
 		}
+
+	case "%diff":
+		return appendPathSuggests(
+			[]prompt.Suggest{
+				{Text: "@", Description: "explicit remote target (@host:/path)"},
+			},
+			s.GetPathCompleteForConnects(targetConns, true, t.GetWordBeforeCursor()),
+		)
 
 	case "%reconnect":
 		return s.getServerStatusSuggests()
@@ -658,7 +666,7 @@ func executableExtensions() []string {
 	return result
 }
 
-func parseLeadingTargetSelector(line string) (targets []string, command string, token string, inSelector bool) {
+func parseLeadingTargetSelector(line string, knownHosts []string) (targets []string, command string, token string, inSelector bool) {
 	line = strings.TrimLeft(line, " ")
 	if line == "" || line[0] != '@' {
 		return nil, "", "", false
@@ -673,36 +681,29 @@ func parseLeadingTargetSelector(line string) (targets []string, command string, 
 		return nil, "", "", false
 	}
 
+	if parsedTargets, commandHead, err := parseTargetedCommand(token, knownHosts); err == nil {
+		remaining := strings.TrimPrefix(line, token)
+		return parsedTargets, commandHead + remaining, token, false
+	}
+
 	value := strings.TrimPrefix(token, "@")
-	if !strings.Contains(value, ":") {
-		hosts := strings.Split(value, ",")
-		for _, host := range hosts {
-			host = strings.TrimSpace(host)
-			if host != "" {
-				targets = append(targets, host)
-			}
+	hosts := strings.Split(value, ",")
+	for _, host := range hosts {
+		host = strings.TrimSpace(host)
+		if host != "" {
+			targets = append(targets, host)
 		}
-		return targets, "", token, true
 	}
 
-	targets, command = common.ParseHostPath(value)
-	for i := range targets {
-		targets[i] = strings.TrimSpace(targets[i])
-	}
-
-	if idx := strings.Index(line, ":"); idx >= 0 {
-		command = strings.TrimLeft(line[idx+1:], " ")
-	}
-
-	return targets, command, token, false
+	return targets, "", token, true
 }
 
-func stripTargetPrefix(command string) string {
+func stripTargetPrefix(command string, knownHosts []string) string {
 	if !strings.HasPrefix(command, "@") {
 		return command
 	}
 
-	if _, cmd, _, inSelector := parseLeadingTargetSelector(command); !inSelector && cmd != "" {
+	if _, cmd, _, inSelector := parseLeadingTargetSelector(command, knownHosts); !inSelector && cmd != "" {
 		return cmd
 	}
 

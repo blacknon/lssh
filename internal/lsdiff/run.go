@@ -20,7 +20,7 @@ func ResolveTargets(config conf.Config, args []string) ([]Target, error) {
 
 	explicitTargets := make([]Target, 0, len(args))
 	for _, arg := range args {
-		target, err := ParseTargetSpec(arg)
+		target, err := ParseTargetSpecWithHosts(arg, conf.GetNameList(config))
 		if err != nil {
 			return nil, err
 		}

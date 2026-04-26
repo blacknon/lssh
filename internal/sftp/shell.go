@@ -632,7 +632,7 @@ func (r *RunSftp) GetRemoteComplete(ishost, ispath, useTargetmap bool, path stri
 	}
 
 	// parse path
-	parsedservers, parsedPath := common.ParseHostPath(path)
+	parsedservers, parsedPath := common.ParseHostPathWithHosts(path, servers)
 	if !useTargetmap {
 		if len(parsedservers) == 0 {
 			parsedservers = servers

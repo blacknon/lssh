@@ -296,14 +296,79 @@ func awsHealthCheck(config map[string]interface{}) (providerapi.HealthCheckResul
 	if _, err := client.DescribeRegions(ctx, &ec2.DescribeRegionsInput{}); err != nil {
 		return providerapi.HealthCheckResult{}, err
 	}
-	if err := awsSSMHealthCheck(ctx, config, regions[0]); err != nil {
-		return providerapi.HealthCheckResult{}, err
+
+	checkEC2, checkSSM := awsHealthCheckScopes(config)
+	if checkSSM {
+		if err := awsSSMHealthCheck(ctx, config, regions[0]); err != nil {
+			return providerapi.HealthCheckResult{}, err
+		}
 	}
 
 	return providerapi.HealthCheckResult{
 		OK:      true,
-		Message: "aws mixed provider can access EC2 and SSM",
+		Message: awsHealthCheckMessage(checkEC2, checkSSM),
 	}, nil
+}
+
+func awsHealthCheckScopes(config map[string]interface{}) (checkEC2, checkSSM bool) {
+	checkEC2 = true
+
+	capabilities := normalizeLowerStrings(providerapi.StringSlice(config, "capabilities"))
+	connectorNames := normalizeLowerStrings(providerapi.StringSlice(config, "connector_names"))
+
+	if len(capabilities) > 0 {
+		checkSSM = containsString(capabilities, "connector")
+		return checkEC2, checkSSM
+	}
+
+	if len(connectorNames) > 0 {
+		for _, name := range connectorNames {
+			switch name {
+			case "aws-ssm":
+				checkSSM = true
+			}
+		}
+		return checkEC2, checkSSM
+	}
+
+	// Backward-compatible default: mixed provider health still validates both
+	// EC2 inventory and the SSM connector unless the config scopes it down.
+	checkSSM = true
+	return checkEC2, checkSSM
+}
+
+func awsHealthCheckMessage(checkEC2, checkSSM bool) string {
+	switch {
+	case checkEC2 && checkSSM:
+		return "aws mixed provider can access EC2 and SSM"
+	case checkEC2:
+		return "aws mixed provider can access EC2"
+	case checkSSM:
+		return "aws mixed provider can access SSM"
+	default:
+		return "aws mixed provider health check completed"
+	}
+}
+
+func normalizeLowerStrings(values []string) []string {
+	out := make([]string, 0, len(values))
+	for _, value := range values {
+		value = strings.TrimSpace(strings.ToLower(value))
+		if value == "" {
+			continue
+		}
+		out = append(out, value)
+	}
+	return out
+}
+
+func containsString(values []string, target string) bool {
+	for _, value := range values {
+		if value == target {
+			return true
+		}
+	}
+	return false
 }
 
 func awsString(v *string) string {

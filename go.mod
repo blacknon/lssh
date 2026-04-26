@@ -37,7 +37,6 @@ require (
 	github.com/stretchr/testify v1.11.1
 	github.com/thales-e-security/pool v0.0.2 // indirect
 	github.com/urfave/cli v1.22.17
-	github.com/vbauerster/mpb v3.4.0+incompatible
 	golang.org/x/crypto v0.50.0
 	golang.org/x/net v0.53.0
 	golang.org/x/sys v0.43.0
@@ -59,6 +58,7 @@ require (
 	github.com/gdamore/tcell/v2 v2.9.0
 	github.com/jackpal/gateway v1.1.1
 	github.com/rivo/tview v0.0.0-20241227133733-17b7edb88c57
+	github.com/vbauerster/mpb/v8 v8.11.3
 	google.golang.org/api v0.275.0
 	mvdan.cc/sh v2.6.4+incompatible
 )

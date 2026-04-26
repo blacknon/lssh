@@ -322,8 +322,10 @@ func (c *Config) callProvider(name, method string, params interface{}, out inter
 	cmd.Stdout = &stdout
 	cmd.Stderr = &stderr
 	debugLogPath := providerDebugLogPath(c.Providers, raw)
+	sensitiveValues := collectProviderSensitiveValues(method, input, nil)
 
 	if err := cmd.Run(); err != nil {
+		sensitiveValues = collectProviderSensitiveValues(method, input, stdout.Bytes())
 		writeProviderDebugLog(debugLogPath, name, method, path, input, stdout.Bytes(), stderr.Bytes(), err)
 		if stdout.Len() > 0 {
 			var resp providerapi.Response
@@ -331,16 +333,17 @@ func (c *Config) callProvider(name, method string, params interface{}, out inter
 				return &ProviderError{
 					Provider: name,
 					Code:     resp.Error.Code,
-					Message:  resp.Error.Message,
+					Message:  sanitizeProviderDebugString(resp.Error.Message, sensitiveValues),
 				}
 			}
 		}
 		if stderr.Len() > 0 {
-			return fmt.Errorf("provider %q: %w: %s", name, err, strings.TrimSpace(stderr.String()))
+			return fmt.Errorf("provider %q: %w: %s", name, err, sanitizeProviderDebugString(strings.TrimSpace(stderr.String()), sensitiveValues))
 		}
 		return fmt.Errorf("provider %q: %w", name, err)
 	}
 	writeProviderDebugLog(debugLogPath, name, method, path, input, stdout.Bytes(), stderr.Bytes(), nil)
+	sensitiveValues = collectProviderSensitiveValues(method, input, stdout.Bytes())
 
 	var resp providerapi.Response
 	if err := json.Unmarshal(stdout.Bytes(), &resp); err != nil {
@@ -350,7 +353,7 @@ func (c *Config) callProvider(name, method string, params interface{}, out inter
 		return &ProviderError{
 			Provider: name,
 			Code:     resp.Error.Code,
-			Message:  resp.Error.Message,
+			Message:  sanitizeProviderDebugString(resp.Error.Message, sensitiveValues),
 		}
 	}
 	if out == nil || len(resp.Result) == 0 {
@@ -866,19 +869,24 @@ func writeProviderDebugLog(debugLogPath, name, method, executablePath string, in
 	}
 	defer file.Close()
 
+	sensitiveValues := collectProviderSensitiveValues(method, input, stdout)
 	sanitizedInput := sanitizeProviderDebugJSON(method, input, true)
 	sanitizedStdout := sanitizeProviderDebugJSON(method, stdout, false)
+	sanitizedInput = sanitizeProviderDebugBytes(sanitizedInput, sensitiveValues)
+	sanitizedStdout = sanitizeProviderDebugBytes(sanitizedStdout, sensitiveValues)
+	sanitizedStderr := sanitizeProviderDebugBytes(stderr, sensitiveValues)
+	sanitizedRunErr := sanitizeProviderDebugString(fmt.Sprint(runErr), sensitiveValues)
 
 	_, _ = fmt.Fprintf(file, "[%s] provider=%s method=%s executable=%s\n", time.Now().Format(time.RFC3339), name, method, executablePath)
 	_, _ = fmt.Fprintf(file, "request=%s\n", bytes.TrimSpace(sanitizedInput))
 	if len(sanitizedStdout) > 0 {
 		_, _ = fmt.Fprintf(file, "stdout=%s\n", bytes.TrimSpace(sanitizedStdout))
 	}
-	if len(stderr) > 0 {
-		_, _ = fmt.Fprintf(file, "stderr=%s\n", bytes.TrimSpace(stderr))
+	if len(sanitizedStderr) > 0 {
+		_, _ = fmt.Fprintf(file, "stderr=%s\n", bytes.TrimSpace(sanitizedStderr))
 	}
 	if runErr != nil {
-		_, _ = fmt.Fprintf(file, "error=%v\n", runErr)
+		_, _ = fmt.Fprintf(file, "error=%s\n", sanitizedRunErr)
 	}
 	_, _ = fmt.Fprintln(file)
 }
@@ -926,6 +934,101 @@ func sanitizeProviderDebugValue(method string, value interface{}, path []string,
 	}
 }
 
+func collectProviderSensitiveValues(method string, input, stdout []byte) []string {
+	values := map[string]struct{}{}
+	collectProviderSensitiveValuesFromJSON(method, input, true, values)
+	collectProviderSensitiveValuesFromJSON(method, stdout, false, values)
+
+	result := make([]string, 0, len(values))
+	for value := range values {
+		if value == "" {
+			continue
+		}
+		result = append(result, value)
+	}
+	sort.Slice(result, func(i, j int) bool {
+		if len(result[i]) != len(result[j]) {
+			return len(result[i]) > len(result[j])
+		}
+		return result[i] < result[j]
+	})
+	return result
+}
+
+func collectProviderSensitiveValuesFromJSON(method string, data []byte, isRequest bool, values map[string]struct{}) {
+	if len(bytes.TrimSpace(data)) == 0 {
+		return
+	}
+
+	var payload interface{}
+	if err := json.Unmarshal(data, &payload); err != nil {
+		return
+	}
+
+	collectProviderSensitiveValue(method, payload, nil, isRequest, values)
+}
+
+func collectProviderSensitiveValue(method string, value interface{}, path []string, isRequest bool, values map[string]struct{}) {
+	switch typed := value.(type) {
+	case map[string]interface{}:
+		for key, item := range typed {
+			nextPath := append(path, key)
+			if shouldRedactProviderDebugField(method, nextPath, isRequest) {
+				collectProviderSensitiveLeafStrings(item, values)
+				continue
+			}
+			collectProviderSensitiveValue(method, item, nextPath, isRequest, values)
+		}
+	case []interface{}:
+		for _, item := range typed {
+			collectProviderSensitiveValue(method, item, path, isRequest, values)
+		}
+	}
+}
+
+func collectProviderSensitiveLeafStrings(value interface{}, values map[string]struct{}) {
+	switch typed := value.(type) {
+	case string:
+		values[typed] = struct{}{}
+	case []interface{}:
+		for _, item := range typed {
+			collectProviderSensitiveLeafStrings(item, values)
+		}
+	case map[string]interface{}:
+		for _, item := range typed {
+			collectProviderSensitiveLeafStrings(item, values)
+		}
+	}
+}
+
+func sanitizeProviderDebugBytes(data []byte, sensitiveValues []string) []byte {
+	if len(data) == 0 {
+		return data
+	}
+	sanitized := append([]byte(nil), data...)
+	for _, value := range sensitiveValues {
+		if value == "" {
+			continue
+		}
+		sanitized = bytes.ReplaceAll(sanitized, []byte(value), []byte("<redacted>"))
+	}
+	return sanitized
+}
+
+func sanitizeProviderDebugString(value string, sensitiveValues []string) string {
+	if value == "" {
+		return value
+	}
+	sanitized := value
+	for _, secret := range sensitiveValues {
+		if secret == "" {
+			continue
+		}
+		sanitized = strings.ReplaceAll(sanitized, secret, "<redacted>")
+	}
+	return sanitized
+}
+
 func shouldRedactProviderDebugField(method string, path []string, isRequest bool) bool {
 	if len(path) == 0 {
 		return false
@@ -933,9 +1036,9 @@ func shouldRedactProviderDebugField(method string, path []string, isRequest bool
 
 	last := path[len(path)-1]
 	switch last {
-	case "token", "token_secret", "password", "pass", "passphrase", "secret",
+	case "token", "token_secret", "password", "pass", "passes", "passphrase", "secret",
 		"client_secret", "access_key", "secret_access_key", "session_token",
-		"keypass", "certkeypass", "pin":
+		"keypass", "keycmdpass", "certkeypass", "pin":
 		return true
 	}
 

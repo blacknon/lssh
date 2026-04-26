@@ -820,13 +820,20 @@ This keeps the first connector scope focused on session and command execution ra
 
 Current fit:
 
-- no connector plugins exist yet
-- no connector methods are implemented in the repository today
-- only a placeholder `transport.prepare` constant exists in `providerapi/protocol.go`
+- connector plugins already exist in the repository today:
+  - `provider-connector-openssh`
+  - `provider-connector-telnet`
+  - `provider-connector-winrm`
+  - `provider-mixed-aws-ec2` as a mixed inventory/connector provider
+- connector methods are implemented today:
+  - `connector.describe`
+  - `connector.prepare`
+  - selected runtime methods such as `connector.shell`, `connector.exec`, and `connector.dial`
+- `transport.prepare` remains only as a legacy alias while the codebase finishes converging on `connector.*`
 
 Recommended migration:
 
-1. Add `plugin.describe` support to the common provider layer.
-2. Introduce `connector.describe` as the first real connector method.
-3. Implement command-side gating based on connector capabilities.
-4. Add `connector.prepare` only after the capability model is validated by real use cases.
+1. Keep `plugin.describe`, `connector.describe`, and `connector.prepare` stable as the main interoperability boundary.
+2. Continue expanding command-side gating based on connector capabilities.
+3. Keep runtime methods narrow and capability-driven so unsupported operations fail clearly.
+4. Remove the remaining legacy `transport.*` wording once all callers are moved over.

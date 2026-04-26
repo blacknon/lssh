@@ -4,7 +4,7 @@ import "fmt"
 
 const (
 	SuiteName = "lssh-suite"
-	Number    = "0.9.1"
+	Number    = "0.10.0"
 )
 
 type Maturity string

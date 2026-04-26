@@ -1,6 +1,10 @@
 lssync
 ===
 
+<p align="center">
+<img src="./img/lssync.gif" width="720" />
+</p>
+
 ## About
 
 `lssync` is a sync command built on the same SSH/SFTP stack as `lscp`.
@@ -38,7 +42,7 @@ COPYRIGHT:
     blacknon(blacknon@orebibou.com)
 
 VERSION:
-    lssh-suite 0.9.1 (beta/transfer)
+    lssh-suite 0.10.0 (beta/transfer)
 
 USAGE:
     # local to remote sync

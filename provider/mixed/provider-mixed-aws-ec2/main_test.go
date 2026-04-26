@@ -8,6 +8,72 @@ import (
 	"github.com/blacknon/lssh/providerapi"
 )
 
+func TestAWSHealthCheckScopes(t *testing.T) {
+	tests := []struct {
+		name         string
+		config       map[string]interface{}
+		wantCheckEC2 bool
+		wantCheckSSM bool
+		wantMessage  string
+	}{
+		{
+			name:         "default mixed provider behavior",
+			config:       map[string]interface{}{},
+			wantCheckEC2: true,
+			wantCheckSSM: true,
+			wantMessage:  "aws mixed provider can access EC2 and SSM",
+		},
+		{
+			name: "inventory only capability",
+			config: map[string]interface{}{
+				"capabilities": []interface{}{"inventory"},
+			},
+			wantCheckEC2: true,
+			wantCheckSSM: false,
+			wantMessage:  "aws mixed provider can access EC2",
+		},
+		{
+			name: "inventory and connector capabilities",
+			config: map[string]interface{}{
+				"capabilities": []interface{}{"inventory", "connector"},
+			},
+			wantCheckEC2: true,
+			wantCheckSSM: true,
+			wantMessage:  "aws mixed provider can access EC2 and SSM",
+		},
+		{
+			name: "aws eice only connector",
+			config: map[string]interface{}{
+				"connector_names": []interface{}{"aws-eice"},
+			},
+			wantCheckEC2: true,
+			wantCheckSSM: false,
+			wantMessage:  "aws mixed provider can access EC2",
+		},
+		{
+			name: "aws ssm connector",
+			config: map[string]interface{}{
+				"connector_names": []interface{}{"aws-ssm"},
+			},
+			wantCheckEC2: true,
+			wantCheckSSM: true,
+			wantMessage:  "aws mixed provider can access EC2 and SSM",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			gotEC2, gotSSM := awsHealthCheckScopes(tt.config)
+			if gotEC2 != tt.wantCheckEC2 || gotSSM != tt.wantCheckSSM {
+				t.Fatalf("awsHealthCheckScopes() = (%t, %t), want (%t, %t)", gotEC2, gotSSM, tt.wantCheckEC2, tt.wantCheckSSM)
+			}
+			if got := awsHealthCheckMessage(gotEC2, gotSSM); got != tt.wantMessage {
+				t.Fatalf("awsHealthCheckMessage() = %q, want %q", got, tt.wantMessage)
+			}
+		})
+	}
+}
+
 func TestAWSConnectorDescribeSupported(t *testing.T) {
 	originalProbe := probeSSMTarget
 	defer func() { probeSSMTarget = originalProbe }()

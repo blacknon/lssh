@@ -1,5 +1,5 @@
 # output
-Output list.gif
+Output lsmon.gif
 
 # Set
 Set Shell "zsh"

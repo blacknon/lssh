@@ -8,18 +8,36 @@ import (
 	"bufio"
 	"fmt"
 	"io"
-	"math/rand"
 	"os"
+	"regexp"
 	"strconv"
 	"strings"
 	"sync"
-	"time"
 
 	"github.com/blacknon/lssh/internal/common"
 	conf "github.com/blacknon/lssh/internal/config"
-	"github.com/vbauerster/mpb"
-	"github.com/vbauerster/mpb/decor"
+	"github.com/vbauerster/mpb/v8"
+	"github.com/vbauerster/mpb/v8/decor"
 )
+
+var ansiRegexp = regexp.MustCompile(`\x1b\[[0-9;]*m`)
+
+type synchronizedWriter struct {
+	mu sync.Mutex
+	w  io.Writer
+}
+
+func (w *synchronizedWriter) Write(p []byte) (int, error) {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	return w.w.Write(p)
+}
+
+var terminalWriter = &synchronizedWriter{w: os.Stdout}
+
+func TerminalWriter() io.Writer {
+	return terminalWriter
+}
 
 type syncedPipeWriter struct {
 	writer *io.PipeWriter
@@ -144,87 +162,153 @@ func (o *Output) Printer(reader io.ReadCloser) {
 	sc := bufio.NewScanner(reader)
 	for sc.Scan() {
 		text := sc.Text()
+		writer := TerminalWriter()
+		if o.Progress != nil {
+			writer = o.Progress
+		}
 		if (len(o.ServerList) > 1 && !o.DisableHeader) || o.EnableHeader {
 			oPrompt := o.GetPrompt()
-			fmt.Printf("%s %s\n", oPrompt, text)
+			fmt.Fprintf(writer, "%s %s\n", oPrompt, text)
 		} else {
-			fmt.Printf("%s\n", text)
+			fmt.Fprintf(writer, "%s\n", text)
 		}
 	}
 }
 
 // ProgressPrinter return print out progress bar
 func (o *Output) ProgressPrinter(size int64, reader io.Reader, path string) {
+	if o != nil && o.ProgressWG != nil {
+		defer o.ProgressWG.Done()
+	}
+
+	bar := o.NewProgressBar(size, path)
+	if bar == nil {
+		_, _ = io.Copy(io.Discard, reader)
+		return
+	}
+
+	proxy := bar.ProxyReader(reader)
+	defer proxy.Close()
+
+	_, _ = io.Copy(io.Discard, proxy)
+}
+
+func (o *Output) NewProgressBar(size int64, path string) *mpb.Bar {
+	if o == nil || o.Progress == nil {
+		return nil
+	}
+
 	// print header
 	oPrompt := ""
 	if len(o.ServerList) > 1 {
 		oPrompt = o.GetPrompt()
 	}
-	name := decor.Name(oPrompt)
 
 	// trim space
 	path = strings.TrimSpace(path)
+	barWidth, pathWidth := progressLayout(oPrompt)
+	name := decor.Name(oPrompt, decor.WC{W: visibleStringWidth(oPrompt), C: decor.DindentRight})
+	pathDecorator := decor.Name(trimProgressLabel(path, pathWidth), decor.WC{C: decor.DSyncSpaceR})
 
-	// set progress
-	bar := o.Progress.AddBar(
+	return o.Progress.New(
 		// size
 		size,
-
-		// bar clear at complete
-		mpb.BarClearOnComplete(),
+		mpb.BarStyle().
+			Lbound("[").
+			Refiller("+").
+			Filler("=").
+			Tip(">").
+			Padding("-").
+			Rbound("]"),
+		mpb.BarFillerClearOnComplete(),
 
 		// prepend bar
 		mpb.PrependDecorators(
 			// name
 			name,
-			// path and complete message
-			decor.OnComplete(decor.Name(path), fmt.Sprintf("%s done!", path)),
+			// path
+			pathDecorator,
 			// size
-			decor.OnComplete(decor.CountersKiloByte(" %.1f/%.1f", decor.WC{W: 5}), ""),
+			decor.CountersKiloByte(" %.1f/%.1f", decor.WC{W: 16, C: decor.DindentRight}),
 		),
 
 		// append bar
 		mpb.AppendDecorators(
-			decor.OnComplete(decor.Percentage(decor.WC{W: 5}), ""),
+			decor.OnComplete(decor.Percentage(decor.WC{W: 5, C: decor.DindentRight}), progressDoneLabel()),
 		),
 
-		// bar style
-		mpb.BarStyle("[=>-]<+"),
+		mpb.BarWidth(barWidth),
+	)
+}
+
+func progressDoneLabel() string {
+	if isTerminal(os.Stdout) {
+		return "\x1b[31mdone\x1b[0m"
+	}
+	return "done"
+}
+
+func progressLayout(prompt string) (barWidth, pathWidth int) {
+	const (
+		defaultTerminalWidth = 120
+		minBarWidth          = 12
+		maxBarWidth          = 28
+		minPathWidth         = 18
 	)
 
-	// set start, and max time
-	start := time.Now()
-	max := 10 * time.Millisecond
-
-	var sum int
-
-	// print out progress
-	defer o.ProgressWG.Done()
-	for {
-		// sleep
-		time.Sleep(time.Duration(rand.Intn(10)+1) * max / 10)
-
-		// read byte (1mb)
-		b := make([]byte, 1048576)
-		s, err := reader.Read(b)
-
-		sum += s
-
-		// add size
-		bar.IncrBy(s, time.Since(start))
-
-		// check exit
-		if err != nil {
-			if err == io.EOF {
-				bar.SetTotal(size, true)
-			} else {
-				bar.SetTotal(int64(sum), true)
-			}
-			break
+	terminalWidth := defaultTerminalWidth
+	if columns := os.Getenv("COLUMNS"); columns != "" {
+		if value, err := strconv.Atoi(columns); err == nil && value > 0 {
+			terminalWidth = value
 		}
 	}
 
-	return
+	promptWidth := visibleStringWidth(prompt)
+
+	// Reserve enough room for counters, percentage, bar brackets, and spacing.
+	remaining := terminalWidth - promptWidth - 24
+	if remaining < minBarWidth+minPathWidth {
+		return minBarWidth, minPathWidth
+	}
+
+	barWidth = remaining / 2
+	if barWidth < minBarWidth {
+		barWidth = minBarWidth
+	}
+	if barWidth > maxBarWidth {
+		barWidth = maxBarWidth
+	}
+
+	pathWidth = remaining - barWidth
+	if pathWidth < minPathWidth {
+		pathWidth = minPathWidth
+	}
+
+	return barWidth, pathWidth
+}
+
+func trimProgressLabel(label string, width int) string {
+	if width <= 0 {
+		return ""
+	}
+	if visibleStringWidth(label) <= width {
+		return label
+	}
+	if width <= 3 {
+		return strings.Repeat(".", width)
+	}
+
+	suffixWidth := width - 3
+	runes := []rune(label)
+	if suffixWidth >= len(runes) {
+		return label
+	}
+	return "..." + string(runes[len(runes)-suffixWidth:])
+}
+
+func visibleStringWidth(value string) int {
+	clean := ansiRegexp.ReplaceAllString(value, "")
+	return len([]rune(clean))
 }
 
 // OutColorStrings return color code

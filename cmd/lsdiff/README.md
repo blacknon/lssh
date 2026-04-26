@@ -31,7 +31,7 @@ OPTIONS:
     --version, -v                       print the version
 
 VERSION:
-    lssh-suite 0.9.1 (beta/sysadmin)
+    lssh-suite 0.10.0 (beta/sysadmin)
 
 USAGE:
     # select multiple hosts and compare the same remote path

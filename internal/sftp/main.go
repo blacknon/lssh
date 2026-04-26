@@ -19,7 +19,7 @@ import (
 	sshl "github.com/blacknon/lssh/internal/ssh"
 	"github.com/c-bata/go-prompt"
 	"github.com/pkg/sftp"
-	"github.com/vbauerster/mpb"
+	"github.com/vbauerster/mpb/v8"
 )
 
 // TODO(blacknon): Ctrl + Cでコマンドの処理をキャンセルできるようにする
@@ -366,7 +366,7 @@ func (r *RunSftp) createTargetMap(srcTargetMap map[string]*TargetConnectMap, pat
 	}
 
 	// parse pathline
-	targetList, path := common.ParseHostPath(pathline)
+	targetList, path := common.ParseHostPathWithHosts(pathline, servers)
 
 	if len(targetList) == 0 {
 		targetList = servers

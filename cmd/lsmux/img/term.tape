@@ -1,5 +1,5 @@
 # output
-Output lsmux_term.gif
+Output term.gif
 
 # Set
 Set Shell "zsh"

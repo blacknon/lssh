@@ -145,7 +145,7 @@ func resolveDiffTargets(config conf.Config, allNames, supportedNames, flagHosts,
 		return nil, fmt.Errorf("--host can only be used with a single common remote path")
 	}
 
-	target, err := diffapp.ParseTargetSpec(args[0])
+	target, err := diffapp.ParseTargetSpecWithHosts(args[0], allNames)
 	if err != nil {
 		return nil, err
 	}

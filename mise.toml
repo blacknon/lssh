@@ -448,11 +448,37 @@ run = """
 """
 
 [tasks.generate-gif]
-description = "generate hwatch.gif"
+description = "generate top gif"
 run = """
 vhs images/demo.tape -o images/demo.gif
 vhs images/example_lssh.tape -o images/example_lssh.gif
 vhs images/example_lssh_parallel.tape -o images/example_lssh_parallel.gif
 vhs images/example_lssh_mux.tape -o images/example_lssh_mux.gif
 vhs images/example_lssh_mux_command.tape -o images/example_lssh_mux_command.gif
+"""
+
+[tasks.generate-cmd-gif]
+description = "generate cmd/*/img/*.gif"
+run = """
+# lssh
+
+# lscp
+
+# lsftp
+
+# lssync
+
+# lsshfs
+
+# lsdiff
+
+# lsshell
+
+# lsmux
+vhs ./cmd/lsmux/img/command.tape -o ./cmd/lsmux/img/command.gif
+
+# lspipe
+
+# lsmon
+vhs ./cmd/lsmon/img/lsmon.tape -o ./cmd/lsmon/img/lsmon.gif
 """
