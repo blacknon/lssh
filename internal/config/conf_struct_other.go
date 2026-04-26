@@ -23,8 +23,9 @@ type IncludesConfig struct {
 
 // OpenSSHConfig is read OpenSSH configuration file.
 type OpenSSHConfig struct {
-	Path    string          `toml:"path" yaml:"path"` // This is preferred
-	Command string          `toml:"command" yaml:"command"`
-	When    ServerMatchWhen `toml:"when" yaml:"when"`
+	Path    string                            `toml:"path" yaml:"path"` // This is preferred
+	Command string                            `toml:"command" yaml:"command"`
+	When    ServerMatchWhen                   `toml:"when" yaml:"when"`
+	Match   map[string]map[string]interface{} `toml:"match" yaml:"match"`
 	ServerConfig
 }

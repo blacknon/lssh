@@ -22,8 +22,30 @@ type NodeTop struct {
 	Uptimes      *TopUptime
 	DiskUsage    *TopDiskInfomation
 	NetworkUsage *TopNetworkInfomation
+	app          *mview.Application
 
 	sync.Mutex
+}
+
+func (t *NodeTop) bindApplication(app *mview.Application) {
+	t.Lock()
+	defer t.Unlock()
+	t.app = app
+}
+
+func (t *NodeTop) queueUpdateDraw(fn func()) {
+	t.Lock()
+	app := t.app
+	t.Unlock()
+
+	if app == nil {
+		if fn != nil {
+			fn()
+		}
+		return
+	}
+
+	app.QueueUpdateDraw(fn)
 }
 
 func (n *Node) CreateNodeTop() (err error) {
@@ -99,48 +121,52 @@ func (n *Node) CreateNodeTop() (err error) {
 
 		for range ticker.C {
 			if !n.CheckClientAlive() {
-				top.Grid.Clear()
+				top.queueUpdateDraw(func() {
+					top.Grid.Clear()
 
-				top.CPUUsage.Table.Clear()
-				top.CPUUsage = n.CreateTopCPUUsage()
+					top.CPUUsage.Table.Clear()
+					top.CPUUsage = n.CreateTopCPUUsage()
 
-				top.MemoryUsage.Table.Clear()
-				top.MemoryUsage = n.CreateTopMemoryUsage()
+					top.MemoryUsage.Table.Clear()
+					top.MemoryUsage = n.CreateTopMemoryUsage()
 
-				top.Uptimes.Table.Clear()
-				top.Uptimes = n.CreateTopUptime()
+					top.Uptimes.Table.Clear()
+					top.Uptimes = n.CreateTopUptime()
 
-				top.DiskUsage.Table.Clear()
-				top.DiskUsage = n.CreateTopDiskInfomation()
+					top.DiskUsage.Table.Clear()
+					top.DiskUsage = n.CreateTopDiskInfomation()
 
-				top.NetworkUsage.Table.Clear()
-				top.NetworkUsage = n.CreateTopNetworkInfomation()
+					top.NetworkUsage.Table.Clear()
+					top.NetworkUsage = n.CreateTopNetworkInfomation()
 
-				topProcess := n.createBaseGridTopProcess()
+					topProcess := n.createBaseGridTopProcess()
 
-				// Add top panel
-				// 1st, 2nd row
-				top.Grid.AddItem(top.CPUUsage, 0, 0, 2, 1, 0, 0, true)
-				top.Grid.AddItem(top.Uptimes, 0, 1, 1, 2, 0, 0, false)
-				top.Grid.AddItem(top.MemoryUsage, 1, 1, 1, 2, 0, 0, false)
+					// Add top panel
+					// 1st, 2nd row
+					top.Grid.AddItem(top.CPUUsage, 0, 0, 2, 1, 0, 0, true)
+					top.Grid.AddItem(top.Uptimes, 0, 1, 1, 2, 0, 0, false)
+					top.Grid.AddItem(top.MemoryUsage, 1, 1, 1, 2, 0, 0, false)
 
-				// 3rd row
-				top.Grid.AddItem(createEmptyPrimitive(), 2, 0, 1, 3, 0, 0, true)
+					// 3rd row
+					top.Grid.AddItem(createEmptyPrimitive(), 2, 0, 1, 3, 0, 0, true)
 
-				// 4th row
-				top.Grid.AddItem(top.DiskUsage, 3, 0, 1, 3, 0, 0, false)
+					// 4th row
+					top.Grid.AddItem(top.DiskUsage, 3, 0, 1, 3, 0, 0, false)
 
-				// 5th row
-				top.Grid.AddItem(createEmptyPrimitive(), 4, 0, 1, 3, 0, 0, true)
+					// 5th row
+					top.Grid.AddItem(createEmptyPrimitive(), 4, 0, 1, 3, 0, 0, true)
 
-				// 6th row
-				top.Grid.AddItem(top.NetworkUsage, 5, 0, 1, 3, 0, 0, false)
+					// 6th row
+					top.Grid.AddItem(top.NetworkUsage, 5, 0, 1, 3, 0, 0, false)
 
-				// 7th row
-				top.Grid.AddItem(topProcess, 6, 0, 1, 3, 0, 0, false)
+					// 7th row
+					top.Grid.AddItem(topProcess, 6, 0, 1, 3, 0, 0, false)
+				})
 
 				continue
-			} else {
+			}
+
+			top.queueUpdateDraw(func() {
 				wg := sync.WaitGroup{}
 
 				wg.Add(5)
@@ -151,13 +177,13 @@ func (n *Node) CreateNodeTop() (err error) {
 				top.NetworkUsage.Update(&wg)
 
 				wg.Wait()
-			}
 
-			// Resize
-			height4Row := top.DiskUsage.GetRowCount()
-			height6Row := top.NetworkUsage.GetRowCount()
+				// Resize
+				height4Row := top.DiskUsage.GetRowCount()
+				height6Row := top.NetworkUsage.GetRowCount()
 
-			top.Grid.SetRows(5, 2, 1, height4Row, 1, height6Row, -1)
+				top.Grid.SetRows(5, 2, 1, height4Row, 1, height6Row, -1)
+			})
 		}
 	}()
 

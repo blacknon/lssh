@@ -40,3 +40,19 @@ func TestParsePathSpec(t *testing.T) {
 		t.Fatalf("unexpected local spec: %#v", spec)
 	}
 }
+
+func TestParsePathSpecWithHosts(t *testing.T) {
+	t.Parallel()
+
+	spec, err := ParsePathSpecWithHosts(
+		"remote:@pve:sv-pve01:vm-gitlab,pve:sv-pve02:vm-gitlab-runner2:/srv/app",
+		[]string{"pve:sv-pve01:vm-gitlab", "pve:sv-pve02:vm-gitlab-runner2"},
+	)
+	if err != nil {
+		t.Fatalf("ParsePathSpecWithHosts returned error: %v", err)
+	}
+
+	if !spec.IsRemote || len(spec.Hosts) != 2 || spec.Path != "/srv/app" {
+		t.Fatalf("unexpected remote spec with known hosts: %#v", spec)
+	}
+}

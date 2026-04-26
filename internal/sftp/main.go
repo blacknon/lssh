@@ -6,6 +6,7 @@ package sftp
 
 import (
 	"fmt"
+	"io"
 	"os"
 	"sort"
 	"sync"
@@ -18,7 +19,7 @@ import (
 	sshl "github.com/blacknon/lssh/internal/ssh"
 	"github.com/c-bata/go-prompt"
 	"github.com/pkg/sftp"
-	"github.com/vbauerster/mpb"
+	"github.com/vbauerster/mpb/v8"
 )
 
 // TODO(blacknon): Ctrl + Cでコマンドの処理をキャンセルできるようにする
@@ -72,6 +73,7 @@ type SftpConnect struct {
 
 	// sftp connect
 	Connect *sftp.Client
+	Closer  io.Closer
 
 	// Output
 	Output *output.Output
@@ -81,6 +83,19 @@ type SftpConnect struct {
 
 	Connected bool
 	LastError string
+}
+
+func (s *SftpConnect) Close() error {
+	if s == nil {
+		return nil
+	}
+	if s.Closer != nil {
+		return s.Closer.Close()
+	}
+	if s.Connect != nil {
+		return s.Connect.Close()
+	}
+	return nil
 }
 
 type TargetConnectMap struct {
@@ -154,23 +169,17 @@ func (r *RunSftp) createSftpConnect(targets []string) (result map[string]*SftpCo
 	for _, target := range targets {
 		server := target
 		go func() {
-			// ssh connect
-			conn, err := r.Run.CreateSshConnectDirect(server)
+			handle, err := r.Run.CreateSFTPClientHandle(server)
 			if err != nil {
 				fmt.Fprintf(os.Stderr, "%s connect error: %s\n", server, err)
 				ch <- true
 				return
 			}
-			if conn == nil || conn.Client == nil {
-				fmt.Fprintf(os.Stderr, "%s connect error: ssh client is not available for sftp\n", server)
-				ch <- true
-				return
-			}
-
-			// create sftp client
-			ftp, err := sftp.NewClient(conn.Client)
-			if err != nil {
-				fmt.Fprintf(os.Stderr, "%s create client error: %s\n", server, err)
+			if handle == nil || handle.Client == nil {
+				if handle != nil && handle.Closer != nil {
+					_ = handle.Closer.Close()
+				}
+				fmt.Fprintf(os.Stderr, "%s connect error: sftp client is not available for sftp\n", server)
 				ch <- true
 				return
 			}
@@ -186,8 +195,9 @@ func (r *RunSftp) createSftpConnect(targets []string) (result map[string]*SftpCo
 			// create SftpConnect
 			sftpCon := &SftpConnect{
 				Server:     server,
-				SshConnect: conn,
-				Connect:    ftp,
+				SshConnect: handle.SSHConnect,
+				Connect:    handle.Client,
+				Closer:     handle.Closer,
 				Output:     o,
 				Pwd:        "./",
 				Connected:  true,
@@ -195,8 +205,7 @@ func (r *RunSftp) createSftpConnect(targets []string) (result map[string]*SftpCo
 
 			if err := validateSFTPConnection(sftpCon); err != nil {
 				fmt.Fprintf(os.Stderr, "%s create client error: %s\n", server, err)
-				_ = ftp.Close()
-				_ = conn.Close()
+				_ = sftpCon.Close()
 				ch <- true
 				return
 			}
@@ -285,12 +294,7 @@ func (r *RunSftp) reconnect(server string) error {
 	client.Output = old.Output
 	client.Connected = true
 	client.LastError = ""
-	if old.Connect != nil {
-		_ = old.Connect.Close()
-	}
-	if old.SshConnect != nil {
-		_ = old.SshConnect.Close()
-	}
+	_ = old.Close()
 	r.setClient(client)
 	return nil
 }
@@ -362,7 +366,7 @@ func (r *RunSftp) createTargetMap(srcTargetMap map[string]*TargetConnectMap, pat
 	}
 
 	// parse pathline
-	targetList, path := common.ParseHostPath(pathline)
+	targetList, path := common.ParseHostPathWithHosts(pathline, servers)
 
 	if len(targetList) == 0 {
 		targetList = servers
@@ -423,7 +427,7 @@ func (r *RunSftp) checkKeepalive() {
 	for _, client := range clients {
 		c := client
 		go func() {
-			if c == nil || c.SshConnect == nil {
+			if c == nil {
 				ch <- true
 				return
 			}
@@ -432,9 +436,13 @@ func (r *RunSftp) checkKeepalive() {
 				return
 			}
 
-			// keepalive
-			err := c.SshConnect.CheckClientAlive()
-			if err == nil {
+			var err error
+			if c.SshConnect != nil {
+				err = c.SshConnect.CheckClientAlive()
+				if err == nil {
+					err = validateSFTPConnection(c)
+				}
+			} else {
 				err = validateSFTPConnection(c)
 			}
 
@@ -445,14 +453,10 @@ func (r *RunSftp) checkKeepalive() {
 					fmt.Fprintf(os.Stderr, "Exit Connect %s, Error: %s\n", c.Server, err)
 				}
 
-				// close sftp client
-				if c.Connect != nil {
-					_ = c.Connect.Close()
-					c.Connect = nil
-				}
-				if c.SshConnect != nil && c.SshConnect.Client != nil {
-					_ = c.SshConnect.Client.Close()
-				}
+				_ = c.Close()
+				c.Connect = nil
+				c.Closer = nil
+				c.SshConnect = nil
 				r.setDisconnected(c.Server, err)
 			} else {
 				r.mu.Lock()

@@ -1,0 +1,30 @@
+# Example: GCP IAP TCP forwarding
+
+[providers]
+paths = ["~/.config/lssh/providers/provider-mixed-gcp-compute"]
+
+[provider.gcp]
+plugin = "provider-mixed-gcp-compute"
+enabled = true
+capabilities = ["inventory", "connector"]
+project = "example-project"
+credentials_file = "~/.config/gcloud/application_default_credentials.json"
+server_name_template = "gcp:${name}"
+note_template = "gcp ${zone} ${private_ip}"
+
+# Keep runtime on each server(match) so sdk/command hosts can coexist safely.
+[provider.gcp.match.web_sdk]
+meta_in = ["label.connection=iap-sdk"]
+connector_name = "gcp-iap"
+iap_runtime = "sdk"
+zone = "asia-northeast1-a"
+user = "ubuntu"
+key = "~/.ssh/gcp-web.pem"
+
+[provider.gcp.match.web_command]
+meta_in = ["label.connection=iap-command"]
+connector_name = "gcp-iap"
+iap_runtime = "command"
+zone = "asia-northeast1-b"
+user = "ubuntu"
+key = "~/.ssh/gcp-web.pem"

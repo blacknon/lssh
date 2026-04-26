@@ -16,7 +16,7 @@ import (
 	"github.com/blacknon/lssh/internal/common"
 	"github.com/blacknon/lssh/internal/output"
 	"github.com/urfave/cli"
-	"github.com/vbauerster/mpb"
+	"github.com/vbauerster/mpb/v8"
 )
 
 // copy - lsftp build-in command: copy
@@ -44,7 +44,11 @@ func (r *RunSftp) copy(args []string) {
 		}
 
 		r.ProgressWG = new(sync.WaitGroup)
-		r.Progress = mpb.New(mpb.WithWaitGroup(r.ProgressWG))
+		r.Progress = mpb.New(
+			mpb.WithWaitGroup(r.ProgressWG),
+			mpb.WithRefreshRate(40*time.Millisecond),
+			mpb.PopCompletedMode(),
+		)
 		r.DryRun = c.Bool("dry-run")
 
 		argsSize := len(c.Args()) - 1
@@ -126,7 +130,6 @@ func (r *RunSftp) copy(args []string) {
 		close(exit)
 
 		r.Progress.Wait()
-		time.Sleep(300 * time.Millisecond)
 
 		return nil
 	}
@@ -141,7 +144,12 @@ type remoteCopySource struct {
 }
 
 func (r *RunSftp) parseRemoteCopySource(value string) ([]remoteCopySource, error) {
-	hosts, path := common.ParseHostPath(strings.TrimPrefix(value, "@"))
+	knownHosts := make([]string, 0, len(r.Client))
+	for host := range r.Client {
+		knownHosts = append(knownHosts, host)
+	}
+
+	hosts, path := common.ParseHostPathWithHosts(strings.TrimPrefix(value, "@"), knownHosts)
 	if len(hosts) == 0 || path == "" {
 		return nil, fmt.Errorf("source must be '@host:/path' format")
 	}
@@ -159,7 +167,12 @@ func (r *RunSftp) parseRemoteCopySource(value string) ([]remoteCopySource, error
 }
 
 func (r *RunSftp) parseRemoteCopyTarget(value string) ([]*TargetConnectMap, string, error) {
-	hosts, path := common.ParseHostPath(strings.TrimPrefix(value, "@"))
+	knownHosts := make([]string, 0, len(r.Client))
+	for host := range r.Client {
+		knownHosts = append(knownHosts, host)
+	}
+
+	hosts, path := common.ParseHostPathWithHosts(strings.TrimPrefix(value, "@"), knownHosts)
 	if len(hosts) == 0 || path == "" {
 		return nil, "", fmt.Errorf("target must be '@host:/path' format")
 	}

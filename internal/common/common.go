@@ -575,6 +575,59 @@ func ParseHostPath(value string) (host []string, path string) {
 	return
 }
 
+// ParseHostPathWithHosts returns host and path using known host names to
+// disambiguate selectors that themselves contain ':'.
+func ParseHostPathWithHosts(value string, knownHosts []string) (host []string, path string) {
+	if !strings.Contains(value, ":") {
+		path = value
+		return
+	}
+
+	knownHostSet := make(map[string]struct{}, len(knownHosts))
+	for _, knownHost := range knownHosts {
+		knownHost = strings.TrimSpace(strings.TrimPrefix(knownHost, "@"))
+		if knownHost == "" {
+			continue
+		}
+		knownHostSet[knownHost] = struct{}{}
+	}
+
+	if len(knownHostSet) == 0 {
+		return ParseHostPath(value)
+	}
+
+	for idx := strings.LastIndex(value, ":"); idx >= 0; idx = strings.LastIndex(value[:idx], ":") {
+		selector := value[:idx]
+		candidatePath := value[idx+1:]
+		if selector == "" || candidatePath == "" {
+			continue
+		}
+
+		hosts := strings.Split(selector, ",")
+		matched := true
+		for i, candidate := range hosts {
+			candidate = strings.TrimSpace(strings.TrimPrefix(candidate, "@"))
+			if candidate == "" {
+				matched = false
+				break
+			}
+
+			if _, ok := knownHostSet[candidate]; !ok {
+				matched = false
+				break
+			}
+
+			hosts[i] = candidate
+		}
+
+		if matched {
+			return hosts, candidatePath
+		}
+	}
+
+	return ParseHostPath(value)
+}
+
 // ParseArgs return os.Args parse short options (ex.) [-la] => [-l,-a] )
 //
 // TODO(blacknon): Migrate to github.com/urfave/cli version 1.22.

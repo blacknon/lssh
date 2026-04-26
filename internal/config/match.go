@@ -1,22 +1,20 @@
 package conf
 
 import (
-	"bufio"
 	"fmt"
 	"log"
 	"net"
 	"net/netip"
 	"os"
-	"os/exec"
 	"os/user"
 	"path/filepath"
 	"reflect"
 	"runtime"
 	"sort"
-	"strconv"
 	"strings"
 
 	"github.com/BurntSushi/toml"
+	"github.com/jackpal/gateway"
 	"gopkg.in/yaml.v3"
 )
 
@@ -56,6 +54,7 @@ type namedOpenSSHConfig struct {
 }
 
 var detectMatchContext = buildMatchContext
+var discoverGateway = gateway.DiscoverGateway
 
 func decodeConfigFile(path string, c *Config) error {
 	switch strings.ToLower(filepath.Ext(path)) {
@@ -69,6 +68,7 @@ func decodeConfigFile(path string, c *Config) error {
 	}
 
 	applyMatchMetadata(c, md)
+	applyProviderMatchMetadata(c, md)
 	return nil
 }
 
@@ -84,6 +84,11 @@ func decodeYAMLConfigFile(path string, c *Config) error {
 
 	return applyYAMLMatchMetadata(data, c)
 }
+
+const (
+	providerMatchOrderKey           = "__lssh_match_order"
+	providerMatchPriorityDefinedKey = "__lssh_match_priority_defined"
+)
 
 func applyMatchMetadata(c *Config, md toml.MetaData) {
 	order := 0
@@ -119,11 +124,56 @@ func applyMatchMetadata(c *Config, md toml.MetaData) {
 	}
 }
 
+func applyProviderMatchMetadata(c *Config, md toml.MetaData) {
+	order := 0
+	for _, key := range md.Keys() {
+		if len(key) < 4 || key[0] != "provider" || key[2] != "match" {
+			continue
+		}
+
+		providerName := key[1]
+		branchName := key[3]
+
+		providerConf, ok := c.Provider[providerName]
+		if !ok {
+			continue
+		}
+
+		matchRaw, ok := providerConf["match"]
+		if !ok {
+			continue
+		}
+
+		matchMap, ok := matchRaw.(map[string]interface{})
+		if !ok {
+			continue
+		}
+
+		branchRaw, ok := matchMap[branchName]
+		if !ok {
+			continue
+		}
+
+		branchMap, ok := branchRaw.(map[string]interface{})
+		if !ok {
+			continue
+		}
+
+		if _, exists := branchMap[providerMatchOrderKey]; !exists {
+			order++
+			branchMap[providerMatchOrderKey] = order
+		}
+		if md.IsDefined("provider", providerName, "match", branchName, "priority") {
+			branchMap[providerMatchPriorityDefinedKey] = true
+		}
+	}
+}
+
 func collectDefinedMatchKeys(md toml.MetaData, serverName, branchName string) map[string]bool {
 	keys := []string{
-		"addr", "port", "user", "pass", "passes", "key", "keycmd", "keycmdpass", "keypass",
-		"keys", "cert", "certs", "certkey", "certkeypass", "certpkcs11", "agentauth",
-		"ssh_agent", "ssh_agent_key", "pkcs11", "pkcs11provider", "pkcs11pin", "pre_cmd",
+		"addr", "port", "user", "pass", "pass_ref", "passes", "key", "key_ref", "keycmd", "keycmdpass", "keycmdpass_ref", "keypass", "keypass_ref",
+		"keys", "cert", "cert_ref", "certs", "certkey", "certkey_ref", "certkeypass", "certkeypass_ref", "certpkcs11", "agentauth",
+		"ssh_agent", "ssh_agent_key", "pkcs11", "pkcs11provider", "pkcs11pin", "pkcs11pin_ref", "pre_cmd",
 		"post_cmd", "proxy_type", "proxy", "proxy_cmd", "local_rc", "local_rc_file",
 		"local_rc_compress", "local_rc_decode_cmd", "local_rc_uncompress_cmd", "port_forward",
 		"port_forward_local", "port_forward_remote", "port_forwards", "dynamic_port_forward",
@@ -160,6 +210,10 @@ func applyYAMLMatchMetadata(data []byte, c *Config) error {
 	root := node.Content[0]
 	if root.Kind != yaml.MappingNode {
 		return nil
+	}
+
+	if err := applyYAMLProviderMatchMetadata(root, c); err != nil {
+		return err
 	}
 
 	serversNode := yamlMapValue(root, "server")
@@ -210,11 +264,72 @@ func applyYAMLMatchMetadata(data []byte, c *Config) error {
 	return nil
 }
 
+func applyYAMLProviderMatchMetadata(root *yaml.Node, c *Config) error {
+	providersNode := yamlMapValue(root, "provider")
+	if providersNode == nil || providersNode.Kind != yaml.MappingNode {
+		return nil
+	}
+
+	order := 0
+	for i := 0; i+1 < len(providersNode.Content); i += 2 {
+		providerName := providersNode.Content[i].Value
+		providerNode := providersNode.Content[i+1]
+		if providerNode.Kind != yaml.MappingNode {
+			continue
+		}
+
+		matchNode := yamlMapValue(providerNode, "match")
+		if matchNode == nil || matchNode.Kind != yaml.MappingNode {
+			continue
+		}
+
+		providerConf, ok := c.Provider[providerName]
+		if !ok {
+			continue
+		}
+
+		matchRaw, ok := providerConf["match"]
+		if !ok {
+			continue
+		}
+
+		matchMap, ok := matchRaw.(map[string]interface{})
+		if !ok {
+			continue
+		}
+
+		for j := 0; j+1 < len(matchNode.Content); j += 2 {
+			branchName := matchNode.Content[j].Value
+			branchNode := matchNode.Content[j+1]
+
+			branchRaw, ok := matchMap[branchName]
+			if !ok {
+				continue
+			}
+
+			branchMap, ok := branchRaw.(map[string]interface{})
+			if !ok {
+				continue
+			}
+
+			if _, exists := branchMap[providerMatchOrderKey]; !exists {
+				order++
+				branchMap[providerMatchOrderKey] = order
+			}
+			if yamlMapHasKey(branchNode, "priority") {
+				branchMap[providerMatchPriorityDefinedKey] = true
+			}
+		}
+	}
+
+	return nil
+}
+
 func collectDefinedYAMLMatchKeys(branchNode *yaml.Node) map[string]bool {
 	keys := []string{
-		"addr", "port", "user", "pass", "passes", "key", "keycmd", "keycmdpass", "keypass",
-		"keys", "cert", "certs", "certkey", "certkeypass", "certpkcs11", "agentauth",
-		"ssh_agent", "ssh_agent_key", "pkcs11", "pkcs11provider", "pkcs11pin", "pre_cmd",
+		"addr", "port", "user", "pass", "pass_ref", "passes", "key", "key_ref", "keycmd", "keycmdpass", "keycmdpass_ref", "keypass", "keypass_ref",
+		"keys", "cert", "cert_ref", "certs", "certkey", "certkey_ref", "certkeypass", "certkeypass_ref", "certpkcs11", "agentauth",
+		"ssh_agent", "ssh_agent_key", "pkcs11", "pkcs11provider", "pkcs11pin", "pkcs11pin_ref", "pre_cmd",
 		"post_cmd", "proxy_type", "proxy", "proxy_cmd", "local_rc", "local_rc_file",
 		"local_rc_compress", "local_rc_decode_cmd", "local_rc_uncompress_cmd", "port_forward",
 		"port_forward_local", "port_forward_remote", "port_forwards", "dynamic_port_forward",
@@ -711,113 +826,16 @@ func getLocalIPs() ([]netip.Addr, error) {
 }
 
 func getDefaultGateways() ([]netip.Addr, error) {
-	switch runtime.GOOS {
-	case "linux":
-		return getLinuxDefaultGateways()
-	case "darwin":
-		return getDarwinDefaultGateways()
-	case "windows":
-		return getWindowsDefaultGateways()
-	default:
-		return nil, fmt.Errorf("gateway lookup is not supported on %s", runtime.GOOS)
-	}
-}
-
-func getLinuxDefaultGateways() ([]netip.Addr, error) {
-	f, err := os.Open("/proc/net/route")
-	if err != nil {
-		return nil, err
-	}
-	defer f.Close()
-
-	var gateways []netip.Addr
-	scanner := bufio.NewScanner(f)
-	first := true
-	for scanner.Scan() {
-		if first {
-			first = false
-			continue
-		}
-
-		fields := strings.Fields(scanner.Text())
-		if len(fields) < 3 || fields[1] != "00000000" {
-			continue
-		}
-
-		value, err := strconv.ParseUint(fields[2], 16, 32)
-		if err != nil {
-			continue
-		}
-
-		ip := net.IPv4(byte(value), byte(value>>8), byte(value>>16), byte(value>>24))
-		addr, ok := netip.AddrFromSlice(ip)
-		if ok {
-			gateways = append(gateways, addr.Unmap())
-		}
-	}
-
-	if err := scanner.Err(); err != nil {
-		return nil, err
-	}
-
-	if len(gateways) == 0 {
-		return nil, fmt.Errorf("default gateway not found")
-	}
-
-	return uniqueAddrs(gateways), nil
-}
-
-func getDarwinDefaultGateways() ([]netip.Addr, error) {
-	out, err := exec.Command("route", "-n", "get", "default").Output()
+	ip, err := discoverGateway()
 	if err != nil {
 		return nil, err
 	}
 
-	var gateways []netip.Addr
-	scanner := bufio.NewScanner(strings.NewReader(string(out)))
-	for scanner.Scan() {
-		line := strings.TrimSpace(scanner.Text())
-		if !strings.HasPrefix(line, "gateway:") {
-			continue
-		}
-		value := strings.TrimSpace(strings.TrimPrefix(line, "gateway:"))
-		addr, err := netip.ParseAddr(value)
-		if err == nil {
-			gateways = append(gateways, addr.Unmap())
-		}
-	}
-
-	if len(gateways) == 0 {
+	addr, ok := netip.AddrFromSlice(ip)
+	if !ok || !addr.IsValid() {
 		return nil, fmt.Errorf("default gateway not found")
 	}
-
-	return uniqueAddrs(gateways), nil
-}
-
-func getWindowsDefaultGateways() ([]netip.Addr, error) {
-	out, err := exec.Command("route", "print", "0.0.0.0").Output()
-	if err != nil {
-		return nil, err
-	}
-
-	var gateways []netip.Addr
-	scanner := bufio.NewScanner(strings.NewReader(string(out)))
-	for scanner.Scan() {
-		fields := strings.Fields(scanner.Text())
-		if len(fields) < 4 || fields[0] != "0.0.0.0" || fields[1] != "0.0.0.0" {
-			continue
-		}
-		addr, err := netip.ParseAddr(fields[2])
-		if err == nil {
-			gateways = append(gateways, addr.Unmap())
-		}
-	}
-
-	if len(gateways) == 0 {
-		return nil, fmt.Errorf("default gateway not found")
-	}
-
-	return uniqueAddrs(gateways), nil
+	return []netip.Addr{addr.Unmap()}, nil
 }
 
 func uniqueAddrs(values []netip.Addr) []netip.Addr {

@@ -12,6 +12,7 @@ import (
 
 	"github.com/blacknon/go-sshlib"
 	"github.com/blacknon/lssh/internal/common"
+	conf "github.com/blacknon/lssh/internal/config"
 	"golang.org/x/crypto/ssh"
 )
 
@@ -36,13 +37,24 @@ func (r *Run) CreateAuthMethodMap() {
 	r.authMethodMap = map[AuthKey][]ssh.AuthMethod{}
 	r.serverAuthMethodMap = map[string][]ssh.AuthMethod{}
 
+serverLoop:
 	for _, server := range srvs {
 		// get server config
 		config := r.Conf.Server[server]
 
 		// Password
-		if config.Pass != "" {
-			r.registAuthMapPassword(server, config.Pass)
+		if config.Pass != "" || config.PassRef != "" {
+			pass, err := r.resolveLiteralOrRef(server, "pass", config.Pass, config.PassRef)
+			if err != nil {
+				if shouldBlockAuthServer(err) {
+					fmt.Fprintln(os.Stderr, err)
+					delete(r.serverAuthMethodMap, server)
+					continue serverLoop
+				}
+				fmt.Fprintln(os.Stderr, err)
+			} else if pass != "" {
+				r.registAuthMapPassword(server, pass)
+			}
 		}
 
 		// Multiple Password
@@ -53,9 +65,14 @@ func (r *Run) CreateAuthMethodMap() {
 		}
 
 		// PublicKey
-		if config.Key != "" {
-			err := r.registAuthMapPublicKey(server, config.Key, config.KeyPass)
+		if config.Key != "" || config.KeyRef != "" {
+			err := r.registAuthMapPublicKey(server, config)
 			if err != nil {
+				if shouldBlockAuthServer(err) {
+					fmt.Fprintln(os.Stderr, err)
+					delete(r.serverAuthMethodMap, server)
+					continue serverLoop
+				}
 				fmt.Fprintln(os.Stderr, err)
 			}
 		}
@@ -74,7 +91,7 @@ func (r *Run) CreateAuthMethodMap() {
 				}
 
 				//
-				err := r.registAuthMapPublicKey(server, keyName, keyPass)
+				err := r.registAuthMapPublicKeyFile(server, keyName, keyPass)
 				if err != nil {
 					fmt.Fprintln(os.Stderr, err)
 					continue
@@ -84,22 +101,36 @@ func (r *Run) CreateAuthMethodMap() {
 
 		// Public Key Command
 		if config.KeyCommand != "" {
-			err := r.registAuthMapPublicKeyCommand(server, config.KeyCommand, config.KeyCommandPass)
+			keyCommandPass, err := r.resolveLiteralOrRef(server, "keycmdpass", config.KeyCommandPass, config.KeyCommandPassRef)
 			if err != nil {
+				if shouldBlockAuthServer(err) {
+					fmt.Fprintln(os.Stderr, err)
+					delete(r.serverAuthMethodMap, server)
+					continue serverLoop
+				}
+				fmt.Fprintln(os.Stderr, err)
+			} else {
+				err = r.registAuthMapPublicKeyCommand(server, config.KeyCommand, keyCommandPass)
+			}
+			if err != nil {
+				if shouldBlockAuthServer(err) {
+					fmt.Fprintln(os.Stderr, err)
+					delete(r.serverAuthMethodMap, server)
+					continue serverLoop
+				}
 				fmt.Fprintln(os.Stderr, err)
 			}
 		}
 
 		// Certificate
-		if config.Cert != "" {
-			keySigner, err := sshlib.CreateSignerPublicKeyPrompt(config.CertKey, config.CertKeyPass)
+		if config.Cert != "" || config.CertRef != "" {
+			err := r.registAuthMapCertificate(server, config)
 			if err != nil {
-				fmt.Fprintln(os.Stderr, err)
-				continue
-			}
-
-			err = r.registAuthMapCertificate(server, config.Cert, keySigner)
-			if err != nil {
+				if shouldBlockAuthServer(err) {
+					fmt.Fprintln(os.Stderr, err)
+					delete(r.serverAuthMethodMap, server)
+					continue serverLoop
+				}
 				fmt.Fprintln(os.Stderr, err)
 				continue
 			}
@@ -123,7 +154,7 @@ func (r *Run) CreateAuthMethodMap() {
 					continue
 				}
 
-				err = r.registAuthMapCertificate(server, certName, keySigner)
+				err = r.registAuthMapCertificateSigner(server, certName, keySigner)
 				if err != nil {
 					fmt.Fprintln(os.Stderr, err)
 					continue
@@ -133,8 +164,23 @@ func (r *Run) CreateAuthMethodMap() {
 
 		// PKCS11
 		if config.PKCS11Use {
-			err := r.registAuthMapPKCS11(server, config.PKCS11Provider, config.PKCS11PIN)
+			pin, err := r.resolveLiteralOrRef(server, "pkcs11pin", config.PKCS11PIN, config.PKCS11PINRef)
 			if err != nil {
+				if shouldBlockAuthServer(err) {
+					fmt.Fprintln(os.Stderr, err)
+					delete(r.serverAuthMethodMap, server)
+					continue serverLoop
+				}
+				fmt.Fprintln(os.Stderr, err)
+			} else {
+				err = r.registAuthMapPKCS11(server, config.PKCS11Provider, pin)
+			}
+			if err != nil {
+				if shouldBlockAuthServer(err) {
+					fmt.Fprintln(os.Stderr, err)
+					delete(r.serverAuthMethodMap, server)
+					continue serverLoop
+				}
 				fmt.Fprintln(os.Stderr, err)
 			}
 		}
@@ -148,6 +194,10 @@ func (r *Run) CreateAuthMethodMap() {
 			}
 		}
 	}
+}
+
+func shouldBlockAuthServer(err error) bool {
+	return conf.IsProviderErrorCode(err, "auth_pending")
 }
 
 func (r *Run) SetupSshAgent() {
@@ -168,7 +218,24 @@ func (r *Run) registAuthMapPassword(server, password string) {
 	r.serverAuthMethodMap[server] = append(r.serverAuthMethodMap[server], r.authMethodMap[authKey]...)
 }
 
-func (r *Run) registAuthMapPublicKey(server, key, password string) (err error) {
+func (r *Run) registAuthMapPublicKey(server string, cfg conf.ServerConfig) (err error) {
+	if cfg.KeyRef != "" {
+		return r.registAuthMapPublicKeyRef(server, cfg)
+	}
+
+	key, cleanup, err := r.resolveSecretFile(server, "key", cfg.Key, cfg.KeyRef)
+	if err != nil {
+		return err
+	}
+	if cleanup != nil {
+		defer cleanup()
+	}
+
+	password, err := r.resolveLiteralOrRef(server, "keypass", cfg.KeyPass, cfg.KeyPassRef)
+	if err != nil {
+		return err
+	}
+
 	authKey := AuthKey{AUTHKEY_KEY, key}
 
 	if _, ok := r.authMethodMap[authKey]; !ok {
@@ -189,6 +256,50 @@ func (r *Run) registAuthMapPublicKey(server, key, password string) (err error) {
 	r.serverAuthMethodMap[server] = append(r.serverAuthMethodMap[server], r.authMethodMap[authKey]...)
 
 	return
+}
+
+func (r *Run) registAuthMapPublicKeyRef(server string, cfg conf.ServerConfig) error {
+	keyData, err := r.resolveLiteralOrRef(server, "key", cfg.Key, cfg.KeyRef)
+	if err != nil {
+		return err
+	}
+	if keyData == "" {
+		return nil
+	}
+
+	password, err := r.resolveLiteralOrRef(server, "keypass", cfg.KeyPass, cfg.KeyPassRef)
+	if err != nil {
+		return err
+	}
+
+	authKey := AuthKey{AUTHKEY_KEY, "ref:" + cfg.KeyRef}
+	if _, ok := r.authMethodMap[authKey]; !ok {
+		signer, err := createSignerFromKeyDataWithPrompt(server, []byte(keyData), password)
+		if err != nil {
+			return err
+		}
+		r.authMethodMap[authKey] = append(r.authMethodMap[authKey], ssh.PublicKeys(signer))
+	}
+
+	r.serverAuthMethodMap[server] = append(r.serverAuthMethodMap[server], r.authMethodMap[authKey]...)
+	return nil
+}
+
+func (r *Run) registAuthMapPublicKeyFile(server, key, password string) (err error) {
+	authKey := AuthKey{AUTHKEY_KEY, key}
+
+	if _, ok := r.authMethodMap[authKey]; !ok {
+		signer, err := sshlib.CreateSignerPublicKeyPrompt(key, password)
+		if err != nil {
+			return err
+		}
+
+		authMethod := ssh.PublicKeys(signer)
+		r.authMethodMap[authKey] = append(r.authMethodMap[authKey], authMethod)
+	}
+
+	r.serverAuthMethodMap[server] = append(r.serverAuthMethodMap[server], r.authMethodMap[authKey]...)
+	return nil
 }
 
 func (r *Run) registAuthMapPublicKeyCommand(server, command, password string) (err error) {
@@ -221,7 +332,37 @@ func (r *Run) registAuthMapPublicKeyCommand(server, command, password string) (e
 	return
 }
 
-func (r *Run) registAuthMapCertificate(server, cert string, signer ssh.Signer) (err error) {
+func (r *Run) registAuthMapCertificate(server string, cfg conf.ServerConfig) (err error) {
+	if cfg.CertRef != "" || cfg.CertKeyRef != "" {
+		return r.registAuthMapCertificateRef(server, cfg)
+	}
+
+	cert, certCleanup, err := r.resolveSecretFile(server, "cert", cfg.Cert, cfg.CertRef)
+	if err != nil {
+		return err
+	}
+	if certCleanup != nil {
+		defer certCleanup()
+	}
+
+	keyPath, keyCleanup, err := r.resolveSecretFile(server, "certkey", cfg.CertKey, cfg.CertKeyRef)
+	if err != nil {
+		return err
+	}
+	if keyCleanup != nil {
+		defer keyCleanup()
+	}
+
+	keyPass, err := r.resolveLiteralOrRef(server, "certkeypass", cfg.CertKeyPass, cfg.CertKeyPassRef)
+	if err != nil {
+		return err
+	}
+
+	signer, err := sshlib.CreateSignerPublicKeyPrompt(keyPath, keyPass)
+	if err != nil {
+		return err
+	}
+
 	authKey := AuthKey{AUTHKEY_CERT, cert}
 
 	if _, ok := r.authMethodMap[authKey]; !ok {
@@ -238,6 +379,101 @@ func (r *Run) registAuthMapCertificate(server, cert string, signer ssh.Signer) (
 	r.serverAuthMethodMap[server] = append(r.serverAuthMethodMap[server], r.authMethodMap[authKey]...)
 
 	return
+}
+
+func (r *Run) registAuthMapCertificateRef(server string, cfg conf.ServerConfig) error {
+	certData, err := r.resolveLiteralOrRef(server, "cert", cfg.Cert, cfg.CertRef)
+	if err != nil {
+		return err
+	}
+	keyData, err := r.resolveLiteralOrRef(server, "certkey", cfg.CertKey, cfg.CertKeyRef)
+	if err != nil {
+		return err
+	}
+	if certData == "" || keyData == "" {
+		return nil
+	}
+
+	password, err := r.resolveLiteralOrRef(server, "certkeypass", cfg.CertKeyPass, cfg.CertKeyPassRef)
+	if err != nil {
+		return err
+	}
+
+	authKey := AuthKey{AUTHKEY_CERT, "ref:" + cfg.CertRef + "::" + cfg.CertKeyRef}
+	if _, ok := r.authMethodMap[authKey]; !ok {
+		signer, err := createSignerFromKeyDataWithPrompt(server, []byte(keyData), password)
+		if err != nil {
+			return err
+		}
+		authMethod, err := createCertificateAuthMethodFromData([]byte(certData), signer)
+		if err != nil {
+			return err
+		}
+		r.authMethodMap[authKey] = append(r.authMethodMap[authKey], authMethod)
+	}
+
+	r.serverAuthMethodMap[server] = append(r.serverAuthMethodMap[server], r.authMethodMap[authKey]...)
+	return nil
+}
+
+func createSignerFromKeyDataWithPrompt(server string, keyData []byte, password string) (ssh.Signer, error) {
+	if password != "" {
+		return sshlib.CreateSignerPublicKeyData(keyData, password)
+	}
+
+	signer, err := ssh.ParsePrivateKey(keyData)
+	if err == nil {
+		return signer, nil
+	}
+
+	msg := fmt.Sprintf("%s's passphrase: ", server)
+	for i := 0; i < 3; i++ {
+		passphrase, promptErr := common.GetPassPhrase(msg)
+		if promptErr != nil {
+			return nil, promptErr
+		}
+		signer, err = ssh.ParsePrivateKeyWithPassphrase(keyData, []byte(passphrase))
+		if err == nil {
+			return signer, nil
+		}
+		fmt.Println(err.Error())
+	}
+
+	return nil, err
+}
+
+func createCertificateAuthMethodFromData(certData []byte, signer ssh.Signer) (ssh.AuthMethod, error) {
+	pubkey, _, _, _, err := ssh.ParseAuthorizedKey(certData)
+	if err != nil {
+		return nil, err
+	}
+
+	certificate, ok := pubkey.(*ssh.Certificate)
+	if !ok {
+		return nil, fmt.Errorf("Error: Not create certificate struct data")
+	}
+
+	certSigner, err := ssh.NewCertSigner(certificate, signer)
+	if err != nil {
+		return nil, err
+	}
+
+	return ssh.PublicKeys(certSigner), nil
+}
+
+func (r *Run) registAuthMapCertificateSigner(server, cert string, signer ssh.Signer) (err error) {
+	authKey := AuthKey{AUTHKEY_CERT, cert}
+
+	if _, ok := r.authMethodMap[authKey]; !ok {
+		authMethod, err := sshlib.CreateAuthMethodCertificate(cert, signer)
+		if err != nil {
+			return err
+		}
+		r.authMethodMap[authKey] = append(r.authMethodMap[authKey], authMethod)
+	}
+
+	r.serverAuthMethodMap[server] = append(r.serverAuthMethodMap[server], r.authMethodMap[authKey]...)
+	return nil
 }
 
 // registAuthMapAgent is Regist ssh-agent signature to r.AuthMethodMap.

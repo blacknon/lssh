@@ -78,6 +78,7 @@ type shellOption struct {
 type sConnect struct {
 	Name      string
 	Output    *output.Output
+	Connector bool
 	Connected bool
 	LastError string
 	*sshlib.Connect
@@ -126,6 +127,24 @@ func Shell(r *sshcmd.Run) (err error) {
 	// TODO: to change parallel
 	var cons []*sConnect
 	for _, server := range r.ServerList {
+		// Connector-backed targets do not create a persistent SSH session here.
+		if r.UsesConnector(server) {
+			o := &output.Output{
+				Templete:   config.OPrompt,
+				ServerList: r.ServerList,
+				Conf:       r.Conf.Server[server],
+				AutoColor:  true,
+			}
+			o.Create(server)
+			cons = append(cons, &sConnect{
+				Name:      server,
+				Output:    o,
+				Connector: true,
+				Connected: true,
+			})
+			continue
+		}
+
 		// Create *sshlib.Connect
 		con, err := r.CreateSshConnect(server)
 		if err != nil {
@@ -289,6 +308,9 @@ func (s *shell) reconnect(server string) error {
 	}
 	if target == nil {
 		return fmt.Errorf("host %s not found", server)
+	}
+	if target.Connector {
+		return fmt.Errorf("reconnect is not supported for connector-backed hosts")
 	}
 
 	con, err := s.Run.CreateSshConnect(server)

@@ -60,12 +60,12 @@ type sshSessionAdapter struct {
 	session *gossh.Session
 }
 
-func (a *sshSessionAdapter) StdoutPipe() (io.Reader, error)  { return a.session.StdoutPipe() }
-func (a *sshSessionAdapter) StderrPipe() (io.Reader, error)  { return a.session.StderrPipe() }
+func (a *sshSessionAdapter) StdoutPipe() (io.Reader, error)     { return a.session.StdoutPipe() }
+func (a *sshSessionAdapter) StderrPipe() (io.Reader, error)     { return a.session.StderrPipe() }
 func (a *sshSessionAdapter) StdinPipe() (io.WriteCloser, error) { return a.session.StdinPipe() }
-func (a *sshSessionAdapter) Start(command string) error      { return a.session.Start(command) }
-func (a *sshSessionAdapter) Wait() error                     { return a.session.Wait() }
-func (a *sshSessionAdapter) Close() error                    { return a.session.Close() }
+func (a *sshSessionAdapter) Start(command string) error         { return a.session.Start(command) }
+func (a *sshSessionAdapter) Wait() error                        { return a.session.Wait() }
+func (a *sshSessionAdapter) Close() error                       { return a.session.Close() }
 
 type Daemon struct {
 	Name                  string
@@ -214,6 +214,7 @@ func (d *Daemon) execRequest(enc *json.Encoder, req Request) error {
 	if req.Raw && len(targets) != 1 {
 		return fmt.Errorf("--raw requires exactly one host after resolution")
 	}
+	singleTarget := len(targets) == 1
 
 	var encMu sync.Mutex
 	sendEvent := func(event Event) {
@@ -232,7 +233,11 @@ func (d *Daemon) execRequest(enc *json.Encoder, req Request) error {
 			defer wg.Done()
 			code, runErr := runCommand(host, req, sendEvent)
 			if runErr != nil {
-				sendEvent(Event{Type: "stderr", Host: host, Stream: "stderr", Data: []byte(fmt.Sprintf("%s :: %v\n", host, runErr))})
+				message := fmt.Sprintf("%s :: %v\n", host, runErr)
+				if singleTarget {
+					message = fmt.Sprintf("%v\n", runErr)
+				}
+				sendEvent(Event{Type: "stderr", Host: host, Stream: "stderr", Data: []byte(message)})
 			}
 			results <- code
 		}()
@@ -289,6 +294,10 @@ func (d *Daemon) resolveTargets(requested []string) ([]string, error) {
 }
 
 func (d *Daemon) runCommand(host string, req Request, sendEvent func(Event)) (int, error) {
+	if d.Config.ServerUsesConnector(host) {
+		return d.runConnectorCommand(host, req, sendEvent)
+	}
+
 	conn, err := d.getOrReconnect(host)
 	if err != nil {
 		return 1, err
@@ -300,8 +309,9 @@ func (d *Daemon) runCommand(host string, req Request, sendEvent func(Event)) (in
 		stdoutWriter = &eventWriter{host: host, stream: "stdout", raw: true, send: sendEvent}
 		stderrWriter = &eventWriter{host: host, stream: "stderr", raw: true, send: sendEvent}
 	} else {
-		stdout := &eventWriter{host: host, stream: "stdout", send: sendEvent}
-		stderr := &eventWriter{host: host, stream: "stderr", send: sendEvent}
+		suppressHeader := len(req.Hosts) == 1
+		stdout := &eventWriter{host: host, stream: "stdout", suppressHeader: suppressHeader, send: sendEvent}
+		stderr := &eventWriter{host: host, stream: "stderr", suppressHeader: suppressHeader, send: sendEvent}
 		stdoutWriter = stdout
 		stderrWriter = stderr
 		defer stdout.Flush()
@@ -317,6 +327,45 @@ func (d *Daemon) runCommand(host string, req Request, sendEvent func(Event)) (in
 		d.setHealth(host, HostHealth{Connected: true})
 	}
 
+	return code, nil
+}
+
+func (d *Daemon) runConnectorCommand(host string, req Request, sendEvent func(Event)) (int, error) {
+	var stdoutWriter io.Writer
+	var stderrWriter io.Writer
+	if req.Raw {
+		stdoutWriter = &eventWriter{host: host, stream: "stdout", raw: true, send: sendEvent}
+		stderrWriter = &eventWriter{host: host, stream: "stderr", raw: true, send: sendEvent}
+	} else {
+		suppressHeader := len(req.Hosts) == 1
+		stdout := &eventWriter{host: host, stream: "stdout", suppressHeader: suppressHeader, send: sendEvent}
+		stderr := &eventWriter{host: host, stream: "stderr", suppressHeader: suppressHeader, send: sendEvent}
+		stdoutWriter = stdout
+		stderrWriter = stderr
+		defer stdout.Flush()
+		defer stderr.Flush()
+	}
+
+	run := &lssh.Run{
+		Conf:                  d.Config,
+		ControlMasterOverride: d.ControlMasterOverride,
+		EnableStdoutMutex:     false,
+		EnableHeader:          false,
+		DisableHeader:         true,
+	}
+
+	var stdin io.Reader
+	if len(req.Stdin) > 0 {
+		stdin = bytes.NewReader(req.Stdin)
+	}
+
+	code, err := run.RunConnectorCommandLine(host, req.Command, stdin, stdoutWriter, stderrWriter)
+	if err != nil {
+		d.setHealth(host, HostHealth{Connected: false, Error: err.Error()})
+		return code, err
+	}
+
+	d.setHealth(host, HostHealth{Connected: true})
 	return code, nil
 }
 
@@ -382,6 +431,10 @@ func runSessionCommand(conn sessionConn, command string, stdin []byte, stdout io
 
 func (d *Daemon) connectAll() error {
 	for _, host := range d.Hosts {
+		if d.Config.ServerUsesConnector(host) {
+			d.setHealth(host, HostHealth{Connected: true})
+			continue
+		}
 		if _, err := d.connect(host); err != nil {
 			d.setHealth(host, HostHealth{Connected: false, Error: err.Error()})
 		}
@@ -466,12 +519,13 @@ func (d *Daemon) snapshotHealth() map[string]HostHealth {
 }
 
 type eventWriter struct {
-	host   string
-	stream string
-	raw    bool
-	send   func(Event)
-	mu     sync.Mutex
-	buf    bytes.Buffer
+	host           string
+	stream         string
+	raw            bool
+	suppressHeader bool
+	send           func(Event)
+	mu             sync.Mutex
+	buf            bytes.Buffer
 }
 
 func (w *eventWriter) Write(p []byte) (int, error) {
@@ -543,8 +597,10 @@ func (w *eventWriter) flushLocked(hadNewline bool) {
 		if w.stream == "stderr" && shouldSuppressSttyNoise(line) {
 			continue
 		}
-		out.WriteString(w.host)
-		out.WriteString(" :: ")
+		if !w.suppressHeader {
+			out.WriteString(w.host)
+			out.WriteString(" :: ")
+		}
 		out.WriteString(line)
 		if !strings.HasSuffix(line, "\n") {
 			out.WriteByte('\n')

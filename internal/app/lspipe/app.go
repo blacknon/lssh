@@ -69,7 +69,10 @@ USAGE:
     echo test | {{.Name}} 'cat'
 
     # single host raw output
-    {{.Name}} -h web01 --raw cat /etc/hosts
+    {{.Name}} -H web01 --raw cat /etc/hosts
+
+    # select session hosts by the index shown in --info
+    {{.Name}} -H 2 --raw cat /etc/hosts
 `
 
 	app = cli.NewApp()
@@ -82,8 +85,8 @@ USAGE:
 	app.Flags = []cli.Flag{
 		cli.StringFlag{Name: "name", Value: pipeapp.DefaultSessionName, Usage: "session `name`."},
 		cli.StringFlag{Name: "fifo-name", Value: "default", Usage: "named pipe set `name`."},
-		cli.StringSliceFlag{Name: "create-host,H", Usage: "add `servername` when creating or replacing a session."},
-		cli.StringSliceFlag{Name: "host,h", Usage: "limit command execution to `servername` inside the session."},
+		cli.StringSliceFlag{Name: "host,H", Usage: "add session `servername` on creation, or limit execution to session `servername` or `index` shown by --info."},
+		cli.StringSliceFlag{Name: "create-host", Hidden: true},
 		cli.StringFlag{Name: "file,F", Value: defConf, Usage: "config `filepath`."},
 		cli.StringFlag{Name: "generate-lssh-conf", Usage: "print generated lssh config from OpenSSH config to stdout (`~/.ssh/config` by default)."},
 		cli.BoolFlag{Name: "replace", Usage: "replace the named session if it already exists."},
@@ -96,7 +99,7 @@ USAGE:
 		cli.BoolFlag{Name: "raw", Usage: "write pure stdout for exactly one resolved host."},
 		cli.BoolFlag{Name: "daemon", Hidden: true},
 		cli.BoolFlag{Name: "fifo-worker", Hidden: true},
-		cli.BoolFlag{Name: "help", Usage: "print this help"},
+		cli.BoolFlag{Name: "help,h", Usage: "print this help"},
 	}
 	app.Flags = append(app.Flags, common.ControlMasterOverrideFlags()...)
 
@@ -156,6 +159,10 @@ USAGE:
 			return ensureSession(c, config, name)
 		}
 
+		if err := ensureSessionForCommand(c, config, name); err != nil {
+			return err
+		}
+
 		stdinData, err := readPipeInput(os.Stdin)
 		if err != nil {
 			return err
@@ -164,7 +171,7 @@ USAGE:
 		return executePipeFn(pipeapp.ExecOptions{
 			Name:    name,
 			Command: command,
-			Hosts:   c.StringSlice("host"),
+			Hosts:   selectedHosts(c),
 			Raw:     c.Bool("raw"),
 			Stdin:   stdinData,
 			Stdout:  os.Stdout,
@@ -176,11 +183,21 @@ USAGE:
 }
 
 func ensureSession(c *cli.Context, config conf.Config, name string) error {
+	return ensureSessionState(c, config, name, true)
+}
+
+func ensureSessionForCommand(c *cli.Context, config conf.Config, name string) error {
+	return ensureSessionState(c, config, name, false)
+}
+
+func ensureSessionState(c *cli.Context, config conf.Config, name string, printReuse bool) error {
 	current, err := loadSessionFn(name)
 	if err == nil {
 		markSessionAliveFn(&current)
 		if !current.Stale && !c.Bool("replace") {
-			fmt.Fprintln(os.Stdout, formatSessionFn(current))
+			if printReuse {
+				fmt.Fprintln(os.Stdout, formatSessionFn(current))
+			}
 			return nil
 		}
 		_ = closeSession(name)
@@ -197,8 +214,11 @@ func ensureSession(c *cli.Context, config conf.Config, name string) error {
 func resolveCreateHosts(c *cli.Context, config conf.Config) ([]string, error) {
 	names := conf.GetNameList(config)
 	sort.Strings(names)
+	if len(names) == 0 {
+		return nil, fmt.Errorf("no servers matched the current config conditions")
+	}
 
-	hosts := c.StringSlice("create-host")
+	hosts := selectedHosts(c)
 	if len(hosts) > 0 {
 		if !check.ExistServer(hosts, names) {
 			return nil, fmt.Errorf("input server not found from list")
@@ -212,7 +232,7 @@ func resolveCreateHosts(c *cli.Context, config conf.Config) ([]string, error) {
 		return nil, err
 	}
 	if !ok || len(selected) == 0 {
-		return nil, fmt.Errorf("server not selected")
+		return nil, fmt.Errorf("selection cancelled")
 	}
 	if !check.ExistServer(selected, names) {
 		return nil, fmt.Errorf("input server not found from list")
@@ -286,7 +306,7 @@ func spawnDaemon(c *cli.Context, name string, hosts []string) error {
 }
 
 func runDaemon(c *cli.Context, config conf.Config, name string, controlMasterOverride *bool) error {
-	hosts := c.StringSlice("create-host")
+	hosts := selectedHosts(c)
 	if len(hosts) == 0 {
 		return fmt.Errorf("daemon mode requires at least one host")
 	}
@@ -300,10 +320,9 @@ func filterNonDaemonArgs(args []string) []string {
 	filteredValueFlags := map[string]bool{
 		"--name":               true,
 		"--fifo-name":          true,
-		"--generate-lssh-conf": true,
 		"--host":               true,
-		"-h":                   true,
 		"--create-host":        true,
+		"--generate-lssh-conf": true,
 		"-H":                   true,
 	}
 	preservedValueFlags := map[string]bool{
@@ -338,6 +357,12 @@ func filterNonDaemonArgs(args []string) []string {
 		break
 	}
 	return filtered
+}
+
+func selectedHosts(c *cli.Context) []string {
+	hosts := append([]string{}, c.StringSlice("host")...)
+	hosts = append(hosts, c.StringSlice("create-host")...)
+	return hosts
 }
 
 func notifyParentReady() {
@@ -386,7 +411,7 @@ func printSessionInfo(name string) error {
 	fmt.Fprintf(os.Stdout, "created: %s\n", session.CreatedAt.Format(time.RFC3339))
 	fmt.Fprintf(os.Stdout, "last used: %s\n", session.LastUsedAt.Format(time.RFC3339))
 	fmt.Fprintf(os.Stdout, "hosts:\n")
-	for _, host := range session.Hosts {
+	for i, host := range session.Hosts {
 		health := session.HostHealth[host]
 		status := "connected"
 		if !health.Connected && health.Error != "" {
@@ -394,7 +419,7 @@ func printSessionInfo(name string) error {
 		} else if !health.Connected {
 			status = "unknown"
 		}
-		fmt.Fprintf(os.Stdout, "  - %s (%s)\n", host, status)
+		fmt.Fprintf(os.Stdout, "  - [%d] %s (%s)\n", i+1, host, status)
 	}
 	return nil
 }

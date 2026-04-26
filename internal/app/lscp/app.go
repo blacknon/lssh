@@ -93,6 +93,29 @@ USAGE:
 			return err
 		}
 
+		// Get config data
+		data, err := conf.ReadWithFallback(confpath, os.Stderr)
+		if err != nil {
+			return err
+		}
+
+		// Get Server Name List (and sort List)
+		allNames := conf.GetNameList(data)
+		names := append([]string(nil), allNames...)
+		names, err = data.FilterServersByOperation(names, "sftp_transport")
+		if err != nil {
+			return err
+		}
+		sort.Strings(names)
+
+		if c.Bool("list") {
+			fmt.Fprintln(os.Stdout, "lssh Server List:")
+			for _, name := range names {
+				fmt.Fprintf(os.Stdout, "  %s\n", name)
+			}
+			os.Exit(0)
+		}
+
 		// check count args
 		if len(c.Args()) < 2 {
 			fmt.Fprintln(os.Stderr, "Too few arguments.")
@@ -121,16 +144,6 @@ USAGE:
 		// Check from and to Type
 		check.CheckTypeError(isFromInRemote, isFromInLocal, isToRemote, len(hosts))
 
-		// Get config data
-		data, err := conf.ReadWithFallback(confpath, os.Stderr)
-		if err != nil {
-			return err
-		}
-
-		// Get Server Name List (and sort List)
-		names := conf.GetNameList(data)
-		sort.Strings(names)
-
 		selected := []string{}
 		toServer := []string{}
 		fromServer := []string{}
@@ -139,8 +152,15 @@ USAGE:
 		switch {
 		// connectHost is set
 		case len(hosts) != 0:
-			if check.ExistServer(hosts, names) == false {
+			filteredHosts, err := data.FilterServersByOperation(hosts, "sftp_transport")
+			if err != nil {
+				return err
+			}
+			if check.ExistServer(hosts, allNames) == false {
 				fmt.Fprintln(os.Stderr, "Input Server not found from list.")
+				os.Exit(1)
+			} else if len(filteredHosts) != len(hosts) {
+				fmt.Fprintln(os.Stderr, "Input Server does not support SFTP-based transfer.")
 				os.Exit(1)
 			} else {
 				toServer = hosts
@@ -148,6 +168,10 @@ USAGE:
 
 		// remote to remote scp
 		case isFromInRemote && isToRemote:
+			if len(names) == 0 {
+				fmt.Fprintln(os.Stderr, "No servers matched the current config conditions.")
+				os.Exit(1)
+			}
 			// View From list
 			from_l := new(list.ListInfo)
 			from_l.Prompt = "lscp(from)>>"
@@ -159,7 +183,7 @@ USAGE:
 
 			// Check selected
 			if len(fromServer) == 0 {
-				fmt.Fprintln(os.Stderr, "Server config is not set.")
+				fmt.Fprintln(os.Stderr, "Selection cancelled.")
 				os.Exit(1)
 			}
 			if fromServer[0] == "ServerName" {
@@ -176,7 +200,7 @@ USAGE:
 			to_l.View()
 			toServer = to_l.SelectName
 			if len(toServer) == 0 {
-				fmt.Fprintln(os.Stderr, "Server config is not set.")
+				fmt.Fprintln(os.Stderr, "Selection cancelled.")
 				os.Exit(1)
 			}
 
@@ -186,6 +210,10 @@ USAGE:
 			}
 
 		default:
+			if len(names) == 0 {
+				fmt.Fprintln(os.Stderr, "No servers matched the current config conditions.")
+				os.Exit(1)
+			}
 			// View List And Get Select Line
 			l := new(list.ListInfo)
 			l.Prompt = "lscp>>"
@@ -197,7 +225,7 @@ USAGE:
 			selected = l.SelectName
 			// Check selected
 			if len(selected) == 0 {
-				fmt.Fprintln(os.Stderr, "Server config is not set.")
+				fmt.Fprintln(os.Stderr, "Selection cancelled.")
 				os.Exit(1)
 			}
 			if selected[0] == "ServerName" {
@@ -220,6 +248,7 @@ USAGE:
 		for _, from := range fromArgs {
 			// parse args
 			isFromRemote, fromPath := check.ParseScpPath(from)
+			displayFromPath := fromPath
 
 			// Check local file exisits
 			if !isFromRemote {
@@ -237,6 +266,7 @@ USAGE:
 				fromPath = check.EscapePath(fromPath)
 			}
 			scp.From.Path = append(scp.From.Path, fromPath)
+			scp.From.DisplayPath = append(scp.From.DisplayPath, displayFromPath)
 		}
 		scp.From.Server = fromServer
 
@@ -257,7 +287,7 @@ USAGE:
 
 		// print from
 		if !isFromInRemote {
-			fmt.Fprintf(os.Stderr, "From local:%s\n", scp.From.Path)
+			fmt.Fprintf(os.Stderr, "From local:%s\n", scp.From.DisplayPath)
 		} else {
 			fmt.Fprintf(os.Stderr, "From remote(%s):%s\n", strings.Join(scp.From.Server, ","), scp.From.Path)
 		}

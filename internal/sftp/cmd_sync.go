@@ -11,7 +11,7 @@ import (
 	"github.com/blacknon/lssh/internal/common"
 	lsync "github.com/blacknon/lssh/internal/sync"
 	"github.com/urfave/cli"
-	"github.com/vbauerster/mpb"
+	"github.com/vbauerster/mpb/v8"
 )
 
 func (r *RunSftp) sync(args []string) {
@@ -35,6 +35,11 @@ func (r *RunSftp) sync(args []string) {
 	}
 
 	app.Action = func(c *cli.Context) error {
+		knownHosts := make([]string, 0, len(r.Client))
+		for host := range r.Client {
+			knownHosts = append(knownHosts, host)
+		}
+
 		parsed, err := lsync.ParseCommandArgs(args)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "Error: %s\n", err)
@@ -46,7 +51,7 @@ func (r *RunSftp) sync(args []string) {
 		isSourceRemote := false
 		isSourceLocal := false
 		for _, raw := range parsed.Sources {
-			spec, err := lsync.ParsePathSpec(raw)
+			spec, err := lsync.ParsePathSpecWithHosts(raw, knownHosts)
 			if err != nil {
 				fmt.Fprintf(os.Stderr, "Error: %s\n", err)
 				return nil
@@ -59,7 +64,7 @@ func (r *RunSftp) sync(args []string) {
 			sourceSpecs = append(sourceSpecs, spec)
 		}
 
-		targetSpec, err := lsync.ParsePathSpec(parsed.Destination)
+		targetSpec, err := lsync.ParsePathSpecWithHosts(parsed.Destination, knownHosts)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "Error: %s\n", err)
 			return nil
@@ -95,7 +100,11 @@ func (r *RunSftp) sync(args []string) {
 		}
 
 		r.ProgressWG = new(syncpkg.WaitGroup)
-		r.Progress = mpb.New(mpb.WithWaitGroup(r.ProgressWG))
+		r.Progress = mpb.New(
+			mpb.WithWaitGroup(r.ProgressWG),
+			mpb.WithRefreshRate(40*time.Millisecond),
+			mpb.PopCompletedMode(),
+		)
 
 		if bidirectional {
 			if deleteExtra {
@@ -129,7 +138,6 @@ func (r *RunSftp) sync(args []string) {
 		}
 
 		r.Progress.Wait()
-		time.Sleep(300 * time.Millisecond)
 		return nil
 	}
 

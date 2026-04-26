@@ -9,7 +9,6 @@ import (
 	"fmt"
 	"net"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"regexp"
 	"runtime"
@@ -36,7 +35,7 @@ func backendForGOOS(goos string) (Backend, error) {
 	case "darwin":
 		return BackendNFS, nil
 	case "windows":
-		return "", fmt.Errorf("lsshfs does not support windows in 0.9.0")
+		return "", fmt.Errorf("lsshfs does not support windows")
 	default:
 		return "", fmt.Errorf("lsshfs does not support %s", goos)
 	}
@@ -60,33 +59,46 @@ func normalizeMountPoint(goos, mountpoint string) (string, error) {
 		return mountpoint, nil
 	}
 
-	return filepath.Abs(mountpoint)
+	absMountpoint, err := filepath.Abs(mountpoint)
+	if err != nil {
+		return "", err
+	}
+
+	return resolveMountPath(absMountpoint), nil
 }
 
 func NormalizeMountPoint(goos, mountpoint string) (string, error) {
 	return normalizeMountPoint(goos, mountpoint)
 }
 
-func mountCommand(goos, mountpoint string, port int, shareName string, creds interface{}) (CommandSpec, error) {
+func mountCommand(goos, mountpoint string, port int, shareName string, creds interface{}, mountOptions []string) (CommandSpec, error) {
 	switch goos {
 	case "linux":
+		options := formatMountOptions(
+			[]string{fmt.Sprintf("port=%d", port), fmt.Sprintf("mountport=%d", port), "tcp", "nfsvers=3"},
+			mountOptions,
+		)
 		return CommandSpec{
 			Name: "mount",
 			Args: []string{
 				"-t",
 				"nfs",
 				"-o",
-				fmt.Sprintf("port=%d,mountport=%d,tcp,nfsvers=3", port, port),
+				options,
 				"127.0.0.1:/",
 				mountpoint,
 			},
 		}, nil
 	case "darwin":
+		options := formatMountOptions(
+			[]string{fmt.Sprintf("port=%d", port), fmt.Sprintf("mountport=%d", port), "tcp", "nfsvers=3"},
+			mountOptions,
+		)
 		return CommandSpec{
 			Name: "mount_nfs",
 			Args: []string{
 				"-o",
-				fmt.Sprintf("port=%d,mountport=%d,tcp,nfsvers=3", port, port),
+				options,
 				"127.0.0.1:/",
 				mountpoint,
 			},
@@ -106,17 +118,61 @@ func mountCommand(goos, mountpoint string, port int, shareName string, creds int
 	}
 }
 
+func formatMountOptions(base []string, extra []string) string {
+	seen := map[string]struct{}{}
+	options := make([]string, 0, len(base)+len(extra))
+	for _, group := range [][]string{base, normalizeMountOptions(extra)} {
+		for _, option := range group {
+			option = strings.TrimSpace(option)
+			if option == "" {
+				continue
+			}
+			if _, ok := seen[option]; ok {
+				continue
+			}
+			seen[option] = struct{}{}
+			options = append(options, option)
+		}
+	}
+
+	return strings.Join(options, ",")
+}
+
+func normalizeMountOptions(options []string) []string {
+	result := make([]string, 0, len(options))
+	for _, option := range options {
+		for _, part := range strings.Split(option, ",") {
+			part = strings.TrimSpace(part)
+			if part != "" {
+				result = append(result, part)
+			}
+		}
+	}
+	return result
+}
+
+func NormalizeMountOptions(options []string) []string {
+	return normalizeMountOptions(options)
+}
+
 func unmountCommands(goos, mountpoint string) ([]CommandSpec, error) {
 	switch goos {
 	case "linux":
 		return []CommandSpec{
 			{Name: "fusermount3", Args: []string{"-u", mountpoint}},
+			{Name: "fusermount3", Args: []string{"-u", "-z", mountpoint}},
 			{Name: "fusermount", Args: []string{"-u", mountpoint}},
+			{Name: "fusermount", Args: []string{"-u", "-z", mountpoint}},
 			{Name: "umount", Args: []string{mountpoint}},
+			{Name: "umount", Args: []string{"-l", mountpoint}},
+			{Name: "umount", Args: []string{"-f", mountpoint}},
+			{Name: "umount", Args: []string{"-l", "-f", mountpoint}},
 		}, nil
 	case "darwin":
 		return []CommandSpec{
 			{Name: "umount", Args: []string{mountpoint}},
+			{Name: "umount", Args: []string{"-f", mountpoint}},
+			{Name: "diskutil", Args: []string{"unmount", "force", mountpoint}},
 		}, nil
 	case "windows":
 		return []CommandSpec{
@@ -176,11 +232,7 @@ func isMountActive(goos, mountpoint string) (bool, error) {
 		}
 		return false, scanner.Err()
 	case "darwin":
-		out, err := exec.Command("mount").Output()
-		if err != nil {
-			return false, err
-		}
-		return strings.Contains(string(out), " on "+mountpoint+" "), nil
+		return isDarwinMountActive(mountpoint)
 	case "windows":
 		target := mountpoint
 		if regexp.MustCompile(`^[A-Za-z]:$`).MatchString(target) {
@@ -197,4 +249,51 @@ func isMountActive(goos, mountpoint string) (bool, error) {
 	default:
 		return false, nil
 	}
+}
+
+func resolveMountPath(path string) string {
+	path = filepath.Clean(path)
+	if path == "" {
+		return path
+	}
+
+	if resolved, err := filepath.EvalSymlinks(path); err == nil && resolved != "" {
+		return filepath.Clean(resolved)
+	}
+
+	volume := filepath.VolumeName(path)
+	root := string(os.PathSeparator)
+	if volume != "" {
+		root = volume + root
+	}
+
+	current := path
+	var suffix []string
+	for {
+		if current == "" || current == "." {
+			break
+		}
+
+		if resolved, err := filepath.EvalSymlinks(current); err == nil && resolved != "" {
+			base := filepath.Clean(resolved)
+			if len(suffix) == 0 {
+				return base
+			}
+			parts := append([]string{base}, suffix...)
+			return filepath.Join(parts...)
+		}
+
+		if current == root {
+			break
+		}
+
+		parent := filepath.Dir(current)
+		if parent == current {
+			break
+		}
+		suffix = append([]string{filepath.Base(current)}, suffix...)
+		current = parent
+	}
+
+	return path
 }

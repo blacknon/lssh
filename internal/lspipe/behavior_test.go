@@ -6,6 +6,7 @@ import (
 	"errors"
 	"io"
 	"net"
+	"reflect"
 	"strings"
 	"sync"
 	"testing"
@@ -15,13 +16,13 @@ import (
 )
 
 type fakeConn struct {
-	session      sessionRunner
-	createErr    error
-	aliveErr     error
-	closeCount   int
-	closed       bool
-	checks       int
-	mu           sync.Mutex
+	session    sessionRunner
+	createErr  error
+	aliveErr   error
+	closeCount int
+	closed     bool
+	checks     int
+	mu         sync.Mutex
 }
 
 func (f *fakeConn) CreateSession() (sessionRunner, error) {
@@ -185,6 +186,49 @@ func TestExecuteRoutesStdoutAndStderrAndUsesDoneExitCode(t *testing.T) {
 	}
 }
 
+func TestExecuteResolvesOneBasedHostIndexes(t *testing.T) {
+	originalDial := dialSession
+	t.Cleanup(func() { dialSession = originalDial })
+
+	var gotHosts []string
+	var dialCount int
+	dialSession = func(session Session) (net.Conn, error) {
+		server, client := net.Pipe()
+		dialCount++
+		go func() {
+			defer server.Close()
+			dec := json.NewDecoder(server)
+			enc := json.NewEncoder(server)
+
+			var req Request
+			_ = dec.Decode(&req)
+			if dialCount == 1 {
+				_ = enc.Encode(Event{Type: "pong"})
+				return
+			}
+
+			gotHosts = append([]string{}, req.Hosts...)
+			_ = enc.Encode(Event{Type: "done", ExitCode: 0})
+		}()
+		return client, nil
+	}
+
+	cacheDir := t.TempDir()
+	t.Setenv("XDG_CACHE_HOME", cacheDir)
+	if err := SaveSession(Session{Name: "default", Network: "test", Address: "pipe", Hosts: []string{"web01", "web02", "db01"}}); err != nil {
+		t.Fatalf("SaveSession() error = %v", err)
+	}
+
+	if err := Execute(ExecOptions{Name: "default", Command: "hostname", Hosts: []string{"2", "db01"}}); err != nil {
+		t.Fatalf("Execute() error = %v", err)
+	}
+
+	want := []string{"web01", "db01"}
+	if !reflect.DeepEqual(gotHosts, want) {
+		t.Fatalf("resolved hosts = %#v, want %#v", gotHosts, want)
+	}
+}
+
 func TestPingSessionSuccessAndFailure(t *testing.T) {
 	originalDial := dialSession
 	t.Cleanup(func() { dialSession = originalDial })
@@ -284,6 +328,33 @@ func TestDaemonExecRequestAggregatesExitCodeAndPrefixesErrors(t *testing.T) {
 	}
 }
 
+func TestDaemonExecRequestSingleTargetDoesNotPrefixErrors(t *testing.T) {
+	daemon := NewDaemon("default", "", conf.Config{}, []string{"web01"}, nil)
+	daemon.runCommandFn = func(host string, req Request, sendEvent func(Event)) (int, error) {
+		return 9, errors.New("boom")
+	}
+
+	var buf bytes.Buffer
+	err := daemon.execRequest(json.NewEncoder(&buf), Request{Action: actionExec, Command: "hostname", Hosts: []string{"web01"}})
+	if err != nil {
+		t.Fatalf("execRequest() error = %v", err)
+	}
+
+	events := decodeEvents(t, buf.Bytes())
+	foundPlainErr := false
+	for _, event := range events {
+		if event.Type == "stderr" && string(event.Data) == "boom\n" {
+			foundPlainErr = true
+		}
+		if event.Type == "stderr" && strings.Contains(string(event.Data), "web01 :: boom") {
+			t.Fatalf("unexpected prefixed stderr: %#v", events)
+		}
+	}
+	if !foundPlainErr {
+		t.Fatalf("plain stderr missing: %#v", events)
+	}
+}
+
 func TestDaemonExecRequestRejectsRawMultiHost(t *testing.T) {
 	daemon := NewDaemon("default", "", conf.Config{}, []string{"web01", "web02"}, nil)
 	var buf bytes.Buffer
@@ -368,6 +439,25 @@ func TestEventWriterPrefixesNonRawOutput(t *testing.T) {
 	writer.Flush()
 
 	if len(events) != 1 || !strings.Contains(string(events[0].Data), "web01 :: warning") {
+		t.Fatalf("events = %#v", events)
+	}
+}
+
+func TestEventWriterSuppressesHeaderForSingleTarget(t *testing.T) {
+	var events []Event
+	writer := &eventWriter{
+		host:           "web01",
+		stream:         "stdout",
+		suppressHeader: true,
+		send: func(event Event) {
+			events = append(events, event)
+		},
+	}
+
+	_, _ = writer.Write([]byte("warning\n"))
+	writer.Flush()
+
+	if len(events) != 1 || string(events[0].Data) != "warning\n" {
 		t.Fatalf("events = %#v", events)
 	}
 }

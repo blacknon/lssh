@@ -6,12 +6,15 @@ package conf
 
 import (
 	"bytes"
+	"fmt"
 	"io"
 	"os"
 	"os/exec"
 	"os/user"
+	"path"
 	"path/filepath"
 	"regexp"
+	"sort"
 	"strconv"
 	"strings"
 
@@ -68,6 +71,162 @@ func getOpenSSHConfig(path, command string) (config map[string]ServerConfig, err
 	}
 
 	return config, err
+}
+
+func (c *Config) readConfiguredOpenSSHConfig(sc OpenSSHConfig) error {
+	entries, err := loadOpenSSHConfigEntries(sc.Path, sc.Command)
+	if err != nil {
+		return err
+	}
+
+	matches, err := decodeOpenSSHImportMatches(sc.Match)
+	if err != nil {
+		return err
+	}
+
+	ele := sc.Path
+	if ele == "" {
+		ele = "generate_sshconfig"
+	}
+
+	base := serverConfigReduct(c.Common, sc.ServerConfig)
+	for _, entry := range entries {
+		value := entry.Config
+		value.Note = "from:" + ele
+		value = serverConfigReduct(base, value)
+		value = applyOpenSSHImportMatches(entry.Host, value, matches)
+		c.Server[ele+":"+entry.Host] = value
+	}
+
+	return nil
+}
+
+type openSSHImportMatch struct {
+	Name      string
+	Priority  int
+	NameIn    []string
+	NameNotIn []string
+	UserIn    []string
+	UserNotIn []string
+	AddrIn    []string
+	AddrNotIn []string
+	PortIn    []string
+	PortNotIn []string
+	Config    ServerConfig
+	order     int
+}
+
+func decodeOpenSSHImportMatches(raw map[string]map[string]interface{}) ([]openSSHImportMatch, error) {
+	if len(raw) == 0 {
+		return nil, nil
+	}
+
+	names := make([]string, 0, len(raw))
+	for name := range raw {
+		names = append(names, name)
+	}
+	sort.Strings(names)
+
+	result := make([]openSSHImportMatch, 0, len(names))
+	for idx, name := range names {
+		branchMap := raw[name]
+
+		var cfg ServerConfig
+		if err := decodeTaggedMap(branchMap, &cfg, "toml"); err != nil {
+			return nil, fmt.Errorf("match.%s: %w", name, err)
+		}
+
+		priority := 100
+		if rawPriority, ok := branchMap["priority"]; ok {
+			if p, ok := asInt64(rawPriority); ok {
+				priority = int(p)
+			} else {
+				return nil, fmt.Errorf("match.%s.priority must be an integer", name)
+			}
+		}
+
+		result = append(result, openSSHImportMatch{
+			Name:      name,
+			Priority:  priority,
+			NameIn:    providerStringSlice(branchMap, "name_in"),
+			NameNotIn: providerStringSlice(branchMap, "name_not_in"),
+			UserIn:    providerStringSlice(branchMap, "user_in"),
+			UserNotIn: providerStringSlice(branchMap, "user_not_in"),
+			AddrIn:    providerStringSlice(branchMap, "addr_in"),
+			AddrNotIn: providerStringSlice(branchMap, "addr_not_in"),
+			PortIn:    providerStringSlice(branchMap, "port_in"),
+			PortNotIn: providerStringSlice(branchMap, "port_not_in"),
+			Config:    cfg,
+			order:     idx + 1,
+		})
+	}
+
+	sort.SliceStable(result, func(i, j int) bool {
+		if result[i].Priority != result[j].Priority {
+			return result[i].Priority < result[j].Priority
+		}
+		return result[i].order < result[j].order
+	})
+
+	return result, nil
+}
+
+func applyOpenSSHImportMatches(host string, base ServerConfig, matches []openSSHImportMatch) ServerConfig {
+	current := base
+	for _, match := range matches {
+		if openSSHImportMatchApplies(host, current, match) {
+			current = serverConfigReduct(current, match.Config)
+		}
+	}
+	return current
+}
+
+func openSSHImportMatchApplies(host string, current ServerConfig, match openSSHImportMatch) bool {
+	if !openSSHMatchPatternList(host, match.NameIn, false) {
+		return false
+	}
+	if !openSSHMatchPatternList(host, match.NameNotIn, true) {
+		return false
+	}
+	if !openSSHMatchPatternList(current.User, match.UserIn, false) {
+		return false
+	}
+	if !openSSHMatchPatternList(current.User, match.UserNotIn, true) {
+		return false
+	}
+	if !openSSHMatchPatternList(current.Addr, match.AddrIn, false) {
+		return false
+	}
+	if !openSSHMatchPatternList(current.Addr, match.AddrNotIn, true) {
+		return false
+	}
+	if !openSSHMatchPatternList(current.Port, match.PortIn, false) {
+		return false
+	}
+	if !openSSHMatchPatternList(current.Port, match.PortNotIn, true) {
+		return false
+	}
+	return true
+}
+
+func openSSHMatchPatternList(value string, patterns []string, negative bool) bool {
+	if len(patterns) == 0 {
+		return true
+	}
+
+	matched := false
+	for _, pattern := range patterns {
+		ok, err := path.Match(pattern, value)
+		if err == nil && ok {
+			matched = true
+			break
+		}
+	}
+
+	if negative {
+		return !matched
+	}
+	return matched
 }
 
 func loadOpenSSHConfigEntries(path, command string) ([]openSSHConfigEntry, error) {

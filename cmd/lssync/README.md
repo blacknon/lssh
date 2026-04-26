@@ -1,6 +1,10 @@
 lssync
 ===
 
+<p align="center">
+<img src="./img/lssync.gif" width="720" />
+</p>
+
 ## About
 
 `lssync` is a sync command built on the same SSH/SFTP stack as `lscp`.
@@ -38,7 +42,7 @@ COPYRIGHT:
     blacknon(blacknon@orebibou.com)
 
 VERSION:
-    lssh-suite 0.9.0 (beta/transfer)
+    lssh-suite 0.10.0 (beta/transfer)
 
 USAGE:
     # local to remote sync
@@ -96,6 +100,7 @@ lssync -D -B --daemon-interval 30s ./notes remote:/srv/notes
 ## Notes
 
 - Like `lscp`, transfers are implemented with SFTP over SSH.
+- Connector-backed targets that do not advertise `sftp_transport` are excluded from the selection list and rejected when specified explicitly.
 - `--delete` only removes entries inside the destination scope derived from the source roots.
 - For multiple sources, the destination is treated as a directory and the union of source entries becomes the desired state.
 - Bidirectional sync currently requires exactly one source path and one destination path.

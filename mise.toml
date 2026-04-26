@@ -6,16 +6,29 @@
 # Tasks(full)
 # ====================
 [tasks.full_build]
-description = "Build binary files all"
-depends = ["core_build", "transfer_build", "monitor_build", "sysadmin_build"]
+description = "Build all lssh suite command binaries"
+depends = [
+    "core_build",
+    "transfer_build",
+    "monitor_build",
+    "sysadmin_build",
+]
 
 [tasks.full_install]
-description = "Install binary files all"
+description = "Install all lssh suite command binaries"
 depends = [
     "core_install",
     "transfer_install",
     "monitor_install",
     "sysadmin_install",
+]
+
+[tasks.complete_install]
+description = "Install the full lssh suite, bundled providers, and shell completions"
+depends = [
+    "full_install",
+    "provider_install",
+    "completion_install",
 ]
 
 [tasks.completion_install]
@@ -54,7 +67,13 @@ run = """
 
 [tasks.full_test]
 description = "Run go test for all"
-depends = ["core_test", "transfer_test", "monitor_test", "sysadmin_test"]
+depends = [
+    "core_test",
+    "transfer_test",
+    "monitor_test",
+    "sysadmin_test",
+    "provider_test",
+]
 
 # Tasks(go module)
 # ====================
@@ -63,7 +82,112 @@ description = "Run go mod tidy"
 depends = []
 run = """
     go mod tidy
+    if [ -d vendor/github.com/bitwarden/sdk-go/internal/cinterface/lib ]; then
+        chmod -R u+w vendor/github.com/bitwarden/sdk-go/internal/cinterface/lib
+        rm -rf vendor/github.com/bitwarden/sdk-go/internal/cinterface/lib
+    fi
     go mod vendor
+    BITWARDEN_SDK_DIR="$(find "$(go env GOMODCACHE)/github.com/bitwarden" -maxdepth 1 -type d -name 'sdk-go@*' | head -n 1)"
+    if [ -n "$BITWARDEN_SDK_DIR" ] && [ -d "$BITWARDEN_SDK_DIR/internal/cinterface/lib" ]; then
+        mkdir -p vendor/github.com/bitwarden/sdk-go/internal/cinterface
+        cp -R "$BITWARDEN_SDK_DIR/internal/cinterface/lib" vendor/github.com/bitwarden/sdk-go/internal/cinterface/lib
+        chmod -R u+w vendor/github.com/bitwarden/sdk-go/internal/cinterface/lib
+    fi
+"""
+
+# Tasks(Provider)
+# Note: Providerは、mixed/connector/inventory/secret provider executableを対象とするタスク。
+# ====================
+[tasks.provider_build]
+description = "Build provider binaries"
+depends = ["provider_clean", "go_mod"]
+run = """
+    go build -o provider-mixed-aws-ec2 ./provider/mixed/provider-mixed-aws-ec2
+    go build -o provider-connector-openssh ./provider/connector/provider-connector-openssh
+    go build -o provider-connector-telnet ./provider/connector/provider-connector-telnet
+    go build -o provider-connector-winrm ./provider/connector/provider-connector-winrm
+    go build -o provider-mixed-azure-compute ./provider/mixed/provider-mixed-azure-compute
+    go build -o provider-inventory-azure-compute ./provider/mixed/provider-mixed-azure-compute
+    go build -o provider-mixed-gcp-compute ./provider/mixed/provider-mixed-gcp-compute
+    go build -o provider-inventory-gcp-compute ./provider/mixed/provider-mixed-gcp-compute
+    go build -o provider-inventory-proxmox ./provider/inventory/provider-inventory-proxmox
+    go build -o provider-secret-onepassword ./provider/secret/provider-secret-onepassword
+    go build -o provider-secret-bitwarden ./provider/secret/provider-secret-bitwarden
+    go build -o provider-secret-os-keychain ./provider/secret/provider-secret-os-keychain
+    go build -o provider-secret-custom-script ./provider/secret/provider-secret-custom-script
+"""
+
+[tasks.provider_clean]
+description = "Clean provider binaries"
+depends = []
+run = """
+    rm -f provider-mixed-aws-ec2
+    rm -f provider-connector-openssh
+    rm -f provider-connector-telnet
+    rm -f provider-connector-winrm
+    rm -f provider-mixed-azure-compute
+    rm -f provider-inventory-azure-compute
+    rm -f provider-mixed-gcp-compute
+    rm -f provider-inventory-gcp-compute
+    rm -f provider-inventory-proxmox
+    rm -f provider-secret-onepassword
+    rm -f provider-secret-bitwarden
+    rm -f provider-secret-os-keychain
+    rm -f provider-secret-custom-script
+"""
+
+[tasks.provider_install]
+description = "Install provider binaries into ~/.config/lssh/providers"
+depends = ["provider_build"]
+run = """
+    install_binary() {
+        src="$1"
+        dst="$2"
+        dir="$(dirname "$dst")"
+        tmp="$dir/.$(basename "$dst").tmp.$$"
+
+        cp "$src" "$tmp"
+        if command -v xattr >/dev/null 2>&1; then
+            xattr -d com.apple.provenance "$tmp" 2>/dev/null || true
+        fi
+        if command -v codesign >/dev/null 2>&1; then
+            codesign --force --sign - "$tmp" 2>/dev/null || true
+        fi
+        mv -f "$tmp" "$dst"
+    }
+
+    mkdir -p "$HOME/.config/lssh/providers"
+    rm -f "$HOME/.config/lssh/providers/provider-connector-psrp"
+    install_binary provider-mixed-aws-ec2 "$HOME/.config/lssh/providers/provider-mixed-aws-ec2"
+    install_binary provider-connector-openssh "$HOME/.config/lssh/providers/provider-connector-openssh"
+    install_binary provider-connector-telnet "$HOME/.config/lssh/providers/provider-connector-telnet"
+    install_binary provider-connector-winrm "$HOME/.config/lssh/providers/provider-connector-winrm"
+    install_binary provider-mixed-azure-compute "$HOME/.config/lssh/providers/provider-mixed-azure-compute"
+    install_binary provider-inventory-azure-compute "$HOME/.config/lssh/providers/provider-inventory-azure-compute"
+    install_binary provider-mixed-gcp-compute "$HOME/.config/lssh/providers/provider-mixed-gcp-compute"
+    install_binary provider-inventory-gcp-compute "$HOME/.config/lssh/providers/provider-inventory-gcp-compute"
+    install_binary provider-inventory-proxmox "$HOME/.config/lssh/providers/provider-inventory-proxmox"
+    install_binary provider-secret-onepassword "$HOME/.config/lssh/providers/provider-secret-onepassword"
+    install_binary provider-secret-bitwarden "$HOME/.config/lssh/providers/provider-secret-bitwarden"
+    install_binary provider-secret-os-keychain "$HOME/.config/lssh/providers/provider-secret-os-keychain"
+    install_binary provider-secret-custom-script "$HOME/.config/lssh/providers/provider-secret-custom-script"
+"""
+
+[tasks.provider_test]
+description = "Run go test for provider packages"
+depends = ["go_mod"]
+run = """
+    go test -v ./provider/mixed/provider-mixed-aws-ec2
+    go test -v ./provider/connector/provider-connector-openssh
+    go test -v ./provider/connector/provider-connector-telnet
+    go test -v ./provider/connector/provider-connector-winrm
+    go test -v ./provider/mixed/provider-mixed-azure-compute
+    go test -v ./provider/mixed/provider-mixed-gcp-compute
+    go test -v ./provider/inventory/provider-inventory-proxmox
+    go test -v ./provider/secret/provider-secret-onepassword
+    go test -v ./provider/secret/provider-secret-bitwarden
+    go test -v ./provider/secret/provider-secret-os-keychain
+    go test -v ./provider/secret/provider-secret-custom-script
 """
 
 # Tasks(core)
@@ -87,7 +211,19 @@ run = """
 description = "Install binary file only lssh"
 depends = ["core_build"]
 run = """
-    cp lssh /usr/local/bin/lssh
+    install_binary() {
+        src="$1"
+        dst="$2"
+        dir="$(dirname "$dst")"
+        tmp="$dir/.$(basename "$dst").tmp.$$"
+
+        cp "$src" "$tmp"
+        xattr -d com.apple.provenance "$tmp" 2>/dev/null || true
+        codesign --force --sign - "$tmp"
+        mv -f "$tmp" "$dst"
+    }
+
+    install_binary lssh /usr/local/bin/lssh
 """
 
 [tasks.core_test]
@@ -127,11 +263,23 @@ run = """
 description = "Install binary file only lscp, lsftp, lssync, lsdiff, and lsshfs"
 depends = ["transfer_build"]
 run = """
-    cp lscp /usr/local/bin/lscp
-    cp lsftp /usr/local/bin/lsftp
-    cp lssync /usr/local/bin/lssync
-    cp lsdiff /usr/local/bin/lsdiff
-    cp lsshfs /usr/local/bin/lsshfs
+    install_binary() {
+        src="$1"
+        dst="$2"
+        dir="$(dirname "$dst")"
+        tmp="$dir/.$(basename "$dst").tmp.$$"
+
+        cp "$src" "$tmp"
+        xattr -d com.apple.provenance "$tmp" 2>/dev/null || true
+        codesign --force --sign - "$tmp"
+        mv -f "$tmp" "$dst"
+    }
+
+    install_binary lscp /usr/local/bin/lscp
+    install_binary lsftp /usr/local/bin/lsftp
+    install_binary lssync /usr/local/bin/lssync
+    install_binary lsdiff /usr/local/bin/lsdiff
+    install_binary lsshfs /usr/local/bin/lsshfs
 """
 
 [tasks.transfer_test]
@@ -170,7 +318,19 @@ run = """
 description = "Install binary file only lsmon"
 depends = ["monitor_build"]
 run = """
-    cp lsmon /usr/local/bin/lsmon
+    install_binary() {
+        src="$1"
+        dst="$2"
+        dir="$(dirname "$dst")"
+        tmp="$dir/.$(basename "$dst").tmp.$$"
+
+        cp "$src" "$tmp"
+        xattr -d com.apple.provenance "$tmp" 2>/dev/null || true
+        codesign --force --sign - "$tmp"
+        mv -f "$tmp" "$dst"
+    }
+
+    install_binary lsmon /usr/local/bin/lsmon
 """
 
 [tasks.monitor_test]
@@ -206,9 +366,21 @@ run = """
 description = "Install binary files only lsshell, lsmux, and lspipe"
 depends = ["sysadmin_build"]
 run = """
-    cp lsshell /usr/local/bin/lsshell
-    cp lsmux /usr/local/bin/lsmux
-    cp lspipe /usr/local/bin/lspipe
+    install_binary() {
+        src="$1"
+        dst="$2"
+        dir="$(dirname "$dst")"
+        tmp="$dir/.$(basename "$dst").tmp.$$"
+
+        cp "$src" "$tmp"
+        xattr -d com.apple.provenance "$tmp" 2>/dev/null || true
+        codesign --force --sign - "$tmp"
+        mv -f "$tmp" "$dst"
+    }
+
+    install_binary lsshell /usr/local/bin/lsshell
+    install_binary lsmux /usr/local/bin/lsmux
+    install_binary lspipe /usr/local/bin/lspipe
 """
 
 [tasks.sysadmin_test]
@@ -247,6 +419,30 @@ run = """
     docker compose exec --user demo client bash
 """
 
+[tasks.demo_telnet_provider_up]
+description = "Start the telnet provider demo containers with docker compose"
+depends = []
+dir = "demo-telnet-provider"
+run = """
+    docker compose up -d --build
+"""
+
+[tasks.demo_telnet_provider_down]
+description = "Stop the telnet provider demo containers with docker compose"
+depends = []
+dir = "demo-telnet-provider"
+run = """
+    docker compose down -v
+"""
+
+[tasks.demo_telnet_provider_client]
+description = "Open a shell in the telnet provider demo client container"
+depends = ["demo_telnet_provider_up"]
+dir = "demo-telnet-provider"
+run = """
+    docker compose exec --user demo client bash
+"""
+
 [tasks.demo_ssh]
 description = "Connect to the demo client bastion over SSH and start lssh"
 depends = ["demo_up"]
@@ -259,4 +455,86 @@ description = "List demo bastion targets through the forced lssh command"
 depends = ["demo_up"]
 run = """
     ssh -p 2222 -i demo/client/home/.ssh/demo_lssh_ed25519 demo@127.0.0.1 -- --list
+"""
+
+[tasks.generate-gif]
+description = "generate top gif"
+run = """
+vhs images/demo.tape -o images/demo.gif
+vhs images/example_lssh.tape -o images/example_lssh.gif
+vhs images/example_lssh_parallel.tape -o images/example_lssh_parallel.gif
+vhs images/example_lssh_mux.tape -o images/example_lssh_mux.gif
+vhs images/example_lssh_mux_command.tape -o images/example_lssh_mux_command.gif
+"""
+
+[tasks.generate-lssh-gif]
+description = "generate cmd/*/img/*.gif"
+run = """
+# lssh
+"""
+
+[tasks.generate-lscp-gif]
+description = "generate lscp gif"
+run = """
+vhs ./cmd/lscp/img/lscp.tape -o ./cmd/lscp/img/lscp.gif
+"""
+
+[tasks.generate-lsftp-gif]
+description = "generate lsftp gif"
+run = """
+vhs ./cmd/lsftp/img/lsftp.tape -o ./cmd/lsftp/img/lsftp.gif
+"""
+
+[tasks.generate-lsshell-gif]
+description = "generate lsshell gif"
+run = """
+vhs ./cmd/lsshell/img/lsshell.tape -o ./cmd/lsshell/img/lsshell.gif
+"""
+
+[tasks.generate-lsmux-gif]
+description = "generate cmd/*/img/*.gif"
+run = """
+# lsmux
+vhs ./cmd/lsmux/img/command.tape -o ./cmd/lsmux/img/command.gif
+vhs ./cmd/lsmux/img/term.tape -o ./cmd/lsmux/img/term.gif
+"""
+
+[tasks.generate-lsmon-gif]
+description = "generate lsmon gif"
+run = """
+vhs ./cmd/lsmon/img/lsmon.tape -o ./cmd/lsmon/img/lsmon.gif
+"""
+
+[tasks.generate-lssync-gif]
+description = "generate lssync gif"
+run = """
+vhs ./cmd/lssync/img/lssync.tape -o ./cmd/lssync/img/lssync.gif
+"""
+
+[tasks.generate-lsdiff-gif]
+description = "generate lsdiff gif"
+run = """
+vhs ./cmd/lsdiff/img/lsdiff.tape -o ./cmd/lsdiff/img/lsdiff.gif
+"""
+
+[tasks.generate-lspipe-gif]
+description = "generate lspipe gif"
+run = """
+vhs ./cmd/lspipe/img/lspipe.tape -o ./cmd/lspipe/img/lspipe.gif
+"""
+
+[tasks.generate-cmd-gif]
+description = "generate cmd/*/img/*.gif"
+depends = [
+    "generate-lscp-gif",
+    "generate-lsftp-gif",
+    "generate-lsdiff-gif",
+    "generate-lsmon-gif",
+    "generate-lsmux-gif",
+    "generate-lspipe-gif",
+    "generate-lsshell-gif",
+    "generate-lssync-gif",
+]
+run = """
+echo "generated command gifs"
 """

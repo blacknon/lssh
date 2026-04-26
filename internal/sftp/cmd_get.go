@@ -20,7 +20,7 @@ import (
 	"github.com/blacknon/lssh/internal/common"
 	"github.com/blacknon/lssh/internal/output"
 	"github.com/urfave/cli"
-	"github.com/vbauerster/mpb"
+	"github.com/vbauerster/mpb/v8"
 )
 
 type pullTask struct {
@@ -63,7 +63,11 @@ func (r *RunSftp) get(args []string) {
 
 		// Create Progress
 		r.ProgressWG = new(sync.WaitGroup)
-		r.Progress = mpb.New(mpb.WithWaitGroup(r.ProgressWG))
+		r.Progress = mpb.New(
+			mpb.WithWaitGroup(r.ProgressWG),
+			mpb.WithRefreshRate(40*time.Millisecond),
+			mpb.PopCompletedMode(),
+		)
 		r.DryRun = c.Bool("dry-run")
 
 		// set pathlist
@@ -115,7 +119,7 @@ func (r *RunSftp) get(args []string) {
 			cancelMu.Unlock()
 
 			for _, client := range clients {
-				client.Connect.Close()
+				_ = client.Close()
 			}
 		}
 
@@ -210,15 +214,15 @@ func (r *RunSftp) get(args []string) {
 						for {
 							select {
 							case <-ctx.Done():
-								if workerClient.Connect != client.Connect {
-									workerClient.Connect.Close()
+								if workerClient != client {
+									_ = workerClient.Close()
 								}
 								workerExit <- true
 								return
 							case path, ok := <-tasks:
 								if !ok {
-									if workerClient.Connect != client.Connect {
-										workerClient.Connect.Close()
+									if workerClient != client {
+										_ = workerClient.Close()
 									}
 									workerExit <- true
 									return
@@ -269,9 +273,6 @@ func (r *RunSftp) get(args []string) {
 
 		// wait Progress
 		r.Progress.Wait()
-
-		// wait 0.3 sec
-		time.Sleep(300 * time.Millisecond)
 
 		return nil
 	}

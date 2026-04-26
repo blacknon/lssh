@@ -17,6 +17,7 @@ It gives you a small VT-style emulator plus a `tview.Primitive`, so you can embe
 - PTY backend for local shell and command execution
 - stream backend for SSH sessions or custom transports
 - UTF-8, wide rune, combining rune, and scrollback support
+- optional built-in scrollbar for local scrollback
 - terminal input handling for keyboard, paste, focus, and mouse reporting
 - OSC title tracking and callback hooks
 
@@ -170,6 +171,7 @@ Useful hooks on `View`:
 - `Attach(backend)` to connect a session
 - `SetBackendExitHandler(...)` to react when the backend closes
 - `SetTitleHandler(...)` to receive title updates
+- `SetScrollbar(true)` to show a built-in scrollbar on the right edge
 - `ScrollbackUp`, `ScrollbackDown`, `ScrollbackPageUp`, `ScrollbackPageDown`
 
 ## Notes

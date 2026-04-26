@@ -27,6 +27,7 @@ func (r *Run) cmd() (err error) {
 
 	// create connect map
 	connmap := map[string]*sshlib.Connect{}
+	connectorServers := map[string]bool{}
 
 	// make channel
 	finished := make(chan bool)
@@ -54,6 +55,13 @@ func (r *Run) cmd() (err error) {
 
 		go func() {
 			defer wg.Done() // Decrement counter when goroutine completes
+
+			if r.usesConnector(server) {
+				mu.Lock()
+				connectorServers[server] = true
+				mu.Unlock()
+				return
+			}
 
 			// check count AuthMethod
 			if len(r.serverAuthMethodMap[server]) == 0 {
@@ -258,6 +266,30 @@ func (r *Run) cmd() (err error) {
 		}
 	}
 
+	connectorFinished := 0
+	for _, server := range r.ServerList {
+		if !connectorServers[server] {
+			continue
+		}
+		connectorFinished++
+
+		stdoutWriter, stderrWriter := connectorOutputWriters(r, server, len(r.ServerList) == 1)
+		if r.IsParallel {
+			go func(server string, stdoutWriter, stderrWriter io.Writer) {
+				if _, runErr := r.runConnectorCommand(server, stdoutWriter, stderrWriter); runErr != nil {
+					fmt.Fprintln(os.Stderr, connectorErrorString(server, runErr))
+				}
+				finished <- true
+			}(server, stdoutWriter, stderrWriter)
+			continue
+		}
+
+		if _, runErr := r.runConnectorCommand(server, stdoutWriter, stderrWriter); runErr != nil {
+			fmt.Fprintln(os.Stderr, connectorErrorString(server, runErr))
+		}
+		go func() { finished <- true }()
+	}
+
 	// if parallel flag true, and select server is not single,
 	// set send stdin.
 
@@ -341,7 +373,7 @@ func (r *Run) cmd() (err error) {
 	}
 
 	// wait
-	for i := 0; i < len(connmap); i++ {
+	for i := 0; i < len(connmap)+connectorFinished; i++ {
 		<-finished
 	}
 
@@ -351,4 +383,18 @@ func (r *Run) cmd() (err error) {
 	time.Sleep(300 * time.Millisecond)
 
 	return
+}
+
+func (r *Run) createCommandOutput(server string) *output.Output {
+	o := &output.Output{
+		Templete:      cmdOPROMPT,
+		Count:         0,
+		ServerList:    r.ServerList,
+		Conf:          r.Conf.Server[server],
+		EnableHeader:  r.EnableHeader,
+		DisableHeader: r.DisableHeader,
+		AutoColor:     true,
+	}
+	o.Create(server)
+	return o
 }

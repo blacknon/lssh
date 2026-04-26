@@ -33,6 +33,7 @@ type Runner struct {
 	RemotePath            string
 	MountPoint            string
 	ReadWrite             bool
+	MountOptions          []string
 	GOOS                  string
 	ControlMasterOverride *bool
 	ReadyNotifier         func()
@@ -106,6 +107,10 @@ func (r *Runner) Run() error {
 	backend, err := backendForGOOS(r.GOOS)
 	if err != nil {
 		return err
+	}
+	if r.Config.ServerUsesConnector(r.Host) && (r.GOOS == "linux" || r.GOOS == "darwin") {
+		// Connector-backed mounts use the Go-side SFTP/FUSE backend on Unix-like systems.
+		backend = BackendFUSE
 	}
 	r.debugf("start host=%s remote_path=%s mountpoint=%s goos=%s backend=%s", r.Host, r.RemotePath, r.MountPoint, r.GOOS, backend)
 
@@ -184,7 +189,7 @@ func (r *Runner) Run() error {
 		go func() {
 			serveErrCh <- connect.NFSForward("127.0.0.1", strconv.Itoa(port), r.RemotePath)
 		}()
-		spec, err := mountCommand(r.GOOS, r.MountPoint, port, "", nil)
+		spec, err := mountCommand(r.GOOS, r.MountPoint, port, "", nil, r.MountOptions)
 		if err != nil {
 			cleanup()
 			return err
@@ -261,6 +266,37 @@ func (r *Runner) Run() error {
 }
 
 func createMountConn(r *Runner) (mountConn, error) {
+	goos := r.GOOS
+	if goos == "" {
+		goos = currentGOOS
+	}
+
+	if r.Config.ServerUsesConnector(r.Host) {
+		if goos != "linux" && goos != "darwin" {
+			return nil, fmt.Errorf("connector-backed lsshfs currently supports linux and macos only")
+		}
+
+		run := &lsshssh.Run{
+			ServerList:            []string{r.Host},
+			Conf:                  r.Config,
+			ControlMasterOverride: r.ControlMasterOverride,
+		}
+		run.CreateAuthMethodMap()
+
+		handle, err := run.CreateSFTPClientHandle(r.Host)
+		if err != nil {
+			return nil, err
+		}
+		if handle == nil || handle.Client == nil {
+			if handle != nil && handle.Closer != nil {
+				_ = handle.Closer.Close()
+			}
+			return nil, fmt.Errorf("connector-backed sftp client is not available")
+		}
+
+		return newSFTPMountConn(handle, r.ReadWrite)
+	}
+
 	run := &lsshssh.Run{
 		ServerList:            []string{r.Host},
 		Conf:                  r.Config,

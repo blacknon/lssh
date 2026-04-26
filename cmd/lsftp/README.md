@@ -20,6 +20,8 @@ USAGE:
     lsftp [options]
 
 OPTIONS:
+    --host servername, -H servername    connect servername
+    --list, -l                          print server list from config
     --file value, -F value              config file path (default: "/Users/blacknon/.lssh.conf")
     --generate-lssh-conf ~/.ssh/config  print generated lssh config from OpenSSH config to stdout (~/.ssh/config by default).
     --auto-reconnect                    automatically reconnect disconnected hosts before commands
@@ -32,7 +34,7 @@ COPYRIGHT:
     blacknon(blacknon@orebibou.com)
 
 VERSION:
-    lssh-suite 0.9.0 (stable/transfer)
+    lssh-suite 0.10.0 (stable/transfer)
 
 USAGE:
     # start lsftp shell
@@ -47,10 +49,18 @@ USAGE:
 Start `lsftp`, select one or more hosts from the TUI list, and the `lsftp>>` prompt will open.
 When multiple hosts are selected, many operations run in parallel against the selected hosts.
 Use `--auto-reconnect` when you want disconnected hosts to be reconnected before running shell commands.
+Connector-backed targets that do not advertise `sftp_transport` are hidden from the selection list.
+You can also skip the selector with `-H`, or inspect available SFTP-capable hosts with `-l`.
 
 ```bash
 # start lsftp shell
 lsftp
+
+# show selectable hosts
+lsftp -l
+
+# connect specific hosts directly
+lsftp -H web01 -H web02
 
 # specify the config file
 lsftp -F ~/.lssh.toml
@@ -107,6 +117,7 @@ chown     change remote file owner
 copy      copy files between remote hosts
 df        show disk usage
 get       download from remote to local
+help, ?   show help
 lcat      print local file contents
 lcd       change local directory
 lls       list local directory
@@ -117,15 +128,16 @@ ls        list remote directory
 lumask    set local umask
 mkdir     create remote directory
 put       upload from local to remote
-sync      one-way sync between local and remote paths
 pwd       print remote working directory
+reconnect reconnect disconnected hosts
 rename    rename remote file
 rm        remove remote file
 rmdir     remove remote directory
+status    show current connection status
 symlink   create symbolic link
+sync      one-way sync between local and remote paths
 tree      show remote tree
 ltree     show local tree
-help, ?   show help
 bye, exit, quit
 ```
 

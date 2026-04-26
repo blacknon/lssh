@@ -18,9 +18,9 @@ conf is a package used to read configuration file (~/.lssh.conf).
 //
 // 　　　　　　　　　　　　　　　　　　　　　　　　　　　※ 上位コマンドを作成し、そちらで統合させる（その中から呼び出す1プログラムとしてlsshは残す）
 // TODO(blacknon): 各種クラウドの踏み台経由でのアクセスに対応する => pluginで処理させたいお気持ち
-//   - AWS SSM(セッションマネージャー)
-//   - Azure Bastion
-//   - GCP(gcloud compute ssh)
+//   - クラウド提供のセッション管理/踏み台
+//   - マネージド bastion/tunnel
+//   - provider plugin 経由の接続
 
 // TODO(blacknon): configの中に`plugin`structwを追加して、そこにプラグインの設定を記述できるようにする(v0.8.X)
 //                  このとき、このstruct側でプラグインファイルのパスを指定するほか、どのようなプラグインなのかをこのstructもしくは対象化で持たせるようにすることで、ファイルの転送やコマンドの実行など、機能の制限を付けられるようにする。これにより、lsshや　lscpで実行する際に表示の制御や実行対象外を拾えるようにできる。
@@ -43,14 +43,17 @@ import (
 
 // Config is Struct that stores the entire configuration file.
 type Config struct {
-	Log      LogConfig                `toml:"log" yaml:"log"`
-	Mux      MuxConfig                `toml:"mux" yaml:"mux"`
-	Shell    ShellConfig              `toml:"shell" yaml:"shell"`
-	Include  map[string]IncludeConfig `toml:"include" yaml:"include"`
-	Includes IncludesConfig           `toml:"includes" yaml:"includes"`
-	Common   ServerConfig             `toml:"common" yaml:"common"`
-	Server   map[string]ServerConfig  `toml:"server" yaml:"server"`
-	Proxy    map[string]ProxyConfig   `toml:"proxy" yaml:"proxy"`
+	Log       LogConfig                         `toml:"log" yaml:"log"`
+	Mux       MuxConfig                         `toml:"mux" yaml:"mux"`
+	Shell     ShellConfig                       `toml:"shell" yaml:"shell"`
+	Lsshfs    LsshfsConfig                      `toml:"lsshfs" yaml:"lsshfs"`
+	Providers ProvidersConfig                   `toml:"providers" yaml:"providers"`
+	Include   map[string]IncludeConfig          `toml:"include" yaml:"include"`
+	Includes  IncludesConfig                    `toml:"includes" yaml:"includes"`
+	Common    ServerConfig                      `toml:"common" yaml:"common"`
+	Server    map[string]ServerConfig           `toml:"server" yaml:"server"`
+	Proxy     map[string]ProxyConfig            `toml:"proxy" yaml:"proxy"`
+	Provider  map[string]map[string]interface{} `toml:"provider" yaml:"provider"`
 
 	SSHConfig map[string]OpenSSHConfig `toml:"sshconfig" yaml:"sshconfig"`
 }
@@ -63,35 +66,33 @@ func (c *Config) ReduceCommon() {
 	}
 }
 
-// ReadOpenSSHConfig read OpenSSH config file and append to Config.Server.
-func (c *Config) ReadOpenSSHConfig() {
+// ReadOpenSSHConfig reads OpenSSH config file(s) and appends them to Config.Server.
+func (c *Config) ReadOpenSSHConfig() error {
 	if len(c.SSHConfig) == 0 {
 		defaultPath := defaultOpenSSHConfigCandidate()
 		if defaultPath == "" || !common.IsExist(defaultPath) {
-			return
+			return nil
 		}
 
 		openSSHServerConfig, err := getOpenSSHConfig(defaultPath, "")
-		if err == nil {
-			// append data
-			for key, value := range openSSHServerConfig {
-				value := serverConfigReduct(c.Common, value)
-				c.Server[key] = value
-			}
+		if err != nil {
+			return err
+		}
+
+		// append data
+		for key, value := range openSSHServerConfig {
+			value := serverConfigReduct(c.Common, value)
+			c.Server[key] = value
 		}
 	} else {
 		for _, sc := range c.activeOpenSSHConfigs() {
-			openSSHServerConfig, err := getOpenSSHConfig(sc.Path, sc.Command)
-			if err == nil {
-				// append data
-				for key, value := range openSSHServerConfig {
-					setCommon := serverConfigReduct(c.Common, sc.ServerConfig)
-					value = serverConfigReduct(setCommon, value)
-					c.Server[key] = value
-				}
+			if err := c.readConfiguredOpenSSHConfig(sc); err != nil {
+				return err
 			}
 		}
 	}
+
+	return nil
 }
 
 func defaultOpenSSHConfigCandidate() string {
@@ -149,6 +150,17 @@ func (c *Config) ReadIncludeFiles() {
 				setValue := serverConfigReduct(setCommon, value)
 				c.Server[key] = setValue
 			}
+
+			if len(includeConf.Provider) > 0 {
+				if c.Provider == nil {
+					c.Provider = map[string]map[string]interface{}{}
+				}
+				for key, value := range includeConf.Provider {
+					c.Provider[key] = value
+				}
+			}
+
+			c.Providers = mergeProvidersConfig(c.Providers, includeConf.Providers)
 		}
 	}
 }
@@ -163,6 +175,9 @@ func (c *Config) checkFormatServerConf() (ok bool) {
 	ok = true
 	for k, v := range c.Server {
 		if v.Ignore {
+			continue
+		}
+		if c.ServerUsesConnector(k) {
 			continue
 		}
 
@@ -216,11 +231,20 @@ func Read(confPath string) (c Config) {
 	// reduce common setting (in .lssh.conf servers)
 	c.ReduceCommon()
 
-	// Read OpensSH configs
-	c.ReadOpenSSHConfig()
+	// Read OpenSSH configs
+	if err := c.ReadOpenSSHConfig(); err != nil {
+		log.Println(err)
+		os.Exit(1)
+	}
 
 	// for append includes to include.path
 	c.ReadIncludeFiles()
+
+	// Load inventory providers after includes and OpenSSH config are merged.
+	if err := c.ReadInventoryProviders(); err != nil {
+		log.Println(err)
+		os.Exit(1)
+	}
 
 	// resolve conditional server overrides after all sources have been merged
 	if err := c.ResolveConditionalMatches(); err != nil {
@@ -243,7 +267,7 @@ func Read(confPath string) (c Config) {
 // Passes having a value. No checking a validity of each fields.
 func checkFormatServerConfAuth(c ServerConfig) (ok bool) {
 	ok = false
-	if c.Pass != "" || c.Key != "" || c.Cert != "" {
+	if c.Pass != "" || c.PassRef != "" || c.Key != "" || c.KeyRef != "" || c.Cert != "" || c.CertRef != "" {
 		ok = true
 	}
 
@@ -258,7 +282,7 @@ func checkFormatServerConfAuth(c ServerConfig) (ok bool) {
 		}
 	}
 
-	if len(c.Keys) > 0 || len(c.Passes) > 0 {
+	if len(c.Keys) > 0 || len(c.Passes) > 0 || c.CertKeyRef != "" || c.PKCS11PINRef != "" {
 		ok = true
 	}
 
@@ -276,6 +300,7 @@ func serverConfigReduct(perConfig, childConfig ServerConfig) ServerConfig {
 
 	resultMap := common.MapReduce(perConfigMap, childConfigMap)
 	_ = common.MapToStruct(resultMap, &result)
+	result.ProviderConfig = mergeProviderConfigMaps(perConfig.ProviderConfig, childConfig.ProviderConfig)
 
 	return result
 }

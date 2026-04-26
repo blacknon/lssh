@@ -182,6 +182,20 @@ shell:
       path: "/usr/bin/vimdiff"
 ```
 
+Mux UI:
+
+The persistent mux session feature that uses `socket_path` is currently supported on Unix-like systems only and is not supported on Windows.
+
+```toml
+[mux]
+prefix = "Ctrl+A"
+transfer = "f"
+detach_client = "d"
+transfer_enabled = false
+scrollbar = false
+socket_path = "~/.cache/lssh/lsmux-<Name>.sock"
+```
+
 HTTP / SOCKS5 / SSH proxy and `ProxyCommand`:
 
 ```toml
@@ -519,6 +533,7 @@ Available forwarding settings:
 - `x11_trusted`: enable trusted X11 forwarding
 
 Tunnel device forwarding is available only from the command line with `--tunnel`, not as a config file key.
+It is supported on Linux and macOS, and is not available when `lssh` runs on Windows.
 
 
 ## Terminal log
@@ -603,6 +618,7 @@ You can also specify and read another path.
 In addition to the path, server config items can be specified and applied collectively.
 You can also add `when.*` conditions to each `[sshconfig.<name>]` block.
 The available condition keys are the same as `server.<name>.match.<branch>.when.*`.
+If you want to rewrite settings for imported hosts themselves, use `[sshconfig.<name>.match.<branch>]`.
 
 ```toml
 [sshconfig.default]
@@ -635,6 +651,31 @@ sshconfig:
       local_ip_in:
         - "172.31.0.0/24"
 ```
+
+`when.*` decides whether the whole `sshconfig.<name>` block is enabled.
+`match.*` rewrites settings for each imported host after it is loaded.
+
+```toml
+[sshconfig.default]
+path = "~/.ssh/config"
+
+[sshconfig.default.match.web]
+name_in = ["web-*"]
+user_in = ["ubuntu"]
+pre_cmd = 'printf "\033]50;SetProfile=Remote\a"'
+note = "matched web"
+```
+
+`sshconfig.<name>.match.<branch>` supports these condition keys:
+
+- `name_in`, `name_not_in`
+- `user_in`, `user_not_in`
+- `addr_in`, `addr_not_in`
+- `port_in`, `port_not_in`
+
+These branches are applied in ascending `priority` order, and later matches overwrite earlier values.
+Within one `*_in` or `*_not_in` list, values are matched as OR.
+Different keys are combined as AND.
 
 You can also generate a starter `~/.lssh.toml` from any suite command and write
 it with shell redirection:
@@ -937,10 +978,15 @@ Notes:
 
 - Lower `priority` values are applied first
 - Higher `priority` values win when the same field is set multiple times
+- Within one `when.*_in` or `when.*_not_in` list, values are matched as OR
+- Different `when.*` keys are combined as AND
 - `os_*` matches `runtime.GOOS` values such as `darwin`, `linux`, or `windows`
 - `term_*` mainly matches normalized values from `TERM_PROGRAM` and `TERM` such as `iterm2`, `apple_terminal`, `xterm`, or `tmux`
 - `env_*` checks whether the named environment variables exist
 - `env_value_*` matches exact `KEY=value` pairs
+
+For inventory-provider matches such as `provider.<name>.match.<branch>`, `meta_in` is OR inside the list.
+Use `meta_all_in` when you want all listed metadata rules to match.
 
 ## Parallel Interactive shell settings with `[shell]`
 
@@ -994,6 +1040,10 @@ page_list = "w"
 close_pane = "x"
 broadcast = "b"
 transfer = "f"
+detach_client = "d"
+transfer_enabled = true
+scrollbar = false
+socket_path = "~/.cache/lssh/lsmux-<Name>.sock"
 focus_border_color = "green"
 focus_title_color = "green"
 broadcast_border_color = "yellow"
@@ -1017,6 +1067,10 @@ Available `mux` settings:
 - `close_pane`: close the current pane. Default: `x`
 - `broadcast`: toggle broadcast input to all panes on the page. Default: `b`
 - `transfer`: open file transfer for the active pane. Default: `f`
+- `detach_client`: key used after the prefix to detach an attached persistent client. Default: `d`
+- `transfer_enabled`: allow the transfer UI in `lsmux`. Default: `true`
+- `scrollbar`: show the built-in `tvxterm` scrollbar in each pane. Default: `false`
+- `socket_path`: unix socket path template for persistent sessions. `<Name>` is replaced with the session name.
 - `focus_border_color`, `focus_title_color`: colors for the focused pane. Default: `green`
 - `broadcast_border_color`, `broadcast_title_color`: colors for panes in broadcast mode. Default: `yellow`
 - `done_border_color`, `done_title_color`: colors for completed command panes. Default: `gray`

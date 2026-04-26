@@ -18,9 +18,22 @@ import (
 // getAbsPath return absolute path convert.
 // Replace `~` with your home directory.
 func getAbsPath(path string) string {
-	// Replace home directory
-	usr, _ := user.Current()
-	path = strings.Replace(path, "~", usr.HomeDir, 1)
+	// Replace a leading home-directory marker only.
+	// On Windows, paths may legitimately contain `~` as part of an 8.3 short name
+	// such as `RUNNERC~1`, so replacing arbitrary `~` characters corrupts the path.
+	if path == "~" || strings.HasPrefix(path, "~"+string(filepath.Separator)) || strings.HasPrefix(path, "~/") || strings.HasPrefix(path, "~\\") {
+		usr, _ := user.Current()
+		if usr != nil {
+			switch {
+			case path == "~":
+				path = usr.HomeDir
+			case strings.HasPrefix(path, "~/"), strings.HasPrefix(path, "~\\"):
+				path = filepath.Join(usr.HomeDir, path[2:])
+			default:
+				path = usr.HomeDir + path[1:]
+			}
+		}
+	}
 
 	path, _ = filepath.Abs(path)
 	return path

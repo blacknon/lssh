@@ -130,7 +130,12 @@ USAGE:
 		isMulti := true
 
 		// Extraction server name list from 'data'
-		names := conf.GetNameList(data)
+		allNames := conf.GetNameList(data)
+		names := append([]string(nil), allNames...)
+		names, err = data.FilterServersByOperation(names, "sftp_transport")
+		if err != nil {
+			return err
+		}
 		sort.Strings(names)
 
 		// Check list flag
@@ -144,13 +149,24 @@ USAGE:
 
 		selected := []string{}
 		if len(hosts) > 0 {
-			if !check.ExistServer(hosts, names) {
+			filteredHosts, err := data.FilterServersByOperation(hosts, "sftp_transport")
+			if err != nil {
+				return err
+			}
+			if !check.ExistServer(hosts, allNames) {
 				fmt.Fprintln(os.Stderr, "Input Server not found from list.")
+				os.Exit(1)
+			} else if len(filteredHosts) != len(hosts) {
+				fmt.Fprintln(os.Stderr, "Input Server does not support SFTP-based monitoring.")
 				os.Exit(1)
 			} else {
 				selected = hosts
 			}
 		} else {
+			if len(names) == 0 {
+				fmt.Fprintln(os.Stderr, "No servers matched the current config conditions.")
+				os.Exit(1)
+			}
 			// View List And Get Select Line
 			l := new(list.ListInfo)
 			l.Prompt = "lsmon>>"
@@ -160,6 +176,10 @@ USAGE:
 
 			l.View()
 			selected = l.SelectName
+			if len(selected) == 0 {
+				fmt.Fprintln(os.Stderr, "Selection cancelled.")
+				os.Exit(1)
+			}
 			if selected[0] == "ServerName" {
 				fmt.Fprintln(os.Stderr, "Server not selected.")
 				os.Exit(1)

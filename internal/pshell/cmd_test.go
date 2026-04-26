@@ -60,6 +60,7 @@ func TestCheckBuildInCommand(t *testing.T) {
 		want bool
 	}{
 		{name: "sync", in: "%sync", want: true},
+		{name: "diff", in: "%diff", want: true},
 		{name: "get", in: "%get", want: true},
 		{name: "status", in: "%status", want: true},
 		{name: "reconnect", in: "%reconnect", want: true},
@@ -99,6 +100,7 @@ func TestPipelineScopedConnects(t *testing.T) {
 			{Name: "web01"},
 			{Name: "web02"},
 			{Name: "db01"},
+			{Name: "pve:sv-pve01:vm-gitlab"},
 		},
 	}
 
@@ -113,7 +115,7 @@ func TestPipelineScopedConnects(t *testing.T) {
 				{Args: []string{"hostname"}, Oprator: "|"},
 				{Args: []string{"++cat"}},
 			},
-			want: []string{"web01", "web02", "db01"},
+			want: []string{"web01", "web02", "db01", "pve:sv-pve01:vm-gitlab"},
 		},
 		{
 			name: "targeted command narrows connects",
@@ -131,6 +133,13 @@ func TestPipelineScopedConnects(t *testing.T) {
 				{Args: []string{"@web02:cat"}},
 			},
 			want: []string{"web02"},
+		},
+		{
+			name: "targeted command with colon in host name",
+			in: []pipeLine{
+				{Args: []string{"@pve:sv-pve01:vm-gitlab,db01:hostname"}},
+			},
+			want: []string{"db01", "pve:sv-pve01:vm-gitlab"},
 		},
 	}
 
@@ -152,6 +161,10 @@ func TestPipelineScopedConnects(t *testing.T) {
 
 func TestExpandPipeLineAliases(t *testing.T) {
 	s := &shell{
+		Connects: []*sConnect{
+			{Name: "web01"},
+			{Name: "pve:sv-pve01:vm-gitlab"},
+		},
 		Config: conf.ShellConfig{
 			Alias: map[string]conf.ShellAliasConfig{
 				"ll": {Command: "ls -lah"},
@@ -177,6 +190,13 @@ func TestExpandPipeLineAliases(t *testing.T) {
 				{Args: []string{"@web01:ll"}},
 			},
 			want: []string{"@web01:ls", "-lah"},
+		},
+		{
+			name: "targeted alias with colon in host name",
+			in: []pipeLine{
+				{Args: []string{"@pve:sv-pve01:vm-gitlab:ll"}},
+			},
+			want: []string{"@pve:sv-pve01:vm-gitlab:ls", "-lah"},
 		},
 		{
 			name: "builtin untouched",
