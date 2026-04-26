@@ -21,7 +21,7 @@ import (
 	"github.com/blacknon/lssh/internal/common"
 	"github.com/blacknon/lssh/internal/output"
 	"github.com/urfave/cli"
-	"github.com/vbauerster/mpb"
+	"github.com/vbauerster/mpb/v8"
 )
 
 func (r *RunSftp) put(args []string) {
@@ -56,7 +56,11 @@ func (r *RunSftp) put(args []string) {
 
 		// Create Progress
 		r.ProgressWG = new(sync.WaitGroup)
-		r.Progress = mpb.New(mpb.WithWaitGroup(r.ProgressWG))
+		r.Progress = mpb.New(
+			mpb.WithWaitGroup(r.ProgressWG),
+			mpb.WithRefreshRate(40*time.Millisecond),
+			mpb.PopCompletedMode(),
+		)
 		r.DryRun = c.Bool("dry-run")
 
 		// set path
@@ -252,9 +256,6 @@ func (r *RunSftp) put(args []string) {
 		// wait Progress
 		r.Progress.Wait()
 
-		// wait 0.3 sec
-		time.Sleep(300 * time.Millisecond)
-
 		return nil
 	}
 
@@ -385,6 +386,7 @@ func (r *RunSftp) pushFile(client *TargetConnectMap, localfile io.Reader, source
 	if err != nil {
 		return
 	}
+	defer remotefile.Close()
 
 	// empty the file
 	err = remotefile.Truncate(0)

@@ -7,10 +7,10 @@ import (
 
 func TestAppVersionIncludesSuiteVersionAndClassification(t *testing.T) {
 	cases := map[string]string{
-		"lssh":   "lssh-suite 0.9.1 (stable/core)",
-		"lsdiff": "lssh-suite 0.9.1 (beta/sysadmin)",
-		"lsshfs": "lssh-suite 0.9.1 (beta/transfer)",
-		"lspipe": "lssh-suite 0.9.1 (alpha/sysadmin)",
+		"lssh":   "lssh-suite 0.10.0 (stable/core)",
+		"lsdiff": "lssh-suite 0.10.0 (beta/sysadmin)",
+		"lsshfs": "lssh-suite 0.10.0 (beta/transfer)",
+		"lspipe": "lssh-suite 0.10.0 (alpha/sysadmin)",
 	}
 
 	for command, want := range cases {

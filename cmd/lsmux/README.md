@@ -2,7 +2,7 @@ lsmux
 ===
 
 <p align="center">
-  <img src="./img/lsmux_term.gif" width="77%" />
+  <img src="./img/term.gif" width="77%" />
 </p>
 
 
@@ -47,7 +47,7 @@ OPTIONS:
     --version, -v                               print the version
 
 VERSION:
-    lssh-suite 0.9.1 (beta/sysadmin)
+    lssh-suite 0.10.0 (beta/sysadmin)
 
 USAGE:
     lsmux
@@ -66,7 +66,7 @@ This makes it easy to monitor several servers side by side without leaving the m
 ### command execution
 
 <p align="center">
-  <img src="./img/lsmux_command.gif" width="77%" />
+  <img src="./img/command.gif" width="77%" />
 </p>
 
 You can start `lsmux` with a command argument to create command panes instead of interactive shells.

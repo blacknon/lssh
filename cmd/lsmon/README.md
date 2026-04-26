@@ -37,7 +37,7 @@ COPYRIGHT:
     blacknon(blacknon@orebibou.com)
 
 VERSION:
-    lssh-suite 0.9.1 (beta/monitor)
+    lssh-suite 0.10.0 (beta/monitor)
 
 USAGE:
     # connect parallel ssh monitoring command

@@ -121,7 +121,7 @@ USAGE:
 		isFromInLocal := false
 		explicitSourceHosts := []string{}
 		for _, from := range fromArgs {
-			spec, err := lsync.ParsePathSpec(from)
+			spec, err := lsync.ParsePathSpecWithHosts(from, allNames)
 			if err != nil {
 				fmt.Fprintf(os.Stderr, "Error: %s\n", err)
 				os.Exit(1)
@@ -135,7 +135,7 @@ USAGE:
 			sourceSpecs = append(sourceSpecs, spec)
 		}
 
-		targetSpec, err := lsync.ParsePathSpec(toArg)
+		targetSpec, err := lsync.ParsePathSpecWithHosts(toArg, allNames)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "Error: %s\n", err)
 			os.Exit(1)
@@ -235,6 +235,7 @@ USAGE:
 		s := new(lsync.Sync)
 		for _, spec := range sourceSpecs {
 			fromPath := spec.Path
+			displayFromPath := spec.Path
 			if !spec.IsRemote {
 				if _, err := os.Stat(common.GetFullPath(fromPath)); err != nil {
 					fmt.Fprintf(os.Stderr, "not found path %s \n", fromPath)
@@ -247,14 +248,17 @@ USAGE:
 
 			s.From.IsRemote = spec.IsRemote
 			s.From.Path = append(s.From.Path, fromPath)
+			s.From.DisplayPath = append(s.From.DisplayPath, displayFromPath)
 		}
 		s.From.Server = fromServer
 
+		displayToPath := targetSpec.Path
 		if isToRemote {
 			targetSpec.Path = check.EscapePath(targetSpec.Path)
 		}
 		s.To.IsRemote = isToRemote
 		s.To.Path = []string{targetSpec.Path}
+		s.To.DisplayPath = []string{displayToPath}
 		s.To.Server = toServer
 		s.Daemon = c.Bool("daemon")
 		s.DaemonInterval = c.Duration("daemon-interval")
@@ -267,12 +271,12 @@ USAGE:
 		s.ControlMasterOverride = controlMasterOverride
 
 		if !isFromInRemote {
-			fmt.Fprintf(os.Stderr, "From local:%s\n", s.From.Path)
+			fmt.Fprintf(os.Stderr, "From local:%s\n", s.From.DisplayPath)
 		} else {
 			fmt.Fprintf(os.Stderr, "From remote(%s):%s\n", strings.Join(s.From.Server, ","), s.From.Path)
 		}
 		if !isToRemote {
-			fmt.Fprintf(os.Stderr, "To   local:%s\n", s.To.Path)
+			fmt.Fprintf(os.Stderr, "To   local:%s\n", s.To.DisplayPath)
 		} else {
 			fmt.Fprintf(os.Stderr, "To   remote(%s):%s\n", strings.Join(s.To.Server, ","), s.To.Path)
 		}

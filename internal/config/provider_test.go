@@ -2,6 +2,7 @@ package conf
 
 import (
 	"bytes"
+	"errors"
 	"log"
 	"os"
 	"path/filepath"
@@ -775,6 +776,131 @@ printf '%s' '{"version":"v1","result":{"value":"super-secret-password"}}'
 	}
 	if !strings.Contains(got, `"value":"\u003credacted\u003e"`) {
 		t.Fatalf("debug log missing redacted secret result: %q", got)
+	}
+}
+
+func TestCallProviderDebugLogRedactsSecretValuesFromStderrAndError(t *testing.T) {
+	dir := t.TempDir()
+	providerPath := filepath.Join(dir, "lssh-provider-fake-secret-error")
+	debugLogPath := filepath.Join(dir, "logs", "provider-debug.log")
+	script := `#!/bin/sh
+cat >/dev/null
+printf '%s\n' 'failed with token ops_example_token and password super-secret-password' >&2
+exit 1
+`
+	if err := os.WriteFile(providerPath, []byte(script), 0o755); err != nil {
+		t.Fatalf("write provider: %v", err)
+	}
+
+	cfg := Config{
+		Providers: ProvidersConfig{Paths: []string{providerPath}, DebugLog: debugLogPath},
+		Provider: map[string]map[string]interface{}{
+			"demo": {
+				"plugin":       "lssh-provider-fake-secret-error",
+				"capabilities": []interface{}{"inventory"},
+				"token":        "ops_example_token",
+				"password":     "super-secret-password",
+			},
+		},
+	}
+
+	err := cfg.callProvider("demo", providerapi.MethodInventoryList, providerapi.InventoryListParams{
+		Provider: "demo",
+		Config:   cfg.Provider["demo"],
+	}, nil)
+	if err == nil {
+		t.Fatalf("callProvider() error = nil")
+	}
+	if strings.Contains(err.Error(), "ops_example_token") {
+		t.Fatalf("returned error leaked provider token: %q", err.Error())
+	}
+	if strings.Contains(err.Error(), "super-secret-password") {
+		t.Fatalf("returned error leaked password: %q", err.Error())
+	}
+	if !strings.Contains(err.Error(), "<redacted>") {
+		t.Fatalf("returned error missing redaction marker: %q", err.Error())
+	}
+
+	data, readErr := os.ReadFile(debugLogPath)
+	if readErr != nil {
+		t.Fatalf("ReadFile() error = %v", readErr)
+	}
+
+	got := string(data)
+	if strings.Contains(got, "ops_example_token") {
+		t.Fatalf("debug log leaked provider token: %q", got)
+	}
+	if strings.Contains(got, "super-secret-password") {
+		t.Fatalf("debug log leaked password: %q", got)
+	}
+	if !strings.Contains(got, "stderr=failed with token <redacted> and password <redacted>") {
+		t.Fatalf("debug log missing redacted stderr: %q", got)
+	}
+}
+
+func TestCallProviderRedactsSecretsInProviderErrorMessage(t *testing.T) {
+	dir := t.TempDir()
+	providerPath := filepath.Join(dir, "lssh-provider-fake-secret-provider-error")
+	debugLogPath := filepath.Join(dir, "logs", "provider-debug.log")
+	script := `#!/bin/sh
+cat >/dev/null
+printf '%s' '{"version":"v1","error":{"code":"secret_get_failed","message":"token ops_example_token rejected secret super-secret-password"}}'
+`
+	if err := os.WriteFile(providerPath, []byte(script), 0o755); err != nil {
+		t.Fatalf("write provider: %v", err)
+	}
+
+	cfg := Config{
+		Providers: ProvidersConfig{Paths: []string{providerPath}, DebugLog: debugLogPath},
+		Provider: map[string]map[string]interface{}{
+			"onepassword": {
+				"plugin":       "lssh-provider-fake-secret-provider-error",
+				"capabilities": []interface{}{"secret"},
+				"token":        "ops_example_token",
+				"password":     "super-secret-password",
+			},
+		},
+	}
+
+	var result providerapi.SecretGetResult
+	err := cfg.callProvider("onepassword", providerapi.MethodSecretGet, providerapi.SecretGetParams{
+		Provider: "onepassword",
+		Config:   cfg.Provider["onepassword"],
+		Ref:      "op://vault/item/password",
+		Server:   "demo",
+		Field:    "pass",
+	}, &result)
+	if err == nil {
+		t.Fatalf("callProvider() error = nil")
+	}
+
+	var providerErr *ProviderError
+	if !errors.As(err, &providerErr) {
+		t.Fatalf("callProvider() error = %T, want *ProviderError", err)
+	}
+	if strings.Contains(providerErr.Message, "ops_example_token") {
+		t.Fatalf("provider error leaked token: %q", providerErr.Message)
+	}
+	if strings.Contains(providerErr.Message, "super-secret-password") {
+		t.Fatalf("provider error leaked password: %q", providerErr.Message)
+	}
+	if !strings.Contains(providerErr.Message, "<redacted>") {
+		t.Fatalf("provider error missing redaction marker: %q", providerErr.Message)
+	}
+
+	data, readErr := os.ReadFile(debugLogPath)
+	if readErr != nil {
+		t.Fatalf("ReadFile() error = %v", readErr)
+	}
+	got := string(data)
+	if strings.Contains(got, "ops_example_token") {
+		t.Fatalf("debug log leaked provider token: %q", got)
+	}
+	if strings.Contains(got, "super-secret-password") {
+		t.Fatalf("debug log leaked password: %q", got)
+	}
+	if !strings.Contains(got, `token <redacted> rejected secret <redacted>`) {
+		t.Fatalf("debug log missing redacted provider error message: %q", got)
 	}
 }
 

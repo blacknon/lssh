@@ -34,7 +34,7 @@ COPYRIGHT:
     blacknon(blacknon@orebibou.com)
 
 VERSION:
-    lssh-suite 0.9.1 (stable/transfer)
+    lssh-suite 0.10.0 (stable/transfer)
 
 USAGE:
     # start lsftp shell
@@ -117,6 +117,7 @@ chown     change remote file owner
 copy      copy files between remote hosts
 df        show disk usage
 get       download from remote to local
+help, ?   show help
 lcat      print local file contents
 lcd       change local directory
 lls       list local directory
@@ -127,15 +128,16 @@ ls        list remote directory
 lumask    set local umask
 mkdir     create remote directory
 put       upload from local to remote
-sync      one-way sync between local and remote paths
 pwd       print remote working directory
+reconnect reconnect disconnected hosts
 rename    rename remote file
 rm        remove remote file
 rmdir     remove remote directory
+status    show current connection status
 symlink   create symbolic link
+sync      one-way sync between local and remote paths
 tree      show remote tree
 ltree     show local tree
-help, ?   show help
 bye, exit, quit
 ```
 

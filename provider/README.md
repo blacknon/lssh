@@ -362,15 +362,18 @@ The current repository already has a minimal shared provider protocol in code:
 - implemented methods:
   - `inventory.list`
   - `secret.get`
+  - `plugin.describe`
+  - `health.check`
+  - `connector.describe`
+  - `connector.prepare`
+  - selected runtime methods such as `connector.shell`, `connector.exec`, and `connector.dial`
 
 However, the current implementation does not yet expose the full recommended protocol above.
 
 Missing or partial pieces today:
 
-- no implemented `connector` methods
-- no core-side use of `plugin.describe`
-- no core-side use of `health.check`
-- `warnings` exist in the protocol shape but are not yet produced by current inventory/secret plugins
+- core-side use of `plugin.describe` and `health.check` is still incomplete and continues to evolve
+- `warnings` exist in the protocol shape but are not yet produced consistently across all providers
 
 ## Current Plugin Fit And Migration Plan
 
@@ -383,14 +386,14 @@ Current plugins:
 - `provider-mixed-gcp-compute`
 - `provider-inventory-proxmox`
 
-Planned connector-oriented plugins or families:
+Current connector-oriented plugins or families:
 
 - `provider-connector-telnet`
 - `provider-connector-winrm`
+- `provider-connector-openssh`
 - `provider-mixed-aws-ec2`
-  - planned multi-capability plugin
-  - intended to expose both `inventory` and `connector`
-  - intended to cover AWS EC2 inventory plus AWS SSM connector behavior
+  - exposes both `inventory` and `connector`
+  - covers AWS EC2 inventory plus AWS SSM / EC2 Instance Connect Endpoint connector behavior
 
 Current fit:
 
@@ -455,13 +458,19 @@ Special note:
 
 Current fit:
 
-- no connector plugins exist yet
+- connector plugins exist today:
+  - `provider-connector-openssh`
+  - `provider-connector-telnet`
+  - `provider-connector-winrm`
+  - `provider-mixed-aws-ec2`
+    - `inventory`: AWS EC2 inventory
+    - `connector`: `aws-ssm`, `aws-eice`
 
 Recommended migration:
 
-1. Implement `plugin.describe` first.
-2. Add a read-only connector method for capability discovery.
-3. Add operation-specific preparation methods after the capability model is stable.
+1. Keep expanding `plugin.describe` and `connector.describe` as the compatibility boundary.
+2. Continue tightening command-side gating based on connector capabilities.
+3. Add operation-specific preparation/runtime methods conservatively as real connector backends mature.
 
 ## Recommended Next Protocol Steps
 

@@ -39,7 +39,7 @@ COPYRIGHT:
     blacknon(blacknon@orebibou.com)
 
 VERSION:
-    lssh-suite 0.9.1 (stable/transfer)
+    lssh-suite 0.10.0 (stable/transfer)
 
 USAGE:
     # local to remote scp

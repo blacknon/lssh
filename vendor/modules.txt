@@ -665,12 +665,12 @@ github.com/tidwall/transform
 # github.com/urfave/cli v1.22.17
 ## explicit; go 1.11
 github.com/urfave/cli
-# github.com/vbauerster/mpb v3.4.0+incompatible
-## explicit
-github.com/vbauerster/mpb
-github.com/vbauerster/mpb/cwriter
-github.com/vbauerster/mpb/decor
-github.com/vbauerster/mpb/internal
+# github.com/vbauerster/mpb/v8 v8.11.3
+## explicit; go 1.24.0
+github.com/vbauerster/mpb/v8
+github.com/vbauerster/mpb/v8/cwriter
+github.com/vbauerster/mpb/v8/decor
+github.com/vbauerster/mpb/v8/internal
 # github.com/willscott/go-nfs v0.0.3
 ## explicit; go 1.19
 github.com/willscott/go-nfs

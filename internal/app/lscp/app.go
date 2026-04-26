@@ -248,6 +248,7 @@ USAGE:
 		for _, from := range fromArgs {
 			// parse args
 			isFromRemote, fromPath := check.ParseScpPath(from)
+			displayFromPath := fromPath
 
 			// Check local file exisits
 			if !isFromRemote {
@@ -265,6 +266,7 @@ USAGE:
 				fromPath = check.EscapePath(fromPath)
 			}
 			scp.From.Path = append(scp.From.Path, fromPath)
+			scp.From.DisplayPath = append(scp.From.DisplayPath, displayFromPath)
 		}
 		scp.From.Server = fromServer
 
@@ -285,7 +287,7 @@ USAGE:
 
 		// print from
 		if !isFromInRemote {
-			fmt.Fprintf(os.Stderr, "From local:%s\n", scp.From.Path)
+			fmt.Fprintf(os.Stderr, "From local:%s\n", scp.From.DisplayPath)
 		} else {
 			fmt.Fprintf(os.Stderr, "From remote(%s):%s\n", strings.Join(scp.From.Server, ","), scp.From.Path)
 		}

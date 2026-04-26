@@ -24,7 +24,7 @@ import (
 	"github.com/blacknon/lssh/internal/output"
 	lsync "github.com/blacknon/lssh/internal/sync"
 	pkgsftp "github.com/pkg/sftp"
-	"github.com/vbauerster/mpb"
+	"github.com/vbauerster/mpb/v8"
 	"golang.org/x/crypto/ssh"
 )
 
@@ -59,7 +59,7 @@ func checkBuildInCommand(cmd string) (isBuildInCmd bool) {
 	case
 		"%history",
 		"%out", "%outlist", "%outexec",
-		"%get", "%put", "%sync",
+		"%get", "%put", "%sync", "%diff",
 		"%status", "%reconnect",
 		"%save",
 		"%set": // parsent build-in command.
@@ -95,6 +95,10 @@ func normalizeLocalCommand(cmd string) string {
 	}
 
 	return strings.TrimPrefix(cmd, "+")
+}
+
+type progressReader struct {
+	io.Reader
 }
 
 // runBuildInCommand is run buildin or local machine command.
@@ -164,6 +168,9 @@ func (s *shell) run(pline pipeLine, in *io.PipeReader, out *io.PipeWriter, ch ch
 	// %sync local:/path... remote:/path
 	case "%sync":
 		s.buildin_sync(pline.Args, out, ch)
+		return
+	case "%diff":
+		s.buildin_diff(pline.Args, out, ch)
 		return
 	case "%status":
 		s.buildin_status(out, ch)
@@ -305,17 +312,17 @@ func copyWithProgress(dst io.Writer, src io.Reader, size int64, progressOutput *
 		return err
 	}
 
-	pr, pw := io.Pipe()
-	progressOutput.ProgressWG.Add(1)
-	go progressOutput.ProgressPrinter(size, pr, path)
-
-	_, err := io.Copy(io.MultiWriter(dst, pw), src)
-	closeErr := pw.Close()
-	if err != nil {
+	bar := progressOutput.NewProgressBar(size, path)
+	if bar == nil {
+		_, err := io.Copy(dst, src)
 		return err
 	}
 
-	return closeErr
+	proxy := bar.ProxyReader(progressReader{Reader: src})
+	defer proxy.Close()
+
+	_, err := io.Copy(dst, proxy)
+	return err
 }
 
 func copyRemoteFile(client *pkgsftp.Client, remotePath, localPath string, progressOutput *output.Output) error {
@@ -539,7 +546,11 @@ func (s *shell) buildin_reconnect(args []string, out *io.PipeWriter, ch chan<- b
 func (s *shell) buildin_get(args []string, out *io.PipeWriter, ch chan<- bool) {
 	stdout := setOutput(out)
 	progressWG := new(sync.WaitGroup)
-	progress := mpb.New(mpb.WithWaitGroup(progressWG))
+	progress := mpb.New(
+		mpb.WithWaitGroup(progressWG),
+		mpb.WithRefreshRate(40*time.Millisecond),
+		mpb.PopCompletedMode(),
+	)
 	defer func() {
 		progress.Wait()
 		switch stdout.(type) {
@@ -635,7 +646,11 @@ func (s *shell) buildin_get(args []string, out *io.PipeWriter, ch chan<- bool) {
 func (s *shell) buildin_put(args []string, out *io.PipeWriter, ch chan<- bool) {
 	stdout := setOutput(out)
 	progressWG := new(sync.WaitGroup)
-	progress := mpb.New(mpb.WithWaitGroup(progressWG))
+	progress := mpb.New(
+		mpb.WithWaitGroup(progressWG),
+		mpb.WithRefreshRate(40*time.Millisecond),
+		mpb.PopCompletedMode(),
+	)
 	defer func() {
 		progress.Wait()
 		switch stdout.(type) {
@@ -727,7 +742,11 @@ func (s *shell) buildin_put(args []string, out *io.PipeWriter, ch chan<- bool) {
 func (s *shell) buildin_sync(args []string, out *io.PipeWriter, ch chan<- bool) {
 	stdout := setOutput(out)
 	progressWG := new(sync.WaitGroup)
-	progress := mpb.New(mpb.WithWaitGroup(progressWG))
+	progress := mpb.New(
+		mpb.WithWaitGroup(progressWG),
+		mpb.WithRefreshRate(40*time.Millisecond),
+		mpb.PopCompletedMode(),
+	)
 	defer func() {
 		progress.Wait()
 		switch stdout.(type) {
@@ -750,11 +769,12 @@ func (s *shell) buildin_sync(args []string, out *io.PipeWriter, ch chan<- bool) 
 		return
 	}
 
+	knownHosts := knownHostsFromConnects(connects)
 	sourceSpecs := make([]lsync.PathSpec, 0, len(parsed.Sources))
 	isSourceRemote := false
 	isSourceLocal := false
 	for _, raw := range parsed.Sources {
-		spec, err := lsync.ParsePathSpec(raw)
+		spec, err := lsync.ParsePathSpecWithHosts(raw, knownHosts)
 		if err != nil {
 			fmt.Fprintf(stdout, "Error: %s\n", err)
 			return
@@ -767,7 +787,7 @@ func (s *shell) buildin_sync(args []string, out *io.PipeWriter, ch chan<- bool) 
 		sourceSpecs = append(sourceSpecs, spec)
 	}
 
-	targetSpec, err := lsync.ParsePathSpec(parsed.Destination)
+	targetSpec, err := lsync.ParsePathSpecWithHosts(parsed.Destination, knownHosts)
 	if err != nil {
 		fmt.Fprintf(stdout, "Error: %s\n", err)
 		return

@@ -107,6 +107,10 @@ key = "~/.ssh/aws-eice.pem"
   - `attach` and `detach` are mutually exclusive
 - `ssm_require_online` defaults to `true`.
   - when enabled, the connector requires the target instance to be online in AWS Systems Manager
+- `health.check` is scope-aware.
+  - default mixed-provider behavior validates both EC2 inventory access and the SSM connector path
+  - set `capabilities = ["inventory"]` to validate only the inventory side
+  - set `connector_names = ["aws-ssm"]` when you want the health check to include the SSM connector explicitly
 - `ssm_shell_runtime` controls how `shell` is executed.
   - `plugin` (default): use `aws ssm start-session`
   - `native`: use the experimental built-in Go runtime for plain shell start

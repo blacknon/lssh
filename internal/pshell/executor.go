@@ -234,7 +234,7 @@ func (s *shell) pipelineScopedConnects(pline []pipeLine) []*sConnect {
 		}
 
 		targeted = true
-		targetNames, err := parseTargetedNames(p.Args[0])
+		targetNames, err := parseTargetedNames(p.Args[0], knownHostsFromConnects(connects))
 		if err != nil {
 			return nil
 		}
@@ -261,28 +261,13 @@ func (s *shell) pipelineScopedConnects(pline []pipeLine) []*sConnect {
 	return s.activeConnects()
 }
 
-func parseTargetedNames(command string) ([]string, error) {
-	if !isTargetedRemoteCommand(command) {
-		return nil, fmt.Errorf("not targeted command")
+func parseTargetedNames(command string, knownHosts []string) ([]string, error) {
+	targets, _, err := parseTargetedCommand(command, knownHosts)
+	if err != nil {
+		return nil, err
 	}
 
-	idx := strings.Index(command, ":")
-	targetSpec := strings.TrimSpace(command[1:idx])
-	if targetSpec == "" {
-		return nil, fmt.Errorf("invalid server selector")
-	}
-
-	targets := strings.Split(targetSpec, ",")
-	result := make([]string, 0, len(targets))
-	for _, target := range targets {
-		name := strings.TrimSpace(target)
-		if name == "" {
-			return nil, fmt.Errorf("invalid server selector")
-		}
-		result = append(result, name)
-	}
-
-	return result, nil
+	return targets, nil
 }
 
 func (s *shell) resolveTargetedConnects(args []string) ([]*sConnect, []string, error) {
@@ -297,21 +282,14 @@ func (s *shell) resolveTargetedConnects(args []string) ([]*sConnect, []string, e
 		return baseConnects, args, nil
 	}
 
-	idx := strings.Index(command, ":")
-	targetSpec := strings.TrimSpace(command[1:idx])
-	commandHead := strings.TrimSpace(command[idx+1:])
-	if targetSpec == "" || commandHead == "" {
-		return nil, nil, fmt.Errorf("invalid server selector")
+	targets, commandHead, err := parseTargetedCommand(command, knownHostsFromConnects(baseConnects))
+	if err != nil {
+		return nil, nil, err
 	}
 
-	targets := strings.Split(targetSpec, ",")
 	targetSet := make(map[string]struct{}, len(targets))
 	for _, target := range targets {
-		name := strings.TrimSpace(target)
-		if name == "" {
-			return nil, nil, fmt.Errorf("invalid server selector")
-		}
-		targetSet[name] = struct{}{}
+		targetSet[target] = struct{}{}
 	}
 
 	connects := make([]*sConnect, 0, len(targetSet))
@@ -327,7 +305,7 @@ func (s *shell) resolveTargetedConnects(args []string) ([]*sConnect, []string, e
 	}
 
 	if len(connects) == 0 {
-		return nil, nil, fmt.Errorf("target server not found: %s", targetSpec)
+		return nil, nil, fmt.Errorf("target server not found: %s", strings.Join(targets, ","))
 	}
 
 	if len(found) != len(targetSet) {

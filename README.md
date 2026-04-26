@@ -1,5 +1,5 @@
 [![Go Report Card](https://goreportcard.com/badge/github.com/blacknon/lssh)](https://goreportcard.com/report/github.com/blacknon/lssh)
-[![Version](https://img.shields.io/badge/version-0.9.1-2ea44f)](./internal/version/main.go)
+[![Version](https://img.shields.io/badge/version-0.10.0-2ea44f)](./internal/version/main.go)
 [![Go](https://img.shields.io/badge/go-1.25.1-00ADD8?logo=go)](./go.mod)
 [![Platforms](https://img.shields.io/badge/platforms-Linux%20%7C%20macOS%20%7C%20Windows-6f42c1)](./cmd/README.md)
 [![License](https://img.shields.io/badge/license-MIT-blue)](./LICENSE.md)
@@ -13,8 +13,11 @@ lssh
 <img src="./images/demo.gif" width="720" />
 </p>
 
-Pick SSH hosts from your existing config in a TUI.
-Open a shell, or run the same command on multiple hosts.
+lssh is a terminal-native remote access suite for SSH workflows, cloud inventories, and provider-backed connectors.
+
+It lets you select hosts from OpenSSH config, lssh config, or provider inventories, then operate them through native SSH or connector backends such as AWS SSM, EC2 Instance Connect Endpoint, WinRM, Telnet, and custom providers.
+
+Use it for interactive shells, parallel commands, mux workspaces, file transfer, sync, mount, and monitoring. Connector-backed hosts expose only the operations supported by that connector.
 
 - works with your existing SSH config
 - interactive host selection
@@ -32,6 +35,15 @@ brew install blacknon/lssh/lssh
 
 ```bash
 go install github.com/blacknon/lssh/cmd/lssh@latest
+```
+
+Provider-backed inventory and connector features use separate provider executables.
+If you install only `cmd/lssh`, those provider binaries are not installed automatically.
+
+For local development, install the bundled providers with:
+
+```bash
+mise run provider_install
 ```
 
 For more installation details, including other options and platform-specific notes, see [docs/install.md](./docs/install.md).
@@ -150,6 +162,11 @@ Provider capabilities are grouped into a few roles:
 
 This is what makes workflows such as cloud inventory lookup, secret-manager-backed credentials, and connector-backed sessions possible without hardcoding them into the base config format.
 
+If you want to try provider-oriented flows locally, start from these demos:
+
+- [demo/README.md](./demo/README.md): core SSH, proxy chains, and general multi-host workflow examples
+- [demo-telnet-provider/README.md](./demo-telnet-provider/README.md): provider-managed telnet connector flow, including direct telnet access and telnet behind a double SSH hop
+
 <table>
   <tr>
     <td valign="top" width="25%">
@@ -200,34 +217,36 @@ The lssh project includes multiple tools for SSH-centered workflows.
   </tr>
   <tr>
     <td valign="top" width="33%">
-      <strong><a href="./cmd/lssync/README.md">lssync</a></strong><br />
-      <code>transfer</code> / <code>beta</code><br />
-      Tree sync over SSH/SFTP with daemon and bidirectional modes.
-    </td>
-    <td valign="top" width="33%">
-      <strong><a href="./cmd/lsshfs/README.md">lsshfs</a></strong><br />
-      <code>transfer</code> / <code>beta</code><br />
-      Mount a remote directory through FUSE on Linux or NFS on macOS.
-    </td>
-    <td valign="top" width="33%">
-      <a href="./cmd/lsdiff/README.md"><img src="./cmd/lsdiff/img/lsdiff.png" alt="lsdiff preview" width="100%" /></a><br />
-      <strong><a href="./cmd/lsdiff/README.md">lsdiff</a></strong><br />
-      <code>sysadmin</code> / <code>beta</code><br />
-      Compare remote files from multiple hosts in a synchronized TUI.
-    </td>
-  </tr>
-  <tr>
-    <td valign="top" width="33%">
       <a href="./cmd/lsshell/README.md"><img src="./cmd/lsshell/img/lsshell.gif" alt="lsshell preview" width="100%" /></a><br />
       <strong><a href="./cmd/lsshell/README.md">lsshell</a></strong><br />
       <code>sysadmin</code> / <code>beta</code><br />
       Parallel interactive shell with broadcast and targeted commands.
     </td>
     <td valign="top" width="33%">
-      <a href="./cmd/lsmux/README.md"><img src="./cmd/lsmux/img/lsmux_term.gif" alt="lsmux preview" width="100%" /></a><br />
+      <a href="./cmd/lsmux/README.md"><img src="./cmd/lsmux/img/term.gif" alt="lsmux preview" width="100%" /></a><br />
       <strong><a href="./cmd/lsmux/README.md">lsmux</a></strong><br />
       <code>sysadmin</code> / <code>beta</code><br />
       Pane-based SSH workspace for multi-host terminal workflows.
+    </td>
+    <td valign="top" width="33%">
+      <a href="./cmd/lsmon/README.md"><img src="./cmd/lsmon/img/lsmon.gif" alt="lsmon preview" width="100%" /></a><br />
+      <strong><a href="./cmd/lsmon/README.md">lsmon</a></strong><br />
+      <code>monitor</code> / <code>beta</code><br />
+      Multi-host monitoring UI over SSH without extra remote agents.
+    </td>
+  </tr>
+  <tr>
+    <td valign="top" width="33%">
+      <a href="./cmd/lssync/README.md"><img src="./cmd/lssync/img/lssync.gif" alt="lssync preview" width="100%" /></a><br />
+      <strong><a href="./cmd/lssync/README.md">lssync</a></strong><br />
+      <code>transfer</code> / <code>beta</code><br />
+      Tree sync over SSH/SFTP with daemon and bidirectional modes.
+    </td>
+    <td valign="top" width="33%">
+      <a href="./cmd/lsdiff/README.md"><img src="./cmd/lsdiff/img/lsdiff.gif" alt="lsdiff preview" width="100%" /></a><br />
+      <strong><a href="./cmd/lsdiff/README.md">lsdiff</a></strong><br />
+      <code>sysadmin</code> / <code>beta</code><br />
+      Compare remote files from multiple hosts in a synchronized TUI.
     </td>
     <td valign="top" width="33%">
       <strong><a href="./cmd/lspipe/README.md">lspipe</a></strong><br />
@@ -237,10 +256,9 @@ The lssh project includes multiple tools for SSH-centered workflows.
   </tr>
   <tr>
     <td valign="top" width="33%">
-      <a href="./cmd/lsmon/README.md"><img src="./cmd/lsmon/img/lsmon.gif" alt="lsmon preview" width="100%" /></a><br />
-      <strong><a href="./cmd/lsmon/README.md">lsmon</a></strong><br />
-      <code>monitor</code> / <code>beta</code><br />
-      Multi-host monitoring UI over SSH without extra remote agents.
+      <strong><a href="./cmd/lsshfs/README.md">lsshfs</a></strong><br />
+      <code>transfer</code> / <code>beta</code><br />
+      Mount a remote directory through FUSE on Linux or NFS on macOS.
     </td>
     <td valign="top" width="33%"></td>
     <td valign="top" width="33%"></td>

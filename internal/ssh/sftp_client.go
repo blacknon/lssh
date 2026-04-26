@@ -2,8 +2,10 @@ package ssh
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
+	"net"
 	"os/exec"
 	"sort"
 	"strings"
@@ -89,6 +91,9 @@ func (m multiCloser) Close() error {
 			continue
 		}
 		if err := m.closers[i].Close(); err != nil {
+			if isIgnorableSFTPCloseError(err) {
+				continue
+			}
 			errs = append(errs, err.Error())
 		}
 	}
@@ -161,7 +166,7 @@ func (t *commandSFTPTransport) Close() error {
 	var errs []string
 
 	if t.Client != nil {
-		if err := t.Client.Close(); err != nil {
+		if err := t.Client.Close(); err != nil && !isIgnorableSFTPCloseError(err) {
 			errs = append(errs, err.Error())
 		}
 		t.Client = nil
@@ -197,6 +202,19 @@ func (t *commandSFTPTransport) Close() error {
 
 func isIgnorableSFTPPipeClose(err error) bool {
 	return err == io.ErrClosedPipe || strings.Contains(strings.ToLower(err.Error()), "file already closed")
+}
+
+func isIgnorableSFTPCloseError(err error) bool {
+	if err == nil {
+		return true
+	}
+	if errors.Is(err, io.EOF) || errors.Is(err, io.ErrClosedPipe) || errors.Is(err, net.ErrClosed) {
+		return true
+	}
+
+	message := strings.ToLower(err.Error())
+	return strings.Contains(message, "use of closed network connection") ||
+		strings.Contains(message, "file already closed")
 }
 
 func envMapToSortedSlice(env map[string]string) []string {

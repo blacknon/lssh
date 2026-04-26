@@ -47,7 +47,7 @@ func (s *shell) expandPipeLineAliases(pline []pipeLine) []pipeLine {
 		targetPrefix := ""
 		aliasName := command
 		if isTargetedRemoteCommand(command) {
-			targets, cmd, _, inSelector := parseLeadingTargetSelector(command)
+			targets, cmd, _, inSelector := parseLeadingTargetSelector(command, knownHostsFromConnects(s.Connects))
 			if inSelector || cmd == "" {
 				result = append(result, cloned)
 				continue

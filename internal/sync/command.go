@@ -92,6 +92,10 @@ func ParseCommandArgs(args []string) (CommandArgs, error) {
 }
 
 func ParsePathSpec(arg string) (PathSpec, error) {
+	return ParsePathSpecWithHosts(arg, nil)
+}
+
+func ParsePathSpecWithHosts(arg string, knownHosts []string) (PathSpec, error) {
 	spec := PathSpec{Raw: arg}
 	parts := strings.SplitN(arg, ":", 2)
 	if len(parts) < 2 {
@@ -111,7 +115,7 @@ func ParsePathSpec(arg string) (PathSpec, error) {
 	}
 
 	if strings.HasPrefix(spec.Path, "@") {
-		hosts, path := common.ParseHostPath(strings.TrimPrefix(spec.Path, "@"))
+		hosts, path := common.ParseHostPathWithHosts(strings.TrimPrefix(spec.Path, "@"), knownHosts)
 		if len(hosts) == 0 || path == "" {
 			return spec, fmt.Errorf("remote path must be remote:@host:/path or remote:/path")
 		}

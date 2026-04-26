@@ -6,6 +6,8 @@ import (
 	"io"
 	"os"
 	"os/signal"
+	"path/filepath"
+	"strings"
 	syncpkg "sync"
 	"syscall"
 	"time"
@@ -14,7 +16,7 @@ import (
 	"github.com/blacknon/lssh/internal/output"
 	sshl "github.com/blacknon/lssh/internal/ssh"
 	"github.com/pkg/sftp"
-	"github.com/vbauerster/mpb"
+	"github.com/vbauerster/mpb/v8"
 )
 
 var (
@@ -45,9 +47,10 @@ type Sync struct {
 }
 
 type SyncInfo struct {
-	IsRemote bool
-	Server   []string
-	Path     []string
+	IsRemote    bool
+	Server      []string
+	Path        []string
+	DisplayPath []string
 }
 
 type SyncConnect struct {
@@ -76,7 +79,11 @@ func (s *Sync) Start() {
 	s.Run.CreateAuthMethodMap()
 
 	s.ProgressWG = new(syncpkg.WaitGroup)
-	s.Progress = mpb.New(mpb.WithWaitGroup(s.ProgressWG))
+	s.Progress = mpb.New(
+		mpb.WithWaitGroup(s.ProgressWG),
+		mpb.WithRefreshRate(40*time.Millisecond),
+		mpb.PopCompletedMode(),
+	)
 
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
@@ -116,7 +123,6 @@ func (s *Sync) localToRemote(ctx context.Context) {
 	}
 
 	s.Progress.Wait()
-	time.Sleep(300 * time.Millisecond)
 }
 
 func (s *Sync) remoteToLocal(ctx context.Context) {
@@ -142,7 +148,6 @@ func (s *Sync) remoteToLocal(ctx context.Context) {
 	}
 
 	s.Progress.Wait()
-	time.Sleep(300 * time.Millisecond)
 }
 
 func (s *Sync) remoteToRemote(ctx context.Context) {
@@ -168,7 +173,6 @@ func (s *Sync) remoteToRemote(ctx context.Context) {
 	}
 
 	s.Progress.Wait()
-	time.Sleep(300 * time.Millisecond)
 }
 
 func (s *Sync) bidirectional(ctx context.Context) {
@@ -205,7 +209,6 @@ func (s *Sync) bidirectionalLocalRemote(ctx context.Context) {
 	})
 
 	s.Progress.Wait()
-	time.Sleep(300 * time.Millisecond)
 }
 
 func (s *Sync) bidirectionalRemoteLocal(ctx context.Context) {
@@ -220,7 +223,6 @@ func (s *Sync) bidirectionalRemoteLocal(ctx context.Context) {
 	})
 
 	s.Progress.Wait()
-	time.Sleep(300 * time.Millisecond)
 }
 
 func (s *Sync) bidirectionalRemoteRemote(ctx context.Context) {
@@ -235,7 +237,6 @@ func (s *Sync) bidirectionalRemoteRemote(ctx context.Context) {
 	})
 
 	s.Progress.Wait()
-	time.Sleep(300 * time.Millisecond)
 }
 
 func (s *Sync) runLoop(ctx context.Context, fn func(context.Context) error) {
@@ -286,13 +287,14 @@ func (s *Sync) localToRemoteOnce(ctx context.Context, localFS FileSystem, server
 	}
 
 	return ApplyPlan(ctx, localFS, remoteFS, plan, ApplyOptions{
-		Delete:      s.Delete,
-		DryRun:      s.DryRun,
-		Permission:  s.Permission,
-		ParallelNum: s.ParallelNum,
-		Output:      conn.Output,
-		SourceLabel: "local",
-		TargetLabel: server,
+		Delete:            s.Delete,
+		DryRun:            s.DryRun,
+		Permission:        s.Permission,
+		ParallelNum:       s.ParallelNum,
+		Output:            conn.Output,
+		SourceLabel:       "local",
+		TargetLabel:       server,
+		SourcePathDisplay: newDisplayPathResolver(s.From.Path, s.From.DisplayPath),
 	})
 }
 
@@ -315,13 +317,14 @@ func (s *Sync) remoteToLocalOnce(ctx context.Context, localFS FileSystem, server
 	}
 
 	return ApplyPlan(ctx, remoteFS, localFS, plan, ApplyOptions{
-		Delete:      s.Delete,
-		DryRun:      s.DryRun,
-		Permission:  s.Permission,
-		ParallelNum: s.ParallelNum,
-		Output:      conn.Output,
-		SourceLabel: server,
-		TargetLabel: "local",
+		Delete:            s.Delete,
+		DryRun:            s.DryRun,
+		Permission:        s.Permission,
+		ParallelNum:       s.ParallelNum,
+		Output:            conn.Output,
+		SourceLabel:       server,
+		TargetLabel:       "local",
+		TargetPathDisplay: destinationDisplayResolver(s.To.Path[0], s.displayPathAt(s.To.DisplayPath, 0, s.To.Path[0]), len(s.From.Server) > 1, server),
 	})
 }
 
@@ -366,23 +369,25 @@ func (s *Sync) bidirectionalLocalRemoteOnce(ctx context.Context, localFS FileSys
 	}
 
 	if err := ApplyPlan(ctx, localFS, remoteFS, leftToRight, ApplyOptions{
-		DryRun:      s.DryRun,
-		Permission:  s.Permission,
-		ParallelNum: s.ParallelNum,
-		Output:      conn.Output,
-		SourceLabel: "local",
-		TargetLabel: server,
+		DryRun:            s.DryRun,
+		Permission:        s.Permission,
+		ParallelNum:       s.ParallelNum,
+		Output:            conn.Output,
+		SourceLabel:       "local",
+		TargetLabel:       server,
+		SourcePathDisplay: newDisplayPathResolver(s.From.Path, s.From.DisplayPath),
 	}); err != nil {
 		return err
 	}
 
 	return ApplyPlan(ctx, remoteFS, localFS, rightToLeft, ApplyOptions{
-		DryRun:      s.DryRun,
-		Permission:  s.Permission,
-		ParallelNum: s.ParallelNum,
-		Output:      conn.Output,
-		SourceLabel: server,
-		TargetLabel: "local",
+		DryRun:            s.DryRun,
+		Permission:        s.Permission,
+		ParallelNum:       s.ParallelNum,
+		Output:            conn.Output,
+		SourceLabel:       server,
+		TargetLabel:       "local",
+		TargetPathDisplay: newDisplayPathResolver(s.From.Path, s.From.DisplayPath),
 	})
 }
 
@@ -405,23 +410,25 @@ func (s *Sync) bidirectionalRemoteLocalOnce(ctx context.Context, localFS FileSys
 	}
 
 	if err := ApplyPlan(ctx, remoteFS, localFS, leftToRight, ApplyOptions{
-		DryRun:      s.DryRun,
-		Permission:  s.Permission,
-		ParallelNum: s.ParallelNum,
-		Output:      conn.Output,
-		SourceLabel: server,
-		TargetLabel: "local",
+		DryRun:            s.DryRun,
+		Permission:        s.Permission,
+		ParallelNum:       s.ParallelNum,
+		Output:            conn.Output,
+		SourceLabel:       server,
+		TargetLabel:       "local",
+		TargetPathDisplay: destinationDisplayResolver(s.To.Path[0], s.displayPathAt(s.To.DisplayPath, 0, s.To.Path[0]), len(s.From.Server) > 1, server),
 	}); err != nil {
 		return err
 	}
 
 	return ApplyPlan(ctx, localFS, remoteFS, rightToLeft, ApplyOptions{
-		DryRun:      s.DryRun,
-		Permission:  s.Permission,
-		ParallelNum: s.ParallelNum,
-		Output:      conn.Output,
-		SourceLabel: "local",
-		TargetLabel: server,
+		DryRun:            s.DryRun,
+		Permission:        s.Permission,
+		ParallelNum:       s.ParallelNum,
+		Output:            conn.Output,
+		SourceLabel:       "local",
+		TargetLabel:       server,
+		SourcePathDisplay: destinationDisplayResolver(s.To.Path[0], s.displayPathAt(s.To.DisplayPath, 0, s.To.Path[0]), len(s.From.Server) > 1, server),
 	})
 }
 
@@ -498,4 +505,84 @@ func (s *Sync) createSyncConnect(server string, serverList []string) *SyncConnec
 		Output:  o,
 		Pwd:     pwd,
 	}
+}
+
+func (s *Sync) displayPathAt(displayPaths []string, index int, fallback string) string {
+	if index >= 0 && index < len(displayPaths) && strings.TrimSpace(displayPaths[index]) != "" {
+		return displayPaths[index]
+	}
+	return fallback
+}
+
+func newDisplayPathResolver(actuals, displays []string) func(string) string {
+	type rule struct {
+		actual  string
+		display string
+	}
+
+	rules := make([]rule, 0, len(actuals))
+	for i, actual := range actuals {
+		display := actual
+		if i < len(displays) && strings.TrimSpace(displays[i]) != "" {
+			display = displays[i]
+		}
+		rules = append(rules, rule{actual: filepath.Clean(actual), display: display})
+	}
+
+	return func(path string) string {
+		path = filepath.Clean(path)
+		for _, rule := range rules {
+			if got, ok := displayLocalPath(rule.actual, rule.display, path); ok {
+				return got
+			}
+		}
+		return path
+	}
+}
+
+func destinationDisplayResolver(actualRoot, displayRoot string, appendServer bool, server string) func(string) string {
+	actual := filepath.Clean(actualRoot)
+	display := displayRoot
+	if appendServer {
+		actual = filepath.Join(actual, server)
+		display = filepath.Join(display, server)
+		if strings.HasPrefix(displayRoot, "."+string(filepath.Separator)) &&
+			!strings.HasPrefix(display, "."+string(filepath.Separator)) {
+			display = "." + string(filepath.Separator) + display
+		}
+	}
+
+	return func(path string) string {
+		if got, ok := displayLocalPath(actual, display, path); ok {
+			return got
+		}
+		return path
+	}
+}
+
+func displayLocalPath(root, displayRoot, current string) (string, bool) {
+	root = filepath.Clean(root)
+	current = filepath.Clean(current)
+	displayRoot = strings.TrimSpace(displayRoot)
+	if displayRoot == "" {
+		return current, false
+	}
+
+	if current == root {
+		return displayRoot, true
+	}
+
+	relpath, err := filepath.Rel(root, current)
+	if err != nil || relpath == "." || strings.HasPrefix(relpath, ".."+string(filepath.Separator)) || relpath == ".." {
+		return "", false
+	}
+
+	joined := filepath.Join(displayRoot, relpath)
+	if strings.HasPrefix(displayRoot, "."+string(filepath.Separator)) &&
+		!strings.HasPrefix(joined, "."+string(filepath.Separator)) &&
+		!strings.HasPrefix(joined, ".."+string(filepath.Separator)) {
+		return "." + string(filepath.Separator) + joined, true
+	}
+
+	return joined, true
 }

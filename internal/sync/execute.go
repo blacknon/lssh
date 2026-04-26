@@ -15,13 +15,15 @@ import (
 )
 
 type ApplyOptions struct {
-	Delete      bool
-	DryRun      bool
-	Permission  bool
-	ParallelNum int
-	Output      *output.Output
-	SourceLabel string
-	TargetLabel string
+	Delete            bool
+	DryRun            bool
+	Permission        bool
+	ParallelNum       int
+	Output            *output.Output
+	SourceLabel       string
+	TargetLabel       string
+	SourcePathDisplay func(string) string
+	TargetPathDisplay func(string) string
 }
 
 func ApplyPlan(ctx context.Context, srcFS FileSystem, dstFS FileSystem, plan *Plan, options ApplyOptions) error {
@@ -206,7 +208,7 @@ func copySingleFile(srcFS FileSystem, dstFS FileSystem, file DesiredEntry, optio
 	}
 
 	if options.DryRun {
-		printAction(options.Output, "copy", formatTransferLabel(file.SourcePath, file.DestinationPath, options.SourceLabel, options.TargetLabel), true)
+		printAction(options.Output, "copy", formatTransferLabel(file.SourcePath, file.DestinationPath, options.SourceLabel, options.TargetLabel, options.SourcePathDisplay, options.TargetPathDisplay), true)
 		if options.Permission {
 			printAction(options.Output, "chmod", labeledPath(options.TargetLabel, file.DestinationPath), true)
 		}
@@ -229,7 +231,8 @@ func copySingleFile(srcFS FileSystem, dstFS FileSystem, file DesiredEntry, optio
 	}
 	defer dstFile.Close()
 
-	transferLabel := formatTransferLabel(file.SourcePath, file.DestinationPath, options.SourceLabel, options.TargetLabel)
+	transferLabel := formatTransferLabel(file.SourcePath, file.DestinationPath, options.SourceLabel, options.TargetLabel, options.SourcePathDisplay, options.TargetPathDisplay)
+	progressLabel := formatProgressTransferLabel(file.SourcePath, file.DestinationPath, options.SourceLabel, options.TargetLabel, options.SourcePathDisplay, options.TargetPathDisplay)
 	if options.Output != nil {
 		ow := options.Output.NewWriter()
 		fmt.Fprintf(ow, "copy: %s\n", transferLabel)
@@ -237,7 +240,7 @@ func copySingleFile(srcFS FileSystem, dstFS FileSystem, file DesiredEntry, optio
 
 		reader := io.TeeReader(srcFile, dstFile)
 		options.Output.ProgressWG.Add(1)
-		options.Output.ProgressPrinter(file.Size, reader, transferLabel)
+		options.Output.ProgressPrinter(file.Size, reader, progressLabel)
 	} else {
 		if _, err := io.Copy(dstFile, srcFile); err != nil {
 			return err
@@ -252,7 +255,13 @@ func copySingleFile(srcFS FileSystem, dstFS FileSystem, file DesiredEntry, optio
 	return nil
 }
 
-func formatTransferLabel(sourcePath, destinationPath, sourceLabel, targetLabel string) string {
+func formatTransferLabel(sourcePath, destinationPath, sourceLabel, targetLabel string, sourcePathDisplay, targetPathDisplay func(string) string) string {
+	if sourcePathDisplay != nil {
+		sourcePath = sourcePathDisplay(sourcePath)
+	}
+	if targetPathDisplay != nil {
+		destinationPath = targetPathDisplay(destinationPath)
+	}
 	source := sourcePath
 	destination := destinationPath
 	if sourceLabel != "" {
@@ -262,6 +271,24 @@ func formatTransferLabel(sourcePath, destinationPath, sourceLabel, targetLabel s
 		destination = fmt.Sprintf("%s:%s", targetLabel, destinationPath)
 	}
 	return fmt.Sprintf("%s -> %s", source, destination)
+}
+
+func formatProgressTransferLabel(sourcePath, destinationPath, sourceLabel, targetLabel string, sourcePathDisplay, targetPathDisplay func(string) string) string {
+	if sourcePathDisplay != nil {
+		sourcePath = sourcePathDisplay(sourcePath)
+	}
+	if targetPathDisplay != nil {
+		destinationPath = targetPathDisplay(destinationPath)
+	}
+
+	switch {
+	case sourceLabel == "local":
+		return fmt.Sprintf("local:%s -> %s", sourcePath, destinationPath)
+	case targetLabel == "local":
+		return fmt.Sprintf("%s -> local:%s", sourcePath, destinationPath)
+	default:
+		return fmt.Sprintf("%s -> %s", sourcePath, destinationPath)
+	}
 }
 
 func labeledPath(label, path string) string {

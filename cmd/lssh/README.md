@@ -67,7 +67,7 @@ COPYRIGHT:
     blacknon(blacknon@orebibou.com)
 
 VERSION:
-    lssh-suite 0.9.1 (stable/core)
+    lssh-suite 0.10.0 (stable/core)
 
 USAGE:
     # connect ssh
