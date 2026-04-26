@@ -6,7 +6,7 @@ import (
 	"time"
 
 	"github.com/blacknon/lssh/provider/connector/provider-connector-telnet/telnetlib"
-	"github.com/blacknon/lssh/provider/connector/runtimeutil"
+	"github.com/blacknon/lssh/providerutil/runtimeutil"
 	"github.com/blacknon/lssh/providerapi"
 )
 
