@@ -188,12 +188,10 @@ These provider implementations are currently bundled in this repository.
 
 <table>
   <tr>
-    <td valign="top" width="33%">
+    <td valign="top" width="100%">
       <strong><a href="./provider/inventory/provider-inventory-proxmox/README.md">provider-inventory-proxmox</a></strong><br />
       Build host entries from Proxmox inventory.
     </td>
-    <td valign="top" width="33%"></td>
-    <td valign="top" width="33%"></td>
   </tr>
 </table>
 
@@ -256,7 +254,7 @@ These provider implementations are currently bundled in this repository.
     <td valign="top" width="33%">
       <strong><a href="./provider/secret/provider-secret-os-keychain/README.md">provider-secret-os-keychain</a></strong><br />
       Resolve secret references from the local OS keychain.
-    </td>
+      </td>
     <td valign="top" width="33%"></td>
     <td valign="top" width="33%"></td>
   </tr>
