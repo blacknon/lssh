@@ -64,6 +64,7 @@ jobs:
         env:
           GOOS: ${{ matrix.goos }}
           GOARCH: ${{ matrix.goarch }}
+          CGO_ENABLED: 1
         run: |
           set -euo pipefail
           mkdir -p dist/bin dist/providers
