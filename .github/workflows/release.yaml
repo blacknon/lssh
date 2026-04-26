@@ -21,11 +21,11 @@ jobs:
             archive_ext: tar.gz
           - goos: darwin
             goarch: amd64
-            os: macos-latest
+            os: macos-13
             archive_ext: tar.gz
           - goos: darwin
             goarch: arm64
-            os: macos-latest
+            os: macos-14
             archive_ext: tar.gz
           - goos: windows
             goarch: amd64
