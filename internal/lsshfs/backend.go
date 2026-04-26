@@ -35,7 +35,7 @@ func backendForGOOS(goos string) (Backend, error) {
 	case "darwin":
 		return BackendNFS, nil
 	case "windows":
-		return "", fmt.Errorf("lsshfs does not support windows in 0.10.0")
+		return "", fmt.Errorf("lsshfs does not support windows")
 	default:
 		return "", fmt.Errorf("lsshfs does not support %s", goos)
 	}

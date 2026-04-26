@@ -1,18 +1,19 @@
 Connector Providers
 ===================
 
-Connector providers are not implemented yet, but this directory is reserved for the provider type that describes how a resolved target can actually be used.
+Connector providers describe how a resolved target can actually be used once inventory and config resolution are complete.
+This repository already includes working connector-capable providers and mixed providers that expose connector behavior.
 
 This document uses `connector` as the provider category name.
 If older discussion or notes use the spelling `connecter`, they refer to the same design direction.
 
-Current prototype providers:
+Current connector-capable providers:
 
 - [`provider-connector-openssh`](./provider-connector-openssh/README.md)
 - [`provider-connector-telnet`](./provider-connector-telnet/README.md)
 - [`provider-connector-winrm`](./provider-connector-winrm/README.md)
 
-Planned design-only connector families:
+Planned or future-facing connector families:
 
 - `provider-connector-openssh`
 - cloud-specific connectors that may internally use OpenSSH-compatible transport
