@@ -20,7 +20,7 @@ func (l *ListInfo) viewWithTview() {
 }
 
 func (l *ListInfo) selectWithTview() (selected []string, ok bool, err error) {
-	app := tview.NewApplication()
+	app := tview.NewApplication().EnableMouse(true)
 	selector := NewTviewSelector(app, l.Prompt, l.DataList, l.NameList, l.MultiFlag)
 	selector.list.Keyword = l.Keyword
 	selector.list.CursorLine = l.CursorLine

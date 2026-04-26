@@ -16,6 +16,7 @@ import (
 	"github.com/blacknon/go-sshlib"
 	"github.com/blacknon/lssh/internal/common"
 	conf "github.com/blacknon/lssh/internal/config"
+	"github.com/blacknon/lssh/internal/connectorruntime"
 	"golang.org/x/crypto/ssh"
 	"golang.org/x/crypto/ssh/terminal"
 )
@@ -127,6 +128,12 @@ type Run struct {
 	// Exec command
 	ExecCmd []string
 
+	// ConnectorAttachSession resumes a connector-managed shell session by id.
+	ConnectorAttachSession string
+
+	// ConnectorDetach starts a connector-managed shell session without attaching.
+	ConnectorDetach bool
+
 	// enable/disable print header in command mode
 	EnableHeader  bool
 	DisableHeader bool
@@ -162,6 +169,9 @@ type Run struct {
 
 	// ActiveTunnel holds the active tunnel created for this Run (if any)
 	ActiveTunnel *sshlib.Tunnel
+
+	// ConnectorRuntime executes provider-managed connector plans.
+	ConnectorRuntime connectorruntime.Executor
 }
 
 // AuthKey Auth map key struct.

@@ -5,8 +5,10 @@
 package scp
 
 import (
+	"errors"
 	"fmt"
 	"io"
+	"net"
 	"os"
 	"path/filepath"
 	"sort"
@@ -19,7 +21,7 @@ import (
 	"github.com/blacknon/lssh/internal/output"
 	sshl "github.com/blacknon/lssh/internal/ssh"
 	"github.com/pkg/sftp"
-	"github.com/vbauerster/mpb"
+	"github.com/vbauerster/mpb/v8"
 	"golang.org/x/crypto/ssh"
 )
 
@@ -55,6 +57,17 @@ type Scp struct {
 	ProgressWG *sync.WaitGroup
 }
 
+func (cp *Scp) logWriter() io.Writer {
+	if cp != nil && cp.Progress != nil {
+		return cp.Progress
+	}
+	return os.Stderr
+}
+
+func (cp *Scp) logf(format string, args ...interface{}) {
+	fmt.Fprintf(cp.logWriter(), format, args...)
+}
+
 func (cp *Scp) printAction(printer *output.Output, action, target string) {
 	if printer != nil {
 		ow := printer.NewWriter()
@@ -63,7 +76,7 @@ func (cp *Scp) printAction(printer *output.Output, action, target string) {
 		return
 	}
 
-	fmt.Fprintf(os.Stderr, "[DRY-RUN] %s: %s\n", action, target)
+	cp.logf("[DRY-RUN] %s: %s\n", action, target)
 }
 
 type ScpInfo struct {
@@ -75,6 +88,9 @@ type ScpInfo struct {
 
 	// path list
 	Path []string
+
+	// display path list preserves the CLI representation for progress output.
+	DisplayPath []string
 }
 
 type ScpConnect struct {
@@ -83,15 +99,28 @@ type ScpConnect struct {
 
 	// ssh connect
 	Connect *sftp.Client
+	Closer  io.Closer
 
 	// Output
 	Output *output.Output
 }
 
+func (s *ScpConnect) Close() error {
+	if s == nil || s.Closer == nil {
+		return nil
+	}
+	return s.Closer.Close()
+}
+
 type PathSet struct {
 	Root      string
+	Display   string
 	RootIsDir bool
 	PathSlice []string
+}
+
+type progressReader struct {
+	io.Reader
 }
 
 // Start scp, switching process.
@@ -108,7 +137,11 @@ func (cp *Scp) Start() {
 
 	// Create Progress bar struct
 	cp.ProgressWG = new(sync.WaitGroup)
-	cp.Progress = mpb.New(mpb.WithWaitGroup(cp.ProgressWG))
+	cp.Progress = mpb.New(
+		mpb.WithWaitGroup(cp.ProgressWG),
+		mpb.WithRefreshRate(40*time.Millisecond),
+		mpb.PopCompletedMode(),
+	)
 
 	switch {
 	// remote to remote
@@ -125,6 +158,8 @@ func (cp *Scp) Start() {
 	}
 }
 
+func (cp *Scp) progressEnabled() bool { return true }
+
 // local machine to remote machine push data
 func (cp *Scp) push() {
 	// set target hosts
@@ -140,10 +175,10 @@ func (cp *Scp) push() {
 
 	// get local host directory walk data
 	pathset := []PathSet{}
-	for _, p := range cp.From.Path {
+	for i, p := range cp.From.Path {
 		info, err := os.Lstat(p)
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "scp: failed to stat source path %q: %v\n", p, err)
+			cp.logf("scp: failed to stat source path %q: %v\n", p, err)
 			return
 		}
 
@@ -156,6 +191,7 @@ func (cp *Scp) push() {
 
 		dataset := PathSet{
 			Root:      p,
+			Display:   cp.displayPathAt(cp.From.DisplayPath, i, p),
 			RootIsDir: info.IsDir(),
 			PathSlice: data,
 		}
@@ -169,6 +205,7 @@ func (cp *Scp) push() {
 		go func() {
 			type pushTask struct {
 				root      string
+				display   string
 				rootIsDir bool
 				path      string
 			}
@@ -184,11 +221,16 @@ func (cp *Scp) push() {
 				}
 				workerCount++
 				go func(client *ScpConnect) {
+					defer func() {
+						if err := client.Close(); err != nil {
+							cp.logf("%s close error: %s\n", client.Server, err)
+						}
+					}()
 					client.Output.Create(client.Server)
 					ow := client.Output.NewWriter()
 					defer ow.Close()
 					for task := range tasks {
-						cp.pushPath(client.Connect, ow, client.Output, task.root, task.rootIsDir, task.path)
+						cp.pushPath(client.Connect, ow, client.Output, task.root, task.display, task.rootIsDir, task.path)
 					}
 					workerExit <- true
 				}(client)
@@ -202,7 +244,7 @@ func (cp *Scp) push() {
 			for _, p := range pathset {
 				data := p.PathSlice
 				for _, path := range data {
-					tasks <- pushTask{root: p.Root, rootIsDir: p.RootIsDir, path: path}
+					tasks <- pushTask{root: p.Root, display: p.Display, rootIsDir: p.RootIsDir, path: path}
 				}
 			}
 			close(tasks)
@@ -222,14 +264,13 @@ func (cp *Scp) push() {
 	}
 	close(exit)
 
-	// wait 0.3 sec
-	time.Sleep(300 * time.Millisecond)
+	cp.Progress.Wait()
 
 	// exit messages
 	fmt.Println("all push exit.")
 }
 
-func (cp *Scp) pushPath(ftp *sftp.Client, ow io.Writer, output *output.Output, root string, rootIsDir bool, p string) (err error) {
+func (cp *Scp) pushPath(ftp *sftp.Client, ow io.Writer, output *output.Output, root, displayRoot string, rootIsDir bool, p string) (err error) {
 	fInfo, _ := os.Lstat(p)
 	_, statErr := ftp.Lstat(cp.To.Path[0])
 	targetExistsAsDir := statErr == nil
@@ -245,6 +286,7 @@ func (cp *Scp) pushPath(ftp *sftp.Client, ow io.Writer, output *output.Output, r
 		relpath,
 		shouldTreatRemoteDestinationAsDir(cp.To.Path[0], targetExistsAsDir, rootIsDir, len(cp.From.Path) > 1),
 	)
+	displaySourcePath := displayLocalPath(root, displayRoot, p)
 
 	if fInfo.IsDir() { // directory
 		if cp.DryRun {
@@ -254,7 +296,7 @@ func (cp *Scp) pushPath(ftp *sftp.Client, ow io.Writer, output *output.Output, r
 		}
 	} else { //file
 		if cp.DryRun {
-			cp.printAction(output, "copy", fmt.Sprintf("local:%s -> %s:%s", p, output.Server, rpath))
+			cp.printAction(output, "copy", fmt.Sprintf("local:%s -> %s:%s", displaySourcePath, output.Server, rpath))
 			if cp.Permission {
 				cp.printAction(output, "chmod", fmt.Sprintf("%s:%s", output.Server, rpath))
 			}
@@ -273,7 +315,7 @@ func (cp *Scp) pushPath(ftp *sftp.Client, ow io.Writer, output *output.Output, r
 		lstat, _ := os.Lstat(p)
 		size := lstat.Size()
 
-		err = cp.pushFile(lf, ftp, output, p, rpath, size)
+		err = cp.pushFile(lf, ftp, output, displaySourcePath, rpath, size)
 		if err != nil {
 			fmt.Fprintf(ow, "%s\n", err)
 			return err
@@ -315,6 +357,15 @@ func (cp *Scp) pushFile(lf io.Reader, ftp *sftp.Client, output *output.Output, s
 		return
 	}
 
+	if existsAsDirectory, err := remotePathExistsAsDirectory(ftp, path); err != nil {
+		fmt.Fprintf(ow, "%s\n", err)
+		return err
+	} else if existsAsDirectory {
+		err = fmt.Errorf("copy failed: remote path %q is a directory", path)
+		fmt.Fprintf(ow, "%s\n", err)
+		return err
+	}
+
 	// open remote file
 	rf, err := ftp.OpenFile(path, os.O_RDWR|os.O_CREATE)
 	if err != nil {
@@ -331,22 +382,26 @@ func (cp *Scp) pushFile(lf io.Reader, ftp *sftp.Client, output *output.Output, s
 	}
 
 	// stream file data to the remote file and the progress printer at the same time.
-	pr, pw := io.Pipe()
-	defer pr.Close()
+	if cp.progressEnabled() {
+		bar := output.NewProgressBar(size, fmt.Sprintf("local:%s -> %s", sourcePath, path))
+		reader := io.Reader(progressReader{Reader: lf})
+		if bar != nil {
+			proxy := bar.ProxyReader(reader)
+			defer proxy.Close()
+			reader = proxy
+		}
 
-	cp.ProgressWG.Add(1)
-	go output.ProgressPrinter(size, pr, fmt.Sprintf("local:%s -> %s:%s", sourcePath, output.Server, path))
-
-	_, err = io.Copy(io.MultiWriter(rf, pw), lf)
-	closeErr := pw.Close()
-	if err != nil {
-		fmt.Fprintf(ow, "%s\n", err)
-		return
-	}
-	if closeErr != nil {
-		fmt.Fprintf(ow, "%s\n", closeErr)
-		err = closeErr
-		return
+		_, err = io.Copy(rf, reader)
+		if err != nil {
+			fmt.Fprintf(ow, "%s\n", err)
+			return
+		}
+	} else {
+		_, err = io.Copy(rf, lf)
+		if err != nil {
+			fmt.Fprintf(ow, "%s\n", err)
+			return
+		}
 	}
 
 	return
@@ -361,15 +416,18 @@ func (cp *Scp) viaPush() {
 	fclient := cp.createScpConnects([]string{from})
 	tclient := cp.createScpConnects(to)
 	if len(fclient) == 0 || len(tclient) == 0 {
-		fmt.Fprintf(os.Stderr, "There is no host to connect to\n")
+		cp.closeScpClients(fclient)
+		cp.closeScpClients(tclient)
+		cp.logf("There is no host to connect to\n")
 		return
 	}
+	defer cp.closeScpClients(fclient)
+	defer cp.closeScpClients(tclient)
 
 	// pull and push data
 	cp.viaPushPath(cp.From.Path, fclient[0], tclient)
 
-	// wait 0.3 sec
-	time.Sleep(300 * time.Millisecond)
+	cp.Progress.Wait()
 
 	// exit messages
 	fmt.Println("all push exit.")
@@ -412,6 +470,14 @@ func (cp *Scp) viaPushPath(paths []string, fclient *ScpConnect, tclients []*ScpC
 			}
 			workerCountMap[tc.Server]++
 			go func() {
+				defer func() {
+					if err := tclient.Close(); err != nil {
+						cp.logf("%s close error: %s\n", tclient.Server, err)
+					}
+					if err := sclient.Close(); err != nil {
+						cp.logf("%s close error: %s\n", sclient.Server, err)
+					}
+				}()
 				tclient.Output.Create(tclient.Server)
 				for task := range tasks {
 					if cp.DryRun {
@@ -489,9 +555,10 @@ func (cp *Scp) pull() {
 	// create connection parallel
 	clients := cp.createScpConnects(targets)
 	if len(clients) == 0 {
-		fmt.Fprintf(os.Stderr, "There is no host to connect to\n")
+		cp.logf("There is no host to connect to\n")
 		return
 	}
+	defer cp.closeScpClients(clients)
 
 	// parallel push data
 	for _, c := range clients {
@@ -509,8 +576,7 @@ func (cp *Scp) pull() {
 	}
 	close(exit)
 
-	// wait 0.3 sec
-	time.Sleep(300 * time.Millisecond)
+	cp.Progress.Wait()
 
 	// exit messages
 	fmt.Println("all pull exit.")
@@ -562,6 +628,11 @@ func (cp *Scp) pullPath(client *ScpConnect) {
 		}
 		workerCount++
 		go func(wclient *ScpConnect) {
+			defer func() {
+				if err := wclient.Close(); err != nil {
+					cp.logf("%s close error: %s\n", wclient.Server, err)
+				}
+			}()
 			wclient.Output.Create(wclient.Server)
 			wow := wclient.Output.NewWriter()
 			defer wow.Close()
@@ -606,11 +677,31 @@ func (cp *Scp) pullPath(client *ScpConnect) {
 					continue
 				}
 
-				// set tee reader
-				rd := io.TeeReader(rf, lf)
+				if cp.progressEnabled() {
+					bar := wclient.Output.NewProgressBar(task.size, fmt.Sprintf("%s -> local:%s", task.remotePath, task.localPath))
+					reader := io.Reader(progressReader{Reader: rf})
+					if bar != nil {
+						proxy := bar.ProxyReader(reader)
+						defer proxy.Close()
+						reader = proxy
+					}
 
-				cp.ProgressWG.Add(1)
-				client.Output.ProgressPrinter(task.size, rd, fmt.Sprintf("%s:%s -> local:%s", wclient.Output.Server, task.remotePath, task.localPath))
+					_, err = io.Copy(lf, reader)
+					if err != nil {
+						rf.Close()
+						lf.Close()
+						fmt.Fprintf(wow, "Error: %s\n", err)
+						continue
+					}
+				} else {
+					_, err = io.Copy(lf, rf)
+					if err != nil {
+						rf.Close()
+						lf.Close()
+						fmt.Fprintf(wow, "Error: %s\n", err)
+						continue
+					}
+				}
 
 				rf.Close()
 				lf.Close()
@@ -715,21 +806,14 @@ func (cp *Scp) createScpConnects(targets []string) (result []*ScpConnect) {
 }
 
 func (cp *Scp) createScpConnect(server string, serverList []string) (result *ScpConnect) {
-	// ssh connect
-	conn, err := cp.Run.CreateSshConnectDirect(server)
+	client, closer, err := cp.Run.CreateSFTPClient(server)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "%s connect error: %s\n", server, err)
+		cp.logf("%s connect error: %s\n", server, err)
 		return nil
 	}
-	if conn == nil || conn.Client == nil {
-		fmt.Fprintf(os.Stderr, "%s connect error: ssh client is not available for sftp\n", server)
-		return nil
-	}
-
-	// create sftp client
-	ftp, err := sftp.NewClient(conn.Client)
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "%s create client error: %s\n", server, err)
+	if client == nil {
+		_ = closeCloser(closer)
+		cp.logf("%s connect error: sftp client is not available\n", server)
 		return nil
 	}
 
@@ -745,7 +829,77 @@ func (cp *Scp) createScpConnect(server string, serverList []string) (result *Scp
 
 	return &ScpConnect{
 		Server:  server,
-		Connect: ftp,
+		Connect: client,
+		Closer:  closer,
 		Output:  o,
 	}
+}
+
+func (cp *Scp) closeScpClients(clients []*ScpConnect) {
+	for _, client := range clients {
+		if err := closeCloser(client); err != nil {
+			cp.logf("%s close error: %s\n", client.Server, err)
+		}
+	}
+}
+
+func closeCloser(closer io.Closer) error {
+	if closer == nil {
+		return nil
+	}
+	err := closer.Close()
+	if isIgnorableCloseError(err) {
+		return nil
+	}
+	return err
+}
+
+func isIgnorableCloseError(err error) bool {
+	if err == nil {
+		return true
+	}
+	if errors.Is(err, io.ErrClosedPipe) || errors.Is(err, io.EOF) || errors.Is(err, net.ErrClosed) {
+		return true
+	}
+	return strings.Contains(err.Error(), "use of closed network connection")
+}
+
+func remotePathExistsAsDirectory(ftp *sftp.Client, path string) (bool, error) {
+	info, err := ftp.Lstat(path)
+	if err != nil {
+		return false, nil
+	}
+	return remoteFileInfoIsDirectory(info), nil
+}
+
+func remoteFileInfoIsDirectory(info os.FileInfo) bool {
+	return info != nil && info.IsDir()
+}
+
+func (cp *Scp) displayPathAt(displayPaths []string, index int, fallback string) string {
+	if index >= 0 && index < len(displayPaths) && strings.TrimSpace(displayPaths[index]) != "" {
+		return displayPaths[index]
+	}
+	return fallback
+}
+
+func displayLocalPath(root, displayRoot, current string) string {
+	displayRoot = strings.TrimSpace(displayRoot)
+	if displayRoot == "" {
+		return current
+	}
+
+	relpath, err := filepath.Rel(root, current)
+	if err != nil || relpath == "." {
+		return displayRoot
+	}
+
+	joined := filepath.Join(displayRoot, relpath)
+	if strings.HasPrefix(displayRoot, "."+string(filepath.Separator)) &&
+		!strings.HasPrefix(joined, "."+string(filepath.Separator)) &&
+		!strings.HasPrefix(joined, ".."+string(filepath.Separator)) {
+		return "." + string(filepath.Separator) + joined
+	}
+
+	return joined
 }

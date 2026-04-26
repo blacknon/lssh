@@ -7,22 +7,28 @@ package lsdiff
 import (
 	"fmt"
 	"strings"
+
+	"github.com/blacknon/lssh/internal/common"
 )
 
 func ParseTargetSpec(value string) (Target, error) {
+	return ParseTargetSpecWithHosts(value, nil)
+}
+
+func ParseTargetSpecWithHosts(value string, knownHosts []string) (Target, error) {
 	value = strings.TrimSpace(value)
 	if value == "" {
 		return Target{}, fmt.Errorf("target path is required")
 	}
 
 	if strings.HasPrefix(value, "@") {
-		pair := strings.SplitN(value[1:], ":", 2)
-		if len(pair) != 2 || strings.TrimSpace(pair[0]) == "" || strings.TrimSpace(pair[1]) == "" {
+		hosts, path := common.ParseHostPathWithHosts(strings.TrimPrefix(value, "@"), knownHosts)
+		if len(hosts) != 1 || strings.TrimSpace(path) == "" {
 			return Target{}, fmt.Errorf("invalid target format: expected @host:/path")
 		}
 
-		host := strings.TrimSpace(pair[0])
-		path := strings.TrimSpace(pair[1])
+		host := strings.TrimSpace(hosts[0])
+		path = strings.TrimSpace(path)
 		return Target{
 			Host:       host,
 			RemotePath: path,
@@ -31,10 +37,10 @@ func ParseTargetSpec(value string) (Target, error) {
 	}
 
 	if strings.Contains(value, ":") {
-		pair := strings.SplitN(value, ":", 2)
-		if len(pair) == 2 && strings.TrimSpace(pair[0]) != "" && strings.HasPrefix(strings.TrimSpace(pair[1]), "/") {
-			host := strings.TrimSpace(pair[0])
-			path := strings.TrimSpace(pair[1])
+		hosts, path := common.ParseHostPathWithHosts(value, knownHosts)
+		if len(hosts) == 1 && strings.TrimSpace(hosts[0]) != "" && strings.HasPrefix(strings.TrimSpace(path), "/") {
+			host := strings.TrimSpace(hosts[0])
+			path = strings.TrimSpace(path)
 			return Target{
 				Host:       host,
 				RemotePath: path,

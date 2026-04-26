@@ -1,5 +1,9 @@
 # `lspipe`
 
+<p align="center">
+<img src="./img/lspipe.gif" width="720" />
+</p>
+
 ## About
 
 `lspipe` keeps a selected host set in the background and lets you reuse it from local shell pipelines.
@@ -16,12 +20,11 @@ NAME:
     lspipe - Persistent SSH pipe sessions for reusing selected hosts from local shell pipelines.
 USAGE:
     lspipe [options] [command...]
-    
+
 OPTIONS:
     --name name                              session name. (default: "default")
     --fifo-name name                         named pipe set name. (default: "default")
-    --create-host servername, -H servername  add servername when creating or replacing a session.
-    --host servername, -h servername         limit command execution to servername inside the session.
+    --host servername, -H servername         add session servername on creation, or limit execution to session servername or index shown by --info.
     --file filepath, -F filepath             config filepath. (default: "/Users/blacknon/.lssh.conf")
     --generate-lssh-conf ~/.ssh/config       print generated lssh config from OpenSSH config to stdout (~/.ssh/config by default).
     --replace                                replace the named session if it already exists.
@@ -36,10 +39,10 @@ OPTIONS:
     --enable-control-master                  temporarily enable ControlMaster for this command execution
     --disable-control-master                 temporarily disable ControlMaster for this command execution
     --version, -v                            print the version
-    
+
 VERSION:
-    lssh-suite 0.9.0 (alpha/sysadmin)
-    
+    lssh-suite 0.10.0 (alpha/sysadmin)
+
 USAGE:
     # create default session from TUI
     lspipe
@@ -52,7 +55,10 @@ USAGE:
     echo test | lspipe 'cat'
 
     # single host raw output
-    lspipe -h web01 --raw cat /etc/hosts
+    lspipe -H web01 --raw cat /etc/hosts
+
+    # select a session host by the index shown in --info
+    lspipe -H 2 --raw cat /etc/hosts
 ```
 
 ## Overview
@@ -73,7 +79,9 @@ lspipe --name prod -H web01 -H web02 -H web03
 ### execute commands through the session
 
 Once a session exists, you can send commands through it and optionally broadcast `stdin`.
-Use `--host` when you want to limit execution to a subset of the session, and `--raw` when you need plain stdout from exactly one resolved host.
+Use `--host/-H` when you want to provide hosts for first-time session creation, or when you want to limit execution to a subset of an existing session.
+For existing sessions, `--host/-H` also accepts the 1-based index shown by `--info`.
+If the named session does not exist yet, `lspipe` creates it first using `-H` hosts or the usual TUI selection flow, then runs the command.
 
 ```bash
 # run a command on every host in the session
@@ -82,10 +90,33 @@ lspipe hostname
 # broadcast stdin to every host
 echo test | lspipe 'cat'
 
+# create the named session on first use, then execute
+lspipe --name prod hostname
+
 # single-host raw mode for process substitution
 vimdiff \
-  <(lspipe -h web01 --raw cat /etc/hosts) \
-  <(lspipe -h web02 --raw cat /etc/hosts)
+  <(lspipe -H web01 --raw cat /etc/hosts) \
+  <(lspipe -H web02 --raw cat /etc/hosts)
+
+# select a host by the 1-based index shown in --info
+lspipe --info --name prod
+lspipe --name prod -H 2 --raw cat /etc/hosts
+```
+
+### stream transfer over aws-ssm native
+
+When a selected host uses `connector_name = "aws-ssm"` and its provider is configured with `ssm_shell_runtime = "native"`, `lspipe` can stream stdin/stdout through the native SSM runtime.
+This is a good fit for `tar.gz`-style transfers.
+
+```bash
+# upload a directory
+tar czf - ./dist | lspipe -H aws:ssm-host --raw 'tar xzf - -C /srv/app'
+
+# download a directory
+lspipe -H aws:ssm-host --raw 'tar czf - /srv/app' > app.tar.gz
+
+# upload a single file
+cat app.conf | lspipe -H aws:ssm-host --raw 'cat > /etc/app.conf'
 ```
 
 ### inspect and close sessions
@@ -122,8 +153,9 @@ echo 'cat' > ~/.cache/lssh/lspipe/fifo/default/ops/web01.cmd
 - `lspipe` sessions are single local handles to a chosen host set.
 - `stdin` is broadcast to every selected host in the current MVP.
 - `--raw` is only allowed when the resolved target set contains exactly one host.
+- Connector-backed `lspipe` stream transfer currently supports `aws-ssm` with `ssm_shell_runtime = "native"` only.
 - Windows supports normal `lspipe` session creation and command execution through the local TCP fallback.
 - `--mkfifo` creates `all.*` pipes plus one `host.*` set per host: `.cmd`, `.stdin`, `.out`.
 - Write stdin into `.stdin`, then write the remote command into `.cmd`; read the result from `.out`.
-- `--mkfifo` is currently Unix-only. Windows does not support the FIFO bridge workflow in `0.9.0`.
+- `--mkfifo` is currently Unix-only. Windows does not support the FIFO bridge workflow yet.
 - The default config search order is `~/.lssh.toml`, `~/.lssh.yaml`, `~/.lssh.yml`, then `~/.lssh.conf`.

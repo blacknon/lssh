@@ -1,0 +1,32 @@
+# Example: Azure Bastion
+
+[providers]
+paths = ["~/.config/lssh/providers/provider-mixed-azure-compute"]
+
+[provider.azure]
+plugin = "provider-mixed-azure-compute"
+enabled = true
+capabilities = ["inventory", "connector"]
+subscription_id = "00000000-0000-0000-0000-000000000000"
+resource_group = "rg-demo"
+server_name_template = "azure:${name}"
+note_template = "azure ${location} ${resource_group} ${power_state}"
+
+# Keep Bastion settings on each server(match) to avoid trouble when mixed.
+[provider.azure.match.bastion_sdk]
+meta_in = ["tag.Connection=bastion-sdk"]
+connector_name = "azure-bastion"
+bastion_runtime = "sdk"
+bastion_name = "shared-bastion"
+bastion_resource_group = "rg-network"
+user = "azureuser"
+key = "~/.ssh/azure-web.pem"
+
+[provider.azure.match.bastion_command]
+meta_in = ["tag.Connection=bastion-command"]
+connector_name = "azure-bastion"
+bastion_runtime = "command"
+bastion_name = "shared-bastion"
+bastion_resource_group = "rg-network"
+bastion_auth_type = "AAD"
+user = "azureuser"

@@ -8,16 +8,18 @@ It reuses the same host selection and SSH config flow as `lssh`, but exposes the
 
 - Linux clients use `FUSE`
 - macOS clients use `NFS`
-- Windows is not supported in `0.9.0`
+- Windows is currently not supported
+- connector-backed mounts that rely on `sftp_transport` are currently supported on Linux and macOS
 
 The command runs in the background by default and automatically unmounts when the SSH connection is lost.
+If a normal unmount fails, `lsshfs` also tries stronger fallback commands to reduce stale mounts and Finder impact on macOS.
 
 ## Usage
 
 ```shell
 $ lsshfs --help
 NAME:
-    lsshfs - Single-host SSH mount command with OS-specific local mount backends.
+    lsshfs - Single-host SSH mount command with FUSE/NFS local mount backends.
 USAGE:
     lsshfs [options] [host:]remote_path mountpoint
 
@@ -25,6 +27,7 @@ OPTIONS:
     --host servername, -H servername    connect servername.
     --file filepath, -F filepath        config filepath. (default: "/Users/blacknon/.lssh.conf")
     --generate-lssh-conf ~/.ssh/config  print generated lssh config from OpenSSH config to stdout (~/.ssh/config by default).
+    --mount-option value                append local mount option (repeatable).
     --debug                             enable debug logging for lsshfs and go-sshlib.
     --rw                                mount as read-write (current default behavior).
     --unmount                           unmount the specified mountpoint and stop the background process.
@@ -37,7 +40,7 @@ OPTIONS:
     --version, -v                       print the version
 
 VERSION:
-    lssh-suite 0.9.0 (beta/transfer)
+    lssh-suite 0.10.0 (beta/transfer)
 
 USAGE:
     # mount a remote path from the selected host
@@ -79,5 +82,21 @@ lsshfs --list-mounts
 - `lsshfs` supports only one host at a time.
 - `@host:/path` is the preferred remote path format, but `host:/path` is still accepted for compatibility.
 - On macOS, the local mount is created with `mount_nfs`.
-- On Windows, `lsshfs` is not supported in `0.9.0`.
+- On Windows, `lsshfs` is currently not supported.
 - The default config search order is `~/.lssh.toml`, `~/.lssh.yaml`, `~/.lssh.yml`, then `~/.lssh.conf`.
+
+### mount options
+
+You can append local mount options from config or CLI. This is mainly useful on macOS when you want to tune `mount_nfs` behavior without changing the backend.
+
+```toml
+[lsshfs]
+mount_options = ["nobrowse"]
+
+[lsshfs.darwin]
+mount_options = ["nolocks"]
+```
+
+```bash
+lsshfs --mount-option nobrowse @web01:/srv/data ./mnt/web01
+```

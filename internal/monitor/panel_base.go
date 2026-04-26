@@ -73,9 +73,6 @@ func (m *Monitor) createBasePanel() (baseGrid *mview.Grid) {
 
 			// baseGrid Clear
 			m.reDrawBasePanel()
-
-			// draw
-			m.View.Draw()
 		case tcell.KeyCtrlT:
 			if m.enableTop && m.selectedNode != "" {
 				m.openTopTerminal()
@@ -154,8 +151,6 @@ func (m *Monitor) reDrawBasePanel() {
 		m.enableTop = false
 	}
 
-	// draw
-	m.View.Draw()
 }
 
 func (m *Monitor) createFooter() mview.Primitive {

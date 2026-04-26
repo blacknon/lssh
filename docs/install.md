@@ -10,7 +10,7 @@ Prebuilt binaries are available on GitHub Releases.
 ### Linux (amd64, tar.gz)
 
 ```bash
-VERSION=0.9.0
+VERSION=0.10.0
 curl -fL -o /tmp/lssh.tar.gz \
   "https://github.com/blacknon/lssh/releases/download/v${VERSION}/lssh_${VERSION}_linux_amd64.tar.gz"
 sudo tar -xzf /tmp/lssh.tar.gz -C /tmp
@@ -20,7 +20,7 @@ sudo install -m 0755 /tmp/lssh_${VERSION}_linux_amd64/bin/* /usr/local/bin/
 ### Debian / Ubuntu (.deb)
 
 ```bash
-VERSION=0.9.0
+VERSION=0.10.0
 curl -fL -o /tmp/lssh.deb \
   "https://github.com/blacknon/lssh/releases/download/v${VERSION}/lssh_${VERSION}_amd64.deb"
 sudo apt install /tmp/lssh.deb
@@ -29,7 +29,7 @@ sudo apt install /tmp/lssh.deb
 ### RHEL / Fedora / Rocky / AlmaLinux (.rpm)
 
 ```bash
-VERSION=0.9.0
+VERSION=0.10.0
 curl -fL -o /tmp/lssh.rpm \
   "https://github.com/blacknon/lssh/releases/download/v${VERSION}/lssh-${VERSION}-1.x86_64.rpm"
 sudo dnf install -y /tmp/lssh.rpm
@@ -41,11 +41,13 @@ sudo dnf install -y /tmp/lssh.rpm
 
 | Package | Includes | Best for |
 | --- | --- | --- |
+| `lssh-complete_*` | all suite commands, bundled providers, and command completions | A single archive with the full suite plus provider-backed workflows |
 | `lssh_*` | `lssh`, `lscp`, `lsftp`, `lssync`, `lsdiff`, `lsshfs`, `lsmon`, `lsshell`, `lsmux`, `lspipe` | Full installation of the entire tool suite |
 | `lssh-core_*` | `lssh` | SSH access and forwarding only |
 | `lssh-transfer_*` | `lscp`, `lsftp`, `lssync`, `lsdiff`, `lsshfs` | File transfer, diff, and mount workflows only |
 | `lssh-monitor_*` | `lsmon` | Monitoring multiple remote hosts |
 | `lssh-sysadmin_*` | `lsshell`, `lsmux`, `lspipe` | Parallel shell and multi-host operations |
+| `lssh-providers_*` | bundled provider executables | Provider-backed inventory, connector, and secret workflows |
 
 ## go install
 
@@ -64,6 +66,49 @@ go install github.com/blacknon/lssh/cmd/lsmux@latest
 go install github.com/blacknon/lssh/cmd/lspipe@latest
 ```
 
+### Provider binaries
+
+Provider-backed inventory, secret, and connector features require provider executables in addition to the main `cmd/*` binaries.
+If you install only `cmd/lssh`, provider binaries are not installed automatically.
+
+In `v0.10.0`, provider-backed inventory and secret workflows are best treated as `beta`.
+Connector-backed access beyond native SSH is still `experimental`, especially for non-SSH runtimes such as WinRM and cloud-managed connectors.
+
+For local development, install the bundled provider executables with:
+
+```bash
+mise run provider_install
+```
+
+If you want the local source checkout to install the full suite, bundled providers, and shell completions in one step, use:
+
+```bash
+mise run complete_install
+```
+
+This installs the provider binaries under `~/.config/lssh/providers`.
+The same task first builds the current provider set from this repository, including:
+
+- `provider-mixed-aws-ec2`
+- `provider-connector-openssh`
+- `provider-connector-telnet`
+- `provider-connector-winrm`
+- `provider-mixed-azure-compute`
+- `provider-inventory-azure-compute`
+- `provider-mixed-gcp-compute`
+- `provider-inventory-gcp-compute`
+- `provider-inventory-proxmox`
+- `provider-secret-onepassword`
+- `provider-secret-bitwarden`
+- `provider-secret-custom-script`
+
+On macOS, the same release/install flow also includes `provider-secret-os-keychain`.
+
+If you are using a release build instead of a source checkout, either:
+
+- install the all-in-one `lssh-complete_*` archive for your platform, or
+- install the matching `lssh-providers_*` release asset alongside the command package you want to use
+
 ## Homebrew
 
 ```bash
@@ -76,7 +121,7 @@ brew install blacknon/lssh/lssh
 - `lsshfs` uses a different local mount backend on each OS:
 - Linux: FUSE support and a working `fusermount`/FUSE setup are required.
 - macOS: `mount_nfs` is used locally, so the client must allow local NFS mounts.
-- Windows: `lsshfs` is not supported in `0.9.0`.
+- Windows: `lsshfs` is currently not supported.
 - The repository intentionally replaces `github.com/kevinburke/ssh_config` with the vendored fork at `./internal/ssh_config` so the generated config and parser behavior stay in sync with `lssh`.
 
 ## Shell completion

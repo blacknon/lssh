@@ -111,16 +111,35 @@ func (r *Run) buildControlPersistAuthMethodsFromConfig(name string, c conf.Serve
 	methods = []ssh.AuthMethod{}
 
 	// password
-	if c.Pass != "" {
-		methods = append(methods, sshlib.CreateAuthMethodPassword(c.Pass))
+	if c.Pass != "" || c.PassRef != "" {
+		pass, err := r.resolveLiteralOrRef(name, "pass", c.Pass, c.PassRef)
+		if err != nil {
+			return nil, err
+		}
+		if pass != "" {
+			methods = append(methods, sshlib.CreateAuthMethodPassword(pass))
+		}
 	}
 	for _, p := range c.Passes {
 		methods = append(methods, sshlib.CreateAuthMethodPassword(p))
 	}
 
 	// single key
-	if c.Key != "" {
-		am, err := sshlib.CreateAuthMethodPublicKey(c.Key, c.KeyPass)
+	if c.Key != "" || c.KeyRef != "" {
+		keyPath, err := r.resolveSecretFilePersistent(name, "key", c.Key, c.KeyRef)
+		if err != nil {
+			return nil, err
+		}
+		keyPass, err := r.resolveLiteralOrRef(name, "keypass", c.KeyPass, c.KeyPassRef)
+		if err != nil {
+			return nil, err
+		}
+		createPublicKeyAuth := sshlib.CreateAuthMethodPublicKey
+		if c.KeyRef != "" {
+			createPublicKeyAuth = sshlib.CreateAuthMethodPublicKeyTransient
+		}
+
+		am, err := createPublicKeyAuth(keyPath, keyPass)
 		if err != nil {
 			return nil, err
 		}
@@ -142,12 +161,8 @@ func (r *Run) buildControlPersistAuthMethodsFromConfig(name string, c conf.Serve
 	}
 
 	// certificate
-	if c.Cert != "" {
-		signer, err := sshlib.CreateSignerPublicKeyPrompt(c.CertKey, c.CertKeyPass)
-		if err != nil {
-			return nil, err
-		}
-		am, err := sshlib.CreateAuthMethodCertificate(c.Cert, signer)
+	if c.Cert != "" || c.CertRef != "" {
+		am, err := r.createCertificateAuthMethod(name, c)
 		if err != nil {
 			return nil, err
 		}
@@ -177,7 +192,10 @@ func (r *Run) buildControlPersistAuthMethodsFromConfig(name string, c conf.Serve
 
 	// PKCS11: prompt for PIN if needed and create auth methods
 	if c.PKCS11Use {
-		pin := c.PKCS11PIN
+		pin, err := r.resolveLiteralOrRef(name, "pkcs11pin", c.PKCS11PIN, c.PKCS11PINRef)
+		if err != nil {
+			return nil, err
+		}
 		if pin == "" {
 			// Prompt user for PIN (simple IPC via stdin)
 			fmt.Fprintf(os.Stderr, "PKCS11 PIN for provider %s: ", c.PKCS11Provider)
@@ -228,6 +246,10 @@ func (r *Run) effectiveServerConfig(server string, forceDirect bool) conf.Server
 // createSshConnect is the main function for creating sshlib.Connect objects.
 // If forceDirect is true, it disables ControlMaster/ControlPersist for the connection (used for features like SFTP that require a concrete *ssh.Client).
 func (r *Run) createSshConnect(server string, forceDirect bool) (connect *sshlib.Connect, err error) {
+	if !r.Conf.ServerUsesBuiltInSSH(server) {
+		return nil, fmt.Errorf("server %q uses connector %q; direct ssh is not supported", server, r.Conf.ServerConnectorName(server))
+	}
+
 	// create proxyRoute
 	proxyRoute, err := getProxyRoute(server, r.Conf)
 	if err != nil {

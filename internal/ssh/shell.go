@@ -5,6 +5,7 @@
 package ssh
 
 import (
+	"encoding/base64"
 	"errors"
 	"fmt"
 	"io"
@@ -24,78 +25,17 @@ import (
 func (r *Run) shell() (err error) {
 	// server config
 	server := r.ServerList[0]
-	config := r.Conf.Server[server]
+	config := r.resolveShellConfig(server)
+
+	if r.usesConnector(server) {
+		return r.runConnectorShellWithConfig(server, config)
+	}
 
 	// check count AuthMethod
 	if len(r.serverAuthMethodMap[server]) == 0 {
 		msg := fmt.Sprintf("Error: %s is No AuthMethod.\n", server)
 		err = errors.New(msg)
 		return
-	}
-
-	// set port forwarding
-	config = r.setPortForwards(server, config)
-
-	// OverWrite dynamic port forwarding
-	if r.DynamicPortForward != "" {
-		config.DynamicPortForward = r.DynamicPortForward
-	}
-
-	// OverWrite reverse dynamic port forwarding
-	if r.ReverseDynamicPortForward != "" {
-		config.ReverseDynamicPortForward = r.ReverseDynamicPortForward
-	}
-
-	// OverWrite http dynamic port forwarding
-	if r.HTTPDynamicPortForward != "" {
-		config.HTTPDynamicPortForward = r.HTTPDynamicPortForward
-	}
-
-	// OverWrite http reverse dynamic port forwarding
-	if r.HTTPReverseDynamicPortForward != "" {
-		config.HTTPReverseDynamicPortForward = r.HTTPReverseDynamicPortForward
-	}
-
-	// OverWrite nfs dynacmic forwarding
-	if r.NFSDynamicForwardPort != "" {
-		config.NFSDynamicForwardPort = r.NFSDynamicForwardPort
-	}
-
-	// OverWrite nfs dynamic path
-	if r.NFSDynamicForwardPath != "" {
-		config.NFSDynamicForwardPath = r.NFSDynamicForwardPath
-	}
-	if r.SMBDynamicForwardPort != "" {
-		config.SMBDynamicForwardPort = r.SMBDynamicForwardPort
-	}
-	if r.SMBDynamicForwardPath != "" {
-		config.SMBDynamicForwardPath = r.SMBDynamicForwardPath
-	}
-
-	// OverWrite nfs reverse dynamic forwarding
-	if r.NFSReverseDynamicForwardPort != "" {
-		config.NFSReverseDynamicForwardPort = r.NFSReverseDynamicForwardPort
-	}
-
-	// OverWrite nfs reverse dynamic path
-	if r.NFSReverseDynamicForwardPath != "" {
-		config.NFSReverseDynamicForwardPath = r.NFSReverseDynamicForwardPath
-	}
-	if r.SMBReverseDynamicForwardPort != "" {
-		config.SMBReverseDynamicForwardPort = r.SMBReverseDynamicForwardPort
-	}
-	if r.SMBReverseDynamicForwardPath != "" {
-		config.SMBReverseDynamicForwardPath = r.SMBReverseDynamicForwardPath
-	}
-
-	// OverWrite local bashrc use
-	if r.IsBashrc {
-		config.LocalRcUse = "yes"
-	}
-
-	// OverWrite local bashrc not use
-	if r.IsNotBashrc {
-		config.LocalRcUse = "no"
 	}
 
 	// header
@@ -316,41 +256,107 @@ loop:
 
 // localRcShell connect to remote shell using local bashrc
 func localrcShell(connect *sshlib.Connect, session *ssh.Session, localrcPath []string, decoder string, compress bool, uncompress string) (err error) {
-	// var
+	return connect.CmdShell(session, BuildLocalRCShellCommand(localrcPath, decoder, compress, uncompress))
+}
+
+func BuildLocalRCShellCommand(localrcPath []string, decoder string, compress bool, uncompress string) string {
+	return buildLocalRCShellCommand(localrcPath, decoder, compress, uncompress, false)
+}
+
+func BuildInteractiveLocalRCShellCommand(localrcPath []string, decoder string, compress bool, uncompress string) string {
+	return buildPortableInteractiveLocalRCShellCommand(localrcPath, decoder, compress, uncompress)
+}
+
+func InteractiveLocalRCStartupMarker() string {
+	return "__LSSH_LOCALRC_READY__"
+}
+
+func buildLocalRCShellCommand(localrcPath []string, decoder string, compress bool, uncompress string, interactive bool) string {
 	var cmd string
+	bashCommand := "bash"
+	interactiveSuffix := ""
+	exitSuffix := "; exit 0"
+	prefixCommand := ""
 
-	// TODO(blacknon): 受け付けるrcdataをzip化するオプションの追加
-
-	// set default bashrc
 	if len(localrcPath) == 0 {
 		localrcPath = []string{"~/.bashrc"}
 	}
 
-	// get bashrc base64 data
+	if interactive {
+		bashCommand = "bash"
+		interactiveSuffix = " -i"
+		exitSuffix = ""
+		prefixCommand = fmt.Sprintf("export TERM=%s; ", shellSingleQuote(interactiveShellTerm()))
+	}
+
 	rcData, _ := common.GetFilesBase64(localrcPath, localrcArchiveMode(compress))
 
-	// set default uncompress command
 	if uncompress == "" {
 		uncompress = "gzip -d"
 	}
 
-	// switch
 	switch {
 	case !compress && decoder != "":
-		cmd = fmt.Sprintf("bash --noprofile --rcfile <(echo %s | %s); exit 0", rcData, decoder)
-
+		cmd = fmt.Sprintf("%s%s --noprofile --rcfile <(echo %s | %s)%s%s", prefixCommand, bashCommand, rcData, decoder, interactiveSuffix, exitSuffix)
 	case !compress && decoder == "":
-		cmd = fmt.Sprintf("bash --noprofile --rcfile <(echo %s | ( (base64 --help | grep -q coreutils) && base64 -d <(cat) || base64 -D <(cat) ) ); exit 0", rcData)
-
+		cmd = fmt.Sprintf("%s%s --noprofile --rcfile <(echo %s | ( (base64 --help | grep -q coreutils) && base64 -d <(cat) || base64 -D <(cat) ) )%s%s", prefixCommand, bashCommand, rcData, interactiveSuffix, exitSuffix)
 	case compress && decoder != "":
-		cmd = fmt.Sprintf("bash --noprofile --rcfile <(echo %s | %s | %s); exit 0", rcData, decoder, uncompress)
-
+		cmd = fmt.Sprintf("%s%s --noprofile --rcfile <(echo %s | %s | %s)%s%s", prefixCommand, bashCommand, rcData, decoder, uncompress, interactiveSuffix, exitSuffix)
 	case compress && decoder == "":
-		cmd = fmt.Sprintf("bash --noprofile --rcfile <(echo %s | ( (base64 --help | grep -q coreutils) && base64 -d <(cat) || base64 -D <(cat) ) | %s); exit 0", rcData, uncompress)
-
+		cmd = fmt.Sprintf("%s%s --noprofile --rcfile <(echo %s | ( (base64 --help | grep -q coreutils) && base64 -d <(cat) || base64 -D <(cat) ) | %s)%s%s", prefixCommand, bashCommand, rcData, uncompress, interactiveSuffix, exitSuffix)
 	}
 
-	return connect.CmdShell(session, cmd)
+	return cmd
+}
+
+func buildPortableInteractiveLocalRCShellCommand(localrcPath []string, decoder string, compress bool, uncompress string) string {
+	if len(localrcPath) == 0 {
+		localrcPath = []string{"~/.bashrc"}
+	}
+
+	rcData, _ := common.GetFilesBase64(localrcPath, localrcArchiveMode(compress))
+	if uncompress == "" {
+		uncompress = "gzip -d"
+	}
+	decodeCommand := decoder
+	if decodeCommand == "" {
+		decodeCommand = "( (base64 --help | grep -q coreutils) && base64 -d || base64 -D )"
+	}
+	markerLine := fmt.Sprintf("\nprintf '%%s\\n' %s\n", shellSingleQuote(InteractiveLocalRCStartupMarker()))
+	markerEncoded := base64.StdEncoding.EncodeToString([]byte(markerLine))
+
+	var pipeline string
+	switch {
+	case !compress:
+		pipeline = fmt.Sprintf("printf %%s %s | %s", shellSingleQuote(rcData), decodeCommand)
+	default:
+		pipeline = fmt.Sprintf("printf %%s %s | %s | %s", shellSingleQuote(rcData), decodeCommand, uncompress)
+	}
+
+	rcStream := fmt.Sprintf("{ %s; printf %%s %s | ( (base64 --help | grep -q coreutils) && base64 -d || base64 -D ); }",
+		pipeline,
+		shellSingleQuote(markerEncoded),
+	)
+	bashScript := fmt.Sprintf("exec bash --noprofile --rcfile <(%s) -i", rcStream)
+
+	return fmt.Sprintf(
+		"export TERM=%s; exec bash -lc %s",
+		shellSingleQuote(interactiveShellTerm()),
+		shellSingleQuote(bashScript),
+	)
+}
+
+func interactiveShellTerm() string {
+	term := strings.TrimSpace(os.Getenv("TERM"))
+	if term == "" {
+		return "xterm-256color"
+	}
+
+	return term
+}
+
+func shellSingleQuote(value string) string {
+	return "'" + strings.ReplaceAll(value, "'", `'\''`) + "'"
 }
 
 func localrcArchiveMode(compress bool) int {

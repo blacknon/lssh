@@ -5,9 +5,12 @@
 package conf
 
 import (
+	"errors"
+	"net"
 	"net/netip"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/BurntSushi/toml"
@@ -83,8 +86,11 @@ func TestCheckFormatServerConfAuth(t *testing.T) {
 	}
 	tds := []TestData{
 		{desc: "Password", c: ServerConfig{Pass: "Password"}, expect: true},
+		{desc: "Password ref", c: ServerConfig{PassRef: "onepassword:op://vault/item/password"}, expect: true},
 		{desc: "Secret key file", c: ServerConfig{Key: "/tmp/key.pem"}, expect: true},
+		{desc: "Secret key ref", c: ServerConfig{KeyRef: "onepassword:op://vault/item/key"}, expect: true},
 		{desc: "Cert file", c: ServerConfig{Cert: "/tmp/key.crt"}, expect: true},
+		{desc: "Cert ref", c: ServerConfig{CertRef: "onepassword:op://vault/item/cert"}, expect: true},
 		{desc: "Agent auth", c: ServerConfig{AgentAuth: true}, expect: true},
 		// {desc: "File exists", c: ServerConfig{PKCS11Provider: "/path/to/providor"}, expect: true},
 		{desc: "Key files", c: ServerConfig{Keys: []string{"/tmp/key.pem", "/tmp/key2.pem"}}, expect: true},
@@ -131,6 +137,40 @@ func TestServerConfigReduct(t *testing.T) {
 	for _, v := range tds {
 		got := serverConfigReduct(v.perConfig, v.childConfig)
 		assert.Equal(t, v.expect, got, v.desc)
+	}
+}
+
+func TestGetDefaultGatewaysUsesGatewayPackage(t *testing.T) {
+	original := discoverGateway
+	t.Cleanup(func() { discoverGateway = original })
+
+	discoverGateway = func() (net.IP, error) {
+		return net.IPv4(192, 0, 2, 1), nil
+	}
+
+	got, err := getDefaultGateways()
+	if err != nil {
+		t.Fatalf("getDefaultGateways() error = %v", err)
+	}
+	if len(got) != 1 {
+		t.Fatalf("len(got) = %d, want 1", len(got))
+	}
+	if got[0] != netip.MustParseAddr("192.0.2.1") {
+		t.Fatalf("gateway = %s, want 192.0.2.1", got[0])
+	}
+}
+
+func TestGetDefaultGatewaysPropagatesError(t *testing.T) {
+	original := discoverGateway
+	t.Cleanup(func() { discoverGateway = original })
+
+	discoverGateway = func() (net.IP, error) {
+		return nil, errors.New("boom")
+	}
+
+	_, err := getDefaultGateways()
+	if err == nil || err.Error() != "boom" {
+		t.Fatalf("getDefaultGateways() error = %v, want boom", err)
 	}
 }
 
@@ -278,6 +318,56 @@ sshconfig:
 
 	assert.Equal(t, "~/.ssh/config", cfg.SSHConfig["extra"].Path)
 	assert.Equal(t, []string{"darwin"}, cfg.SSHConfig["extra"].When.OSIn)
+}
+
+func TestReadOpenSSHConfigMatchOverridesImportedHosts(t *testing.T) {
+	dir := t.TempDir()
+	sshConfigPath := filepath.Join(dir, "ssh_config")
+	configPath := filepath.Join(dir, "lssh.toml")
+
+	sshConfig := `
+Host web-01
+    HostName 192.0.2.10
+    User ubuntu
+    IdentityFile ~/.ssh/web-01
+
+Host db-01
+    HostName 192.0.2.20
+    User admin
+    IdentityFile ~/.ssh/db-01
+`
+	if err := os.WriteFile(sshConfigPath, []byte(sshConfig), 0o600); err != nil {
+		t.Fatalf("WriteFile ssh config failed: %v", err)
+	}
+
+	body := `
+[sshconfig.default]
+path = "` + sshConfigPath + `"
+
+[sshconfig.default.match.web]
+name_in = ["web-*"]
+user_in = ["ubuntu"]
+pre_cmd = "printf 'web\n'"
+note = "matched web"
+`
+	if err := os.WriteFile(configPath, []byte(body), 0o600); err != nil {
+		t.Fatalf("WriteFile lssh config failed: %v", err)
+	}
+
+	cfg := Read(configPath)
+
+	webName := sshConfigPath + ":web-01"
+	if got := cfg.Server[webName].PreCmd; got != "printf 'web\n'" {
+		t.Fatalf("PreCmd = %q, want %q", got, "printf 'web\n'")
+	}
+	if got := cfg.Server[webName].Note; got != "matched web" {
+		t.Fatalf("Note = %q, want %q", got, "matched web")
+	}
+
+	dbName := sshConfigPath + ":db-01"
+	if got := cfg.Server[dbName].PreCmd; got != "" {
+		t.Fatalf("db PreCmd = %q, want empty", got)
+	}
 }
 
 func TestResolveConditionalMatchesMergeByPriority(t *testing.T) {
@@ -655,10 +745,31 @@ func TestReadOpenSSHConfigSkipsMissingDefaultConfig(t *testing.T) {
 		},
 	}
 
-	cfg.ReadOpenSSHConfig()
+	if err := cfg.ReadOpenSSHConfig(); err != nil {
+		t.Fatalf("ReadOpenSSHConfig() error = %v", err)
+	}
 
 	if got := cfg.Server["vm-mng"].User; got != "admin" {
 		t.Fatalf("cfg.Server[vm-mng].User = %q, want %q", got, "admin")
+	}
+}
+
+func TestReadOpenSSHConfigReturnsConfiguredImportError(t *testing.T) {
+	cfg := Config{
+		Server: map[string]ServerConfig{},
+		SSHConfig: map[string]OpenSSHConfig{
+			"broken": {
+				Path: filepath.Join(t.TempDir(), "missing_config"),
+			},
+		},
+	}
+
+	err := cfg.ReadOpenSSHConfig()
+	if err == nil {
+		t.Fatal("ReadOpenSSHConfig() error = nil, want error")
+	}
+	if !strings.Contains(err.Error(), "no such file or directory") {
+		t.Fatalf("ReadOpenSSHConfig() error = %q, want missing file error", err)
 	}
 }
 

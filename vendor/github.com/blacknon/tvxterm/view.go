@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"math"
 	"sync"
 	"unicode/utf8"
 
@@ -34,6 +35,7 @@ type View struct {
 	focused       bool
 	closed        bool
 	scrollOffset  int
+	scrollbar     bool
 	lastTitle     string
 }
 
@@ -86,6 +88,17 @@ func (v *View) SetTitleHandler(fn func(*View, string)) *View {
 	return v
 }
 
+// SetScrollbar enables or disables the built-in scrollback scrollbar.
+//
+// When enabled, the rightmost column of the view is reserved for the bar and
+// the terminal content is rendered one column narrower.
+func (v *View) SetScrollbar(enabled bool) *View {
+	v.mu.Lock()
+	defer v.mu.Unlock()
+	v.scrollbar = enabled
+	return v
+}
+
 // Close closes the current backend and releases debug-log resources.
 func (v *View) Close() error {
 	v.mu.Lock()
@@ -109,8 +122,16 @@ func (v *View) Draw(screen tcell.Screen) {
 		return
 	}
 
-	v.emu.Resize(width, height)
-	v.resizeBackend(width, height)
+	contentWidth, scrollbarX, showScrollbar := v.layout(width)
+	if contentWidth <= 0 {
+		if showScrollbar {
+			v.drawScrollbar(screen, x+scrollbarX, y, height)
+		}
+		return
+	}
+
+	v.emu.Resize(contentWidth, height)
+	v.resizeBackend(contentWidth, height)
 	ss := v.emu.SnapshotAt(v.scrollOffset)
 
 	for row := 0; row < ss.Rows; row++ {
@@ -125,6 +146,9 @@ func (v *View) Draw(screen tcell.Screen) {
 
 	if v.focused && ss.CursorVis {
 		screen.ShowCursor(x+ss.CursorX, y+ss.CursorY)
+	}
+	if showScrollbar {
+		v.drawScrollbar(screen, x+scrollbarX, y, height)
 	}
 }
 
@@ -234,6 +258,9 @@ func (v *View) MouseHandler() func(action tview.MouseAction, event *tcell.EventM
 		x, y := event.Position()
 		if !v.InRect(x, y) {
 			return false, nil
+		}
+		if v.handleScrollbarMouse(action, event, setFocus) {
+			return true, nil
 		}
 		v.sendMouse(action, event)
 		if action == tview.MouseLeftDown {
@@ -359,6 +386,112 @@ func (v *View) requestRedrawAsync() {
 		return
 	}
 	go v.app.QueueUpdateDraw(func() {})
+}
+
+func (v *View) layout(width int) (contentWidth int, scrollbarX int, showScrollbar bool) {
+	v.mu.RLock()
+	showScrollbar = v.scrollbar && width >= 2
+	v.mu.RUnlock()
+	if showScrollbar {
+		return width - 1, width - 1, true
+	}
+	return width, 0, false
+}
+
+func (v *View) drawScrollbar(screen tcell.Screen, x, y, height int) {
+	offset, rows := v.ScrollbackStatus()
+	thumbStart, thumbHeight := scrollbarThumb(height, rows, offset)
+	trackStyle := tcell.StyleDefault.Foreground(tcell.ColorGray).Background(tcell.ColorBlack)
+	thumbStyle := tcell.StyleDefault.Foreground(tcell.ColorWhite).Background(tcell.ColorGray)
+
+	for row := 0; row < height; row++ {
+		ch := '│'
+		style := trackStyle
+		if row >= thumbStart && row < thumbStart+thumbHeight {
+			ch = '█'
+			style = thumbStyle
+		}
+		screen.SetContent(x, y+row, ch, nil, style)
+	}
+}
+
+func scrollbarThumb(height, rows, offset int) (start, size int) {
+	if height <= 0 {
+		return 0, 0
+	}
+	if rows <= 0 {
+		return 0, height
+	}
+
+	totalRows := rows + height
+	size = int(math.Round(float64(height*height) / float64(totalRows)))
+	size = clamp(size, 1, height)
+	maxStart := max(0, height-size)
+	if rows == 0 || maxStart == 0 {
+		return 0, size
+	}
+
+	ratio := float64(rows-offset) / float64(rows)
+	start = int(math.Round(ratio * float64(maxStart)))
+	start = clamp(start, 0, maxStart)
+	return start, size
+}
+
+func (v *View) handleScrollbarMouse(action tview.MouseAction, event *tcell.EventMouse, setFocus func(p tview.Primitive)) bool {
+	x, y, width, height := v.GetInnerRect()
+	contentWidth, scrollbarX, showScrollbar := v.layout(width)
+	if !showScrollbar || contentWidth <= 0 {
+		return false
+	}
+
+	mouseX, mouseY := event.Position()
+	if mouseX != x+scrollbarX || mouseY < y || mouseY >= y+height {
+		return false
+	}
+
+	switch action {
+	case tview.MouseLeftDown:
+		setFocus(v)
+		v.scrollbarJumpTo(mouseY - y)
+		return true
+	case tview.MouseMove:
+		if event.Buttons()&tcell.Button1 != 0 {
+			v.scrollbarJumpTo(mouseY - y)
+			return true
+		}
+	case tview.MouseScrollUp:
+		v.ScrollbackUp(3)
+		return true
+	case tview.MouseScrollDown:
+		v.ScrollbackDown(3)
+		return true
+	}
+	return false
+}
+
+func (v *View) scrollbarJumpTo(row int) {
+	rows := v.emu.Snapshot().ScrollbackRows
+	viewRows := v.emu.Snapshot().Rows
+	if rows <= 0 || viewRows <= 0 {
+		v.scrollToBottom()
+		return
+	}
+
+	_, thumbHeight := scrollbarThumb(viewRows, rows, v.scrollOffset)
+	maxStart := max(0, viewRows-thumbHeight)
+	if maxStart == 0 {
+		v.scrollToBottom()
+		return
+	}
+
+	targetStart := clamp(row-thumbHeight/2, 0, maxStart)
+	ratio := float64(targetStart) / float64(maxStart)
+	targetOffset := rows - int(math.Round(ratio*float64(rows)))
+
+	v.mu.Lock()
+	v.scrollOffset = clamp(targetOffset, 0, rows)
+	v.mu.Unlock()
+	v.requestRedrawAsync()
 }
 
 func (v *View) syncTitle() {

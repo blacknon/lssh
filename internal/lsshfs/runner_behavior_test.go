@@ -10,6 +10,8 @@ import (
 	"syscall"
 	"testing"
 	"time"
+
+	conf "github.com/blacknon/lssh/internal/config"
 )
 
 type fakeMountConn struct {
@@ -144,15 +146,15 @@ func TestRunnerRunUnmountsOnDisconnect(t *testing.T) {
 	sigCh := make(chan os.Signal, 1)
 
 	runner := &Runner{
-		Host:                "web01",
-		RemotePath:          "/srv/data",
-		MountPoint:          t.TempDir(),
-		ReadWrite:           true,
-		GOOS:                "linux",
-		aliveCheckInterval:  time.Millisecond,
-		aliveFailureLimit:   1,
-		signalCh:            sigCh,
-		Stderr:              &stderr,
+		Host:               "web01",
+		RemotePath:         "/srv/data",
+		MountPoint:         t.TempDir(),
+		ReadWrite:          true,
+		GOOS:               "linux",
+		aliveCheckInterval: time.Millisecond,
+		aliveFailureLimit:  1,
+		signalCh:           sigCh,
+		Stderr:             &stderr,
 		createConnect: func(r *Runner) (mountConn, error) {
 			return conn, nil
 		},
@@ -188,6 +190,64 @@ func TestRunnerRunReturnsUnsupportedOnWindows(t *testing.T) {
 	err := runner.Run()
 	if err == nil || !strings.Contains(strings.ToLower(err.Error()), "does not support windows") {
 		t.Fatalf("Run() error = %v", err)
+	}
+}
+
+func TestCreateMountConnRejectsConnectorBackedUnsupportedGOOS(t *testing.T) {
+	runner := &Runner{
+		Host: "web01",
+		GOOS: "windows",
+		Config: conf.Config{
+			Server: map[string]conf.ServerConfig{
+				"web01": {ConnectorName: "openssh"},
+			},
+		},
+	}
+
+	_, err := createMountConn(runner)
+	if err == nil || !strings.Contains(strings.ToLower(err.Error()), "linux and macos only") {
+		t.Fatalf("createMountConn() error = %v", err)
+	}
+}
+
+func TestRunnerRunUsesFUSEForConnectorBackedDarwin(t *testing.T) {
+	t.Setenv("XDG_CACHE_HOME", t.TempDir())
+
+	done := make(chan struct{})
+	conn := &fakeMountConn{fuseBlock: done}
+	sigCh := make(chan os.Signal, 1)
+
+	runner := &Runner{
+		Host:       "web01",
+		RemotePath: "/srv/data",
+		MountPoint: t.TempDir(),
+		ReadWrite:  true,
+		GOOS:       "darwin",
+		Config: conf.Config{
+			Server: map[string]conf.ServerConfig{
+				"web01": {ConnectorName: "openssh"},
+			},
+		},
+		createConnect: func(r *Runner) (mountConn, error) {
+			return conn, nil
+		},
+		waitForMountActive: func(goos, mountpoint string, timeout time.Duration) error {
+			close(done)
+			sigCh <- syscall.SIGTERM
+			return nil
+		},
+		signalCh: sigCh,
+		execCommand: func(name string, args ...string) *exec.Cmd {
+			return exec.Command("sh", "-c", "true")
+		},
+	}
+
+	if err := runner.Run(); err != nil {
+		t.Fatalf("Run() error = %v", err)
+	}
+
+	if len(conn.forwardCalls) != 1 || !strings.HasPrefix(conn.forwardCalls[0], "fuse:") {
+		t.Fatalf("forwardCalls = %#v, want fuse backend", conn.forwardCalls)
 	}
 }
 

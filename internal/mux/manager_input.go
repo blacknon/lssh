@@ -7,6 +7,7 @@ package mux
 import (
 	"fmt"
 
+	"github.com/blacknon/tvxterm"
 	"github.com/gdamore/tcell/v2"
 	"github.com/rivo/tview"
 )
@@ -61,6 +62,9 @@ func (m *Manager) captureMouse(event *tcell.EventMouse, action tview.MouseAction
 			if !p.term.InRect(x, y) {
 				continue
 			}
+			if !usesLocalScrollback(p.term) {
+				return event, action
+			}
 			if action == tview.MouseScrollUp {
 				p.term.ScrollbackUp(3)
 			} else {
@@ -104,10 +108,22 @@ func (m *Manager) captureInput(event *tcell.EventKey) *tcell.EventKey {
 	}
 
 	if event.Key() == tcell.KeyPgUp {
+		if !m.focusedPaneUsesLocalScrollback() {
+			if m.broadcastAll {
+				m.broadcastKey(event)
+			}
+			return event
+		}
 		m.scrollFocused(true)
 		return nil
 	}
 	if event.Key() == tcell.KeyPgDn {
+		if !m.focusedPaneUsesLocalScrollback() {
+			if m.broadcastAll {
+				m.broadcastKey(event)
+			}
+			return event
+		}
 		m.scrollFocused(false)
 		return nil
 	}
@@ -202,6 +218,21 @@ func (m *Manager) scrollFocused(up bool) {
 	m.updateStatus("")
 }
 
+func (m *Manager) focusedPaneUsesLocalScrollback() bool {
+	if m.currentPage == nil || m.currentPage.focus == nil {
+		return false
+	}
+	return usesLocalScrollback(m.currentPage.focus.term)
+}
+
+func usesLocalScrollback(term *tvxterm.View) bool {
+	if term == nil {
+		return false
+	}
+	_, rows := term.ScrollbackStatus()
+	return rows > 0
+}
+
 func (m *Manager) updateStatus(message string) {
 	m.setStatusVisible(true)
 	if m.currentPage == nil || m.currentPage.focus == nil {
@@ -273,6 +304,10 @@ func (m *Manager) baseHelp() string {
 }
 
 func (m *Manager) prefixHelp() string {
+	transferKey := m.conf.Mux.Transfer
+	if !m.transferEnabled {
+		transferKey = "disabled"
+	}
 	return fmt.Sprintf(
 		"[yellow]Prefix[-]: %s  [yellow]new-page[-]: %s  [yellow]new-pane[-]: %s  [yellow]split-h[-]: %s  [yellow]split-v[-]: %s  [yellow]transfer[-]: %s\n[yellow]next-pane[-]: %s  [yellow]next-page[-]: %s  [yellow]prev-page[-]: %s  [yellow]pages[-]: %s  [yellow]close[-]: %s  [yellow]broadcast[-]: %s  [yellow]quit[-]: %s",
 		m.conf.Mux.Prefix,
@@ -280,7 +315,7 @@ func (m *Manager) prefixHelp() string {
 		m.conf.Mux.NewPane,
 		m.conf.Mux.SplitHorizontal,
 		m.conf.Mux.SplitVertical,
-		m.conf.Mux.Transfer,
+		transferKey,
 		m.conf.Mux.NextPane,
 		m.conf.Mux.NextPage,
 		m.conf.Mux.PrevPage,
@@ -292,6 +327,10 @@ func (m *Manager) prefixHelp() string {
 }
 
 func (m *Manager) showTransfer() {
+	if !m.transferEnabled {
+		m.updateStatus("[red]transfer unavailable[-]: disabled by config or option")
+		return
+	}
 	if m.currentPage == nil || m.currentPage.focus == nil {
 		m.updateStatus("[red]transfer unavailable[-]: no active pane")
 		return

@@ -12,24 +12,32 @@ type ServerConfig struct {
 	User string `toml:"user" yaml:"user"`
 
 	// Connect auth Setting
-	Pass            string   `toml:"pass" yaml:"pass"`
-	Passes          []string `toml:"passes" yaml:"passes"`
-	Key             string   `toml:"key" yaml:"key"`
-	KeyCommand      string   `toml:"keycmd" yaml:"keycmd"`
-	KeyCommandPass  string   `toml:"keycmdpass" yaml:"keycmdpass"`
-	KeyPass         string   `toml:"keypass" yaml:"keypass"`
-	Keys            []string `toml:"keys" yaml:"keys"` // "keypath::passphrase"
-	Cert            string   `toml:"cert" yaml:"cert"`
-	Certs           []string `toml:"certs" yaml:"certs"` // "certpath::keypath::passphrase"
-	CertKey         string   `toml:"certkey" yaml:"certkey"`
-	CertKeyPass     string   `toml:"certkeypass" yaml:"certkeypass"`
-	CertPKCS11      bool     `toml:"certpkcs11" yaml:"certpkcs11"`
-	AgentAuth       bool     `toml:"agentauth" yaml:"agentauth"`
-	SSHAgentUse     bool     `toml:"ssh_agent" yaml:"ssh_agent"`
-	SSHAgentKeyPath []string `toml:"ssh_agent_key" yaml:"ssh_agent_key"` // "keypath::passphrase"
-	PKCS11Use       bool     `toml:"pkcs11" yaml:"pkcs11"`
-	PKCS11Provider  string   `toml:"pkcs11provider" yaml:"pkcs11provider"` // PKCS11 Provider PATH
-	PKCS11PIN       string   `toml:"pkcs11pin" yaml:"pkcs11pin"`           // PKCS11 PIN code
+	Pass              string   `toml:"pass" yaml:"pass"`
+	PassRef           string   `toml:"pass_ref" yaml:"pass_ref"`
+	Passes            []string `toml:"passes" yaml:"passes"`
+	Key               string   `toml:"key" yaml:"key"`
+	KeyRef            string   `toml:"key_ref" yaml:"key_ref"`
+	KeyCommand        string   `toml:"keycmd" yaml:"keycmd"`
+	KeyCommandPass    string   `toml:"keycmdpass" yaml:"keycmdpass"`
+	KeyCommandPassRef string   `toml:"keycmdpass_ref" yaml:"keycmdpass_ref"`
+	KeyPass           string   `toml:"keypass" yaml:"keypass"`
+	KeyPassRef        string   `toml:"keypass_ref" yaml:"keypass_ref"`
+	Keys              []string `toml:"keys" yaml:"keys"` // "keypath::passphrase"
+	Cert              string   `toml:"cert" yaml:"cert"`
+	CertRef           string   `toml:"cert_ref" yaml:"cert_ref"`
+	Certs             []string `toml:"certs" yaml:"certs"` // "certpath::keypath::passphrase"
+	CertKey           string   `toml:"certkey" yaml:"certkey"`
+	CertKeyRef        string   `toml:"certkey_ref" yaml:"certkey_ref"`
+	CertKeyPass       string   `toml:"certkeypass" yaml:"certkeypass"`
+	CertKeyPassRef    string   `toml:"certkeypass_ref" yaml:"certkeypass_ref"`
+	CertPKCS11        bool     `toml:"certpkcs11" yaml:"certpkcs11"`
+	AgentAuth         bool     `toml:"agentauth" yaml:"agentauth"`
+	SSHAgentUse       bool     `toml:"ssh_agent" yaml:"ssh_agent"`
+	SSHAgentKeyPath   []string `toml:"ssh_agent_key" yaml:"ssh_agent_key"` // "keypath::passphrase"
+	PKCS11Use         bool     `toml:"pkcs11" yaml:"pkcs11"`
+	PKCS11Provider    string   `toml:"pkcs11provider" yaml:"pkcs11provider"` // PKCS11 Provider PATH
+	PKCS11PIN         string   `toml:"pkcs11pin" yaml:"pkcs11pin"`           // PKCS11 PIN code
+	PKCS11PINRef      string   `toml:"pkcs11pin_ref" yaml:"pkcs11pin_ref"`
 
 	// pre execute command
 	PreCmd string `toml:"pre_cmd" yaml:"pre_cmd"`
@@ -156,6 +164,16 @@ type ServerConfig struct {
 	// ignore this server from selection / execution targets
 	Ignore bool `toml:"ignore" yaml:"ignore"`
 
+	// Optional connector selector. Empty means default built-in SSH unless a
+	// legacy provider-backed connector is inferred.
+	ConnectorName string `toml:"connector_name" yaml:"connector_name"`
+
+	// Runtime-only provider metadata for provider-generated servers.
+	ProviderName   string                 `toml:"-" yaml:"-"`
+	ProviderPlugin string                 `toml:"-" yaml:"-"`
+	ProviderMeta   map[string]string      `toml:"-" yaml:"-"`
+	ProviderConfig map[string]interface{} `toml:"-" yaml:"-"`
+
 	// Conditional overrides under [server.<name>.match.<branch>]
 	Match map[string]ServerMatchConfig `toml:"match" yaml:"match"`
 }
@@ -209,24 +227,32 @@ type ServerMatchConfig struct {
 	Port string `toml:"port" yaml:"port"`
 	User string `toml:"user" yaml:"user"`
 
-	Pass            string   `toml:"pass" yaml:"pass"`
-	Passes          []string `toml:"passes" yaml:"passes"`
-	Key             string   `toml:"key" yaml:"key"`
-	KeyCommand      string   `toml:"keycmd" yaml:"keycmd"`
-	KeyCommandPass  string   `toml:"keycmdpass" yaml:"keycmdpass"`
-	KeyPass         string   `toml:"keypass" yaml:"keypass"`
-	Keys            []string `toml:"keys" yaml:"keys"`
-	Cert            string   `toml:"cert" yaml:"cert"`
-	Certs           []string `toml:"certs" yaml:"certs"`
-	CertKey         string   `toml:"certkey" yaml:"certkey"`
-	CertKeyPass     string   `toml:"certkeypass" yaml:"certkeypass"`
-	CertPKCS11      bool     `toml:"certpkcs11" yaml:"certpkcs11"`
-	AgentAuth       bool     `toml:"agentauth" yaml:"agentauth"`
-	SSHAgentUse     bool     `toml:"ssh_agent" yaml:"ssh_agent"`
-	SSHAgentKeyPath []string `toml:"ssh_agent_key" yaml:"ssh_agent_key"`
-	PKCS11Use       bool     `toml:"pkcs11" yaml:"pkcs11"`
-	PKCS11Provider  string   `toml:"pkcs11provider" yaml:"pkcs11provider"`
-	PKCS11PIN       string   `toml:"pkcs11pin" yaml:"pkcs11pin"`
+	Pass              string   `toml:"pass" yaml:"pass"`
+	PassRef           string   `toml:"pass_ref" yaml:"pass_ref"`
+	Passes            []string `toml:"passes" yaml:"passes"`
+	Key               string   `toml:"key" yaml:"key"`
+	KeyRef            string   `toml:"key_ref" yaml:"key_ref"`
+	KeyCommand        string   `toml:"keycmd" yaml:"keycmd"`
+	KeyCommandPass    string   `toml:"keycmdpass" yaml:"keycmdpass"`
+	KeyCommandPassRef string   `toml:"keycmdpass_ref" yaml:"keycmdpass_ref"`
+	KeyPass           string   `toml:"keypass" yaml:"keypass"`
+	KeyPassRef        string   `toml:"keypass_ref" yaml:"keypass_ref"`
+	Keys              []string `toml:"keys" yaml:"keys"`
+	Cert              string   `toml:"cert" yaml:"cert"`
+	CertRef           string   `toml:"cert_ref" yaml:"cert_ref"`
+	Certs             []string `toml:"certs" yaml:"certs"`
+	CertKey           string   `toml:"certkey" yaml:"certkey"`
+	CertKeyRef        string   `toml:"certkey_ref" yaml:"certkey_ref"`
+	CertKeyPass       string   `toml:"certkeypass" yaml:"certkeypass"`
+	CertKeyPassRef    string   `toml:"certkeypass_ref" yaml:"certkeypass_ref"`
+	CertPKCS11        bool     `toml:"certpkcs11" yaml:"certpkcs11"`
+	AgentAuth         bool     `toml:"agentauth" yaml:"agentauth"`
+	SSHAgentUse       bool     `toml:"ssh_agent" yaml:"ssh_agent"`
+	SSHAgentKeyPath   []string `toml:"ssh_agent_key" yaml:"ssh_agent_key"`
+	PKCS11Use         bool     `toml:"pkcs11" yaml:"pkcs11"`
+	PKCS11Provider    string   `toml:"pkcs11provider" yaml:"pkcs11provider"`
+	PKCS11PIN         string   `toml:"pkcs11pin" yaml:"pkcs11pin"`
+	PKCS11PINRef      string   `toml:"pkcs11pin_ref" yaml:"pkcs11pin_ref"`
 
 	PreCmd       string `toml:"pre_cmd" yaml:"pre_cmd"`
 	PostCmd      string `toml:"post_cmd" yaml:"post_cmd"`
@@ -295,16 +321,23 @@ func (m ServerMatchConfig) OverrideConfig() ServerConfig {
 		Port:                          m.Port,
 		User:                          m.User,
 		Pass:                          m.Pass,
+		PassRef:                       m.PassRef,
 		Passes:                        m.Passes,
 		Key:                           m.Key,
+		KeyRef:                        m.KeyRef,
 		KeyCommand:                    m.KeyCommand,
 		KeyCommandPass:                m.KeyCommandPass,
+		KeyCommandPassRef:             m.KeyCommandPassRef,
 		KeyPass:                       m.KeyPass,
+		KeyPassRef:                    m.KeyPassRef,
 		Keys:                          m.Keys,
 		Cert:                          m.Cert,
+		CertRef:                       m.CertRef,
 		Certs:                         m.Certs,
 		CertKey:                       m.CertKey,
+		CertKeyRef:                    m.CertKeyRef,
 		CertKeyPass:                   m.CertKeyPass,
+		CertKeyPassRef:                m.CertKeyPassRef,
 		CertPKCS11:                    m.CertPKCS11,
 		AgentAuth:                     m.AgentAuth,
 		SSHAgentUse:                   m.SSHAgentUse,
@@ -312,6 +345,7 @@ func (m ServerMatchConfig) OverrideConfig() ServerConfig {
 		PKCS11Use:                     m.PKCS11Use,
 		PKCS11Provider:                m.PKCS11Provider,
 		PKCS11PIN:                     m.PKCS11PIN,
+		PKCS11PINRef:                  m.PKCS11PINRef,
 		PreCmd:                        m.PreCmd,
 		PostCmd:                       m.PostCmd,
 		ProxyType:                     m.ProxyType,

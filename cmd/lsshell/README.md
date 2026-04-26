@@ -38,7 +38,7 @@ COPYRIGHT:
     blacknon(blacknon@orebibou.com)
 
 VERSION:
-    lssh-suite 0.9.0 (beta/sysadmin)
+    lssh-suite 0.10.0 (beta/sysadmin)
 
 USAGE:
     # connect parallel ssh shell
@@ -196,10 +196,15 @@ clear         clear the screen
 %get          copy from remote to local
 %put          copy from local to remote
 %sync         one-way sync between local and remote paths
+%diff         compare remote files in a synchronized TUI
+%status       show current connection status
+%reconnect    reconnect disconnected hosts
 ```
 
 `%sync` uses the same path prefixes as `lssync`, for example `local:./site` or `remote:/srv/app`.
 When you need to pin a remote path to a specific host, use `remote:@host:/path`.
+
+`%diff` follows the same input style as `lsdiff`. For example, `%diff /etc/hosts` compares the same remote path across the current shell targets, and `%diff @host1:/etc/hosts @host2:/tmp/hosts` compares explicit host/path pairs.
 
 ### forwarding
 

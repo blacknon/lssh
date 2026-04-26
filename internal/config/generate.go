@@ -81,7 +81,28 @@ func serverConfigToTOMLMap(cfg ServerConfig) map[string]interface{} {
 		result[tag] = fieldValue.Interface()
 	}
 
+	for key, value := range cfg.ProviderConfig {
+		if _, ok := result[key]; ok {
+			continue
+		}
+		result[key] = value
+	}
+
 	return result
+}
+
+func serverConfigTOMLKeys() []string {
+	typ := reflect.TypeOf(ServerConfig{})
+	keys := make([]string, 0, typ.NumField())
+	for i := 0; i < typ.NumField(); i++ {
+		tag := typ.Field(i).Tag.Get("toml")
+		if tag == "" || tag == "-" {
+			continue
+		}
+		keys = append(keys, tag)
+	}
+	sort.Strings(keys)
+	return keys
 }
 
 func tomlValueString(v interface{}) string {

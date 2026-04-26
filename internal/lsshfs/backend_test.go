@@ -1,6 +1,8 @@
 package lsshfs
 
 import (
+	"os"
+	"path/filepath"
 	"reflect"
 	"runtime"
 	"testing"
@@ -62,6 +64,33 @@ func TestNormalizeMountPoint(t *testing.T) {
 	}
 }
 
+func TestNormalizeMountPointResolvesSymlinkParent(t *testing.T) {
+	base := t.TempDir()
+	realParent := filepath.Join(base, "real")
+	if err := os.MkdirAll(realParent, 0o755); err != nil {
+		t.Fatalf("MkdirAll() error = %v", err)
+	}
+
+	linkParent := filepath.Join(base, "link")
+	if err := os.Symlink(realParent, linkParent); err != nil {
+		t.Fatalf("Symlink() error = %v", err)
+	}
+
+	got, err := normalizeMountPoint("darwin", filepath.Join(linkParent, "mount"))
+	if err != nil {
+		t.Fatalf("normalizeMountPoint() error = %v", err)
+	}
+
+	resolvedParent, err := filepath.EvalSymlinks(realParent)
+	if err != nil {
+		t.Fatalf("EvalSymlinks() error = %v", err)
+	}
+	want := filepath.Join(resolvedParent, "mount")
+	if got != want {
+		t.Fatalf("normalizeMountPoint() = %q, want %q", got, want)
+	}
+}
+
 func TestMountCommand(t *testing.T) {
 	tests := []struct {
 		goos       string
@@ -87,13 +116,36 @@ func TestMountCommand(t *testing.T) {
 	}
 
 	for _, tt := range tests {
-		got, err := mountCommand(tt.goos, tt.mountpoint, 2049, "", nil)
+		got, err := mountCommand(tt.goos, tt.mountpoint, 2049, "", nil, nil)
 		if err != nil {
 			t.Fatalf("mountCommand(%q) error = %v", tt.goos, err)
 		}
 		if !reflect.DeepEqual(got, tt.want) {
 			t.Fatalf("mountCommand(%q) = %#v, want %#v", tt.goos, got, tt.want)
 		}
+	}
+}
+
+func TestMountCommandAppendsMountOptions(t *testing.T) {
+	got, err := mountCommand("darwin", "/mnt/test", 2049, "", nil, []string{"nobrowse", "nolocks"})
+	if err != nil {
+		t.Fatalf("mountCommand() error = %v", err)
+	}
+
+	want := CommandSpec{
+		Name: "mount_nfs",
+		Args: []string{"-o", "port=2049,mountport=2049,tcp,nfsvers=3,nobrowse,nolocks", "127.0.0.1:/", "/mnt/test"},
+	}
+	if !reflect.DeepEqual(got, want) {
+		t.Fatalf("mountCommand() = %#v, want %#v", got, want)
+	}
+}
+
+func TestNormalizeMountOptions(t *testing.T) {
+	got := normalizeMountOptions([]string{"nobrowse", "nolocks,locallocks", "  noowners  ", "", "nobrowse"})
+	want := []string{"nobrowse", "nolocks", "locallocks", "noowners", "nobrowse"}
+	if !reflect.DeepEqual(got, want) {
+		t.Fatalf("normalizeMountOptions() = %#v, want %#v", got, want)
 	}
 }
 
@@ -108,8 +160,13 @@ func TestUnmountCommands(t *testing.T) {
 			target: "/mnt/test",
 			want: []CommandSpec{
 				{Name: "fusermount3", Args: []string{"-u", "/mnt/test"}},
+				{Name: "fusermount3", Args: []string{"-u", "-z", "/mnt/test"}},
 				{Name: "fusermount", Args: []string{"-u", "/mnt/test"}},
+				{Name: "fusermount", Args: []string{"-u", "-z", "/mnt/test"}},
 				{Name: "umount", Args: []string{"/mnt/test"}},
+				{Name: "umount", Args: []string{"-l", "/mnt/test"}},
+				{Name: "umount", Args: []string{"-f", "/mnt/test"}},
+				{Name: "umount", Args: []string{"-l", "-f", "/mnt/test"}},
 			},
 		},
 		{
@@ -117,6 +174,8 @@ func TestUnmountCommands(t *testing.T) {
 			target: "/mnt/test",
 			want: []CommandSpec{
 				{Name: "umount", Args: []string{"/mnt/test"}},
+				{Name: "umount", Args: []string{"-f", "/mnt/test"}},
+				{Name: "diskutil", Args: []string{"unmount", "force", "/mnt/test"}},
 			},
 		},
 		{

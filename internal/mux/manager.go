@@ -56,6 +56,8 @@ type Manager struct {
 	nextPaneID int
 	stopOnce   sync.Once
 
+	transferEnabled bool
+
 	transferMu     sync.Mutex
 	transfers      []*transferJob
 	nextTransferID int
@@ -75,6 +77,7 @@ type SessionOptions struct {
 	IsBashrc                      bool
 	IsNotBashrc                   bool
 	ControlMasterOverride         *bool
+	TransferEnabled               *bool
 	ParallelInfo                  func(server string) []string
 }
 
@@ -136,6 +139,10 @@ func NewManager(cfg conf.Config, names []string, command []string, stdinData []b
 		status:                status,
 		nextPageID:            1,
 		nextPaneID:            1,
+	}
+	m.transferEnabled = cfg.Mux.IsTransferEnabled()
+	if options.TransferEnabled != nil {
+		m.transferEnabled = *options.TransferEnabled
 	}
 
 	m.app.SetInputCapture(m.captureInput)
@@ -423,25 +430,40 @@ func (m *Manager) addPanesToCurrentPage(hosts []string, direction int) error {
 	if m.currentPage == nil {
 		return m.createPage(hosts)
 	}
-	if len(hosts) > 1 {
-		for _, host := range hosts {
-			p := m.newPendingPane(host)
-			m.currentPage.panes = append(m.currentPage.panes, p)
-			m.currentPage.focus = p
-			m.startPaneConnect(m.currentPage, p)
-		}
-		m.currentPage.layout = buildBalancedLayout(m.currentPage.panes, direction)
+	if len(hosts) == 0 {
 		return nil
 	}
 
+	newPanes := make([]*pane, 0, len(hosts))
 	for _, host := range hosts {
 		p := m.newPendingPane(host)
-		if !m.currentPage.layout.split(m.currentPage.focus, p, direction) {
-			if p.term != nil {
-				_ = p.term.Close()
+		newPanes = append(newPanes, p)
+	}
+
+	if m.currentPage.layout == nil {
+		if len(newPanes) == 1 {
+			m.currentPage.layout = &layoutNode{pane: newPanes[0]}
+		} else {
+			m.currentPage.layout = buildBalancedLayout(newPanes, direction)
+		}
+	} else {
+		var nextLayout *layoutNode
+		if len(newPanes) == 1 {
+			nextLayout = &layoutNode{pane: newPanes[0]}
+		} else {
+			nextLayout = buildBalancedLayout(newPanes, direction)
+		}
+		if !m.currentPage.layout.splitLayout(m.currentPage.focus, nextLayout, direction) {
+			for _, p := range newPanes {
+				if p.term != nil {
+					_ = p.term.Close()
+				}
 			}
 			return fmt.Errorf("focused pane not found")
 		}
+	}
+
+	for _, p := range newPanes {
 		m.currentPage.panes = append(m.currentPage.panes, p)
 		m.currentPage.focus = p
 		m.startPaneConnect(m.currentPage, p)
@@ -502,6 +524,7 @@ func (m *Manager) startPaneConnect(targetPage *page, p *pane) {
 func (m *Manager) activatePane(targetPage *page, p *pane, session *RemoteSession) {
 	p.session = session
 	p.term = tvxterm.New(m.app)
+	p.term.SetScrollbar(m.conf.Mux.IsScrollbarEnabled())
 	p.primitive = nil
 	p.focusTarget = nil
 	p.failed = false
@@ -542,14 +565,21 @@ func (m *Manager) activatePane(targetPage *page, p *pane, session *RemoteSession
 		})
 	})
 	p.term.Attach(session.Backend)
-	if len(m.command) > 0 && len(m.stdinData) > 0 && session.Terminal != nil && session.Terminal.Stdin != nil {
+	var sessionInput io.WriteCloser
+	switch {
+	case session.Terminal != nil && session.Terminal.Stdin != nil:
+		sessionInput = session.Terminal.Stdin
+	case session.Input != nil:
+		sessionInput = session.Input
+	}
+	if len(m.command) > 0 && len(m.stdinData) > 0 && sessionInput != nil {
 		stdinData := append([]byte(nil), m.stdinData...)
 		go func(term io.WriteCloser, data []byte) {
 			if len(data) > 0 {
 				_, _ = term.Write(data)
 			}
 			_ = term.Close()
-		}(session.Terminal.Stdin, stdinData)
+		}(sessionInput, stdinData)
 	}
 	m.applyPaneStyle(p)
 }
