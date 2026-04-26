@@ -457,28 +457,74 @@ vhs images/example_lssh_mux.tape -o images/example_lssh_mux.gif
 vhs images/example_lssh_mux_command.tape -o images/example_lssh_mux_command.gif
 """
 
-[tasks.generate-cmd-gif]
+[tasks.generate-lssh-gif]
 description = "generate cmd/*/img/*.gif"
 run = """
 # lssh
+"""
 
-# lscp
+[tasks.generate-lscp-gif]
+description = "generate lscp gif"
+run = """
+vhs ./cmd/lscp/img/lscp.tape -o ./cmd/lscp/img/lscp.gif
+"""
 
-# lsftp
+[tasks.generate-lsftp-gif]
+description = "generate lsftp gif"
+run = """
+vhs ./cmd/lsftp/img/lsftp.tape -o ./cmd/lsftp/img/lsftp.gif
+"""
 
-# lssync
+[tasks.generate-lsshell-gif]
+description = "generate lsshell gif"
+run = """
+vhs ./cmd/lsshell/img/lsshell.tape -o ./cmd/lsshell/img/lsshell.gif
+"""
 
-# lsshfs
-
-# lsdiff
-
-# lsshell
-
+[tasks.generate-lsmux-gif]
+description = "generate cmd/*/img/*.gif"
+run = """
 # lsmux
 vhs ./cmd/lsmux/img/command.tape -o ./cmd/lsmux/img/command.gif
+vhs ./cmd/lsmux/img/term.tape -o ./cmd/lsmux/img/term.gif
+"""
 
-# lspipe
-
-# lsmon
+[tasks.generate-lsmon-gif]
+description = "generate lsmon gif"
+run = """
 vhs ./cmd/lsmon/img/lsmon.tape -o ./cmd/lsmon/img/lsmon.gif
+"""
+
+[tasks.generate-lssync-gif]
+description = "generate lssync gif"
+run = """
+vhs ./cmd/lssync/img/lssync.tape -o ./cmd/lssync/img/lssync.gif
+"""
+
+[tasks.generate-lsdiff-gif]
+description = "generate lsdiff gif"
+run = """
+vhs ./cmd/lsdiff/img/lsdiff.tape -o ./cmd/lsdiff/img/lsdiff.gif
+"""
+
+[tasks.generate-lspipe-gif]
+description = "generate lspipe gif"
+run = """
+vhs ./cmd/lspipe/img/lspipe.tape -o ./cmd/lspipe/img/lspipe.gif
+"""
+
+[tasks.generate-cmd-gif]
+description = "generate cmd/*/img/*.gif"
+depends = [
+    "generate-lscp-gif",
+    "generate-lsftp-gif",
+    "generate-lsdiff-gif",
+    "generate-lsmon-gif",
+    "generate-lsmux-gif",
+    "generate-lspipe-gif",
+    "generate-lsshell-gif",
+    "generate-lssync-gif",
+]
+run = """
+echo "generated command gifs"
 """

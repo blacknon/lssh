@@ -31,6 +31,11 @@ func Execute(opts ExecOptions) error {
 		return err
 	}
 
+	resolvedHosts, err := ResolveExecHosts(session.Hosts, opts.Hosts)
+	if err != nil {
+		return err
+	}
+
 	conn, err := dialSession(session)
 	if err != nil {
 		return err
@@ -45,7 +50,7 @@ func Execute(opts ExecOptions) error {
 		Action:  actionExec,
 		Name:    session.Name,
 		Command: strings.TrimSpace(opts.Command),
-		Hosts:   opts.Hosts,
+		Hosts:   resolvedHosts,
 		Raw:     opts.Raw,
 		Stdin:   opts.Stdin,
 	}); err != nil {

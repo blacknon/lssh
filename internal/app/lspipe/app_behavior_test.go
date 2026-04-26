@@ -22,6 +22,7 @@ func newTestContext(t *testing.T, args ...string) *cli.Context {
 	fs.String("name", "", "")
 	fs.String("fifo-name", "default", "")
 	fs.Bool("replace", false, "")
+	fs.Bool("help", false, "")
 	fs.Var(new(cli.StringSlice), "create-host", "")
 	fs.Var(new(cli.StringSlice), "host", "")
 	if err := fs.Parse(args); err != nil {
@@ -83,7 +84,7 @@ func TestEnsureSessionStaleSessionTriggersRecreation(t *testing.T) {
 		return nil
 	}
 
-	if err := ensureSession(newTestContext(t, "--create-host", "web01"), conf.Config{
+	if err := ensureSession(newTestContext(t, "--host", "web01"), conf.Config{
 		Server: map[string]conf.ServerConfig{
 			"web01": {Addr: "127.0.0.1", User: "demo", Pass: "secret"},
 		},
@@ -95,14 +96,78 @@ func TestEnsureSessionStaleSessionTriggersRecreation(t *testing.T) {
 	}
 }
 
+func TestEnsureSessionForCommandReusesAliveSessionWithoutPrinting(t *testing.T) {
+	origLoad, origMark, origFormat, origSpawn := loadSessionFn, markSessionAliveFn, formatSessionFn, spawnDaemonFn
+	t.Cleanup(func() {
+		loadSessionFn, markSessionAliveFn, formatSessionFn, spawnDaemonFn = origLoad, origMark, origFormat, origSpawn
+	})
+
+	loadSessionFn = func(name string) (pipeapp.Session, error) {
+		return pipeapp.Session{Name: name}, nil
+	}
+	markSessionAliveFn = func(session *pipeapp.Session) {
+		session.Stale = false
+	}
+	formatSessionFn = func(session pipeapp.Session) string { return "reused" }
+	spawnDaemonFn = func(c *cli.Context, name string, hosts []string) error {
+		return errors.New("should not spawn")
+	}
+
+	origStdout := os.Stdout
+	r, w, _ := os.Pipe()
+	os.Stdout = w
+	t.Cleanup(func() {
+		os.Stdout = origStdout
+	})
+
+	err := ensureSessionForCommand(newTestContext(t), conf.Config{}, "prod")
+	_ = w.Close()
+	data, _ := io.ReadAll(r)
+	if err != nil {
+		t.Fatalf("ensureSessionForCommand() error = %v", err)
+	}
+	if got := string(data); got != "" {
+		t.Fatalf("stdout = %q, want empty", got)
+	}
+}
+
+func TestEnsureSessionForCommandCreatesMissingSession(t *testing.T) {
+	origLoad, origSpawn := loadSessionFn, spawnDaemonFn
+	t.Cleanup(func() {
+		loadSessionFn, spawnDaemonFn = origLoad, origSpawn
+	})
+
+	loadSessionFn = func(name string) (pipeapp.Session, error) {
+		return pipeapp.Session{}, os.ErrNotExist
+	}
+
+	var gotHosts []string
+	spawnDaemonFn = func(c *cli.Context, name string, hosts []string) error {
+		gotHosts = append([]string{}, hosts...)
+		return nil
+	}
+
+	err := ensureSessionForCommand(newTestContext(t, "--host", "web01"), conf.Config{
+		Server: map[string]conf.ServerConfig{
+			"web01": {Addr: "127.0.0.1", User: "demo", Pass: "secret"},
+		},
+	}, "prod")
+	if err != nil {
+		t.Fatalf("ensureSessionForCommand() error = %v", err)
+	}
+	if strings.Join(gotHosts, ",") != "web01" {
+		t.Fatalf("spawn hosts = %#v", gotHosts)
+	}
+}
+
 func TestCloseSessionRemovesFIFOBridgesAndSession(t *testing.T) {
 	cacheDir := filepath.Join(t.TempDir(), "cache")
 	t.Setenv("XDG_CACHE_HOME", cacheDir)
 
 	session := pipeapp.Session{
-		Name:      "prod",
-		Hosts:     []string{"web01"},
-		CreatedAt: time.Now(),
+		Name:       "prod",
+		Hosts:      []string{"web01"},
+		CreatedAt:  time.Now(),
 		LastUsedAt: time.Now(),
 	}
 	if err := pipeapp.SaveSession(session); err != nil {
