@@ -41,11 +41,13 @@ sudo dnf install -y /tmp/lssh.rpm
 
 | Package | Includes | Best for |
 | --- | --- | --- |
+| `lssh-complete_*` | all suite commands, bundled providers, and command completions | A single archive with the full suite plus provider-backed workflows |
 | `lssh_*` | `lssh`, `lscp`, `lsftp`, `lssync`, `lsdiff`, `lsshfs`, `lsmon`, `lsshell`, `lsmux`, `lspipe` | Full installation of the entire tool suite |
 | `lssh-core_*` | `lssh` | SSH access and forwarding only |
 | `lssh-transfer_*` | `lscp`, `lsftp`, `lssync`, `lsdiff`, `lsshfs` | File transfer, diff, and mount workflows only |
 | `lssh-monitor_*` | `lsmon` | Monitoring multiple remote hosts |
 | `lssh-sysadmin_*` | `lsshell`, `lsmux`, `lspipe` | Parallel shell and multi-host operations |
+| `lssh-providers_*` | bundled provider executables | Provider-backed inventory, connector, and secret workflows |
 
 ## go install
 
@@ -69,10 +71,19 @@ go install github.com/blacknon/lssh/cmd/lspipe@latest
 Provider-backed inventory, secret, and connector features require provider executables in addition to the main `cmd/*` binaries.
 If you install only `cmd/lssh`, provider binaries are not installed automatically.
 
+In `v0.10.0`, provider-backed inventory and secret workflows are best treated as `beta`.
+Connector-backed access beyond native SSH is still `experimental`, especially for non-SSH runtimes such as WinRM and cloud-managed connectors.
+
 For local development, install the bundled provider executables with:
 
 ```bash
 mise run provider_install
+```
+
+If you want the local source checkout to install the full suite, bundled providers, and shell completions in one step, use:
+
+```bash
+mise run complete_install
 ```
 
 This installs the provider binaries under `~/.config/lssh/providers`.
@@ -83,14 +94,19 @@ The same task first builds the current provider set from this repository, includ
 - `provider-connector-telnet`
 - `provider-connector-winrm`
 - `provider-mixed-azure-compute`
+- `provider-inventory-azure-compute`
 - `provider-mixed-gcp-compute`
+- `provider-inventory-gcp-compute`
 - `provider-inventory-proxmox`
 - `provider-secret-onepassword`
 - `provider-secret-bitwarden`
 - `provider-secret-os-keychain`
 - `provider-secret-custom-script`
 
-If you are using a release build instead of a source checkout, install the matching provider binaries from the release assets or the full suite package.
+If you are using a release build instead of a source checkout, either:
+
+- install the all-in-one `lssh-complete_*` archive for your platform, or
+- install the matching `lssh-providers_*` release asset alongside the command package you want to use
 
 ## Homebrew
 

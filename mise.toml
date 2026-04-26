@@ -6,23 +6,29 @@
 # Tasks(full)
 # ====================
 [tasks.full_build]
-description = "Build binary files all"
+description = "Build all lssh suite command binaries"
 depends = [
     "core_build",
     "transfer_build",
     "monitor_build",
     "sysadmin_build",
-    "provider_build",
 ]
 
 [tasks.full_install]
-description = "Install binary files all"
+description = "Install all lssh suite command binaries"
 depends = [
     "core_install",
     "transfer_install",
     "monitor_install",
     "sysadmin_install",
+]
+
+[tasks.complete_install]
+description = "Install the full lssh suite, bundled providers, and shell completions"
+depends = [
+    "full_install",
     "provider_install",
+    "completion_install",
 ]
 
 [tasks.completion_install]
@@ -141,8 +147,12 @@ run = """
         tmp="$dir/.$(basename "$dst").tmp.$$"
 
         cp "$src" "$tmp"
-        xattr -d com.apple.provenance "$tmp" 2>/dev/null || true
-        codesign --force --sign - "$tmp"
+        if command -v xattr >/dev/null 2>&1; then
+            xattr -d com.apple.provenance "$tmp" 2>/dev/null || true
+        fi
+        if command -v codesign >/dev/null 2>&1; then
+            codesign --force --sign - "$tmp" 2>/dev/null || true
+        fi
         mv -f "$tmp" "$dst"
     }
 
