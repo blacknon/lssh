@@ -100,8 +100,9 @@ The same task first builds the current provider set from this repository, includ
 - `provider-inventory-proxmox`
 - `provider-secret-onepassword`
 - `provider-secret-bitwarden`
-- `provider-secret-os-keychain`
 - `provider-secret-custom-script`
+
+On macOS, the same release/install flow also includes `provider-secret-os-keychain`.
 
 If you are using a release build instead of a source checkout, either:
 
