@@ -1,6 +1,7 @@
 # Go コマンド
 GOCMD=go
-MODULE=GO111MODULE=on
+GOCACHE_LOCAL=GOCACHE=$(CURDIR)/.gocache
+MODULE=$(GOCACHE_LOCAL) GO111MODULE=on GOWORK=off
 GOBUILD=$(MODULE) $(GOCMD) build -ldflags -w
 GOCLEAN=$(GOCMD) clean
 GOTEST=$(MODULE) $(GOCMD) test -cover
@@ -38,8 +39,9 @@ INSTALL_PATH_LSPIPE=/usr/local/bin/lspipe
 build:
 	# Remove unnecessary dependent libraries
 	$(GOMOD) tidy
-	# Place dependent libraries under vendor
 	$(GOMOD) vendor
+	cd provider && $(GOMOD) tidy
+	cd provider && $(GOMOD) vendor
 
 	# Build lsshgo
 	$(BUILDCMD_LSSH)
@@ -64,6 +66,7 @@ build:
 
 clean:
 	$(GOCLEAN) ./...
+	cd provider && $(GOCLEAN) ./...
 	rm -f lssh
 	rm -f lscp
 	rm -f lsftp
@@ -166,3 +169,4 @@ install-completions-user:
 
 test:
 	$(GOTEST) ./...
+	cd provider && $(GOTEST) ./...

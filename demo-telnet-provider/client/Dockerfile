@@ -3,8 +3,8 @@ FROM golang:1.25.1-bookworm AS builder
 WORKDIR /src
 COPY . .
 
-RUN GO111MODULE=on go build -mod=vendor -o /out/lssh ./cmd/lssh && \
-    GO111MODULE=on go build -mod=vendor -o /out/provider-connector-telnet ./provider/connector/provider-connector-telnet
+RUN GO111MODULE=on GOWORK=off go build -mod=vendor -o /out/lssh ./cmd/lssh && \
+    cd provider && GO111MODULE=on GOWORK=off go build -mod=vendor -o /out/provider-connector-telnet ./connector/provider-connector-telnet
 
 FROM debian:bookworm-slim
 

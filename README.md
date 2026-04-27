@@ -49,6 +49,7 @@ mise run provider_install
 For release builds, either install the all-in-one `lssh-complete_*` archive or add the matching `lssh-providers_*` archive from GitHub Releases.
 
 For more installation details, including other options and platform-specific notes, see [docs/install.md](./docs/install.md).
+For package manager publishing guidance across Windows, macOS, and Linux, see [docs/distribution.md](./docs/distribution.md).
 
 ## Quick start
 

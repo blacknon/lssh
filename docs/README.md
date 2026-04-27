@@ -7,6 +7,7 @@ If you are new to the project, start with the root [`README.md`](../README.md), 
 ## Guides
 
 - [install.md](./install.md): installation options, prebuilt packages, and package layout
+- [distribution.md](./distribution.md): package manager publishing guide and manifest templates
 - [configuration.md](./configuration.md): shared `~/.lssh.conf` format, inventory design, proxies, auth, and conditional `match` rules
 
 ## Command docs

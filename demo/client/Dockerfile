@@ -3,15 +3,15 @@ FROM golang:1.25.1-bookworm AS builder
 WORKDIR /src
 COPY . .
 
-RUN GO111MODULE=on go build -mod=vendor -o /out/lssh ./cmd/lssh && \
-    GO111MODULE=on go build -mod=vendor -o /out/lscp ./cmd/lscp && \
-    GO111MODULE=on go build -mod=vendor -o /out/lsftp ./cmd/lsftp && \
-    GO111MODULE=on go build -mod=vendor -o /out/lssync ./cmd/lssync && \
-    GO111MODULE=on go build -mod=vendor -o /out/lsdiff ./cmd/lsdiff && \
-    GO111MODULE=on go build -mod=vendor -o /out/lsshfs ./cmd/lsshfs && \
-    GO111MODULE=on go build -mod=vendor -o /out/lsshell ./cmd/lsshell && \
-    GO111MODULE=on go build -mod=vendor -o /out/lsmon ./cmd/lsmon && \
-    GO111MODULE=on go build -mod=vendor -o /out/lsmux ./cmd/lsmux
+RUN GO111MODULE=on GOWORK=off go build -mod=vendor -o /out/lssh ./cmd/lssh && \
+    GO111MODULE=on GOWORK=off go build -mod=vendor -o /out/lscp ./cmd/lscp && \
+    GO111MODULE=on GOWORK=off go build -mod=vendor -o /out/lsftp ./cmd/lsftp && \
+    GO111MODULE=on GOWORK=off go build -mod=vendor -o /out/lssync ./cmd/lssync && \
+    GO111MODULE=on GOWORK=off go build -mod=vendor -o /out/lsdiff ./cmd/lsdiff && \
+    GO111MODULE=on GOWORK=off go build -mod=vendor -o /out/lsshfs ./cmd/lsshfs && \
+    GO111MODULE=on GOWORK=off go build -mod=vendor -o /out/lsshell ./cmd/lsshell && \
+    GO111MODULE=on GOWORK=off go build -mod=vendor -o /out/lsmon ./cmd/lsmon && \
+    GO111MODULE=on GOWORK=off go build -mod=vendor -o /out/lsmux ./cmd/lsmux
 
 FROM debian:bookworm-slim
 

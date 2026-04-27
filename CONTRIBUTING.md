@@ -24,7 +24,19 @@ Typical setup:
 mise run go_mod
 ```
 
-If you prefer working directly with Go commands, make sure `go mod tidy` and `go mod vendor` are kept in sync through the existing project workflow.
+The repository uses a Go workspace for local development:
+
+- root module for `cmd/*`, `internal/*`, and shared code
+- `provider/` module for bundled provider executables
+
+For vendoring and release-oriented validation, keep each module in sync independently:
+
+```bash
+GO111MODULE=on GOWORK=off go mod tidy
+GO111MODULE=on GOWORK=off go mod vendor
+(cd provider && GO111MODULE=on GOWORK=off go mod tidy)
+(cd provider && GO111MODULE=on GOWORK=off go mod vendor)
+```
 
 ## Repository Layout
 
@@ -38,6 +50,8 @@ High-level structure:
   - shared implementation used across commands
 - `provider/*`
   - external provider executables and provider design docs
+- `provider/go.mod`
+  - provider-specific module definition for bundled provider binaries
 - `docs/*`
   - user documentation
 - `completion/*`
@@ -129,7 +143,7 @@ Useful paths:
 
 - Do not edit `vendor/` by hand.
 - If a problem appears to come from vendored code, first check whether updating the dependency version is the right fix.
-- Keep module and vendor state aligned through the project's existing workflow.
+- Keep both modules and the workspace vendor state aligned through the project's existing workflow.
 - Add new dependencies only when clearly necessary.
 
 ## Documentation Updates

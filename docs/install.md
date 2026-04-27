@@ -35,6 +35,20 @@ curl -fL -o /tmp/lssh.rpm \
 sudo dnf install -y /tmp/lssh.rpm
 ```
 
+### Windows (amd64, .zip)
+
+Download a release asset from GitHub Releases, then extract it somewhere under your user profile.
+
+- `lssh_${VERSION}_windows_amd64.zip`: full command suite
+- `lssh-core_${VERSION}_windows_amd64.zip`: `lssh` only
+- `lssh-complete_${VERSION}_windows_amd64.zip`: full suite plus bundled providers
+
+There is currently no MSI installer.
+After extracting the archive, place the files from `bin\` in a directory that is included in your `PATH`.
+
+If you use provider-backed inventory, connector, or secret workflows, also install the matching provider executables from `providers\`.
+For package manager publishing guidance such as `winget`, `Scoop`, `Homebrew`, and `AUR`, see [distribution.md](./distribution.md).
+
 ## Package layout
 
 `lssh` provides both a full suite package and smaller split packages.

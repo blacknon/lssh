@@ -78,21 +78,23 @@ depends = [
 # Tasks(go module)
 # ====================
 [tasks.go_mod]
-description = "Run go mod tidy"
+description = "Run go mod tidy/vendor for the root module and the provider module"
 depends = []
 run = """
-    go mod tidy
+    GOCACHE="$PWD/.gocache" GO111MODULE=on GOWORK=off go mod tidy
     if [ -d vendor/github.com/bitwarden/sdk-go/internal/cinterface/lib ]; then
         chmod -R u+w vendor/github.com/bitwarden/sdk-go/internal/cinterface/lib
         rm -rf vendor/github.com/bitwarden/sdk-go/internal/cinterface/lib
     fi
-    go mod vendor
+    GOCACHE="$PWD/.gocache" GO111MODULE=on GOWORK=off go mod vendor
     BITWARDEN_SDK_DIR="$(find "$(go env GOMODCACHE)/github.com/bitwarden" -maxdepth 1 -type d -name 'sdk-go@*' | head -n 1)"
     if [ -n "$BITWARDEN_SDK_DIR" ] && [ -d "$BITWARDEN_SDK_DIR/internal/cinterface/lib" ]; then
         mkdir -p vendor/github.com/bitwarden/sdk-go/internal/cinterface
         cp -R "$BITWARDEN_SDK_DIR/internal/cinterface/lib" vendor/github.com/bitwarden/sdk-go/internal/cinterface/lib
         chmod -R u+w vendor/github.com/bitwarden/sdk-go/internal/cinterface/lib
     fi
+    (cd provider && GOCACHE="$PWD/../.gocache" GO111MODULE=on GOWORK=off go mod tidy)
+    (cd provider && GOCACHE="$PWD/../.gocache" GO111MODULE=on GOWORK=off go mod vendor)
 """
 
 # Tasks(Provider)

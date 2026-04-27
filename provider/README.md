@@ -14,6 +14,10 @@ Providers are grouped by capability or implementation style:
 Shared provider-side helper libraries live under `../providerutil/`.
 Those packages are reusable support code for provider implementations and are intentionally kept outside the capability-oriented `provider/*` layout.
 
+The bundled providers are maintained as a dedicated Go module rooted at [`go.mod`](./go.mod).
+That keeps cloud and connector SDK dependencies out of the main command module while still allowing local development through the repository workspace defined in [`../go.work`](../go.work).
+When you refresh vendored dependencies, update the root module and the provider module separately.
+
 Each provider is a standalone executable that communicates with `lssh` over JSON via stdin/stdout.
 
 A single provider implementation may support one capability or multiple capabilities.
