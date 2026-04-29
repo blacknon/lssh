@@ -61,6 +61,10 @@ Local and remote forwarding support both TCP and Unix domain sockets.
             // If you use ssh-agent forwarding, please set to true.
             // And after, run `con.ConnectSshAgent()`.
             ForwardAgent: false,
+
+            // Reconnect the direct SSH transport before starting the next operation
+            // when the connection has been lost.
+            AutoReconnect: true,
         }
 
         // Create ssh.AuthMethod

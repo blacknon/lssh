@@ -1,7 +1,6 @@
 package sshlib
 
 import (
-	"errors"
 	"net"
 
 	"github.com/pkg/sftp"
@@ -15,8 +14,8 @@ func (c *Connect) newSFTPClient() (*sftp.Client, error) {
 	if c.isControlClient() {
 		return c.controlClient.newSFTPClient()
 	}
-	if c.Client == nil {
-		return nil, errors.New("ssh client is nil")
+	if err := c.ensureActiveConnection(); err != nil {
+		return nil, err
 	}
 	return sftp.NewClient(c.Client)
 }

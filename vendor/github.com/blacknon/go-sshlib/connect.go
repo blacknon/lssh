@@ -27,6 +27,8 @@ type Connect struct {
 	// Client *ssh.Client
 	Client *ssh.Client
 
+	reconnectMu    sync.Mutex
+	reconnectAuths []ssh.AuthMethod
 	controlClient  *controlClient
 	controlMaster  *controlMaster
 	controlHost    string
@@ -51,6 +53,16 @@ type Connect struct {
 
 	// Connect timeout second.
 	ConnectTimeout int
+
+	// AutoReconnect reconnects the underlying SSH transport before starting a new operation
+	// when the direct connection has been lost.
+	AutoReconnect bool
+
+	// AutoReconnectInterval is the delay in seconds between reconnect attempts.
+	AutoReconnectInterval int
+
+	// AutoReconnectMax is the maximum number of reconnect attempts.
+	AutoReconnectMax int
 
 	// SendKeepAliveMax and SendKeepAliveInterval
 	SendKeepAliveMax      int
@@ -165,6 +177,7 @@ func (c *Connect) CreateClient(host, port, user string, authMethods []ssh.AuthMe
 	if err != nil {
 		return err
 	}
+	c.rememberReconnectConfig(host, port, user, authMethods)
 
 	mode := c.controlMode()
 	if mode == "" || mode == "no" {
@@ -330,6 +343,13 @@ func (c *Connect) createDirectClient(host, port, user string, authMethods []ssh.
 	return
 }
 
+func (c *Connect) rememberReconnectConfig(host, port, user string, authMethods []ssh.AuthMethod) {
+	c.controlHost = host
+	c.controlPort = port
+	c.controlUser = user
+	c.reconnectAuths = append(c.reconnectAuths[:0], authMethods...)
+}
+
 func (c *Connect) controlMode() string {
 	switch c.ControlMaster {
 	case "", "no":
@@ -347,6 +367,9 @@ func (c *Connect) isControlClient() bool {
 
 // Close releases control resources and the underlying SSH client.
 func (c *Connect) Close() error {
+	c.reconnectMu.Lock()
+	defer c.reconnectMu.Unlock()
+
 	var err error
 
 	if c.controlClient != nil {
@@ -390,6 +413,10 @@ func (c *Connect) CreateSession() (session *ssh.Session, err error) {
 		return nil, errors.New("sshlib: CreateSession is not available over ControlMaster; use Command, Shell(nil), or CmdShell(nil, command)")
 	}
 
+	if err := c.ensureActiveConnection(); err != nil {
+		return nil, err
+	}
+
 	// Create session
 	session, err = c.Client.NewSession()
 	return
@@ -399,10 +426,13 @@ func (c *Connect) CreateSession() (session *ssh.Session, err error) {
 // When ControlMaster is enabled, the dial is tunneled via the control socket.
 func (c *Connect) Dial(network, addr string) (net.Conn, error) {
 	if c.isControlClient() {
+		if err := c.ensureActiveConnection(); err != nil {
+			return nil, err
+		}
 		return c.controlClient.Dial(network, addr)
 	}
-	if c.Client == nil {
-		return nil, errors.New("ssh client is nil")
+	if err := c.ensureActiveConnection(); err != nil {
+		return nil, err
 	}
 	return c.Client.Dial(network, addr)
 }
@@ -411,12 +441,95 @@ func (c *Connect) Dial(network, addr string) (net.Conn, error) {
 // When ControlMaster is enabled, the listener is managed by the control master.
 func (c *Connect) Listen(network, addr string) (net.Listener, error) {
 	if c.isControlClient() {
+		if err := c.ensureActiveConnection(); err != nil {
+			return nil, err
+		}
 		return c.controlClient.Listen(network, addr)
 	}
-	if c.Client == nil {
-		return nil, errors.New("ssh client is nil")
+	if err := c.ensureActiveConnection(); err != nil {
+		return nil, err
 	}
 	return c.Client.Listen(network, addr)
+}
+
+func (c *Connect) autoReconnectConfig() (time.Duration, int) {
+	interval := 1
+	if c.AutoReconnectInterval > 0 {
+		interval = c.AutoReconnectInterval
+	}
+
+	max := 1
+	if c.AutoReconnectMax > 0 {
+		max = c.AutoReconnectMax
+	}
+
+	return time.Duration(interval) * time.Second, max
+}
+
+func (c *Connect) canAutoReconnect() bool {
+	return c.AutoReconnect && !c.isControlClient() && c.controlHost != "" && c.controlPort != "" && c.controlUser != "" && len(c.reconnectAuths) > 0
+}
+
+func (c *Connect) ensureActiveConnection() error {
+	if c.isControlClient() {
+		return c.ensureControlClient()
+	}
+
+	if c.Client == nil {
+		if !c.canAutoReconnect() {
+			return errors.New("ssh client is nil")
+		}
+		return c.reconnect()
+	}
+
+	if err := c.CheckClientAlive(); err != nil {
+		if !c.canAutoReconnect() {
+			return err
+		}
+		return c.reconnect()
+	}
+
+	return nil
+}
+
+func (c *Connect) reconnect() error {
+	c.reconnectMu.Lock()
+	defer c.reconnectMu.Unlock()
+
+	if c.Client != nil {
+		if err := c.CheckClientAlive(); err == nil {
+			return nil
+		}
+	}
+
+	if !c.canAutoReconnect() {
+		if c.Client == nil {
+			return errors.New("ssh client is nil")
+		}
+		return errors.New("sshlib: auto reconnect is not configured")
+	}
+
+	interval, max := c.autoReconnectConfig()
+	var lastErr error
+
+	for attempt := 0; attempt < max; attempt++ {
+		if attempt > 0 {
+			time.Sleep(interval)
+		}
+
+		if c.Client != nil {
+			_ = c.Client.Close()
+			c.Client = nil
+		}
+		_ = c.closeProxyConnects()
+
+		lastErr = c.createDirectClient(c.controlHost, c.controlPort, c.controlUser, c.reconnectAuths)
+		if lastErr == nil {
+			return nil
+		}
+	}
+
+	return lastErr
 }
 
 func (c *Connect) keepAliveConfig() (time.Duration, int) {
@@ -494,6 +607,9 @@ func (c *Connect) SendKeepAlive(session *ssh.Session) {
 func (c *Connect) CheckClientAlive() error {
 	if c.isControlClient() {
 		return c.controlClient.Ping()
+	}
+	if c.Client == nil {
+		return errors.New("ssh client is nil")
 	}
 
 	_, _, err := c.Client.SendRequest("keepalive@openssh.com", true, nil)

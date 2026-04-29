@@ -25,6 +25,10 @@ func (c *Connect) Command(command string) (err error) {
 		return c.runControlCommand(req)
 	}
 
+	if err := c.ensureActiveConnection(); err != nil {
+		return err
+	}
+
 	// create session
 	if c.Session == nil {
 		c.Session, err = c.CreateSession()
@@ -141,7 +145,7 @@ func (c *Connect) runControlCommand(req controlRequest) error {
 		go c.watchControlWindowSize(writer)
 	}
 
-	return c.copyControlOutput(conn, stdout, stderr)
+	return c.copyControlOutput(conn, stdout, stderr, nil)
 }
 
 func (c *Connect) setOption(session *ssh.Session) (err error) {

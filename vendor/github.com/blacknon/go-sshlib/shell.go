@@ -14,6 +14,7 @@ import (
 	"net"
 	"os"
 	"os/signal"
+	"sync"
 	"syscall"
 	"time"
 
@@ -30,10 +31,26 @@ func (e *controlExitError) Error() string {
 	return fmt.Sprintf("sshlib: remote command exited with status %d", e.status)
 }
 
+type shellRunner func(*ssh.Session) error
+
 // Shell connect login shell over ssh.
 func (c *Connect) Shell(session *ssh.Session) (err error) {
 	if c.isControlClient() {
 		return c.runControlSession(controlRequest{Type: controlRequestShell, Options: c.controlSessionOptions(true)})
+	}
+
+	if session != nil || !c.canAutoReconnect() {
+		return c.runShell(session)
+	}
+
+	return c.runShellWithReconnect(c.runShell)
+}
+
+func (c *Connect) runShell(session *ssh.Session) (err error) {
+	if session == nil {
+		if err := c.ensureActiveConnection(); err != nil {
+			return err
+		}
 	}
 
 	if session == nil {
@@ -109,6 +126,10 @@ func (c *Connect) CmdShell(session *ssh.Session, command string) (err error) {
 		return c.runControlSession(req)
 	}
 
+	if err := c.ensureActiveConnection(); err != nil {
+		return err
+	}
+
 	if session == nil {
 		session, err = c.CreateSession()
 		if err != nil {
@@ -163,6 +184,42 @@ func (c *Connect) CmdShell(session *ssh.Session, command string) (err error) {
 	}
 
 	return
+}
+
+func (c *Connect) runShellWithReconnect(run shellRunner) error {
+	_, max := c.autoReconnectConfig()
+	attempts := max + 1
+	var lastErr error
+
+	for attempt := 0; attempt < attempts; attempt++ {
+		lastErr = run(nil)
+		if !c.shouldReconnectSession(lastErr) {
+			return lastErr
+		}
+
+		if err := c.reconnect(); err != nil {
+			return err
+		}
+	}
+
+	return lastErr
+}
+
+func (c *Connect) shouldReconnectSession(err error) bool {
+	if err == nil || !c.canAutoReconnect() {
+		return false
+	}
+
+	var exitErr *ssh.ExitError
+	if errors.As(err, &exitErr) {
+		return false
+	}
+
+	if c.Client == nil {
+		return true
+	}
+
+	return c.CheckClientAlive() != nil
 }
 
 func (c *Connect) ChangeWinSize(session *ssh.Session) {
@@ -343,9 +400,17 @@ func (c *Connect) runControlSession(req controlRequest) error {
 		go c.watchControlWindowSize(writer)
 	}
 
+	ready := make(chan struct{})
+	errCh := make(chan error, 1)
+	go func() {
+		errCh <- c.copyControlOutput(conn, output, errput, ready)
+	}()
+	if isInteractiveControlRequest(req.Type) {
+		<-ready
+	}
 	go c.copyControlInput(writer, input)
 
-	err = c.copyControlOutput(conn, output, errput)
+	err = <-errCh
 	if isInteractiveControlRequest(req.Type) {
 		var exitErr *controlExitError
 		if errors.As(err, &exitErr) {
@@ -426,7 +491,17 @@ func (c *Connect) copyControlInput(writer *lockedFrameWriter, input io.Reader) {
 	}
 }
 
-func (c *Connect) copyControlOutput(conn net.Conn, stdout, stderr io.Writer) error {
+func (c *Connect) copyControlOutput(conn net.Conn, stdout, stderr io.Writer, ready chan struct{}) error {
+	var readyOnce sync.Once
+	markReady := func() {
+		if ready == nil {
+			return
+		}
+		readyOnce.Do(func() {
+			close(ready)
+		})
+	}
+
 	for {
 		frameType, payload, err := readStreamFrame(conn)
 		if err != nil {
@@ -438,18 +513,22 @@ func (c *Connect) copyControlOutput(conn net.Conn, stdout, stderr io.Writer) err
 
 		switch frameType {
 		case streamFrameStdout:
+			markReady()
 			if _, err := stdout.Write(payload); err != nil {
 				return err
 			}
 		case streamFrameStderr:
+			markReady()
 			if _, err := stderr.Write(payload); err != nil {
 				return err
 			}
 		case streamFrameError:
+			markReady()
 			if len(payload) > 0 {
 				_, _ = fmt.Fprintln(stderr, string(payload))
 			}
 		case streamFrameExit:
+			markReady()
 			if len(payload) != 4 {
 				return nil
 			}

@@ -5,6 +5,7 @@
 package ssh
 
 import (
+	"bytes"
 	"encoding/base64"
 	"errors"
 	"fmt"
@@ -373,7 +374,7 @@ func validateControlMasterClient(connect *sshlib.Connect) error {
 	}
 
 	clone := *connect
-	clone.Stdin = nil
+	clone.Stdin = bytes.NewReader(nil)
 	clone.Stdout = io.Discard
 	clone.Stderr = io.Discard
 	clone.TTY = false
