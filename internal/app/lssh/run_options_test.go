@@ -34,6 +34,8 @@ func newLsshTestContext(t *testing.T, args ...string) *cli.Context {
 	fs.Bool("W", false, "")
 	fs.Bool("localrc", false, "")
 	fs.Bool("not-localrc", false, "")
+	fs.Bool("enable-transfer", false, "")
+	fs.Bool("disable-transfer", false, "")
 	if err := fs.Parse(args); err != nil {
 		t.Fatalf("parse flags: %v", err)
 	}
@@ -166,5 +168,62 @@ func TestBuildRun(t *testing.T) {
 	}
 	if run.NFSReverseDynamicForwardPath != "" {
 		t.Fatalf("unexpected reverse path = %q", run.NFSReverseDynamicForwardPath)
+	}
+}
+
+func TestBuildMuxSessionOptions(t *testing.T) {
+	ctx := newLsshTestContext(
+		t,
+		"-L", "127.0.0.1:8080:example.com:80",
+		"-R", "9090",
+		"-D", "1080",
+		"-r", "8082",
+		"-m", "3049:relative/nfs",
+		"-s", "1445:relative/smb",
+		"--localrc",
+		"--enable-transfer",
+	)
+
+	value := true
+	data := conf.Config{
+		Server: map[string]conf.ServerConfig{
+			"web01": {},
+		},
+	}
+
+	options, err := buildMuxSessionOptions(ctx, data, &value, true, true)
+	if err != nil {
+		t.Fatalf("buildMuxSessionOptions() error = %v", err)
+	}
+	if len(options.PortForward) != 1 {
+		t.Fatalf("len(PortForward) = %d, want 1", len(options.PortForward))
+	}
+	if options.ReverseDynamicPortForward != "9090" {
+		t.Fatalf("ReverseDynamicPortForward = %q", options.ReverseDynamicPortForward)
+	}
+	if options.HTTPReverseDynamicPortForward != "8082" {
+		t.Fatalf("HTTPReverseDynamicPortForward = %q", options.HTTPReverseDynamicPortForward)
+	}
+	if options.NFSReverseDynamicForwardPath != common.GetFullPath("relative/nfs") {
+		t.Fatalf("NFSReverseDynamicForwardPath = %q", options.NFSReverseDynamicForwardPath)
+	}
+	if options.SMBReverseDynamicForwardPath != common.GetFullPath("relative/smb") {
+		t.Fatalf("SMBReverseDynamicForwardPath = %q", options.SMBReverseDynamicForwardPath)
+	}
+	if options.TransferEnabled == nil || !*options.TransferEnabled {
+		t.Fatalf("TransferEnabled = %#v", options.TransferEnabled)
+	}
+	if !options.X11 || !options.X11Trusted || !options.IsBashrc {
+		t.Fatalf("mux options flags = %#v", options)
+	}
+	if options.ControlMasterOverride == nil || !*options.ControlMasterOverride {
+		t.Fatalf("ControlMasterOverride = %#v", options.ControlMasterOverride)
+	}
+	if options.ParallelInfo == nil {
+		t.Fatal("ParallelInfo = nil")
+	}
+	notices := options.ParallelInfo("web01")
+	if !reflect.DeepEqual(notices, []string{"-L 127.0.0.1:8080:example.com:80", "-D 1080"}) {
+		t.Fatalf("ParallelInfo = %#v", notices)
 	}
 }

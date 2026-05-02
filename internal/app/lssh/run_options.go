@@ -2,14 +2,17 @@ package lssh
 
 import (
 	"fmt"
+	"io"
 	"os"
 	"regexp"
 	"runtime"
 
 	"github.com/blacknon/lssh/internal/common"
 	conf "github.com/blacknon/lssh/internal/config"
+	"github.com/blacknon/lssh/internal/mux"
 	sshcmd "github.com/blacknon/lssh/internal/ssh"
 	"github.com/urfave/cli"
+	"golang.org/x/crypto/ssh/terminal"
 )
 
 var numericPortPattern = regexp.MustCompile(`^[0-9]+$`)
@@ -125,32 +128,11 @@ func parseRunForwardSettings(c *cli.Context) (runForwardSettings, error) {
 	return settings, nil
 }
 
-func buildRun(c *cli.Context, data conf.Config, selected []string, controlMasterOverride *bool, connectorAttachSession string, connectorDetach, enableX11, enableTrustedX11 bool) (*sshcmd.Run, error) {
-	forwardSettings, err := parseRunForwardSettings(c)
-	if err != nil {
-		return nil, err
-	}
-
-	r := &sshcmd.Run{
-		ServerList: selected,
-		Conf:       data,
+func buildForwardRun(data conf.Config, controlMasterOverride *bool, forwardSettings runForwardSettings) *sshcmd.Run {
+	return &sshcmd.Run{
+		Conf: data,
 		RunSessionConfig: sshcmd.RunSessionConfig{
-			ControlMasterOverride:  controlMasterOverride,
-			ConnectorAttachSession: connectorAttachSession,
-			ConnectorDetach:        connectorDetach,
-			X11:                    enableX11 || enableTrustedX11,
-			X11Trusted:             enableTrustedX11,
-			IsBashrc:               c.Bool("localrc"),
-			IsNotBashrc:            c.Bool("not-localrc"),
-		},
-		RunCommandConfig: sshcmd.RunCommandConfig{
-			Mode:          "shell",
-			IsTerm:        c.Bool("term"),
-			IsParallel:    c.Bool("parallel"),
-			IsNone:        c.Bool("not-execute"),
-			ExecCmd:       c.Args(),
-			EnableHeader:  c.Bool("w"),
-			DisableHeader: c.Bool("W"),
+			ControlMasterOverride: controlMasterOverride,
 		},
 		RunForwardConfig: sshcmd.RunForwardConfig{
 			PortForward:                   forwardSettings.PortForward,
@@ -171,6 +153,31 @@ func buildRun(c *cli.Context, data conf.Config, selected []string, controlMaster
 			TunnelRemote:                  forwardSettings.TunnelRemote,
 		},
 	}
+}
+
+func buildRun(c *cli.Context, data conf.Config, selected []string, controlMasterOverride *bool, connectorAttachSession string, connectorDetach, enableX11, enableTrustedX11 bool) (*sshcmd.Run, error) {
+	forwardSettings, err := parseRunForwardSettings(c)
+	if err != nil {
+		return nil, err
+	}
+
+	r := buildForwardRun(data, controlMasterOverride, forwardSettings)
+	r.ServerList = selected
+	r.RunSessionConfig.ConnectorAttachSession = connectorAttachSession
+	r.RunSessionConfig.ConnectorDetach = connectorDetach
+	r.RunSessionConfig.X11 = enableX11 || enableTrustedX11
+	r.RunSessionConfig.X11Trusted = enableTrustedX11
+	r.RunSessionConfig.IsBashrc = c.Bool("localrc")
+	r.RunSessionConfig.IsNotBashrc = c.Bool("not-localrc")
+	r.RunCommandConfig = sshcmd.RunCommandConfig{
+		Mode:          "shell",
+		IsTerm:        c.Bool("term"),
+		IsParallel:    c.Bool("parallel"),
+		IsNone:        c.Bool("not-execute"),
+		ExecCmd:       c.Args(),
+		EnableHeader:  c.Bool("w"),
+		DisableHeader: c.Bool("W"),
+	}
 
 	if len(c.Args()) > 0 && !c.Bool("not-execute") {
 		r.Mode = "cmd"
@@ -186,10 +193,47 @@ func buildRun(c *cli.Context, data conf.Config, selected []string, controlMaster
 	return r, nil
 }
 
-func exitOnRunError(err error) {
-	if err == nil {
-		return
+func buildMuxSessionOptions(c *cli.Context, data conf.Config, controlMasterOverride *bool, enableX11, enableTrustedX11 bool) (mux.SessionOptions, error) {
+	forwardSettings, err := parseRunForwardSettings(c)
+	if err != nil {
+		return mux.SessionOptions{}, err
 	}
-	fmt.Fprintf(os.Stderr, "Error: %s\n", err)
-	os.Exit(1)
+
+	run := buildForwardRun(data, controlMasterOverride, forwardSettings)
+	options := mux.SessionOptions{
+		PortForward:                   append([]*conf.PortForward(nil), forwardSettings.PortForward...),
+		ReverseDynamicPortForward:     forwardSettings.ReverseDynamicPortForward,
+		HTTPReverseDynamicPortForward: forwardSettings.HTTPReverseDynamicPortForward,
+		NFSReverseDynamicForwardPort:  forwardSettings.NFSReverseDynamicForwardPort,
+		NFSReverseDynamicForwardPath:  forwardSettings.NFSReverseDynamicForwardPath,
+		SMBReverseDynamicForwardPort:  forwardSettings.SMBReverseDynamicForwardPort,
+		SMBReverseDynamicForwardPath:  forwardSettings.SMBReverseDynamicForwardPath,
+		X11:                           enableX11 || enableTrustedX11,
+		X11Trusted:                    enableTrustedX11,
+		IsBashrc:                      c.Bool("localrc"),
+		IsNotBashrc:                   c.Bool("not-localrc"),
+		ControlMasterOverride:         controlMasterOverride,
+		ParallelInfo:                  run.ParallelIgnoredFeatures,
+	}
+	if c.Bool("enable-transfer") {
+		enabled := true
+		options.TransferEnabled = &enabled
+	}
+	if c.Bool("disable-transfer") {
+		enabled := false
+		options.TransferEnabled = &enabled
+	}
+
+	return options, nil
+}
+
+func readMuxStdinData(c *cli.Context) ([]byte, error) {
+	if len(c.Args()) == 0 || runtime.GOOS == "windows" {
+		return nil, nil
+	}
+	if terminal.IsTerminal(0) {
+		return nil, nil
+	}
+
+	return io.ReadAll(os.Stdin)
 }

@@ -6,7 +6,6 @@ package lssh
 
 import (
 	"fmt"
-	"io"
 	"os"
 	"os/exec"
 	"runtime"
@@ -18,10 +17,8 @@ import (
 	conf "github.com/blacknon/lssh/internal/config"
 	lsmuxsession "github.com/blacknon/lssh/internal/lsmuxsession"
 	"github.com/blacknon/lssh/internal/mux"
-	sshcmd "github.com/blacknon/lssh/internal/ssh"
 	"github.com/blacknon/lssh/internal/version"
 	"github.com/urfave/cli"
-	"golang.org/x/crypto/ssh/terminal"
 )
 
 func resolveTunnelOption(goos, spec string) (enabled bool, local, remote int, err error) {
@@ -230,105 +227,13 @@ USAGE:
 				return err
 			}
 
-			var (
-				err            error
-				stdinData      []byte
-				forwards       []*conf.PortForward
-				reverseDynamic string
-			)
-
-			forwards, reverseDynamic, err = parsePortForwards(c.StringSlice("L"), c.StringSlice("R"))
+			forwardConfig, err := buildMuxSessionOptions(c, data, controlMasterOverride, enableX11, enableTrustedX11)
 			if err != nil {
 				return err
 			}
-
-			forwardConfig := mux.SessionOptions{
-				PortForward:               forwards,
-				ReverseDynamicPortForward: reverseDynamic,
-				X11:                       enableX11 || enableTrustedX11,
-				X11Trusted:                enableTrustedX11,
-				IsBashrc:                  c.Bool("localrc"),
-				IsNotBashrc:               c.Bool("not-localrc"),
-			}
-			if c.Bool("enable-transfer") {
-				enabled := true
-				forwardConfig.TransferEnabled = &enabled
-			}
-			if c.Bool("disable-transfer") {
-				enabled := false
-				forwardConfig.TransferEnabled = &enabled
-			}
-			forwardConfig.PortForward = forwards
-			forwardConfig.HTTPReverseDynamicPortForward = c.String("r")
-			if nfsReverseForwarding := c.String("m"); nfsReverseForwarding != "" {
-				port, path, parseErr := parseForwardPathOption(nfsReverseForwarding, true)
-				if parseErr != nil {
-					return parseErr
-				}
-				forwardConfig.NFSReverseDynamicForwardPort = port
-				forwardConfig.NFSReverseDynamicForwardPath = path
-			}
-			if smbReverseForwarding := c.String("s"); smbReverseForwarding != "" {
-				port, path, parseErr := parseForwardPathOption(smbReverseForwarding, true)
-				if parseErr != nil {
-					return parseErr
-				}
-				forwardConfig.SMBReverseDynamicForwardPort = port
-				forwardConfig.SMBReverseDynamicForwardPath = path
-			}
-
-			run := &sshcmd.Run{
-				Conf: data,
-				RunSessionConfig: sshcmd.RunSessionConfig{
-					ControlMasterOverride: controlMasterOverride,
-				},
-				RunForwardConfig: sshcmd.RunForwardConfig{
-					PortForward:                   forwards,
-					DynamicPortForward:            c.String("D"),
-					HTTPDynamicPortForward:        c.String("d"),
-					ReverseDynamicPortForward:     forwardConfig.ReverseDynamicPortForward,
-					HTTPReverseDynamicPortForward: forwardConfig.HTTPReverseDynamicPortForward,
-					NFSReverseDynamicForwardPort:  forwardConfig.NFSReverseDynamicForwardPort,
-					NFSReverseDynamicForwardPath:  forwardConfig.NFSReverseDynamicForwardPath,
-					SMBReverseDynamicForwardPort:  forwardConfig.SMBReverseDynamicForwardPort,
-					SMBReverseDynamicForwardPath:  forwardConfig.SMBReverseDynamicForwardPath,
-				},
-			}
-			forwardConfig.ControlMasterOverride = controlMasterOverride
-			if nfsForwarding := c.String("M"); nfsForwarding != "" {
-				port, path, parseErr := parseForwardPathOption(nfsForwarding, false)
-				if parseErr != nil {
-					return parseErr
-				}
-				run.NFSDynamicForwardPort = port
-				run.NFSDynamicForwardPath = path
-			}
-			if smbForwarding := c.String("S"); smbForwarding != "" {
-				port, path, parseErr := parseForwardPathOption(smbForwarding, false)
-				if parseErr != nil {
-					return parseErr
-				}
-				run.SMBDynamicForwardPort = port
-				run.SMBDynamicForwardPath = path
-			}
-			if enabled, local, remote, tunnelErr := resolveTunnelOption(runtime.GOOS, c.String("tunnel")); tunnelErr != nil {
-				return tunnelErr
-			} else if enabled {
-				run.TunnelEnabled = true
-				run.TunnelLocal = local
-				run.TunnelRemote = remote
-			}
-			forwardConfig.ParallelInfo = run.ParallelIgnoredFeatures
-
-			if len(c.Args()) > 0 && runtime.GOOS != "windows" {
-				stdin := 0
-				if !terminal.IsTerminal(stdin) {
-					stdinData, err = io.ReadAll(os.Stdin)
-					if err != nil {
-						fmt.Fprintf(os.Stderr, "Error: %s\n", err)
-						os.Exit(1)
-					}
-				}
+			stdinData, err := readMuxStdinData(c)
+			if err != nil {
+				return err
 			}
 			if c.Bool("mux-child") {
 				manager, err := mux.NewManager(data, names, c.Args(), stdinData, hosts, c.Bool("hold"), c.Bool("allow-layout-change"), forwardConfig)
