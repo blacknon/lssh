@@ -45,7 +45,7 @@ require (
 )
 
 require (
-	github.com/blacknon/go-sshproc v0.1.1
+	github.com/blacknon/go-sshproc v0.1.2
 	github.com/blacknon/mview v0.1.5
 	github.com/c9s/goprocinfo v0.0.0-20210130143923-c95fcf8c64a8
 	github.com/gdamore/tcell/v2 v2.9.0

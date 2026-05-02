@@ -30,20 +30,116 @@ type Monitor struct {
 	// Panel
 	PanelCounter int
 	Panels       *mview.TabbedPanels
+	rootPanels   *mview.Panels
 
 	// BaseTab(List)
 	BaseGrid *mview.Grid
 	// BaseTop      map[string]*NodeTop
-	table             *mview.Table // MainTab(List)'s table
-	top               *mview.Grid  // MainTab(List)'s top
-	selectedNode      string
-	enableTop         bool // MainTab(List) enable Top
-	topTerminals      map[string]*topTerminalPane
-	termFactory       mux.SessionFactory
-	sharedTermFactory mux.SessionFactory
-	shareConnect      bool
+	table              *mview.Table // MainTab(List)'s table
+	top                *mview.Grid  // MainTab(List)'s top
+	topPane            *switchablePrimitive
+	selectedNode       string
+	enableTop          bool // MainTab(List) enable Top
+	syncingSelection   bool
+	baseTableSortUsed  bool
+	topTerminals       map[string]*topTerminalPane
+	exitModal          *mview.Modal
+	exitConfirmVisible bool
+	exitConfirmFocus   mview.Primitive
+	termFactory        mux.SessionFactory
+	sharedTermFactory  mux.SessionFactory
+	shareConnect       bool
+	graphScale         GraphScaleConfig
 
 	sync.Mutex
+}
+
+func (m *Monitor) getSelectedNode() string {
+	m.Lock()
+	defer m.Unlock()
+	return strings.TrimSpace(m.selectedNode)
+}
+
+func (m *Monitor) setSelectedNode(server string) {
+	m.Lock()
+	m.selectedNode = strings.TrimSpace(server)
+	m.Unlock()
+}
+
+func (m *Monitor) isTopEnabled() bool {
+	m.Lock()
+	defer m.Unlock()
+	return m.enableTop
+}
+
+func (m *Monitor) setTopEnabled(enabled bool) {
+	m.Lock()
+	m.enableTop = enabled
+	m.Unlock()
+}
+
+func (m *Monitor) toggleTopEnabled() bool {
+	m.Lock()
+	defer m.Unlock()
+	m.enableTop = !m.enableTop
+	return m.enableTop
+}
+
+func (m *Monitor) isSyncingSelection() bool {
+	m.Lock()
+	defer m.Unlock()
+	return m.syncingSelection
+}
+
+func (m *Monitor) withSelectionSync(fn func()) {
+	m.Lock()
+	m.syncingSelection = true
+	m.Unlock()
+
+	defer func() {
+		m.Lock()
+		m.syncingSelection = false
+		m.Unlock()
+	}()
+
+	if fn != nil {
+		fn()
+	}
+}
+
+func (m *Monitor) isBaseTableSortUsed() bool {
+	m.Lock()
+	defer m.Unlock()
+	return m.baseTableSortUsed
+}
+
+func (m *Monitor) setBaseTableSortUsed(used bool) {
+	m.Lock()
+	m.baseTableSortUsed = used
+	m.Unlock()
+}
+
+func (m *Monitor) isExitConfirmVisible() bool {
+	m.Lock()
+	defer m.Unlock()
+	return m.exitConfirmVisible
+}
+
+func (m *Monitor) setExitConfirmVisible(visible bool, focus mview.Primitive) {
+	m.Lock()
+	m.exitConfirmVisible = visible
+	if visible {
+		m.exitConfirmFocus = focus
+	} else {
+		m.exitConfirmFocus = nil
+	}
+	m.Unlock()
+}
+
+func (m *Monitor) getExitConfirmFocus() mview.Primitive {
+	m.Lock()
+	defer m.Unlock()
+	return m.exitConfirmFocus
 }
 
 func Run(r *sshrun.Run) (err error) {
@@ -52,15 +148,20 @@ func Run(r *sshrun.Run) (err error) {
 
 	monitor.enableTop = false
 	monitor.topTerminals = map[string]*topTerminalPane{}
-	monitor.termFactory = mux.NewSessionFactory(r.Conf, nil, mux.SessionOptions{})
+	monitor.termFactory = mux.NewSessionFactory(r.Conf, nil, mux.SessionOptions{
+		IsBashrc:    r.IsBashrc,
+		IsNotBashrc: r.IsNotBashrc,
+	})
 	monitor.sharedTermFactory = monitor.createSharedTopTerminalSession
 	monitor.shareConnect = r.ShareConnect
+	monitor.graphScale = newGraphScaleConfig(r.Conf.Monitor.Graph)
 
 	// Create WaitGroup
 	wg := sync.WaitGroup{}
 
-	// Create sftp client
-	// NOTE: 接続が切れた場合に再接続を行わせるため、一旦エラーチェックなしにする
+	// Create initial node objects and try the first SSH/SFTP connection.
+	// A node may still start disconnected here. reconnectServer() owns the
+	// retry loop and StartMonitoring() simply consumes the current connection.
 	for _, server := range r.ServerList {
 		wg.Add(1)
 		go monitor.CreateNode(server, &wg)
@@ -98,8 +199,11 @@ func (m *Monitor) GetNode(server string) *Node {
 func (m *Monitor) CreateNode(server string, wg *sync.WaitGroup) {
 	defer wg.Done()
 
-	// node
+	// CreateNode only prepares per-host state and the first connection.
+	// Ongoing reconnect handling is delegated to reconnectServer().
 	node := NewNode(server)
+	node.ApplyGraphScaleConfig(m.graphScale)
+	_ = node.Connect(m.r)
 
 	m.Lock()
 	m.Nodes = append(m.Nodes, node)

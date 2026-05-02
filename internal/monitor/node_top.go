@@ -7,45 +7,76 @@ package monitor
 import (
 	"fmt"
 	"sync"
-	"time"
 
 	mview "github.com/blacknon/mview"
-	"github.com/gdamore/tcell/v2"
 )
 
 var IOCount = 50
 
 type NodeTop struct {
-	Grid         *mview.Grid
-	CPUUsage     *TopCPUUsage
-	MemoryUsage  *TopMemoryUsage
-	Uptimes      *TopUptime
-	DiskUsage    *TopDiskInfomation
-	NetworkUsage *TopNetworkInfomation
-	app          *mview.Application
+	Title         string
+	Grid          *mview.Grid
+	CPUUsage      *TopCPUUsage
+	MemoryUsage   *TopMemoryUsage
+	Uptimes       *TopUptime
+	SystemSummary *TopSystemSummary
+	DiskUsage     *TopDiskInfomation
+	NetworkUsage  *TopNetworkInfomation
 
 	sync.Mutex
 }
 
-func (t *NodeTop) bindApplication(app *mview.Application) {
-	t.Lock()
-	defer t.Unlock()
-	t.app = app
+func (t *NodeTop) focusPrimitives() []mview.Primitive {
+	result := []mview.Primitive{}
+	if t.DiskUsage != nil {
+		result = append(result, t.DiskUsage)
+	}
+	if t.NetworkUsage != nil {
+		result = append(result, t.NetworkUsage)
+	}
+	return result
 }
 
-func (t *NodeTop) queueUpdateDraw(fn func()) {
-	t.Lock()
-	app := t.app
-	t.Unlock()
-
-	if app == nil {
-		if fn != nil {
-			fn()
-		}
-		return
+func (t *NodeTop) firstFocusable() mview.Primitive {
+	items := t.focusPrimitives()
+	if len(items) == 0 {
+		return nil
 	}
+	return items[0]
+}
 
-	app.QueueUpdateDraw(fn)
+func (t *NodeTop) lastFocusable() mview.Primitive {
+	items := t.focusPrimitives()
+	if len(items) == 0 {
+		return nil
+	}
+	return items[len(items)-1]
+}
+
+func (t *NodeTop) nextFocusable(current mview.Primitive) (mview.Primitive, bool) {
+	items := t.focusPrimitives()
+	for i, primitive := range items {
+		if primitive == current {
+			if i+1 < len(items) {
+				return items[i+1], true
+			}
+			return nil, true
+		}
+	}
+	return nil, false
+}
+
+func (t *NodeTop) prevFocusable(current mview.Primitive) (mview.Primitive, bool) {
+	items := t.focusPrimitives()
+	for i, primitive := range items {
+		if primitive == current {
+			if i-1 >= 0 {
+				return items[i-1], true
+			}
+			return nil, true
+		}
+	}
+	return nil, false
 }
 
 func (n *Node) CreateNodeTop() (err error) {
@@ -57,148 +88,132 @@ func (n *Node) CreateNodeTop() (err error) {
 	// |                    | Uptime          |
 	// |                    | Tasks           |
 	// |                    | LoadAvg         |
+	// |                                      |
 	// | ------------------------------------ |
-	// | Disk        | Process                | 0(unlimited)
-	// | Network     |                        | 0(unlimited)
+	// | System Summary                       |
+	// | ------------------------------------ |
+	// | Disk                                 | 0(unlimited)
+	// | Network                              | 0(unlimited)
 	// Create PanelBaseTop
 	top := &NodeTop{
-		Grid: mview.NewGrid(),
+		Title: fmt.Sprintf("TOP: %s", n.ServerName),
+		Grid:  mview.NewGrid(),
 	}
-
-	// Set title
-	top.Grid.SetTitle(fmt.Sprintf("TOP: %s", n.ServerName))
-	top.Grid.SetTitleAlign(mview.AlignLeft)
-	top.Grid.SetTitleColor(tcell.NewRGBColor(0, 255, 255))
 
 	// Set background color(no color)
 	top.Grid.SetBackgroundColor(mview.ColorUnset)
 
-	// Set border options
-	top.Grid.SetBorder(true)
-	top.Grid.SetBorderColor(tcell.ColorDarkGray)
-
 	// Set columns
 	top.Grid.SetColumns(50, 0, 0)
 
-	// create rows
-	top.Grid.SetRows(5, 2, 1, 0, 1, 0, -1)
-
-	// create top panel
-	top.CPUUsage = n.CreateTopCPUUsage()
-	top.Uptimes = n.CreateTopUptime()
-	top.MemoryUsage = n.CreateTopMemoryUsage()
-
-	top.DiskUsage = n.CreateTopDiskInfomation()
-
-	top.NetworkUsage = n.CreateTopNetworkInfomation()
-	topProcess := n.createBaseGridTopProcess()
-
-	// Add top panel
-	// 1st, 2nd row
-	top.Grid.AddItem(top.CPUUsage, 0, 0, 2, 1, 0, 0, true)
-	top.Grid.AddItem(top.Uptimes, 0, 1, 1, 2, 0, 0, false)
-	top.Grid.AddItem(top.MemoryUsage, 1, 1, 1, 2, 0, 0, false)
-
-	// 3rd row
-	top.Grid.AddItem(createEmptyPrimitive(), 2, 0, 1, 3, 0, 0, true)
-
-	// 4th row
-	top.Grid.AddItem(top.DiskUsage, 3, 0, 1, 3, 0, 0, false)
-
-	// 5th row
-	top.Grid.AddItem(createEmptyPrimitive(), 4, 0, 1, 3, 0, 0, true)
-
-	// 6th row
-	top.Grid.AddItem(top.NetworkUsage, 5, 0, 1, 3, 0, 0, false)
-
-	// 7th row
-	top.Grid.AddItem(topProcess, 6, 0, 1, 3, 0, 0, false)
-
-	// go routine for update
-	go func() {
-		ticker := time.NewTicker(2 * time.Second)
-		defer ticker.Stop()
-
-		for range ticker.C {
-			if !n.CheckClientAlive() {
-				top.queueUpdateDraw(func() {
-					top.Grid.Clear()
-
-					top.CPUUsage.Table.Clear()
-					top.CPUUsage = n.CreateTopCPUUsage()
-
-					top.MemoryUsage.Table.Clear()
-					top.MemoryUsage = n.CreateTopMemoryUsage()
-
-					top.Uptimes.Table.Clear()
-					top.Uptimes = n.CreateTopUptime()
-
-					top.DiskUsage.Table.Clear()
-					top.DiskUsage = n.CreateTopDiskInfomation()
-
-					top.NetworkUsage.Table.Clear()
-					top.NetworkUsage = n.CreateTopNetworkInfomation()
-
-					topProcess := n.createBaseGridTopProcess()
-
-					// Add top panel
-					// 1st, 2nd row
-					top.Grid.AddItem(top.CPUUsage, 0, 0, 2, 1, 0, 0, true)
-					top.Grid.AddItem(top.Uptimes, 0, 1, 1, 2, 0, 0, false)
-					top.Grid.AddItem(top.MemoryUsage, 1, 1, 1, 2, 0, 0, false)
-
-					// 3rd row
-					top.Grid.AddItem(createEmptyPrimitive(), 2, 0, 1, 3, 0, 0, true)
-
-					// 4th row
-					top.Grid.AddItem(top.DiskUsage, 3, 0, 1, 3, 0, 0, false)
-
-					// 5th row
-					top.Grid.AddItem(createEmptyPrimitive(), 4, 0, 1, 3, 0, 0, true)
-
-					// 6th row
-					top.Grid.AddItem(top.NetworkUsage, 5, 0, 1, 3, 0, 0, false)
-
-					// 7th row
-					top.Grid.AddItem(topProcess, 6, 0, 1, 3, 0, 0, false)
-				})
-
-				continue
-			}
-
-			top.queueUpdateDraw(func() {
-				wg := sync.WaitGroup{}
-
-				wg.Add(5)
-				top.CPUUsage.Update(&wg)
-				top.MemoryUsage.Update(&wg)
-				top.Uptimes.Update(&wg)
-				top.DiskUsage.Update(&wg)
-				top.NetworkUsage.Update(&wg)
-
-				wg.Wait()
-
-				// Resize
-				height4Row := top.DiskUsage.GetRowCount()
-				height6Row := top.NetworkUsage.GetRowCount()
-
-				top.Grid.SetRows(5, 2, 1, height4Row, 1, height6Row, -1)
-			})
-		}
-	}()
+	top.resetWidgets(n)
 
 	n.NodeTop = top
 
 	return
 }
 
-func (n *Node) createBaseGridTopProcess() mview.Primitive {
-	topProcess := mview.NewTextView()
-	topProcess.SetTextAlign(mview.AlignCenter)
-	topProcess.SetText("")
-	topProcess.SetBackgroundColor(mview.ColorUnset)
+func (t *NodeTop) resetWidgets(n *Node) {
+	t.Lock()
+	defer t.Unlock()
 
-	return topProcess
+	t.Grid.Clear()
+
+	t.CPUUsage = n.CreateTopCPUUsage()
+	t.Uptimes = n.CreateTopUptime()
+	t.MemoryUsage = n.CreateTopMemoryUsage()
+	t.SystemSummary = n.CreateTopSystemSummary()
+	t.DiskUsage = n.CreateTopDiskInfomation()
+	t.NetworkUsage = n.CreateTopNetworkInfomation()
+
+	t.updateGridRows(0, 0)
+	t.applyLayout()
+}
+
+func (t *NodeTop) Refresh(n *Node) {
+	if n == nil {
+		return
+	}
+
+	if !n.CheckClientAlive() {
+		t.resetWidgets(n)
+		return
+	}
+
+	t.Lock()
+	defer t.Unlock()
+
+	wg := sync.WaitGroup{}
+
+	wg.Add(6)
+	t.CPUUsage.Update(&wg)
+	t.MemoryUsage.Update(&wg)
+	t.Uptimes.Update(&wg)
+	t.SystemSummary.Update(&wg)
+	t.DiskUsage.Update(&wg)
+	t.NetworkUsage.Update(&wg)
+
+	wg.Wait()
+
+	diskRows := t.DiskUsage.GetRowCount()
+	networkRows := t.NetworkUsage.GetRowCount()
+	t.updateGridRows(diskRows, networkRows)
+}
+
+func (t *NodeTop) applyLayout() {
+	t.Grid.Clear()
+
+	t.Grid.AddItem(t.CPUUsage, 0, 0, 2, 1, 0, 0, true)
+	t.Grid.AddItem(t.Uptimes, 0, 1, 1, 2, 0, 0, false)
+	t.Grid.AddItem(t.MemoryUsage, 1, 1, 1, 2, 0, 0, false)
+
+	t.Grid.AddItem(createEmptyPrimitive(), 2, 0, 1, 3, 0, 0, true)
+	t.Grid.AddItem(t.SystemSummary, 3, 0, 1, 3, 0, 0, false)
+	t.Grid.AddItem(createEmptyPrimitive(), 4, 0, 1, 3, 0, 0, true)
+	t.Grid.AddItem(t.DiskUsage, 5, 0, 1, 3, 0, 0, false)
+	t.Grid.AddItem(createEmptyPrimitive(), 6, 0, 1, 3, 0, 0, true)
+	t.Grid.AddItem(t.NetworkUsage, 7, 0, 1, 3, 0, 0, false)
+}
+
+func (t *NodeTop) updateGridRows(diskRows, networkRows int) {
+	summaryRows := 3
+	if t.SystemSummary != nil && t.SystemSummary.GetRowCount() > 0 {
+		summaryRows = t.SystemSummary.GetRowCount()
+	}
+	if diskRows <= 0 {
+		diskRows = 1
+	}
+	if networkRows <= 0 {
+		networkRows = 1
+	}
+
+	t.Grid.SetRows(4, 2, 1, summaryRows, 1, diskRows, 1, networkRows)
+}
+
+func (t *NodeTop) PreferredHeight() int {
+	t.Lock()
+	defer t.Unlock()
+
+	summaryRows := 3
+	if t.SystemSummary != nil && t.SystemSummary.GetRowCount() > 0 {
+		summaryRows = t.SystemSummary.GetRowCount()
+	}
+
+	diskRows := 1
+	if t.DiskUsage != nil {
+		if rows := t.DiskUsage.GetRowCount(); rows > 1 {
+			diskRows = rows
+		}
+	}
+
+	networkRows := 1
+	if t.NetworkUsage != nil {
+		if rows := t.NetworkUsage.GetRowCount(); rows > 1 {
+			networkRows = rows
+		}
+	}
+
+	return 4 + 2 + 1 + summaryRows + 1 + diskRows + 1 + networkRows
 }
 
 func createEmptyPrimitive() mview.Primitive {

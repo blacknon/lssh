@@ -129,3 +129,58 @@ func parseSize(size string) int64 {
 
 	return int64(value * float64(factor))
 }
+
+func cloneSocketStateCount(src map[string]uint64) map[string]uint64 {
+	if len(src) == 0 {
+		return nil
+	}
+
+	dst := make(map[string]uint64, len(src))
+	for key, value := range src {
+		dst[key] = value
+	}
+	return dst
+}
+
+func appendFloat64History(history []float64, value float64, limit int) []float64 {
+	history = append(history, value)
+	if limit > 0 && len(history) > limit {
+		history = history[len(history)-limit:]
+	}
+	return history
+}
+
+func appendUint64History(history []uint64, value uint64, limit int) []uint64 {
+	history = append(history, value)
+	if limit > 0 && len(history) > limit {
+		history = history[len(history)-limit:]
+	}
+	return history
+}
+
+func normalizeFloat64SeriesToPercent(values []float64, maxValue float64) []float64 {
+	if len(values) == 0 {
+		return nil
+	}
+
+	if maxValue <= 0 {
+		maxValue = maxFloat64(values)
+	}
+	if maxValue <= 0 {
+		maxValue = 1
+	}
+
+	result := make([]float64, 0, len(values))
+	for _, value := range values {
+		percent := value / maxValue * 100
+		if percent < 0 {
+			percent = 0
+		}
+		if percent > 100 {
+			percent = 100
+		}
+		result = append(result, percent)
+	}
+
+	return result
+}

@@ -6,7 +6,9 @@ import (
 	"sync/atomic"
 	"testing"
 
+	conf "github.com/blacknon/lssh/internal/config"
 	"github.com/blacknon/lssh/internal/mux"
+	sshrun "github.com/blacknon/lssh/internal/ssh"
 )
 
 type testCloser struct {
@@ -149,5 +151,23 @@ func TestNewSharedTerminalCloseFuncReturnsFirstError(t *testing.T) {
 
 	if err := closeFn(); err == nil || err.Error() != wantErr.Error() {
 		t.Fatalf("closeFn() error = %v, want %v", err, wantErr)
+	}
+}
+
+func TestSharedTerminalLocalRCEnabled(t *testing.T) {
+	t.Parallel()
+
+	serverConf := conf.ServerConfig{LocalRcUse: "yes"}
+	if !sharedTerminalLocalRCEnabled(serverConf, nil) {
+		t.Fatal("sharedTerminalLocalRCEnabled() = false, want true from config")
+	}
+
+	if sharedTerminalLocalRCEnabled(serverConf, &sshrun.Run{IsNotBashrc: true}) {
+		t.Fatal("sharedTerminalLocalRCEnabled() = true, want false with --not-localrc")
+	}
+
+	serverConf.LocalRcUse = "no"
+	if !sharedTerminalLocalRCEnabled(serverConf, &sshrun.Run{IsBashrc: true}) {
+		t.Fatal("sharedTerminalLocalRCEnabled() = false, want true with --localrc")
 	}
 }

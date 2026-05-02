@@ -8,12 +8,12 @@ import (
 	"fmt"
 	"log"
 	"path/filepath"
-	"regexp"
 	"strings"
 	"sync"
 	"time"
 
 	sshproc "github.com/blacknon/go-sshproc"
+	conf "github.com/blacknon/lssh/internal/config"
 	sshrun "github.com/blacknon/lssh/internal/ssh"
 	"github.com/c9s/goprocinfo/linux"
 )
@@ -104,6 +104,12 @@ type nodeSnapshot struct {
 	NetworkUsages []*NetworkUsage
 	IPv4          []sshproc.IPv4
 	IPv6          []sshproc.IPv6
+	PressureCPU   *sshproc.PressureStat
+	PressureMem   *sshproc.PressureStat
+	PressureIO    *sshproc.PressureStat
+	FileNr        *sshproc.FileNr
+	TCPStates     sshproc.SocketStateCount
+	UDPStates     sshproc.SocketStateCount
 }
 
 // Node is monitoring node struct
@@ -128,24 +134,44 @@ type Node struct {
 	// DiskIO
 	DiskIOs          map[string][]*DiskIO
 	DiskIOsLimit     int
-	DiskReadIOBytes  []int64
-	DiskWriteIOBytes []int64
+	DiskReadIOBytes  map[string][]int64
+	DiskWriteIOBytes map[string][]int64
 
 	// NetworkIO
 	NetworkIOs       map[string][]*NetworkIO
 	NetworkIOsLimit  int
-	NetworkRXBytes   []uint64
-	NetworkRXPackets []uint64
-	NetworkTXBytes   []uint64
-	NetworkTXPackets []uint64
+	NetworkRXBytes   map[string][]uint64
+	NetworkRXPackets map[string][]uint64
+	NetworkTXBytes   map[string][]uint64
+	NetworkTXPackets map[string][]uint64
 
-	// Process
-	LatestProcessLists []*linux.Process
+	// Summary history
+	PressureHistoryLimit  int
+	PressureCPUHistory    []float64
+	PressureCPU60History  []float64
+	PressureCPU300History []float64
+	PressureMemHistory    []float64
+	PressureMem60History  []float64
+	PressureIOHistory     []float64
+	PressureIO60History   []float64
+
+	FileNrHistoryLimit int
+	FileNrAllocHistory []uint64
+
+	SocketHistoryLimit int
+	TCPEstHistory      []uint64
+	TCPTWHistory       []uint64
+	TCPListenHistory   []uint64
 
 	// Top
 	NodeTop *NodeTop
 
 	snapshot nodeSnapshot
+
+	graphScale             GraphScaleConfig
+	networkGraphMaxBytes   map[string]uint64
+	diskReadGraphMaxBytes  map[string]uint64
+	diskWriteGraphMaxBytes map[string]uint64
 
 	sync.RWMutex
 }
@@ -175,12 +201,27 @@ func NewNode(name string) *Node {
 		cpuUsageLimit: 480,
 
 		// DiskIO
-		DiskIOs:      map[string][]*DiskIO{},
-		DiskIOsLimit: 480,
+		DiskIOs:          map[string][]*DiskIO{},
+		DiskIOsLimit:     480,
+		DiskReadIOBytes:  map[string][]int64{},
+		DiskWriteIOBytes: map[string][]int64{},
 
 		// NetworkIO
-		NetworkIOs:      map[string][]*NetworkIO{},
-		NetworkIOsLimit: 480,
+		NetworkIOs:       map[string][]*NetworkIO{},
+		NetworkIOsLimit:  480,
+		NetworkRXBytes:   map[string][]uint64{},
+		NetworkRXPackets: map[string][]uint64{},
+		NetworkTXBytes:   map[string][]uint64{},
+		NetworkTXPackets: map[string][]uint64{},
+
+		PressureHistoryLimit: 60,
+		FileNrHistoryLimit:   60,
+		SocketHistoryLimit:   60,
+
+		graphScale:             newGraphScaleConfig(conf.MonitorGraphConfig{}),
+		networkGraphMaxBytes:   map[string]uint64{},
+		diskReadGraphMaxBytes:  map[string]uint64{},
+		diskWriteGraphMaxBytes: map[string]uint64{},
 	}
 
 	// Create Top
@@ -202,6 +243,9 @@ func (n *Node) CheckClientAlive() bool {
 }
 
 func (n *Node) Connect(r *sshrun.Run) (err error) {
+	// Connect establishes a fresh SSH/SFTP session for this node.
+	// The monitor owns the retry policy and may call this repeatedly after
+	// disconnects. Callers should treat the previous transport as replaceable.
 	// Create *sshlib.Connect
 	con, err := r.CreateSshConnectDirect(n.ServerName)
 	if err != nil {
@@ -243,10 +287,14 @@ func (n *Node) GetCPUUsage() (usage float64, err error) {
 		return
 	}
 
+	n.RLock()
+	cpuUsage := append([]CPUUsage(nil), n.cpuUsage...)
+	n.RUnlock()
+
 	usage = 0.0
-	if len(n.cpuUsage) >= 2 {
-		lUsage := n.cpuUsage[len(n.cpuUsage)-1]
-		pUsage := n.cpuUsage[len(n.cpuUsage)-2]
+	if len(cpuUsage) >= 2 {
+		lUsage := cpuUsage[len(cpuUsage)-1]
+		pUsage := cpuUsage[len(cpuUsage)-2]
 
 		// Get total usage
 		lUsageTotal := sumFloat64(
@@ -289,10 +337,29 @@ func (n *Node) GetCPUUsage() (usage float64, err error) {
 	return
 }
 
+func cpuStatTotal(stat linux.CPUStat) float64 {
+	return sumFloat64(
+		float64(stat.User),
+		float64(stat.Nice),
+		float64(stat.System),
+		float64(stat.Idle),
+		float64(stat.IOWait),
+		float64(stat.IRQ),
+		float64(stat.SoftIRQ),
+		float64(stat.Steal),
+		float64(stat.Guest),
+		float64(stat.GuestNice),
+	)
+}
+
 func (n *Node) GetCPUUsageWithSparkline() (usage float64, sparkline string, err error) {
 	if !n.CheckClientAlive() {
 		return
 	}
+
+	n.RLock()
+	cpuUsage := append([]CPUUsage(nil), n.cpuUsage...)
+	n.RUnlock()
 
 	usages := []float64{}
 	sparklineNums := 11
@@ -301,13 +368,13 @@ func (n *Node) GetCPUUsageWithSparkline() (usage float64, sparkline string, err 
 		l := i
 		p := i + 1
 
-		if len(n.cpuUsage) < p+1 {
+		if len(cpuUsage) < p+1 {
 			usages = append(usages, 0.0)
 			continue
 		}
 
-		lUsage := n.cpuUsage[len(n.cpuUsage)-l]
-		pUsage := n.cpuUsage[len(n.cpuUsage)-p]
+		lUsage := cpuUsage[len(cpuUsage)-l]
+		pUsage := cpuUsage[len(cpuUsage)-p]
 
 		// Get total usage
 		lUsageTotal := sumFloat64(
@@ -367,18 +434,22 @@ func (n *Node) GetCPUUsageWithBrailleLine() (usage float64, brailleLine string, 
 		return
 	}
 
+	n.RLock()
+	cpuUsage := append([]CPUUsage(nil), n.cpuUsage...)
+	n.RUnlock()
+
 	usages := []float64{}
 	for i := 1; i < 22; i++ {
 		l := i
 		p := i + 1
 
-		if len(n.cpuUsage) < p+1 {
+		if len(cpuUsage) < p+1 {
 			usages = append(usages, 0.0)
 			continue
 		}
 
-		lUsage := n.cpuUsage[len(n.cpuUsage)-l]
-		pUsage := n.cpuUsage[len(n.cpuUsage)-p]
+		lUsage := cpuUsage[len(cpuUsage)-l]
+		pUsage := cpuUsage[len(cpuUsage)-p]
 
 		// Get total usage
 		lUsageTotal := sumFloat64(
@@ -438,10 +509,14 @@ func (n *Node) GetCPUCoreUsage() (usages []CPUUsageTop, err error) {
 		return
 	}
 
+	n.RLock()
+	cpuUsage := append([]CPUUsage(nil), n.cpuUsage...)
+	n.RUnlock()
+
 	usages = []CPUUsageTop{}
-	if len(n.cpuUsage) >= 2 {
-		lUsage := n.cpuUsage[len(n.cpuUsage)-1]
-		pUsage := n.cpuUsage[len(n.cpuUsage)-2]
+	if len(cpuUsage) >= 2 {
+		lUsage := cpuUsage[len(cpuUsage)-1]
+		pUsage := cpuUsage[len(cpuUsage)-2]
 
 		for i := 0; i < len(lUsage.Detail); i++ {
 			l := lUsage.Detail[i]
@@ -645,6 +720,198 @@ func (n *Node) GetIPV6() (ipv6 []sshproc.IPv6, err error) {
 	return
 }
 
+func (n *Node) GetPressureCPU() (pressure *sshproc.PressureStat, err error) {
+	if !n.CheckClientAlive() {
+		err = fmt.Errorf("Node is not connected")
+		return
+	}
+
+	n.RLock()
+	defer n.RUnlock()
+	if n.snapshot.PressureCPU == nil {
+		return nil, fmt.Errorf("cpu pressure cache is not found")
+	}
+	value := *n.snapshot.PressureCPU
+	pressure = &value
+	return
+}
+
+func (n *Node) GetPressureMem() (pressure *sshproc.PressureStat, err error) {
+	if !n.CheckClientAlive() {
+		err = fmt.Errorf("Node is not connected")
+		return
+	}
+
+	n.RLock()
+	defer n.RUnlock()
+	if n.snapshot.PressureMem == nil {
+		return nil, fmt.Errorf("memory pressure cache is not found")
+	}
+	value := *n.snapshot.PressureMem
+	pressure = &value
+	return
+}
+
+func (n *Node) GetPressureIO() (pressure *sshproc.PressureStat, err error) {
+	if !n.CheckClientAlive() {
+		err = fmt.Errorf("Node is not connected")
+		return
+	}
+
+	n.RLock()
+	defer n.RUnlock()
+	if n.snapshot.PressureIO == nil {
+		return nil, fmt.Errorf("io pressure cache is not found")
+	}
+	value := *n.snapshot.PressureIO
+	pressure = &value
+	return
+}
+
+func (n *Node) GetFileNr() (fileNr *sshproc.FileNr, err error) {
+	if !n.CheckClientAlive() {
+		err = fmt.Errorf("Node is not connected")
+		return
+	}
+
+	n.RLock()
+	defer n.RUnlock()
+	if n.snapshot.FileNr == nil {
+		return nil, fmt.Errorf("file-nr cache is not found")
+	}
+	value := *n.snapshot.FileNr
+	fileNr = &value
+	return
+}
+
+func (n *Node) GetTCPStates() (states sshproc.SocketStateCount, err error) {
+	if !n.CheckClientAlive() {
+		err = fmt.Errorf("Node is not connected")
+		return
+	}
+
+	n.RLock()
+	states = cloneSocketStateCount(n.snapshot.TCPStates)
+	n.RUnlock()
+	if len(states) == 0 {
+		err = fmt.Errorf("tcp state cache is not found")
+	}
+	return
+}
+
+func (n *Node) GetUDPStates() (states sshproc.SocketStateCount, err error) {
+	if !n.CheckClientAlive() {
+		err = fmt.Errorf("Node is not connected")
+		return
+	}
+
+	n.RLock()
+	states = cloneSocketStateCount(n.snapshot.UDPStates)
+	n.RUnlock()
+	if len(states) == 0 {
+		err = fmt.Errorf("udp state cache is not found")
+	}
+	return
+}
+
+func (n *Node) GetPressureHistory() (cpu, mem, io []float64, err error) {
+	if !n.CheckClientAlive() {
+		err = fmt.Errorf("Node is not connected")
+		return
+	}
+
+	n.RLock()
+	cpu = append([]float64(nil), n.PressureCPUHistory...)
+	mem = append([]float64(nil), n.PressureMemHistory...)
+	io = append([]float64(nil), n.PressureIOHistory...)
+	n.RUnlock()
+	if len(cpu) == 0 && len(mem) == 0 && len(io) == 0 {
+		err = fmt.Errorf("pressure history is not found")
+	}
+	return
+}
+
+func (n *Node) GetCPUPressureHistory() (some10, some60, some300 []float64, err error) {
+	if !n.CheckClientAlive() {
+		err = fmt.Errorf("Node is not connected")
+		return
+	}
+
+	n.RLock()
+	some10 = append([]float64(nil), n.PressureCPUHistory...)
+	some60 = append([]float64(nil), n.PressureCPU60History...)
+	some300 = append([]float64(nil), n.PressureCPU300History...)
+	n.RUnlock()
+	if len(some10) == 0 && len(some60) == 0 && len(some300) == 0 {
+		err = fmt.Errorf("cpu pressure history is not found")
+	}
+	return
+}
+
+func (n *Node) GetMemPressureHistory() (some10, some60 []float64, err error) {
+	if !n.CheckClientAlive() {
+		err = fmt.Errorf("Node is not connected")
+		return
+	}
+
+	n.RLock()
+	some10 = append([]float64(nil), n.PressureMemHistory...)
+	some60 = append([]float64(nil), n.PressureMem60History...)
+	n.RUnlock()
+	if len(some10) == 0 && len(some60) == 0 {
+		err = fmt.Errorf("memory pressure history is not found")
+	}
+	return
+}
+
+func (n *Node) GetIOPressureHistory() (some10, some60 []float64, err error) {
+	if !n.CheckClientAlive() {
+		err = fmt.Errorf("Node is not connected")
+		return
+	}
+
+	n.RLock()
+	some10 = append([]float64(nil), n.PressureIOHistory...)
+	some60 = append([]float64(nil), n.PressureIO60History...)
+	n.RUnlock()
+	if len(some10) == 0 && len(some60) == 0 {
+		err = fmt.Errorf("io pressure history is not found")
+	}
+	return
+}
+
+func (n *Node) GetFileNrHistory() (alloc []uint64, err error) {
+	if !n.CheckClientAlive() {
+		err = fmt.Errorf("Node is not connected")
+		return
+	}
+
+	n.RLock()
+	alloc = append([]uint64(nil), n.FileNrAllocHistory...)
+	n.RUnlock()
+	if len(alloc) == 0 {
+		err = fmt.Errorf("file-nr history is not found")
+	}
+	return
+}
+
+func (n *Node) GetTCPStateHistory() (est, tw, listen []uint64, err error) {
+	if !n.CheckClientAlive() {
+		err = fmt.Errorf("Node is not connected")
+		return
+	}
+
+	n.RLock()
+	est = append([]uint64(nil), n.TCPEstHistory...)
+	tw = append([]uint64(nil), n.TCPTWHistory...)
+	listen = append([]uint64(nil), n.TCPListenHistory...)
+	n.RUnlock()
+	if len(est) == 0 && len(tw) == 0 && len(listen) == 0 {
+		err = fmt.Errorf("tcp state history is not found")
+	}
+	return
+}
+
 func (n *Node) MonitoringCPUUsage() {
 	if !n.CheckClientAlive() {
 		// reset cpuUsage
@@ -668,12 +935,12 @@ func (n *Node) MonitoringCPUUsage() {
 		timestamp,
 	}
 
+	n.Lock()
 	n.cpuUsage = append(n.cpuUsage, cpuUsage)
 	if len(n.cpuUsage) > n.cpuUsageLimit {
-		n.Lock()
 		n.cpuUsage = n.cpuUsage[1:]
-		n.Unlock()
 	}
+	n.Unlock()
 }
 
 func (n *Node) MonitoringDiskIO() {
@@ -692,11 +959,10 @@ func (n *Node) MonitoringDiskIO() {
 
 	// Get Disk IO
 	for _, stat := range stats {
-		device := ""
+		device := fmt.Sprintf("/dev/%s", stat.Name)
 
-		// if mapper device, get /dev path
-		match, _ := regexp.MatchString("^md-", device)
-		if match {
+		// Resolve device-mapper names such as dm-0 to /dev/mapper/<name>.
+		if strings.HasPrefix(stat.Name, "dm-") {
 			sysDeviceName := fmt.Sprintf("/sys/block/%s/dm/name", stat.Name)
 			mapperDeviceName, err := n.con.ReadData(sysDeviceName)
 			if err != nil {
@@ -704,9 +970,7 @@ func (n *Node) MonitoringDiskIO() {
 			}
 
 			// overwrite device
-			device = filepath.Join("/dev/mapper", mapperDeviceName)
-		} else {
-			device = fmt.Sprintf("/dev/%s", stat.Name)
+			device = filepath.Join("/dev/mapper", strings.TrimSpace(mapperDeviceName))
 		}
 
 		// Get Disk IO
@@ -720,13 +984,10 @@ func (n *Node) MonitoringDiskIO() {
 
 		n.Lock()
 		n.DiskIOs[device] = append(n.DiskIOs[device], &diskIO)
-		n.Unlock()
-
 		if len(n.DiskIOs[device]) > n.DiskIOsLimit {
-			n.Lock()
 			n.DiskIOs[device] = n.DiskIOs[device][1:]
-			n.Unlock()
 		}
+		n.Unlock()
 	}
 }
 
@@ -756,19 +1017,19 @@ func (n *Node) MonitoringNetworkIO() (err error) {
 
 		n.Lock()
 		n.NetworkIOs[stat.Iface] = append(n.NetworkIOs[stat.Iface], &networkIO)
-		n.Unlock()
-
 		if len(n.NetworkIOs[stat.Iface]) > n.NetworkIOsLimit {
-			n.Lock()
 			n.NetworkIOs[stat.Iface] = n.NetworkIOs[stat.Iface][1:]
-			n.Unlock()
 		}
+		n.Unlock()
 	}
 	return
 }
 
 func (n *Node) StartMonitoring() {
-	ticker := time.NewTicker(2 * time.Second)
+	// StartMonitoring is a long-lived reader loop. It does not reconnect by
+	// itself; it observes the current transport and waits for Monitor to
+	// refresh n.con via Connect().
+	ticker := time.NewTicker(monitorSampleInterval)
 	defer ticker.Stop()
 	tickCount := 0
 
@@ -778,17 +1039,34 @@ func (n *Node) StartMonitoring() {
 			n.cpuUsage = []CPUUsage{}
 			n.DiskIOs = map[string][]*DiskIO{}
 			n.NetworkIOs = map[string][]*NetworkIO{}
-			n.DiskReadIOBytes = nil
-			n.DiskWriteIOBytes = nil
-			n.NetworkRXBytes = nil
-			n.NetworkRXPackets = nil
-			n.NetworkTXBytes = nil
-			n.NetworkTXPackets = nil
+			n.DiskReadIOBytes = map[string][]int64{}
+			n.DiskWriteIOBytes = map[string][]int64{}
+			n.NetworkRXBytes = map[string][]uint64{}
+			n.NetworkRXPackets = map[string][]uint64{}
+			n.NetworkTXBytes = map[string][]uint64{}
+			n.NetworkTXPackets = map[string][]uint64{}
 			n.snapshot.MemInfo = nil
 			n.snapshot.Uptime = nil
 			n.snapshot.LoadAvg = nil
 			n.snapshot.DiskUsages = nil
 			n.snapshot.NetworkUsages = nil
+			n.snapshot.PressureCPU = nil
+			n.snapshot.PressureMem = nil
+			n.snapshot.PressureIO = nil
+			n.snapshot.FileNr = nil
+			n.snapshot.TCPStates = nil
+			n.snapshot.UDPStates = nil
+			n.PressureCPUHistory = nil
+			n.PressureCPU60History = nil
+			n.PressureCPU300History = nil
+			n.PressureMemHistory = nil
+			n.PressureMem60History = nil
+			n.PressureIOHistory = nil
+			n.PressureIO60History = nil
+			n.FileNrAllocHistory = nil
+			n.TCPEstHistory = nil
+			n.TCPTWHistory = nil
+			n.TCPListenHistory = nil
 			n.Unlock()
 			continue
 		}
@@ -841,6 +1119,37 @@ func (n *Node) refreshFastSnapshot() {
 		n.snapshot.NetworkUsages = networkUsages
 		n.Unlock()
 	}
+
+	if pressureCPU, err := n.con.ReadPressure("/proc/pressure/cpu"); err == nil {
+		n.Lock()
+		n.snapshot.PressureCPU = pressureCPU
+		if pressureCPU != nil && pressureCPU.Some != nil {
+			n.PressureCPUHistory = appendFloat64History(n.PressureCPUHistory, pressureCPU.Some.Avg10, n.PressureHistoryLimit)
+			n.PressureCPU60History = appendFloat64History(n.PressureCPU60History, pressureCPU.Some.Avg60, n.PressureHistoryLimit)
+			n.PressureCPU300History = appendFloat64History(n.PressureCPU300History, pressureCPU.Some.Avg300, n.PressureHistoryLimit)
+		}
+		n.Unlock()
+	}
+
+	if pressureMem, err := n.con.ReadPressure("/proc/pressure/memory"); err == nil {
+		n.Lock()
+		n.snapshot.PressureMem = pressureMem
+		if pressureMem != nil && pressureMem.Some != nil {
+			n.PressureMemHistory = appendFloat64History(n.PressureMemHistory, pressureMem.Some.Avg10, n.PressureHistoryLimit)
+			n.PressureMem60History = appendFloat64History(n.PressureMem60History, pressureMem.Some.Avg60, n.PressureHistoryLimit)
+		}
+		n.Unlock()
+	}
+
+	if pressureIO, err := n.con.ReadPressure("/proc/pressure/io"); err == nil {
+		n.Lock()
+		n.snapshot.PressureIO = pressureIO
+		if pressureIO != nil && pressureIO.Some != nil {
+			n.PressureIOHistory = appendFloat64History(n.PressureIOHistory, pressureIO.Some.Avg10, n.PressureHistoryLimit)
+			n.PressureIO60History = appendFloat64History(n.PressureIO60History, pressureIO.Some.Avg60, n.PressureHistoryLimit)
+		}
+		n.Unlock()
+	}
 }
 
 func (n *Node) refreshMediumSnapshot() {
@@ -850,6 +1159,31 @@ func (n *Node) refreshMediumSnapshot() {
 		n.snapshot.TaskCount = uint64(len(processList))
 		n.Unlock()
 	}
+
+	if fileNr, err := n.con.ReadFileNr("/proc/sys/fs/file-nr"); err == nil {
+		n.Lock()
+		n.snapshot.FileNr = fileNr
+		if fileNr != nil {
+			n.FileNrAllocHistory = appendUint64History(n.FileNrAllocHistory, fileNr.Allocated, n.FileNrHistoryLimit)
+		}
+		n.Unlock()
+	}
+
+	if tcpStates, err := n.readTCPStateSnapshot(); err == nil {
+		n.Lock()
+		n.snapshot.TCPStates = tcpStates
+		n.TCPEstHistory = appendUint64History(n.TCPEstHistory, tcpStates["ESTABLISHED"], n.SocketHistoryLimit)
+		n.TCPTWHistory = appendUint64History(n.TCPTWHistory, tcpStates["TIME_WAIT"], n.SocketHistoryLimit)
+		n.TCPListenHistory = appendUint64History(n.TCPListenHistory, tcpStates["LISTEN"], n.SocketHistoryLimit)
+		n.Unlock()
+	}
+
+	if udpStates, err := n.readUDPStateSnapshot(); err == nil {
+		n.Lock()
+		n.snapshot.UDPStates = udpStates
+		n.Unlock()
+	}
+
 }
 
 func (n *Node) refreshSlowSnapshot() {
@@ -904,8 +1238,8 @@ func (n *Node) buildDiskUsageSnapshot() ([]*DiskUsage, error) {
 		n.getDiskIOBytes(m.Device)
 
 		n.RLock()
-		readIO := append([]int64(nil), n.DiskReadIOBytes...)
-		writeIO := append([]int64(nil), n.DiskWriteIOBytes...)
+		readIO := append([]int64(nil), n.DiskReadIOBytes[m.Device]...)
+		writeIO := append([]int64(nil), n.DiskWriteIOBytes[m.Device]...)
 		n.RUnlock()
 
 		result = append(result, &DiskUsage{
@@ -923,11 +1257,53 @@ func (n *Node) buildDiskUsageSnapshot() ([]*DiskUsage, error) {
 	return result, nil
 }
 
-func (n *Node) buildNetworkUsageSnapshot() ([]*NetworkUsage, error) {
-	if len(n.NetworkIOs) == 0 {
-		return nil, fmt.Errorf("NetworkIOs is not found")
+func (n *Node) readTCPStateSnapshot() (sshproc.SocketStateCount, error) {
+	states := sshproc.SocketStateCount{}
+
+	tcp4, err := n.con.ReadNetTCPSockets("/proc/net/tcp", n.con.NetIPv4Decoder)
+	if err == nil {
+		for state, count := range sshproc.CountTCPSocketStates(tcp4) {
+			states[state] += count
+		}
 	}
 
+	tcp6, err := n.con.ReadNetTCPSockets("/proc/net/tcp6", n.con.NetIPv6Decoder)
+	if err == nil {
+		for state, count := range sshproc.CountTCPSocketStates(tcp6) {
+			states[state] += count
+		}
+	}
+
+	if len(states) == 0 {
+		return nil, fmt.Errorf("tcp state cache is not found")
+	}
+	return states, nil
+}
+
+func (n *Node) readUDPStateSnapshot() (sshproc.SocketStateCount, error) {
+	states := sshproc.SocketStateCount{}
+
+	udp4, err := n.con.ReadNetUDPSockets("/proc/net/udp", n.con.NetIPv4Decoder)
+	if err == nil {
+		for state, count := range sshproc.CountUDPSocketStates(udp4) {
+			states[state] += count
+		}
+	}
+
+	udp6, err := n.con.ReadNetUDPSockets("/proc/net/udp6", n.con.NetIPv6Decoder)
+	if err == nil {
+		for state, count := range sshproc.CountUDPSocketStates(udp6) {
+			states[state] += count
+		}
+	}
+
+	if len(states) == 0 {
+		return nil, fmt.Errorf("udp state cache is not found")
+	}
+	return states, nil
+}
+
+func (n *Node) buildNetworkUsageSnapshot() ([]*NetworkUsage, error) {
 	networkIOs := make(map[string][]*NetworkIO)
 	n.RLock()
 	for device, networkIO := range n.NetworkIOs {
@@ -936,6 +1312,9 @@ func (n *Node) buildNetworkUsageSnapshot() ([]*NetworkUsage, error) {
 	ipv4 := append([]sshproc.IPv4(nil), n.snapshot.IPv4...)
 	ipv6 := append([]sshproc.IPv6(nil), n.snapshot.IPv6...)
 	n.RUnlock()
+	if len(networkIOs) == 0 {
+		return nil, fmt.Errorf("NetworkIOs is not found")
+	}
 
 	result := []*NetworkUsage{}
 	for device, networkIO := range networkIOs {
@@ -948,10 +1327,10 @@ func (n *Node) buildNetworkUsageSnapshot() ([]*NetworkUsage, error) {
 		n.RLock()
 		usage := &NetworkUsage{
 			Device:    device,
-			RXBytes:   append([]uint64(nil), n.NetworkRXBytes...),
-			TXBytes:   append([]uint64(nil), n.NetworkTXBytes...),
-			RXPackets: append([]uint64(nil), n.NetworkRXPackets...),
-			TXPackets: append([]uint64(nil), n.NetworkTXPackets...),
+			RXBytes:   append([]uint64(nil), n.NetworkRXBytes[device]...),
+			TXBytes:   append([]uint64(nil), n.NetworkTXBytes[device]...),
+			RXPackets: append([]uint64(nil), n.NetworkRXPackets[device]...),
+			TXPackets: append([]uint64(nil), n.NetworkTXPackets[device]...),
 		}
 		n.RUnlock()
 
@@ -1034,25 +1413,25 @@ func (n *Node) getDiskIOBytes(device string) {
 		readIOBytes = diskIO[len(diskIO)-1].ReadBytes - preReadIOBytes
 		writeIOBytes = diskIO[len(diskIO)-1].WriteBytes - preWriteIOBytes
 
-		if len(n.DiskReadIOBytes) == 0 {
-			n.DiskReadIOBytes = append(n.DiskReadIOBytes, 0)
+		if _, ok := n.DiskReadIOBytes[device]; !ok {
+			n.DiskReadIOBytes[device] = append(n.DiskReadIOBytes[device], 0)
 		} else {
-			n.DiskReadIOBytes = append(n.DiskReadIOBytes, readIOBytes)
+			n.DiskReadIOBytes[device] = append(n.DiskReadIOBytes[device], readIOBytes)
 		}
 
-		if len(n.DiskWriteIOBytes) == 0 {
-			n.DiskWriteIOBytes = append(n.DiskWriteIOBytes, 0)
+		if _, ok := n.DiskWriteIOBytes[device]; !ok {
+			n.DiskWriteIOBytes[device] = append(n.DiskWriteIOBytes[device], 0)
 		} else {
-			n.DiskWriteIOBytes = append(n.DiskWriteIOBytes, writeIOBytes)
+			n.DiskWriteIOBytes[device] = append(n.DiskWriteIOBytes[device], writeIOBytes)
 		}
 	}
 
-	if len(n.DiskReadIOBytes) > n.DiskIOsLimit {
-		n.DiskReadIOBytes = n.DiskReadIOBytes[1:]
+	if len(n.DiskReadIOBytes[device]) > n.DiskIOsLimit {
+		n.DiskReadIOBytes[device] = n.DiskReadIOBytes[device][1:]
 	}
 
-	if len(n.DiskWriteIOBytes) > n.DiskIOsLimit {
-		n.DiskWriteIOBytes = n.DiskWriteIOBytes[1:]
+	if len(n.DiskWriteIOBytes[device]) > n.DiskIOsLimit {
+		n.DiskWriteIOBytes[device] = n.DiskWriteIOBytes[device][1:]
 	}
 
 	return
@@ -1083,44 +1462,44 @@ func (n *Node) getNetworkIO(device string) {
 		txBytes = networkIO[len(networkIO)-1].TXBytes - preTXBytes
 		txPackets = networkIO[len(networkIO)-1].TXPackets - preTXPackets
 
-		if len(n.NetworkRXBytes) == 0 {
-			n.NetworkRXBytes = append(n.NetworkRXBytes, 0)
+		if _, ok := n.NetworkRXBytes[device]; !ok {
+			n.NetworkRXBytes[device] = append(n.NetworkRXBytes[device], 0)
 		} else {
-			n.NetworkRXBytes = append(n.NetworkRXBytes, uint64(rxBytes))
+			n.NetworkRXBytes[device] = append(n.NetworkRXBytes[device], uint64(rxBytes))
 		}
 
-		if len(n.NetworkRXPackets) == 0 {
-			n.NetworkRXPackets = append(n.NetworkRXPackets, 0)
+		if _, ok := n.NetworkRXPackets[device]; !ok {
+			n.NetworkRXPackets[device] = append(n.NetworkRXPackets[device], 0)
 		} else {
-			n.NetworkRXPackets = append(n.NetworkRXPackets, uint64(rxPackets))
+			n.NetworkRXPackets[device] = append(n.NetworkRXPackets[device], uint64(rxPackets))
 		}
 
-		if len(n.NetworkTXBytes) == 0 {
-			n.NetworkTXBytes = append(n.NetworkTXBytes, 0)
+		if _, ok := n.NetworkTXBytes[device]; !ok {
+			n.NetworkTXBytes[device] = append(n.NetworkTXBytes[device], 0)
 		} else {
-			n.NetworkTXBytes = append(n.NetworkTXBytes, uint64(txBytes))
+			n.NetworkTXBytes[device] = append(n.NetworkTXBytes[device], uint64(txBytes))
 		}
 
-		if len(n.NetworkTXPackets) == 0 {
-			n.NetworkTXPackets = append(n.NetworkTXPackets, 0)
+		if _, ok := n.NetworkTXPackets[device]; !ok {
+			n.NetworkTXPackets[device] = append(n.NetworkTXPackets[device], 0)
 		} else {
-			n.NetworkTXPackets = append(n.NetworkTXPackets, uint64(txPackets))
+			n.NetworkTXPackets[device] = append(n.NetworkTXPackets[device], uint64(txPackets))
 		}
 
-		if len(n.NetworkRXBytes) > n.NetworkIOsLimit {
-			n.NetworkRXBytes = n.NetworkRXBytes[1:]
+		if len(n.NetworkRXBytes[device]) > n.NetworkIOsLimit {
+			n.NetworkRXBytes[device] = n.NetworkRXBytes[device][1:]
 		}
 
-		if len(n.NetworkTXBytes) > n.NetworkIOsLimit {
-			n.NetworkTXBytes = n.NetworkTXBytes[1:]
+		if len(n.NetworkTXBytes[device]) > n.NetworkIOsLimit {
+			n.NetworkTXBytes[device] = n.NetworkTXBytes[device][1:]
 		}
 
-		if len(n.NetworkRXBytes) > n.NetworkIOsLimit {
-			n.NetworkRXBytes = n.NetworkRXBytes[1:]
+		if len(n.NetworkRXPackets[device]) > n.NetworkIOsLimit {
+			n.NetworkRXPackets[device] = n.NetworkRXPackets[device][1:]
 		}
 
-		if len(n.NetworkRXPackets) > n.NetworkIOsLimit {
-			n.NetworkRXPackets = n.NetworkRXPackets[1:]
+		if len(n.NetworkTXPackets[device]) > n.NetworkIOsLimit {
+			n.NetworkTXPackets[device] = n.NetworkTXPackets[device][1:]
 		}
 
 	}

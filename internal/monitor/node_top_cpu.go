@@ -9,7 +9,6 @@ import (
 	"sync"
 
 	"github.com/blacknon/mview"
-	"github.com/gdamore/tcell/v2"
 )
 
 type TopCPUUsage struct {
@@ -22,15 +21,7 @@ type TopCPUUsage struct {
 func (n *Node) CreateTopCPUUsage() (result *TopCPUUsage) {
 	// Create box
 	table := mview.NewTable()
-
-	// Set border options
-	table.SetBorder(false)
-
-	// Set background color(no color)
-	table.SetBackgroundColor(mview.ColorUnset)
-
-	// Set selected style
-	table.SetSelectedStyle(tcell.ColorBlack, tcell.NewRGBColor(0, 255, 255), tcell.AttrNone)
+	applyMonitorTableStyle(table, false)
 
 	// Set fixed option
 	table.SetFixed(1, 0)
@@ -61,21 +52,14 @@ func (n *Node) CreateTopCPUUsage() (result *TopCPUUsage) {
 
 	// Set table header
 	for colIndex, header := range headers {
-		tableCell := mview.NewTableCell(header)
-		tableCell.SetTextColor(tcell.ColorBlack)
-		tableCell.SetBackgroundColor(tcell.ColorGreen)
-		tableCell.SetAlign(mview.AlignLeft)
-		tableCell.SetSelectable(false)
-		tableCell.SetIsHeader(true)
-
-		table.SetCell(0, colIndex, tableCell)
+		table.SetCell(0, colIndex, newMonitorHeaderCell(header))
 	}
 
 	// Set table data
 	for rowIndex, row := range rows {
 		for colIndex, cell := range row {
 			tableCell := mview.NewTableCell(cell)
-			tableCell.SetTextColor(tcell.ColorWhite)
+			tableCell.SetTextColor(monitorTextColor)
 
 			switch colIndex {
 			case 1:
@@ -116,7 +100,7 @@ func (t *TopCPUUsage) Update(wg *sync.WaitGroup) {
 		// Set table data
 		for rowIndex, usage := range usages {
 			coreCell := mview.NewTableCell(fmt.Sprintf("%*d", t.coreWidth, rowIndex))
-			coreCell.SetTextColor(tcell.NewRGBColor(0, 255, 255))
+			setMonitorAccentText(coreCell)
 			coreCell.SetAlign(mview.AlignRight)
 			coreCell.SetMaxWidth(t.coreWidth)
 
@@ -151,7 +135,7 @@ func (t *TopCPUUsage) Update(wg *sync.WaitGroup) {
 			bar += "[none]"
 
 			usageCell := mview.NewTableCell(fmt.Sprintf("[gray]%8.1f%%[none][%-20s]", usage.Total*100, bar))
-			usageCell.SetTextColor(tcell.ColorWhite)
+			usageCell.SetTextColor(monitorTextColor)
 
 			t.SetCell(rowIndex+1, 0, coreCell)
 			t.SetCell(rowIndex+1, 1, usageCell)

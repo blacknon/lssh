@@ -75,6 +75,8 @@ USAGE:
 		cli.StringFlag{Name: "generate-lssh-conf", Usage: "print generated lssh config from OpenSSH config to stdout (`~/.ssh/config` by default)."},
 		cli.StringFlag{Name: "logfile,L", Usage: "Set log file path."},
 		cli.BoolFlag{Name: "share-connect,s", Usage: "reuse the monitor SSH connection for terminals."},
+		cli.BoolFlag{Name: "localrc", Usage: "use local bashrc shell for opened terminals."},
+		cli.BoolFlag{Name: "not-localrc", Usage: "not use local bashrc shell for opened terminals."},
 
 		// Other bool
 		cli.BoolFlag{Name: "list,l", Usage: "print server list from config."},
@@ -192,6 +194,8 @@ USAGE:
 		r.ControlMasterOverride = controlMasterOverride
 		r.Conf.Common.ConnectTimeout = 5
 		r.ShareConnect = c.Bool("share-connect")
+		r.IsBashrc = c.Bool("localrc")
+		r.IsNotBashrc = c.Bool("not-localrc")
 
 		// Get stdin data(pipe)
 		if runtime.GOOS != "windows" {

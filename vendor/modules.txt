@@ -34,8 +34,8 @@ github.com/blacknon/crypto11
 # github.com/blacknon/go-sshlib v0.1.34
 ## explicit; go 1.25.1
 github.com/blacknon/go-sshlib
-# github.com/blacknon/go-sshproc v0.1.1
-## explicit; go 1.22.4
+# github.com/blacknon/go-sshproc v0.1.2
+## explicit; go 1.25.1
 github.com/blacknon/go-sshproc
 # github.com/blacknon/go-x11auth v0.1.0
 ## explicit; go 1.22.2

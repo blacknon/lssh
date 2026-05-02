@@ -17,12 +17,6 @@ func (m *Monitor) StartView() {
 	m.View = mview.NewApplication()
 	defer m.View.HandlePanic()
 
-	for _, node := range m.Nodes {
-		if node != nil && node.NodeTop != nil {
-			node.NodeTop.bindApplication(m.View)
-		}
-	}
-
 	// enable mouse
 	m.View.EnableMouse(true)
 
@@ -37,8 +31,12 @@ func (m *Monitor) StartView() {
 	m.Panels.AddTab(fmt.Sprintf("panel-%d", m.PanelCounter), "Main", m.BaseGrid)
 	m.PanelCounter++
 
-	m.View.SetRoot(m.Panels, true)
-	m.View.SetFocus(m.Panels)
+	m.rootPanels = mview.NewPanels()
+	m.exitModal = m.createExitConfirmModal()
+	root := newExitOverlayPrimitive(m.Panels, m.exitModal, m.isExitConfirmVisible)
+
+	m.View.SetRoot(root, true)
+	m.View.SetFocus(m.table)
 
 	// Start View app
 	if err := m.View.Run(); err != nil {

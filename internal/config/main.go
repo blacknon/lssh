@@ -44,6 +44,7 @@ import (
 // Config is Struct that stores the entire configuration file.
 type Config struct {
 	Log       LogConfig                         `toml:"log" yaml:"log"`
+	Monitor   MonitorConfig                     `toml:"monitor" yaml:"monitor"`
 	Mux       MuxConfig                         `toml:"mux" yaml:"mux"`
 	Shell     ShellConfig                       `toml:"shell" yaml:"shell"`
 	Lsshfs    LsshfsConfig                      `toml:"lsshfs" yaml:"lsshfs"`

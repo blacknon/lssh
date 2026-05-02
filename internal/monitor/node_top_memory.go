@@ -11,7 +11,6 @@ import (
 	mview "github.com/blacknon/mview"
 	"github.com/c9s/goprocinfo/linux"
 	"github.com/dustin/go-humanize"
-	"github.com/gdamore/tcell/v2"
 )
 
 type TopMemoryUsage struct {
@@ -22,28 +21,16 @@ type TopMemoryUsage struct {
 func (n *Node) CreateTopMemoryUsage() (result *TopMemoryUsage) {
 	// Create box
 	table := mview.NewTable()
-
-	// Set border options
-	table.SetBorder(false)
-
-	// Set background color(no color)
-	table.SetBackgroundColor(mview.ColorUnset)
-
-	// Set selected style
-	table.SetSelectedStyle(tcell.ColorBlack, tcell.NewRGBColor(0, 255, 255), tcell.AttrNone)
+	applyMonitorTableStyle(table, false)
 
 	// Create Usage Size(memory)
-	MemHeader := mview.NewTableCell(" Mem    ")
-	MemHeader.SetTextColor(tcell.ColorBlack)
-	MemHeader.SetBackgroundColor(tcell.ColorGreen)
+	MemHeader := newMonitorHeaderCell(" Mem    ")
 	MemBar := mview.NewTableCell("")
 	table.SetCell(0, 0, MemHeader)
 	table.SetCell(0, 1, MemBar)
 
 	// Swap
-	SwapHeader := mview.NewTableCell(" Swp    ")
-	SwapHeader.SetTextColor(tcell.ColorBlack)
-	SwapHeader.SetBackgroundColor(tcell.ColorGreen)
+	SwapHeader := newMonitorHeaderCell(" Swp    ")
 	SwapBar := mview.NewTableCell("")
 	table.SetCell(1, 0, SwapHeader)
 	table.SetCell(1, 1, SwapBar)

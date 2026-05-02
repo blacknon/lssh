@@ -3,7 +3,6 @@ package monitor
 import (
 	"fmt"
 	"strings"
-	"time"
 
 	"github.com/blacknon/lssh/internal/mux"
 	mview "github.com/blacknon/mview"
@@ -15,12 +14,11 @@ type topTerminalPane struct {
 	Primitive mview.Primitive
 	Session   *mux.RemoteSession
 	Terminal  *tvxtermPrimitive
-	stopDraw  chan struct{}
 }
 
 func (m *Monitor) openTopTerminal() {
-	host := strings.TrimSpace(m.selectedNode)
-	if !m.enableTop || host == "" {
+	host := m.getSelectedNode()
+	if !m.isTopEnabled() || host == "" {
 		return
 	}
 
@@ -79,16 +77,19 @@ func (m *Monitor) openTopTerminal() {
 					}
 				})
 			})
-			term.Attach(session.Backend)
+			backend := newRedrawNotifyingBackend(session.Backend, func() {
+				if m.View != nil {
+					m.View.QueueUpdateDraw(func() {})
+				}
+			})
+			term.Attach(backend)
 
 			current.Session = session
 			current.Terminal = newTVXTermPrimitive(term)
 			current.Primitive = current.Terminal
-			current.stopDraw = make(chan struct{})
-			m.startTopTerminalDrawLoop(current)
 
 			m.reDrawBasePanel()
-			if m.selectedNode == server {
+			if m.getSelectedNode() == server {
 				m.View.SetFocus(current.Terminal)
 			}
 		})
@@ -104,11 +105,6 @@ func (m *Monitor) closeTopTerminal(host string, refocusTable bool) {
 
 	delete(m.topTerminals, host)
 
-	if pane.stopDraw != nil {
-		close(pane.stopDraw)
-		pane.stopDraw = nil
-	}
-
 	switch {
 	case pane.Terminal != nil:
 		_ = pane.Terminal.Close()
@@ -122,27 +118,11 @@ func (m *Monitor) closeTopTerminal(host string, refocusTable bool) {
 }
 
 func (m *Monitor) getSelectedTopTerminal() *topTerminalPane {
-	host := strings.TrimSpace(m.selectedNode)
+	host := m.getSelectedNode()
 	if host == "" {
 		return nil
 	}
 	return m.topTerminals[host]
-}
-
-func (m *Monitor) startTopTerminalDrawLoop(pane *topTerminalPane) {
-	go func() {
-		ticker := time.NewTicker(50 * time.Millisecond)
-		defer ticker.Stop()
-
-		for {
-			select {
-			case <-pane.stopDraw:
-				return
-			case <-ticker.C:
-				m.View.QueueUpdateDraw(func() {})
-			}
-		}
-	}()
 }
 
 func (m *Monitor) createTopTerminalSession(server string, cols, rows int) (*mux.RemoteSession, error) {

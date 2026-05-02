@@ -11,7 +11,6 @@ import (
 
 	mview "github.com/blacknon/mview"
 	"github.com/dustin/go-humanize"
-	"github.com/gdamore/tcell/v2"
 )
 
 type TopDiskInfomation struct {
@@ -22,16 +21,9 @@ type TopDiskInfomation struct {
 func (n *Node) CreateTopDiskInfomation() (result *TopDiskInfomation) {
 	// Create box
 	table := mview.NewTable()
+	applyMonitorTableStyle(table, true)
 
-	// Set border options
-	table.SetBorder(false)
-
-	// Set background color(no color)
-	table.SetBackgroundColor(mview.ColorUnset)
-
-	// Set selected style
-	table.SetSelectedStyle(tcell.ColorBlack, tcell.NewRGBColor(0, 255, 255), tcell.AttrNone)
-
+	// Allow row navigation when the top panel has focus.
 	// Set fixed option
 	table.SetFixed(1, 0)
 
@@ -40,14 +32,7 @@ func (n *Node) CreateTopDiskInfomation() (result *TopDiskInfomation) {
 
 	// Set table header
 	for colIndex, header := range headers {
-		tableCell := mview.NewTableCell(header)
-		tableCell.SetTextColor(tcell.ColorBlack)
-		tableCell.SetBackgroundColor(tcell.ColorGreen)
-		tableCell.SetAlign(mview.AlignLeft)
-		tableCell.SetSelectable(false)
-		tableCell.SetIsHeader(true)
-
-		table.SetCell(0, colIndex, tableCell)
+		table.SetCell(0, colIndex, newMonitorHeaderCell(header))
 	}
 
 	result = &TopDiskInfomation{
@@ -75,12 +60,12 @@ func (t *TopDiskInfomation) Update(wg *sync.WaitGroup) {
 
 		// Disk Path(2)
 		diskPathCell := mview.NewTableCell(disk.Device)
-		diskPathCell.SetTextColor(tcell.NewRGBColor(0, 255, 255))
+		setMonitorAccentText(diskPathCell)
 		t.Table.SetCell(row, 0, diskPathCell)
 
 		// Disk MountPoint(3)
 		diskMountPointCell := mview.NewTableCell(fmt.Sprintf("[gray]%s[none]", disk.MountPoint))
-		diskMountPointCell.SetTextColor(tcell.NewRGBColor(0, 255, 255))
+		setMonitorAccentText(diskMountPointCell)
 		t.Table.SetCell(row, 1, diskMountPointCell)
 
 		// Disk Usage(Used/Total)(4)
@@ -88,19 +73,19 @@ func (t *TopDiskInfomation) Update(wg *sync.WaitGroup) {
 		diskUsageBar := CreatePercentGraph(30, float64(disk.Used), float64(disk.All), "red")
 		diskUsage := fmt.Sprintf("[yellow]%8.1f[gray]%%[none] [%s]", diskUsagePercent, diskUsageBar)
 		diskUsageCell := mview.NewTableCell(diskUsage)
-		diskUsageCell.SetTextColor(tcell.NewRGBColor(0, 255, 255))
+		setMonitorAccentText(diskUsageCell)
 		t.Table.SetCell(row, 2, diskUsageCell)
 
 		// Disk Use(Used)(5)
 		diskUse := fmt.Sprintf("[gray]%8s[none]", humanize.Bytes(uint64(disk.Used)))
 		diskUseCell := mview.NewTableCell(diskUse)
-		diskUseCell.SetTextColor(tcell.NewRGBColor(0, 255, 255))
+		setMonitorAccentText(diskUseCell)
 		t.Table.SetCell(row, 3, diskUseCell)
 
 		// Disk Total(6)
 		diskTotal := fmt.Sprintf("[gray]%8s[none]", humanize.Bytes(uint64(disk.All)))
 		diskTotalCell := mview.NewTableCell(diskTotal)
-		diskTotalCell.SetTextColor(tcell.NewRGBColor(0, 255, 255))
+		setMonitorAccentText(diskTotalCell)
 		t.Table.SetCell(row, 4, diskTotalCell)
 
 		// Disk ReadIOBytes(7)
@@ -118,10 +103,14 @@ func (t *TopDiskInfomation) Update(wg *sync.WaitGroup) {
 				readBytes = append(readBytes, readByte)
 			}
 			readByte := humanize.Bytes(uint64(disk.ReadIOBytes[readIOBytesLength-1]))
-			maxBytes := scaleMaxValue(maxFloat64(readBytes))
+			normalizedReadBytes := normalizeFloat64SeriesToPercent(
+				readBytes,
+				float64(t.Node.GetDiskReadGraphMaxBytes(disk.Device)),
+			)
 			readGraph := Graph{
-				Data: readBytes,
-				Max:  maxBytes,
+				Data: normalizedReadBytes,
+				Min:  0,
+				Max:  100,
 			}
 			brailleLine := strings.Join(readGraph.BrailleLine(), "")
 
@@ -131,7 +120,7 @@ func (t *TopDiskInfomation) Update(wg *sync.WaitGroup) {
 			diskReadIO := fmt.Sprintf("[gray]%s[none]", "-")
 			diskReadIOCell = mview.NewTableCell(diskReadIO)
 		}
-		diskReadIOCell.SetTextColor(tcell.NewRGBColor(0, 255, 255))
+		setMonitorAccentText(diskReadIOCell)
 		t.Table.SetCell(row, 5, diskReadIOCell)
 
 		// Disk WriteIOBytes(7)
@@ -149,10 +138,14 @@ func (t *TopDiskInfomation) Update(wg *sync.WaitGroup) {
 				writeBytes = append(writeBytes, writeByte)
 			}
 			writeByte := humanize.Bytes(uint64(disk.WriteIOBytes[writeIOBytesLength-1]))
-			maxBytes := scaleMaxValue(maxFloat64(writeBytes))
+			normalizedWriteBytes := normalizeFloat64SeriesToPercent(
+				writeBytes,
+				float64(t.Node.GetDiskWriteGraphMaxBytes(disk.Device)),
+			)
 			readGraph := Graph{
-				Data: writeBytes,
-				Max:  maxBytes,
+				Data: normalizedWriteBytes,
+				Min:  0,
+				Max:  100,
 			}
 			brailleLine := strings.Join(readGraph.BrailleLine(), "")
 
@@ -162,7 +155,7 @@ func (t *TopDiskInfomation) Update(wg *sync.WaitGroup) {
 			diskWriteIO := fmt.Sprintf("[gray]%s[none]", "-")
 			diskWriteIOCell = mview.NewTableCell(diskWriteIO)
 		}
-		diskWriteIOCell.SetTextColor(tcell.NewRGBColor(0, 255, 255))
+		setMonitorAccentText(diskWriteIOCell)
 		t.Table.SetCell(row, 6, diskWriteIOCell)
 	}
 

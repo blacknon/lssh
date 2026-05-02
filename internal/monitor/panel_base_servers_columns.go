@@ -10,7 +10,6 @@ import (
 
 	mview "github.com/blacknon/mview"
 	"github.com/dustin/go-humanize"
-	"github.com/gdamore/tcell/v2"
 )
 
 func (m *Monitor) getBaseGridTableDataIsConnect(isConnect bool) (connectCell *mview.TableCell) {
@@ -59,7 +58,7 @@ func (m *Monitor) getBaseGridTableDataCPUCore(isConnect bool, node *Node) (cpuCo
 		cpuCoreCell.Align = mview.AlignCenter
 	}
 
-	cpuCoreCell.SetTextColor(tcell.NewRGBColor(0, 255, 255))
+	setMonitorAccentText(cpuCoreCell)
 
 	return
 }

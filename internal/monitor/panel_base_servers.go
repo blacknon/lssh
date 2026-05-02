@@ -32,12 +32,15 @@ func (m *Monitor) createBaseGridTable() (table *mview.Table) {
 	table.SetBackgroundColor(mview.ColorUnset)
 
 	// Set selected style
-	table.SetSelectedStyle(tcell.ColorBlack, tcell.NewRGBColor(0, 255, 255), tcell.AttrNone)
+	table.SetSelectedStyle(monitorBaseColor, monitorAccentColor, tcell.AttrNone)
 
 	// Set selected func
 	table.SetSelectionChangedFunc(
 		func(row, col int) {
-			if row > table.GetRowCount() || row < 0 {
+			if m.isSyncingSelection() {
+				return
+			}
+			if row > table.GetRowCount() || row <= 0 {
 				return
 			}
 
@@ -51,19 +54,28 @@ func (m *Monitor) createBaseGridTable() (table *mview.Table) {
 			// Get node
 			node := m.GetNode(server)
 			if node == nil {
-				m.Lock()
-				m.selectedNode = ""
-				m.Unlock()
+				m.setSelectedNode("")
 			} else {
-				m.Lock()
-				m.selectedNode = server
-				m.Unlock()
+				m.setSelectedNode(server)
 			}
 
-			if m.enableTop {
-				m.reDrawBasePanel()
+			if m.isTopEnabled() {
+				m.syncTopPanelSelection()
 			}
 		})
+	table.SetMouseCapture(func(action mview.MouseAction, event *tcell.EventMouse) (mview.MouseAction, *tcell.EventMouse) {
+		if action != mview.MouseLeftClick || event == nil {
+			return action, event
+		}
+
+		_, innerY, _, _ := table.GetInnerRect()
+		_, mouseY := event.Position()
+		if mouseY == innerY {
+			m.setBaseTableSortUsed(true)
+		}
+
+		return action, event
+	})
 
 	// Headers
 	headers := getServerHeader()
@@ -73,14 +85,7 @@ func (m *Monitor) createBaseGridTable() (table *mview.Table) {
 
 	// Set table header
 	for colIndex, header := range headers {
-		tableCell := mview.NewTableCell(header)
-		tableCell.SetTextColor(tcell.ColorBlack)
-		tableCell.SetBackgroundColor(tcell.ColorGreen)
-		tableCell.SetAlign(mview.AlignLeft)
-		tableCell.SetSelectable(false)
-		tableCell.SetIsHeader(true)
-
-		table.SetCell(0, colIndex, tableCell)
+		table.SetCell(0, colIndex, newMonitorHeaderCell(header))
 	}
 
 	// get fixed width for the first column in advance so the width does not
@@ -105,7 +110,7 @@ func (m *Monitor) createBaseGridTable() (table *mview.Table) {
 		for colIndex, cell := range row {
 			tableCell := mview.NewTableCell(cell)
 
-			tableCell.SetTextColor(tcell.ColorWhite)
+			tableCell.SetTextColor(monitorTextColor)
 
 			switch colIndex {
 			case 1:
@@ -138,6 +143,51 @@ func (m *Monitor) createBaseGridTable() (table *mview.Table) {
 	return table
 }
 
+func (m *Monitor) findTableRowByServer(server string) int {
+	server = strings.TrimSpace(server)
+	if server == "" || m.table == nil {
+		return -1
+	}
+
+	rowCount := m.table.GetRowCount()
+	for row := 1; row < rowCount; row++ {
+		cell := m.table.GetCell(row, 0)
+		if isEmptyStruct(cell) {
+			continue
+		}
+		if strings.TrimSpace(cell.GetText()) == server {
+			return row
+		}
+	}
+
+	return -1
+}
+
+func (m *Monitor) syncTableSelectionToSelectedNode() {
+	if m.table == nil {
+		return
+	}
+
+	selectedNode := m.getSelectedNode()
+	if selectedNode == "" {
+		return
+	}
+
+	row := m.findTableRowByServer(selectedNode)
+	if row < 0 {
+		return
+	}
+
+	currentRow, currentColumn := m.table.GetSelection()
+	if currentRow == row {
+		return
+	}
+
+	m.withSelectionSync(func() {
+		m.table.Select(row, currentColumn)
+	})
+}
+
 func (m *Monitor) createBaseGridTableRows() (rows [][]string) {
 	for _, node := range m.Nodes {
 		row := []string{}
@@ -164,7 +214,7 @@ func (m *Monitor) updateBaseGridTableRows() {
 	// Get table rows count
 	count := m.table.GetRowCount()
 
-	ticker := time.NewTicker(2 * time.Second)
+	ticker := time.NewTicker(4 * time.Second)
 	defer ticker.Stop()
 
 	for range ticker.C {
@@ -208,9 +258,12 @@ func (m *Monitor) updateBaseGridTableRows() {
 				}
 			}
 
-			sortColumn := m.table.GetSortClickedColumn()
-			isDescending := m.table.GetSortClickedDescending()
-			m.table.Sort(sortColumn, isDescending)
+			if m.isBaseTableSortUsed() {
+				sortColumn := m.table.GetSortClickedColumn()
+				isDescending := m.table.GetSortClickedDescending()
+				m.table.Sort(sortColumn, isDescending)
+			}
+			m.syncTableSelectionToSelectedNode()
 		})
 	}
 }

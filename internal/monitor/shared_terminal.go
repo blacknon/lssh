@@ -15,6 +15,7 @@ import (
 	"github.com/blacknon/lssh/internal/common"
 	conf "github.com/blacknon/lssh/internal/config"
 	"github.com/blacknon/lssh/internal/mux"
+	sshrun "github.com/blacknon/lssh/internal/ssh"
 	"github.com/blacknon/tvxterm"
 )
 
@@ -30,10 +31,10 @@ func (m *Monitor) createSharedTopTerminalSession(server string, cols, rows int) 
 		return nil, fmt.Errorf("monitor connection is not alive: %s", server)
 	}
 
-	return newSharedMonitorRemoteSession(server, m.r.Conf, node.con.Connect, cols, rows)
+	return newSharedMonitorRemoteSession(server, m.r.Conf, m.r, node.con.Connect, cols, rows)
 }
 
-func newSharedMonitorRemoteSession(server string, cfg conf.Config, connect *sshlib.Connect, cols, rows int) (*mux.RemoteSession, error) {
+func newSharedMonitorRemoteSession(server string, cfg conf.Config, run *sshrun.Run, connect *sshlib.Connect, cols, rows int) (*mux.RemoteSession, error) {
 	if connect == nil {
 		return nil, fmt.Errorf("ssh connect is nil")
 	}
@@ -46,7 +47,7 @@ func newSharedMonitorRemoteSession(server string, cfg conf.Config, connect *sshl
 		StartShell: true,
 	}
 
-	if serverConf.LocalRcUse == "yes" {
+	if sharedTerminalLocalRCEnabled(serverConf, run) {
 		opts.StartShell = false
 		opts.Command = buildSharedLocalRcCommand(
 			serverConf.LocalRcPath,
@@ -107,6 +108,10 @@ func newSharedMonitorRemoteSession(server string, cfg conf.Config, connect *sshl
 			closeFn,
 		),
 	}, nil
+}
+
+func sharedTerminalLocalRCEnabled(serverConf conf.ServerConfig, run *sshrun.Run) bool {
+	return sshrun.LocalRCEnabled(run, serverConf)
 }
 
 func newSharedTerminalCloseFunc(outputWriter *io.PipeWriter, logWriter io.Closer, terminal io.Closer, client io.Closer, closeClient bool) func() error {

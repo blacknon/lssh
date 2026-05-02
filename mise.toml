@@ -7,12 +7,7 @@
 # ====================
 [tasks.full_build]
 description = "Build all lssh suite command binaries"
-depends = [
-    "core_build",
-    "transfer_build",
-    "monitor_build",
-    "sysadmin_build",
-]
+depends = ["core_build", "transfer_build", "monitor_build", "sysadmin_build"]
 
 [tasks.full_install]
 description = "Install all lssh suite command binaries"
@@ -25,11 +20,7 @@ depends = [
 
 [tasks.complete_install]
 description = "Install the full lssh suite, bundled providers, and shell completions"
-depends = [
-    "full_install",
-    "provider_install",
-    "completion_install",
-]
+depends = ["full_install", "provider_install", "completion_install"]
 
 [tasks.completion_install]
 description = "Install shell completion files for bash, zsh, and fish to the user profile"

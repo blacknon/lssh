@@ -544,23 +544,11 @@ func connectorLocalForwardSpec(config conf.ServerConfig) (connectorPortForwardSp
 }
 
 func connectorLocalRCEnabled(r *Run, config conf.ServerConfig) bool {
-	if r == nil {
-		return config.LocalRcUse == "yes"
-	}
-	if r.IsNotBashrc {
-		return false
-	}
-	if r.IsBashrc {
-		return true
-	}
-	return config.LocalRcUse == "yes"
+	return LocalRCEnabled(r, config)
 }
 
 func connectorLocalRCCommand(r *Run, config conf.ServerConfig) string {
-	if !connectorLocalRCEnabled(r, config) {
-		return ""
-	}
-	return BuildInteractiveLocalRCShellCommand(config.LocalRcPath, config.LocalRcDecodeCmd, config.LocalRcCompress, config.LocalRcUncompressCmd)
+	return LocalRCCommand(r, config)
 }
 
 func connectorPlanSupportsLocalRC(prepared conf.PreparedConnector) bool {
