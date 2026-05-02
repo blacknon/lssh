@@ -9,16 +9,13 @@ import (
 	"io"
 	"os"
 	"os/exec"
-	"regexp"
 	"runtime"
 	"sort"
 	"strings"
 	"time"
 
-	"github.com/blacknon/lssh/internal/check"
 	"github.com/blacknon/lssh/internal/common"
 	conf "github.com/blacknon/lssh/internal/config"
-	"github.com/blacknon/lssh/internal/list"
 	lsmuxsession "github.com/blacknon/lssh/internal/lsmuxsession"
 	"github.com/blacknon/lssh/internal/mux"
 	sshcmd "github.com/blacknon/lssh/internal/ssh"
@@ -164,7 +161,7 @@ USAGE:
 		// show help messages
 		if c.Bool("help") {
 			cli.ShowAppHelp(c)
-			os.Exit(0)
+			return nil
 		}
 
 		hosts := c.StringSlice("host")
@@ -200,7 +197,7 @@ USAGE:
 			for v := range names {
 				fmt.Fprintf(os.Stdout, "  %s\n", names[v])
 			}
-			os.Exit(0)
+			return nil
 		}
 
 		enableX11 := c.Bool("X11")
@@ -229,34 +226,29 @@ USAGE:
 			if c.Bool("enable-transfer") && c.Bool("disable-transfer") {
 				return fmt.Errorf("--enable-transfer and --disable-transfer cannot be used together")
 			}
-			if len(hosts) > 0 && !check.ExistServer(hosts, names) {
-				fmt.Fprintln(os.Stderr, "Input Server not found from list.")
-				os.Exit(1)
+			if err := validateKnownHosts(hosts, names); err != nil {
+				return err
 			}
 
 			var (
-				err       error
-				stdinData []byte
-				forwards  []*conf.PortForward
+				err            error
+				stdinData      []byte
+				forwards       []*conf.PortForward
+				reverseDynamic string
 			)
 
-			for _, forwardargs := range c.StringSlice("L") {
-				f := new(conf.PortForward)
-				f.Mode = "L"
-				f.LocalNetwork, f.Local, f.RemoteNetwork, f.Remote, err = common.ParseForwardSpec(forwardargs)
-				if err != nil {
-					fmt.Fprintf(os.Stderr, "Error: %s\n", err)
-					os.Exit(1)
-				}
-				forwards = append(forwards, f)
+			forwards, reverseDynamic, err = parsePortForwards(c.StringSlice("L"), c.StringSlice("R"))
+			if err != nil {
+				return err
 			}
 
 			forwardConfig := mux.SessionOptions{
-				PortForward: forwards,
-				X11:         enableX11 || enableTrustedX11,
-				X11Trusted:  enableTrustedX11,
-				IsBashrc:    c.Bool("localrc"),
-				IsNotBashrc: c.Bool("not-localrc"),
+				PortForward:               forwards,
+				ReverseDynamicPortForward: reverseDynamic,
+				X11:                       enableX11 || enableTrustedX11,
+				X11Trusted:                enableTrustedX11,
+				IsBashrc:                  c.Bool("localrc"),
+				IsNotBashrc:               c.Bool("not-localrc"),
 			}
 			if c.Bool("enable-transfer") {
 				enabled := true
@@ -266,41 +258,23 @@ USAGE:
 				enabled := false
 				forwardConfig.TransferEnabled = &enabled
 			}
-			for _, forwardargs := range c.StringSlice("R") {
-				f := new(conf.PortForward)
-				f.Mode = "R"
-
-				if regexp.MustCompile(`^[0-9]+$`).Match([]byte(forwardargs)) {
-					forwardConfig.ReverseDynamicPortForward = forwardargs
-					continue
-				}
-
-				f.Local, f.Remote, err = common.ParseForwardPort(forwardargs)
-				if err != nil {
-					fmt.Fprintf(os.Stderr, "Error: %s\n", err)
-					os.Exit(1)
-				}
-				forwards = append(forwards, f)
-			}
 			forwardConfig.PortForward = forwards
 			forwardConfig.HTTPReverseDynamicPortForward = c.String("r")
 			if nfsReverseForwarding := c.String("m"); nfsReverseForwarding != "" {
-				port, path, parseErr := common.ParseNFSForwardPortPath(nfsReverseForwarding)
+				port, path, parseErr := parseForwardPathOption(nfsReverseForwarding, true)
 				if parseErr != nil {
-					fmt.Fprintf(os.Stderr, "Error: %s\n", parseErr)
-					os.Exit(1)
+					return parseErr
 				}
 				forwardConfig.NFSReverseDynamicForwardPort = port
-				forwardConfig.NFSReverseDynamicForwardPath = common.GetFullPath(path)
+				forwardConfig.NFSReverseDynamicForwardPath = path
 			}
 			if smbReverseForwarding := c.String("s"); smbReverseForwarding != "" {
-				port, path, parseErr := common.ParseNFSForwardPortPath(smbReverseForwarding)
+				port, path, parseErr := parseForwardPathOption(smbReverseForwarding, true)
 				if parseErr != nil {
-					fmt.Fprintf(os.Stderr, "Error: %s\n", parseErr)
-					os.Exit(1)
+					return parseErr
 				}
 				forwardConfig.SMBReverseDynamicForwardPort = port
-				forwardConfig.SMBReverseDynamicForwardPath = common.GetFullPath(path)
+				forwardConfig.SMBReverseDynamicForwardPath = path
 			}
 
 			run := &sshcmd.Run{
@@ -322,26 +296,23 @@ USAGE:
 			}
 			forwardConfig.ControlMasterOverride = controlMasterOverride
 			if nfsForwarding := c.String("M"); nfsForwarding != "" {
-				port, path, parseErr := common.ParseNFSForwardPortPath(nfsForwarding)
+				port, path, parseErr := parseForwardPathOption(nfsForwarding, false)
 				if parseErr != nil {
-					fmt.Fprintf(os.Stderr, "Error: %s\n", parseErr)
-					os.Exit(1)
+					return parseErr
 				}
 				run.NFSDynamicForwardPort = port
 				run.NFSDynamicForwardPath = path
 			}
 			if smbForwarding := c.String("S"); smbForwarding != "" {
-				port, path, parseErr := common.ParseNFSForwardPortPath(smbForwarding)
+				port, path, parseErr := parseForwardPathOption(smbForwarding, false)
 				if parseErr != nil {
-					fmt.Fprintf(os.Stderr, "Error: %s\n", parseErr)
-					os.Exit(1)
+					return parseErr
 				}
 				run.SMBDynamicForwardPort = port
 				run.SMBDynamicForwardPath = path
 			}
 			if enabled, local, remote, tunnelErr := resolveTunnelOption(runtime.GOOS, c.String("tunnel")); tunnelErr != nil {
-				fmt.Fprintln(os.Stderr, tunnelErr)
-				os.Exit(1)
+				return tunnelErr
 			} else if enabled {
 				run.TunnelEnabled = true
 				run.TunnelLocal = local
@@ -420,44 +391,9 @@ USAGE:
 			return manager.Run()
 		}
 
-		selected := []string{}
-		if len(hosts) > 0 {
-			if !check.ExistServer(hosts, names) {
-				fmt.Fprintln(os.Stderr, "Input Server not found from list.")
-				os.Exit(1)
-			} else {
-				selected = hosts
-			}
-		} else {
-			if len(names) == 0 {
-				fmt.Fprintln(os.Stderr, "No servers matched the current config conditions.")
-				os.Exit(1)
-			}
-			// View List And Get Select Line
-			l := new(list.ListInfo)
-			l.Prompt = "lssh>>"
-			l.NameList = names
-			l.DataList = data
-			l.MultiFlag = isMulti
-
-			l.View()
-			selected = l.SelectName
-
-			// Check selected
-			if len(selected) == 0 {
-				fmt.Fprintln(os.Stderr, "Selection cancelled.")
-				os.Exit(1)
-			}
-			if selected[0] == "ServerName" {
-				fmt.Fprintln(os.Stderr, "Server not selected.")
-				os.Exit(1)
-			}
-
-			// If -f is specified, disallow selecting multiple hosts
-			if c.Bool("f") && len(selected) > 1 {
-				fmt.Fprintln(os.Stderr, "Error: -f cannot be used with multiple hosts. Select a single host.")
-				os.Exit(1)
-			}
+		selected, err := selectServers(hosts, names, data, isMulti, c.Bool("f"), promptServerSelection)
+		if err != nil {
+			return err
 		}
 
 		if err := validateConnectorShellOptions(connectorFlagOptions{
@@ -487,152 +423,9 @@ USAGE:
 			return err
 		}
 
-		r := new(sshcmd.Run)
-		r.ServerList = selected
-		r.Conf = data
-		r.ControlMasterOverride = controlMasterOverride
-		switch {
-		case len(c.Args()) > 0 && !c.Bool("not-execute"):
-			// Becomes a shell when not-execute is given.
-			r.Mode = "cmd"
-		default:
-			r.Mode = "shell"
-		}
-
-		// exec command
-		r.ExecCmd = c.Args()
-		r.ConnectorAttachSession = connectorAttachSession
-		r.ConnectorDetach = connectorDetach
-		r.IsParallel = c.Bool("parallel")
-
-		if enableX11 || enableTrustedX11 {
-			r.X11 = true
-		}
-		if enableTrustedX11 {
-			r.X11Trusted = true
-		}
-
-		// is tty
-		r.IsTerm = c.Bool("term")
-
-		// local bashrc use
-		r.IsBashrc = c.Bool("localrc")
-		r.IsNotBashrc = c.Bool("not-localrc")
-
-		// set w/W flag
-		if c.Bool("w") {
-			fmt.Println("enable w")
-			r.EnableHeader = true
-		}
-		if c.Bool("W") {
-			fmt.Println("enable W")
-			r.DisableHeader = true
-		}
-
-		// Set port forwards
-		var err error
-		var forwards []*conf.PortForward
-
-		// Set local port forwarding
-		for _, forwardargs := range c.StringSlice("L") {
-			f := new(conf.PortForward)
-			f.Mode = "L"
-			f.LocalNetwork, f.Local, f.RemoteNetwork, f.Remote, err = common.ParseForwardSpec(forwardargs)
-			forwards = append(forwards, f)
-		}
-
-		// Set remote port forwarding
-		for _, forwardargs := range c.StringSlice("R") {
-			f := new(conf.PortForward)
-			f.Mode = "R"
-
-			// If only numbers are passed as arguments, treat as Reverse Dynamic Port Forward
-			if regexp.MustCompile(`^[0-9]+$`).Match([]byte(forwardargs)) {
-				r.ReverseDynamicPortForward = forwardargs
-			} else {
-				f.Local, f.Remote, err = common.ParseForwardPort(forwardargs)
-				forwards = append(forwards, f)
-			}
-		}
-
-		// Set NFS Forwarding
-		nfsForwarding := c.String("M")
-		if nfsForwarding != "" {
-			port, path, err := common.ParseNFSForwardPortPath(nfsForwarding)
-			if err != nil {
-				fmt.Fprintf(os.Stderr, "Error: %s\n", err)
-				os.Exit(1)
-			}
-
-			r.NFSDynamicForwardPort = port
-			r.NFSDynamicForwardPath = path
-		}
-		smbForwarding := c.String("S")
-		if smbForwarding != "" {
-			port, path, err := common.ParseNFSForwardPortPath(smbForwarding)
-			if err != nil {
-				fmt.Fprintf(os.Stderr, "Error: %s\n", err)
-				os.Exit(1)
-			}
-
-			r.SMBDynamicForwardPort = port
-			r.SMBDynamicForwardPath = path
-		}
-
-		// Set NFS Reverse Forwarding
-		nfsReverseForwarding := c.String("m")
-		if nfsReverseForwarding != "" {
-			port, path, err := common.ParseNFSForwardPortPath(nfsReverseForwarding)
-			if err != nil {
-				fmt.Fprintf(os.Stderr, "Error: %s\n", err)
-				os.Exit(1)
-			}
-
-			path = common.GetFullPath(path)
-
-			r.NFSReverseDynamicForwardPort = port
-			r.NFSReverseDynamicForwardPath = path
-		}
-		smbReverseForwarding := c.String("s")
-		if smbReverseForwarding != "" {
-			port, path, err := common.ParseNFSForwardPortPath(smbReverseForwarding)
-			if err != nil {
-				fmt.Fprintf(os.Stderr, "Error: %s\n", err)
-				os.Exit(1)
-			}
-
-			r.SMBReverseDynamicForwardPort = port
-			r.SMBReverseDynamicForwardPath = common.GetFullPath(path)
-		}
-
-		// if err
+		r, err := buildRun(c, data, selected, controlMasterOverride, connectorAttachSession, connectorDetach, enableX11, enableTrustedX11)
 		if err != nil {
-			fmt.Printf("Error: %s \n", err)
-		}
-
-		// is not execute
-		r.IsNone = c.Bool("not-execute")
-
-		// Local/Remote port forwarding port
-		r.PortForward = forwards
-
-		// Dynamic port forwarding port
-		r.DynamicPortForward = c.String("D")
-
-		// HTTP Dynamic port forwarding port
-		r.HTTPDynamicPortForward = c.String("d")
-
-		// HTTP Reverse Dynamic port forwarding port
-		r.HTTPReverseDynamicPortForward = c.String("r")
-
-		// Tunnel device (like ssh -w local:remote). Format: <num|any>:<num|any>
-		if enabled, local, remote, err := resolveTunnelOption(runtime.GOOS, c.String("tunnel")); err != nil {
-			fmt.Fprintln(os.Stderr, err)
-			os.Exit(1)
-		} else if enabled {
-			r.TunnelEnabled = true
-			r.TunnelLocal = local
-			r.TunnelRemote = remote
+			return err
 		}
 
 		// If -f specified and not already daemonized, re-exec to background
