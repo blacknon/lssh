@@ -7,11 +7,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/blacknon/lssh/internal/check"
 	"github.com/blacknon/lssh/internal/common"
 	conf "github.com/blacknon/lssh/internal/config"
-	"github.com/blacknon/lssh/internal/list"
-	lsync "github.com/blacknon/lssh/internal/sync"
 	"github.com/blacknon/lssh/internal/version"
 	"github.com/urfave/cli"
 )
@@ -75,7 +72,7 @@ USAGE:
 	app.Action = func(c *cli.Context) error {
 		if c.Bool("help") {
 			cli.ShowAppHelp(c)
-			os.Exit(0)
+			return nil
 		}
 
 		hosts := c.StringSlice("host")
@@ -104,171 +101,34 @@ USAGE:
 			for _, name := range names {
 				fmt.Fprintf(os.Stdout, "  %s\n", name)
 			}
-			os.Exit(0)
+			return nil
 		}
 
 		if len(c.Args()) < 2 {
-			fmt.Fprintln(os.Stderr, "Too few arguments.")
-			cli.ShowAppHelp(c)
-			os.Exit(1)
+			return fmt.Errorf("Too few arguments.")
 		}
 
 		fromArgs := c.Args()[:c.NArg()-1]
 		toArg := c.Args()[c.NArg()-1]
 
-		sourceSpecs := make([]lsync.PathSpec, 0, len(fromArgs))
-		isFromInRemote := false
-		isFromInLocal := false
-		explicitSourceHosts := []string{}
-		for _, from := range fromArgs {
-			spec, err := lsync.ParsePathSpecWithHosts(from, allNames)
-			if err != nil {
-				fmt.Fprintf(os.Stderr, "Error: %s\n", err)
-				os.Exit(1)
-			}
-			if spec.IsRemote {
-				isFromInRemote = true
-				explicitSourceHosts = appendUniqueStrings(explicitSourceHosts, spec.Hosts...)
-			} else {
-				isFromInLocal = true
-			}
-			sourceSpecs = append(sourceSpecs, spec)
-		}
-
-		targetSpec, err := lsync.ParsePathSpecWithHosts(toArg, allNames)
+		sourceSpecs, targetSpec, isFromInRemote, isFromInLocal, explicitSourceHosts, err := parseSyncSpecs(fromArgs, toArg, allNames)
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "Error: %s\n", err)
-			os.Exit(1)
+			return err
 		}
 		isToRemote := targetSpec.IsRemote
-		check.CheckTypeError(isFromInRemote, isFromInLocal, isToRemote, len(hosts))
-
-		selected := []string{}
-		toServer := []string{}
-		fromServer := []string{}
-		switch {
-		case len(hosts) != 0:
-			filteredHosts, err := data.FilterServersByOperation(hosts, "sftp_transport")
-			if err != nil {
-				return err
-			}
-			if !check.ExistServer(hosts, allNames) {
-				fmt.Fprintln(os.Stderr, "Input Server not found from list.")
-				os.Exit(1)
-			}
-			if len(filteredHosts) != len(hosts) {
-				fmt.Fprintln(os.Stderr, "Input Server does not support SFTP-based transfer.")
-				os.Exit(1)
-			}
-			if isFromInRemote {
-				fromServer = append(fromServer, hosts...)
-			} else {
-				toServer = append(toServer, hosts...)
-			}
-		case len(explicitSourceHosts) > 0 || (targetSpec.IsRemote && len(targetSpec.Hosts) > 0):
-			filteredSourceHosts, err := data.FilterServersByOperation(explicitSourceHosts, "sftp_transport")
-			if err != nil {
-				return err
-			}
-			filteredTargetHosts, err := data.FilterServersByOperation(targetSpec.Hosts, "sftp_transport")
-			if err != nil {
-				return err
-			}
-			if len(filteredSourceHosts) != len(explicitSourceHosts) || len(filteredTargetHosts) != len(targetSpec.Hosts) {
-				fmt.Fprintln(os.Stderr, "Selected host does not support SFTP-based transfer.")
-				os.Exit(1)
-			}
-			fromServer = append(fromServer, explicitSourceHosts...)
-			toServer = append(toServer, targetSpec.Hosts...)
-		case isFromInRemote && isToRemote:
-			if len(names) == 0 {
-				fmt.Fprintln(os.Stderr, "No servers matched the current config conditions.")
-				os.Exit(1)
-			}
-			fromList := new(list.ListInfo)
-			fromList.Prompt = "lssync(from)>>"
-			fromList.NameList = names
-			fromList.DataList = data
-			fromList.MultiFlag = false
-			fromList.View()
-			fromServer = fromList.SelectName
-			if len(fromServer) == 0 || fromServer[0] == "ServerName" {
-				fmt.Fprintln(os.Stderr, "Selection cancelled.")
-				os.Exit(1)
-			}
-
-			toList := new(list.ListInfo)
-			toList.Prompt = "lssync(to)>>"
-			toList.NameList = names
-			toList.DataList = data
-			toList.MultiFlag = true
-			toList.View()
-			toServer = toList.SelectName
-			if len(toServer) == 0 || toServer[0] == "ServerName" {
-				fmt.Fprintln(os.Stderr, "Selection cancelled.")
-				os.Exit(1)
-			}
-		default:
-			if len(names) == 0 {
-				fmt.Fprintln(os.Stderr, "No servers matched the current config conditions.")
-				os.Exit(1)
-			}
-			l := new(list.ListInfo)
-			l.Prompt = "lssync>>"
-			l.NameList = names
-			l.DataList = data
-			l.MultiFlag = true
-			l.View()
-			selected = l.SelectName
-			if len(selected) == 0 || selected[0] == "ServerName" {
-				fmt.Fprintln(os.Stderr, "Selection cancelled.")
-				os.Exit(1)
-			}
-
-			if isFromInRemote {
-				fromServer = selected
-			} else {
-				toServer = selected
-			}
+		if err := validateCopyTypes(isFromInRemote, isFromInLocal, isToRemote, len(hosts)); err != nil {
+			return err
 		}
 
-		s := new(lsync.Sync)
-		for _, spec := range sourceSpecs {
-			fromPath := spec.Path
-			displayFromPath := spec.Path
-			if !spec.IsRemote {
-				if _, err := os.Stat(common.GetFullPath(fromPath)); err != nil {
-					fmt.Fprintf(os.Stderr, "not found path %s \n", fromPath)
-					os.Exit(1)
-				}
-				fromPath = common.GetFullPath(fromPath)
-			} else {
-				fromPath = check.EscapePath(fromPath)
-			}
-
-			s.From.IsRemote = spec.IsRemote
-			s.From.Path = append(s.From.Path, fromPath)
-			s.From.DisplayPath = append(s.From.DisplayPath, displayFromPath)
+		fromServer, toServer, err := selectSyncServers(hosts, names, allNames, data, explicitSourceHosts, targetSpec, isFromInRemote, isToRemote, promptServerSelection)
+		if err != nil {
+			return err
 		}
-		s.From.Server = fromServer
 
-		displayToPath := targetSpec.Path
-		if isToRemote {
-			targetSpec.Path = check.EscapePath(targetSpec.Path)
+		s, err := buildSync(c, data, sourceSpecs, targetSpec, fromServer, toServer, isToRemote, controlMasterOverride)
+		if err != nil {
+			return err
 		}
-		s.To.IsRemote = isToRemote
-		s.To.Path = []string{targetSpec.Path}
-		s.To.DisplayPath = []string{displayToPath}
-		s.To.Server = toServer
-		s.Daemon = c.Bool("daemon")
-		s.DaemonInterval = c.Duration("daemon-interval")
-		s.Bidirectional = c.Bool("bidirectional")
-		s.Permission = c.Bool("permission")
-		s.DryRun = c.Bool("dry-run")
-		s.Delete = c.Bool("delete")
-		s.ParallelNum = c.Int("parallel")
-		s.Config = data
-		s.ControlMasterOverride = controlMasterOverride
 
 		if !isFromInRemote {
 			fmt.Fprintf(os.Stderr, "From local:%s\n", s.From.DisplayPath)
