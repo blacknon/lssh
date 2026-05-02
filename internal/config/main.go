@@ -32,9 +32,9 @@ package conf
 import (
 	"crypto/md5"
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"github.com/blacknon/lssh/internal/common"
-	"log"
 	"os"
 	"path/filepath"
 	"strings"
@@ -86,7 +86,11 @@ func (c *Config) ReadOpenSSHConfig() error {
 			c.Server[key] = value
 		}
 	} else {
-		for _, sc := range c.activeOpenSSHConfigs() {
+		configs, err := c.activeOpenSSHConfigs()
+		if err != nil {
+			return err
+		}
+		for _, sc := range configs {
 			if err := c.readConfiguredOpenSSHConfig(sc); err != nil {
 				return err
 			}
@@ -104,7 +108,7 @@ func defaultOpenSSHConfigCandidate() string {
 }
 
 // ReadIncludeFiles read include files and append to Config.Server.
-func (c *Config) ReadIncludeFiles() {
+func (c *Config) ReadIncludeFiles() error {
 	if c.Includes.Path != nil {
 		if c.Include == nil {
 			c.Include = map[string]IncludeConfig{}
@@ -138,8 +142,7 @@ func (c *Config) ReadIncludeFiles() {
 			// Read include config file
 			err := decodeConfigFile(path, &includeConf)
 			if err != nil {
-				fmt.Fprintf(os.Stderr, "err: Read config file error: %s", err)
-				os.Exit(1)
+				return fmt.Errorf("read include config %q: %w", path, err)
 			}
 
 			// reduce common setting
@@ -164,16 +167,29 @@ func (c *Config) ReadIncludeFiles() {
 			c.Providers = mergeProvidersConfig(c.Providers, includeConf.Providers)
 		}
 	}
+
+	return nil
 }
 
-// checkFormatServerConf checkes format of server config.
-//
-// Note: Checking Addr, User and authentications
-// having a value. No checking a validity of each fields.
-//
-// See also: checkFormatServerConfAuth function.
-func (c *Config) checkFormatServerConf() (ok bool) {
-	ok = true
+type ServerConfigValidationError struct {
+	Server string
+	Field  string
+	Reason string
+}
+
+func (e *ServerConfigValidationError) Error() string {
+	if e == nil {
+		return ""
+	}
+
+	return fmt.Sprintf("server %q: %s", e.Server, e.Reason)
+}
+
+// ValidateServerConfigs checks whether built-in SSH server entries have the
+// minimum fields required for a connection-oriented config.
+func (c *Config) ValidateServerConfigs() error {
+	var errs []error
+
 	for k, v := range c.Server {
 		if v.Ignore {
 			continue
@@ -184,27 +200,38 @@ func (c *Config) checkFormatServerConf() (ok bool) {
 
 		// Address Set Check
 		if v.Addr == "" {
-			log.Printf("%s: 'addr' is not set.\n", k)
-			ok = false
+			errs = append(errs, &ServerConfigValidationError{
+				Server: k,
+				Field:  "addr",
+				Reason: "'addr' is not set",
+			})
 		}
 
 		// User Set Check
 		if v.User == "" {
-			log.Printf("%s: 'user' is not set.\n", k)
-			ok = false
+			errs = append(errs, &ServerConfigValidationError{
+				Server: k,
+				Field:  "user",
+				Reason: "'user' is not set",
+			})
 		}
 
 		if !checkFormatServerConfAuth(v) {
-			log.Printf("%s: Authentication information is not set.\n", k)
-			ok = false
+			errs = append(errs, &ServerConfigValidationError{
+				Server: k,
+				Field:  "auth",
+				Reason: "authentication information is not set",
+			})
 		}
 	}
-	return
+
+	return errors.Join(errs...)
 }
 
 // ReadConf load configuration file and return Config structure
 // TODO(blacknon): リファクタリング！(v0.6.5) 外出しや処理のまとめなど
-func Read(confPath string) (c Config) {
+func Read(confPath string) (Config, error) {
+	var c Config
 	c.Server = map[string]ServerConfig{}
 	c.SSHConfig = map[string]OpenSSHConfig{}
 
@@ -213,8 +240,7 @@ func Read(confPath string) (c Config) {
 		// Read config file
 		err := decodeConfigFile(confPath, &c)
 		if err != nil {
-			log.Println(err)
-			os.Exit(1)
+			return Config{}, err
 		}
 	}
 
@@ -234,32 +260,30 @@ func Read(confPath string) (c Config) {
 
 	// Read OpenSSH configs
 	if err := c.ReadOpenSSHConfig(); err != nil {
-		log.Println(err)
-		os.Exit(1)
+		return Config{}, err
 	}
 
 	// for append includes to include.path
-	c.ReadIncludeFiles()
+	if err := c.ReadIncludeFiles(); err != nil {
+		return Config{}, err
+	}
 
 	// Load inventory providers after includes and OpenSSH config are merged.
 	if err := c.ReadInventoryProviders(); err != nil {
-		log.Println(err)
-		os.Exit(1)
+		return Config{}, err
 	}
 
 	// resolve conditional server overrides after all sources have been merged
 	if err := c.ResolveConditionalMatches(); err != nil {
-		log.Println(err)
-		os.Exit(1)
+		return Config{}, err
 	}
 
 	// Check Config Parameter
-	ok := c.checkFormatServerConf()
-	if !ok {
-		os.Exit(1)
+	if err := c.ValidateServerConfigs(); err != nil {
+		return Config{}, err
 	}
 
-	return
+	return c, nil
 }
 
 // checkFormatServerConfAuth checkes format of server config authentication.

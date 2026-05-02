@@ -46,7 +46,10 @@ func HandleGenerateConfigMode(path string, out io.Writer) (bool, error) {
 // file in interactive sessions.
 func ReadWithFallback(confPath string, stderr io.Writer) (Config, error) {
 	confExists := common.IsExist(confPath)
-	data := readConfigFn(confPath)
+	data, err := readConfigFn(confPath)
+	if err != nil {
+		return Config{}, err
+	}
 	if confExists {
 		return data, nil
 	}
@@ -59,7 +62,10 @@ func ReadWithFallback(confPath string, stderr io.Writer) (Config, error) {
 		return Config{}, err
 	}
 	if created {
-		data = readConfigFn(confPath)
+		data, err = readConfigFn(confPath)
+		if err != nil {
+			return Config{}, err
+		}
 	}
 
 	return data, nil

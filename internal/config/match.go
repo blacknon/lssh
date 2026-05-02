@@ -540,15 +540,14 @@ func whenMatches(when ServerMatchWhen, serverName, branchName string, ctx matchC
 	return true
 }
 
-func (c *Config) activeOpenSSHConfigs() []OpenSSHConfig {
+func (c *Config) activeOpenSSHConfigs() ([]OpenSSHConfig, error) {
 	if len(c.SSHConfig) == 0 {
-		return nil
+		return nil, nil
 	}
 
 	reqs, err := c.validateOpenSSHConfigWhens()
 	if err != nil {
-		log.Println(err)
-		os.Exit(1)
+		return nil, err
 	}
 
 	ctx := matchContext{}
@@ -564,7 +563,7 @@ func (c *Config) activeOpenSSHConfigs() []OpenSSHConfig {
 		}
 	}
 
-	return result
+	return result, nil
 }
 
 func sortedOpenSSHConfigs(configs map[string]OpenSSHConfig) []namedOpenSSHConfig {

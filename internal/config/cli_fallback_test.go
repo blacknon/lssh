@@ -29,7 +29,7 @@ func TestReadWithFallbackNonInteractiveShowsGuidance(t *testing.T) {
 		t.Fatal("generate should not be called in non-interactive mode")
 		return nil, nil
 	}
-	readConfigFn = func(confPath string) Config { return Config{} }
+	readConfigFn = func(confPath string) (Config, error) { return Config{}, nil }
 
 	var stderr bytes.Buffer
 	_, err := ReadWithFallback(filepath.Join(home, ".lssh.toml"), &stderr)
@@ -64,10 +64,10 @@ func TestReadWithFallbackInteractiveCreatesAndReloads(t *testing.T) {
 	generateConfigFromOpenSSHFn = func(path, command string) ([]byte, error) {
 		return []byte("[server.app]\naddr = \"192.0.2.10\"\nuser = \"demo\"\npass = \"secret\"\n"), nil
 	}
-	readConfigFn = func(confPath string) Config {
+	readConfigFn = func(confPath string) (Config, error) {
 		return Config{Server: map[string]ServerConfig{
 			"app": {Addr: "192.0.2.10", User: "demo", Pass: "secret"},
-		}}
+		}}, nil
 	}
 
 	confPath := filepath.Join(home, ".lssh.toml")

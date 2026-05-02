@@ -17,11 +17,12 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestCheckFormatServerConf(t *testing.T) {
+func TestValidateServerConfigs(t *testing.T) {
 	type TestData struct {
-		desc   string
-		c      Config
-		expect bool
+		desc        string
+		c           Config
+		wantErr     bool
+		wantContain []string
 	}
 	tds := []TestData{
 		{
@@ -31,7 +32,7 @@ func TestCheckFormatServerConf(t *testing.T) {
 					"a": {Addr: "192.168.100.101", User: "test", Pass: "Password"},
 				},
 			},
-			expect: true,
+			wantErr: false,
 		},
 		{
 			desc: "Empty address",
@@ -40,7 +41,8 @@ func TestCheckFormatServerConf(t *testing.T) {
 					"b": {Addr: "", User: "test", Pass: "Password"},
 				},
 			},
-			expect: false,
+			wantErr:     true,
+			wantContain: []string{`server "b"`, "'addr' is not set"},
 		},
 		{
 			desc: "Empty user",
@@ -49,7 +51,8 @@ func TestCheckFormatServerConf(t *testing.T) {
 					"c": {Addr: "192.168.100.101", User: "", Pass: "Password"},
 				},
 			},
-			expect: false,
+			wantErr:     true,
+			wantContain: []string{`server "c"`, "'user' is not set"},
 		},
 		{
 			desc: "Empty password",
@@ -58,7 +61,8 @@ func TestCheckFormatServerConf(t *testing.T) {
 					"d": {Addr: "192.168.100.101", User: "test", Pass: ""},
 				},
 			},
-			expect: false,
+			wantErr:     true,
+			wantContain: []string{`server "d"`, "authentication information is not set"},
 		},
 		{
 			desc: "1 server config is illegal",
@@ -69,13 +73,36 @@ func TestCheckFormatServerConf(t *testing.T) {
 					"e": {Addr: "192.168.100.101", User: "test", Pass: "Password"},
 				},
 			},
-			expect: false,
+			wantErr:     true,
+			wantContain: []string{`server "b"`, "'addr' is not set"},
 		},
 	}
 	for _, v := range tds {
-		got := v.c.checkFormatServerConf()
-		assert.Equal(t, v.expect, got, v.desc)
+		err := v.c.ValidateServerConfigs()
+		assert.Equal(t, v.wantErr, err != nil, v.desc)
+		if err != nil {
+			for _, want := range v.wantContain {
+				assert.Contains(t, err.Error(), want, v.desc)
+			}
+		}
 	}
+}
+
+func TestValidateServerConfigsReturnsJoinedErrors(t *testing.T) {
+	cfg := Config{
+		Server: map[string]ServerConfig{
+			"broken": {Addr: "", User: "", Pass: ""},
+		},
+	}
+
+	err := cfg.ValidateServerConfigs()
+	if err == nil {
+		t.Fatal("ValidateServerConfigs() error = nil, want non-nil")
+	}
+
+	assert.Contains(t, err.Error(), `server "broken": 'addr' is not set`)
+	assert.Contains(t, err.Error(), `server "broken": 'user' is not set`)
+	assert.Contains(t, err.Error(), `server "broken": authentication information is not set`)
 }
 
 func TestCheckFormatServerConfAuth(t *testing.T) {
@@ -100,6 +127,33 @@ func TestCheckFormatServerConfAuth(t *testing.T) {
 		got := checkFormatServerConfAuth(v.c)
 		assert.Equal(t, v.expect, got, v.desc)
 	}
+}
+
+func TestReadReturnsServerValidationError(t *testing.T) {
+	dir := t.TempDir()
+	configPath := filepath.Join(dir, "lssh.toml")
+	body := `
+[server.invalid]
+user = "demo"
+pass = "secret"
+`
+	if err := os.WriteFile(configPath, []byte(body), 0o600); err != nil {
+		t.Fatalf("WriteFile lssh config failed: %v", err)
+	}
+
+	_, err := Read(configPath)
+	if err == nil {
+		t.Fatal("Read() error = nil, want non-nil")
+	}
+
+	var validationErr *ServerConfigValidationError
+	if !errors.As(err, &validationErr) {
+		t.Fatalf("Read() error = %T, want ServerConfigValidationError in chain", err)
+	}
+
+	assert.Equal(t, "invalid", validationErr.Server)
+	assert.Equal(t, "addr", validationErr.Field)
+	assert.Contains(t, err.Error(), `'addr' is not set`)
 }
 
 func TestServerConfigReduct(t *testing.T) {
@@ -354,7 +408,10 @@ note = "matched web"
 		t.Fatalf("WriteFile lssh config failed: %v", err)
 	}
 
-	cfg := Read(configPath)
+	cfg, err := Read(configPath)
+	if err != nil {
+		t.Fatalf("Read() error = %v", err)
+	}
 
 	webName := sshConfigPath + ":web-01"
 	if got := cfg.Server[webName].PreCmd; got != "printf 'web\n'" {
@@ -697,7 +754,10 @@ func TestActiveOpenSSHConfigsFiltersByWhen(t *testing.T) {
 		},
 	}
 
-	got := cfg.activeOpenSSHConfigs()
+	got, err := cfg.activeOpenSSHConfigs()
+	if err != nil {
+		t.Fatalf("activeOpenSSHConfigs() error = %v", err)
+	}
 	if len(got) != 2 {
 		t.Fatalf("len(activeOpenSSHConfigs()) = %d, want 2", len(got))
 	}

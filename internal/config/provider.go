@@ -47,7 +47,10 @@ func (c *Config) ReadInventoryProviders() error {
 		return nil
 	}
 
-	providers := c.activeProviders()
+	providers, err := c.activeProviders()
+	if err != nil {
+		return err
+	}
 	results := c.fetchInventoryProviderResults(providers)
 
 	for i, item := range providers {
@@ -159,15 +162,14 @@ type namedProviderConfig struct {
 	name string
 }
 
-func (c *Config) activeProviders() []namedProviderConfig {
+func (c *Config) activeProviders() ([]namedProviderConfig, error) {
 	if len(c.Provider) == 0 {
-		return nil
+		return nil, nil
 	}
 
 	reqs, err := c.validateProviderWhens()
 	if err != nil {
-		log.Println(err)
-		os.Exit(1)
+		return nil, err
 	}
 
 	ctx := matchContext{}
@@ -186,15 +188,14 @@ func (c *Config) activeProviders() []namedProviderConfig {
 		raw := c.Provider[name]
 		when, err := providerWhen(raw)
 		if err != nil {
-			log.Printf("provider.%s.when: %v", name, err)
-			os.Exit(1)
+			return nil, fmt.Errorf("provider.%s.when: %w", name, err)
 		}
 		if when.Empty() || whenMatches(when, "provider", name, ctx) {
 			result = append(result, namedProviderConfig{name: name})
 		}
 	}
 
-	return result
+	return result, nil
 }
 
 func (c *Config) validateProviderWhens() (matchRequirements, error) {

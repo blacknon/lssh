@@ -42,7 +42,10 @@ key = "~/.ssh/web.pem"
 		t.Fatalf("write config: %v", err)
 	}
 
-	cfg := Read(configPath)
+	cfg, err := Read(configPath)
+	if err != nil {
+		t.Fatalf("Read() error = %v", err)
+	}
 	server, ok := cfg.Server["aws:web-1"]
 	if !ok {
 		t.Fatalf("inventory server not loaded: %#v", cfg.Server)
@@ -87,7 +90,10 @@ key = "~/.ssh/aws-web.pem"
 		t.Fatalf("write config: %v", err)
 	}
 
-	cfg := Read(configPath)
+	cfg, err := Read(configPath)
+	if err != nil {
+		t.Fatalf("Read() error = %v", err)
+	}
 	server := cfg.Server["aws:app-1"]
 	if server.User != "ec2-user" {
 		t.Fatalf("user = %q", server.User)
@@ -129,7 +135,10 @@ user = "azureuser"
 		t.Fatalf("write config: %v", err)
 	}
 
-	cfg := Read(configPath)
+	cfg, err := Read(configPath)
+	if err != nil {
+		t.Fatalf("Read() error = %v", err)
+	}
 	server, ok := cfg.Server["azure:vm-1"]
 	if !ok {
 		t.Fatalf("inventory server not loaded: %#v", cfg.Server)
@@ -184,7 +193,10 @@ addr = "10.0.0.51"
 		t.Fatalf("write config: %v", err)
 	}
 
-	cfg := Read(configPath)
+	cfg, err := Read(configPath)
+	if err != nil {
+		t.Fatalf("Read() error = %v", err)
+	}
 	server, ok := cfg.Server["aws:web-1"]
 	if !ok {
 		t.Fatalf("inventory server not loaded: %#v", cfg.Server)
@@ -233,7 +245,10 @@ provider:
 		t.Fatalf("write config: %v", err)
 	}
 
-	cfg := Read(configPath)
+	cfg, err := Read(configPath)
+	if err != nil {
+		t.Fatalf("Read() error = %v", err)
+	}
 	server, ok := cfg.Server["aws:web-1"]
 	if !ok {
 		t.Fatalf("inventory server not loaded: %#v", cfg.Server)
@@ -301,7 +316,10 @@ connector_name = "winrm"
 		t.Fatalf("write config: %v", err)
 	}
 
-	cfg := Read(configPath)
+	cfg, err := Read(configPath)
+	if err != nil {
+		t.Fatalf("Read() error = %v", err)
+	}
 	server := cfg.Server["aws:win-1"]
 	if server.ConnectorName != "winrm" {
 		t.Fatalf("connector_name = %q, want winrm", server.ConnectorName)
@@ -340,7 +358,10 @@ connector_name = "winrm"
 		t.Fatalf("write config: %v", err)
 	}
 
-	cfg := Read(configPath)
+	cfg, err := Read(configPath)
+	if err != nil {
+		t.Fatalf("Read() error = %v", err)
+	}
 	if got := cfg.Server["azure:win-1"].ConnectorName; got != "winrm" {
 		t.Fatalf("connector_name for windows host = %q, want winrm", got)
 	}
@@ -1182,7 +1203,10 @@ func TestActiveProvidersHonorsWhen(t *testing.T) {
 		},
 	}
 
-	got := cfg.activeProviders()
+	got, err := cfg.activeProviders()
+	if err != nil {
+		t.Fatalf("activeProviders() error = %v", err)
+	}
 	if len(got) != 1 || got[0].name != "proxmox" {
 		t.Fatalf("activeProviders() = %#v", got)
 	}
