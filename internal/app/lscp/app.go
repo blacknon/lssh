@@ -130,8 +130,10 @@ USAGE:
 		isFromInRemote := false
 		isFromInLocal := false
 		for _, from := range fromArgs {
-			// parse args
-			isFromRemote, _ := check.ParseScpPath(from)
+			isFromRemote, _, err := check.ParseScpPathE(from)
+			if err != nil {
+				return err
+			}
 
 			if isFromRemote {
 				isFromInRemote = true
@@ -139,10 +141,14 @@ USAGE:
 				isFromInLocal = true
 			}
 		}
-		isToRemote, _ := check.ParseScpPath(toArg)
+		isToRemote, _, err := check.ParseScpPathE(toArg)
+		if err != nil {
+			return err
+		}
 
-		// Check from and to Type
-		check.CheckTypeError(isFromInRemote, isFromInLocal, isToRemote, len(hosts))
+		if err := check.ValidateCopyTypes(isFromInRemote, isFromInLocal, isToRemote, len(hosts)); err != nil {
+			return err
+		}
 
 		selected := []string{}
 		toServer := []string{}
@@ -246,8 +252,10 @@ USAGE:
 
 		// set from info
 		for _, from := range fromArgs {
-			// parse args
-			isFromRemote, fromPath := check.ParseScpPath(from)
+			isFromRemote, fromPath, err := check.ParseScpPathE(from)
+			if err != nil {
+				return err
+			}
 			displayFromPath := fromPath
 
 			// Check local file exisits
@@ -270,8 +278,10 @@ USAGE:
 		}
 		scp.From.Server = fromServer
 
-		// set to info
-		isToRemote, toPath := check.ParseScpPath(toArg)
+		isToRemote, toPath, err := check.ParseScpPathE(toArg)
+		if err != nil {
+			return err
+		}
 		scp.To.IsRemote = isToRemote
 		if isToRemote {
 			toPath = check.EscapePath(toPath)

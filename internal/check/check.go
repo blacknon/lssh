@@ -10,7 +10,6 @@ package check
 
 import (
 	"fmt"
-	"os"
 	"strings"
 )
 
@@ -51,6 +50,11 @@ func ExistServer(inputServer []string, nameList []string) bool {
 //	    remote:/tmp/a.txt
 //	    r:/tmp/a.txt
 func ParseScpPath(arg string) (isRemote bool, path string) {
+	isRemote, path, _ = ParseScpPathE(arg)
+	return
+}
+
+func ParseScpPathE(arg string) (isRemote bool, path string, err error) {
 	argArray := strings.SplitN(arg, ":", 2)
 
 	// check split count
@@ -76,10 +80,7 @@ func ParseScpPath(arg string) (isRemote bool, path string) {
 	default:
 		isRemote = false
 		path = ""
-
-		// error
-		fmt.Fprintln(os.Stderr, "The format of the specified argument is incorrect.")
-		os.Exit(1)
+		err = fmt.Errorf("The format of the specified argument is incorrect.")
 	}
 
 	return
@@ -96,21 +97,21 @@ func EscapePath(str string) (escapeStr string) {
 
 // CheckTypeError validates from-remote, from-local, to-remote and host-counts.
 func CheckTypeError(isFromInRemote, isFromInLocal, isToRemote bool, countHosts int) {
-	// from in local and remote
+	_ = ValidateCopyTypes(isFromInRemote, isFromInLocal, isToRemote, countHosts)
+}
+
+func ValidateCopyTypes(isFromInRemote, isFromInLocal, isToRemote bool, countHosts int) error {
 	if isFromInRemote && isFromInLocal {
-		fmt.Fprintln(os.Stderr, "Can not set LOCAL and REMOTE to FROM path.")
-		os.Exit(1)
+		return fmt.Errorf("Can not set LOCAL and REMOTE to FROM path.")
 	}
 
-	// local only
 	if !isFromInRemote && !isToRemote {
-		fmt.Fprintln(os.Stderr, "It does not correspond LOCAL to LOCAL copy.")
-		os.Exit(1)
+		return fmt.Errorf("It does not correspond LOCAL to LOCAL copy.")
 	}
 
-	// remote 2 remote and set host option
 	if isFromInRemote && isToRemote && countHosts != 0 {
-		fmt.Fprintln(os.Stderr, "In the case of REMOTE to REMOTE copy, it does not correspond to host option.")
-		os.Exit(1)
+		return fmt.Errorf("In the case of REMOTE to REMOTE copy, it does not correspond to host option.")
 	}
+
+	return nil
 }
