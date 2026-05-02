@@ -31,6 +31,12 @@ func (m *Monitor) StartView() {
 	m.Panels.AddTab(fmt.Sprintf("panel-%d", m.PanelCounter), "Main", m.BaseGrid)
 	m.PanelCounter++
 
+	if graphTab := newCPUGraphTab(m); graphTab != nil {
+		m.cpuGraphTabName = fmt.Sprintf("panel-%d", m.PanelCounter)
+		m.Panels.AddTab(m.cpuGraphTabName, "Graph", graphTab)
+		m.PanelCounter++
+	}
+
 	m.rootPanels = mview.NewPanels()
 	m.exitModal = m.createExitConfirmModal()
 	root := newExitOverlayPrimitive(m.Panels, m.exitModal, m.isExitConfirmVisible)

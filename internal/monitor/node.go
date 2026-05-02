@@ -130,6 +130,8 @@ type Node struct {
 	// CPU Usage
 	cpuUsage      []CPUUsage
 	cpuUsageLimit int
+	memUsage      []float64
+	memUsageLimit int
 
 	// DiskIO
 	DiskIOs          map[string][]*DiskIO
@@ -199,6 +201,8 @@ func NewNode(name string) *Node {
 		// CPU Usage
 		cpuUsage:      []CPUUsage{},
 		cpuUsageLimit: 480,
+		memUsage:      []float64{},
+		memUsageLimit: 480,
 
 		// DiskIO
 		DiskIOs:          map[string][]*DiskIO{},
@@ -504,6 +508,55 @@ func (n *Node) GetCPUUsageWithBrailleLine() (usage float64, brailleLine string, 
 	return
 }
 
+func (n *Node) GetCPUUsageHistory(limit int) (usages []float64, err error) {
+	n.RLock()
+	cpuUsage := append([]CPUUsage(nil), n.cpuUsage...)
+	n.RUnlock()
+
+	if limit <= 0 {
+		limit = len(cpuUsage)
+	}
+	if limit < 2 {
+		limit = 2
+	}
+
+	if len(cpuUsage) < 2 {
+		return []float64{}, nil
+	}
+
+	if len(cpuUsage)-1 < limit {
+		limit = len(cpuUsage) - 1
+	}
+
+	usages = make([]float64, 0, limit)
+	start := len(cpuUsage) - limit
+	for i := start; i < len(cpuUsage); i++ {
+		if i == 0 {
+			continue
+		}
+
+		lUsage := cpuUsage[i]
+		pUsage := cpuUsage[i-1]
+
+		lUsageTotal := cpuStatTotal(lUsage.CPUStat)
+		pUsageTotal := cpuStatTotal(pUsage.CPUStat)
+
+		lIdle := float64(lUsage.Idle)
+		pIdle := float64(pUsage.Idle)
+
+		totalDiff := lUsageTotal - pUsageTotal
+		idleDiff := lIdle - pIdle
+		if totalDiff <= 0 {
+			usages = append(usages, 0.0)
+			continue
+		}
+
+		usages = append(usages, (totalDiff-idleDiff)/totalDiff*100)
+	}
+
+	return usages, nil
+}
+
 func (n *Node) GetCPUCoreUsage() (usages []CPUUsageTop, err error) {
 	if !n.CheckClientAlive() {
 		return
@@ -568,6 +621,28 @@ func (n *Node) GetCPUCoreUsage() (usages []CPUUsageTop, err error) {
 		}
 	}
 
+	return
+}
+
+func (n *Node) GetMemoryUsagePercentHistory(limit int) (usages []float64, err error) {
+	if !n.CheckClientAlive() {
+		err = fmt.Errorf("Node is not connected")
+		return
+	}
+
+	n.RLock()
+	memUsage := append([]float64(nil), n.memUsage...)
+	n.RUnlock()
+
+	if limit <= 0 || limit > len(memUsage) {
+		limit = len(memUsage)
+	}
+	if limit == 0 {
+		err = fmt.Errorf("memory usage history is not found")
+		return
+	}
+
+	usages = append(usages, memUsage[len(memUsage)-limit:]...)
 	return
 }
 
@@ -1037,6 +1112,7 @@ func (n *Node) StartMonitoring() {
 		if !n.CheckClientAlive() {
 			n.Lock()
 			n.cpuUsage = []CPUUsage{}
+			n.memUsage = []float64{}
 			n.DiskIOs = map[string][]*DiskIO{}
 			n.NetworkIOs = map[string][]*NetworkIO{}
 			n.DiskReadIOBytes = map[string][]int64{}
@@ -1091,6 +1167,10 @@ func (n *Node) refreshFastSnapshot() {
 	if err == nil {
 		n.Lock()
 		n.snapshot.MemInfo = meminfo
+		if meminfo != nil && meminfo.MemTotal > 0 {
+			memUsage := float64(meminfo.MemTotal-meminfo.MemFree-meminfo.Buffers-meminfo.Cached) / float64(meminfo.MemTotal) * 100
+			n.memUsage = appendFloat64History(n.memUsage, memUsage, n.memUsageLimit)
+		}
 		n.Unlock()
 	}
 

@@ -6,7 +6,8 @@ package conf
 
 // MonitorConfig stores monitor-specific configuration.
 type MonitorConfig struct {
-	Graph MonitorGraphConfig `toml:"graph" yaml:"graph"`
+	Graph    MonitorGraphConfig    `toml:"graph" yaml:"graph"`
+	GraphTab MonitorGraphTabConfig `toml:"graph_tab" yaml:"graph_tab"`
 }
 
 // MonitorGraphConfig stores graph scaling configuration for lsmon.
@@ -25,4 +26,18 @@ type MonitorGraphConfig struct {
 	DiskDefaultWriteBytesPerSec uint64            `toml:"disk_default_write_bytes_per_sec" yaml:"disk_default_write_bytes_per_sec"`
 	DiskReadBytesPerSec         map[string]uint64 `toml:"disk_read_bytes_per_sec" yaml:"disk_read_bytes_per_sec"`
 	DiskWriteBytesPerSec        map[string]uint64 `toml:"disk_write_bytes_per_sec" yaml:"disk_write_bytes_per_sec"`
+}
+
+// MonitorGraphTabConfig stores optional metric graph tab layout for lsmon.
+// When no panels are defined, the Graph tab is disabled.
+type MonitorGraphTabConfig struct {
+	Panels []MonitorGraphTabPanelConfig `toml:"panel" yaml:"panel"`
+}
+
+// MonitorGraphTabPanelConfig stores one graph pane in the Graph tab.
+// Height is treated as a relative weight for vertical layout.
+type MonitorGraphTabPanelConfig struct {
+	Metric string `toml:"metric" yaml:"metric"`
+	Title  string `toml:"title" yaml:"title"`
+	Height int    `toml:"height" yaml:"height"`
 }

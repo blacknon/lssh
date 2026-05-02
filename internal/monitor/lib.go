@@ -12,6 +12,7 @@ import (
 	"github.com/blacknon/lssh/internal/mux"
 	sshrun "github.com/blacknon/lssh/internal/ssh"
 	mview "github.com/blacknon/mview"
+	"github.com/gdamore/tcell/v2"
 )
 
 type Monitor struct {
@@ -43,6 +44,8 @@ type Monitor struct {
 	syncingSelection   bool
 	baseTableSortUsed  bool
 	topTerminals       map[string]*topTerminalPane
+	cpuGraphTabName    string
+	cpuGraphColors     map[string]tcell.Color
 	exitModal          *mview.Modal
 	exitConfirmVisible bool
 	exitConfirmFocus   mview.Primitive
@@ -155,6 +158,7 @@ func Run(r *sshrun.Run) (err error) {
 	monitor.sharedTermFactory = monitor.createSharedTopTerminalSession
 	monitor.shareConnect = r.ShareConnect
 	monitor.graphScale = newGraphScaleConfig(r.Conf.Monitor.Graph)
+	monitor.cpuGraphColors = map[string]tcell.Color{}
 
 	// Create WaitGroup
 	wg := sync.WaitGroup{}
@@ -208,4 +212,35 @@ func (m *Monitor) CreateNode(server string, wg *sync.WaitGroup) {
 	m.Lock()
 	m.Nodes = append(m.Nodes, node)
 	m.Unlock()
+}
+
+func (m *Monitor) cpuGraphColorForServer(server string) tcell.Color {
+	server = strings.TrimSpace(server)
+	if server == "" {
+		return cpuGraphPalette[0]
+	}
+
+	m.Lock()
+	defer m.Unlock()
+
+	if color, ok := m.cpuGraphColors[server]; ok {
+		return color
+	}
+
+	usedColors := make(map[tcell.Color]struct{}, len(m.cpuGraphColors))
+	for _, color := range m.cpuGraphColors {
+		usedColors[color] = struct{}{}
+	}
+
+	for _, color := range cpuGraphPalette {
+		if _, ok := usedColors[color]; ok {
+			continue
+		}
+		m.cpuGraphColors[server] = color
+		return color
+	}
+
+	color := cpuGraphPalette[len(m.cpuGraphColors)%len(cpuGraphPalette)]
+	m.cpuGraphColors[server] = color
+	return color
 }

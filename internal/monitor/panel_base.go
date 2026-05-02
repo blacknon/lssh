@@ -25,6 +25,7 @@ func (m *Monitor) createBasePanel() (baseGrid *mview.Grid) {
 	// 定期的なデータの更新を行わせる
 	go m.updateBaseGridTableRows()
 	go m.updateSelectedTopPanel()
+	go m.updateCPUGraphTab()
 	go m.reconnectServer()
 
 	// create base grid
@@ -265,6 +266,23 @@ func (m *Monitor) updateSelectedTopPanel() {
 
 			node.NodeTop.Refresh(node)
 		})
+	}
+}
+
+func (m *Monitor) updateCPUGraphTab() {
+	ticker := time.NewTicker(monitorSampleInterval)
+	defer ticker.Stop()
+
+	for range ticker.C {
+		if m.View == nil || m.Panels == nil || m.cpuGraphTabName == "" {
+			continue
+		}
+
+		if m.Panels.GetCurrentTab() != m.cpuGraphTabName {
+			continue
+		}
+
+		m.View.QueueUpdateDraw(func() {})
 	}
 }
 

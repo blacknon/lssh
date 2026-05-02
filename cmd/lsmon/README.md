@@ -75,6 +75,27 @@ lsmon -H web01 -H web02
 
 Press `Ctrl + X` to open a top-screen-style window.
 Press `Ctrl + C` to open an exit confirmation dialog.
+`lsmon` can also provide an optional `Graph` tab which overlays multiple metrics such as CPU and memory history for the currently selected monitor hosts for quick comparison.
+This tab is disabled by default and appears only when `monitor.graph_tab` is configured in `lssh.conf`.
+
+```toml
+[[monitor.graph_tab.panel]]
+metric = "cpu"
+title = "CPU"
+height = 2
+
+[[monitor.graph_tab.panel]]
+metric = "mem"
+title = "Mem"
+height = 1
+```
+
+Currently supported `metric` values are:
+
+- `cpu`
+- `mem`
+
+`height` is a relative vertical weight inside the Graph tab.
 
 ### Open Terminal
 
