@@ -23,6 +23,34 @@ func TestFilterLsshMuxSessionValueFlags(t *testing.T) {
 	}
 }
 
+func TestBuildMuxDaemonArgs(t *testing.T) {
+	args := []string{
+		"-P",
+		"--mux-session", "ops",
+		"--mux-socket-path", "/tmp/ops.sock",
+		"--mux-detach",
+		"--host", "web01",
+	}
+
+	got := buildMuxDaemonArgs(args, "prod", "/tmp/prod.sock")
+	want := []string{"-P", "--host", "web01", "--mux-daemon", "--mux-session", "prod", "--mux-socket-path", "/tmp/prod.sock"}
+
+	if !reflect.DeepEqual(got, want) {
+		t.Fatalf("buildMuxDaemonArgs = %#v, want %#v", got, want)
+	}
+}
+
+func TestBuildBackgroundArgs(t *testing.T) {
+	args := []string{"-f", "--file", "conf.toml", "--parallel"}
+
+	got := buildBackgroundArgs(args, []string{"web01", "db01"}, nil)
+	want := []string{"--file", "conf.toml", "--parallel", "-H", "web01", "-H", "db01"}
+
+	if !reflect.DeepEqual(got, want) {
+		t.Fatalf("buildBackgroundArgs = %#v, want %#v", got, want)
+	}
+}
+
 func TestResolveTunnelOption(t *testing.T) {
 	tests := []struct {
 		name        string
