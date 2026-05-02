@@ -133,6 +133,12 @@ func TestParseRunForwardSettingsRejectsInvalidTunnel(t *testing.T) {
 	ctx := newLsshTestContext(t, "--tunnel", "bad")
 
 	_, err := parseRunForwardSettings(ctx)
+	if runtime.GOOS == "windows" {
+		if err == nil || !strings.Contains(err.Error(), "not supported on Windows") {
+			t.Fatalf("parseRunForwardSettings() error = %v", err)
+		}
+		return
+	}
 	if err == nil || !strings.Contains(err.Error(), "invalid --tunnel format") {
 		t.Fatalf("parseRunForwardSettings() error = %v", err)
 	}
