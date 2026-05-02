@@ -3,6 +3,7 @@ package lssh
 import (
 	"flag"
 	"reflect"
+	"runtime"
 	"strings"
 	"testing"
 
@@ -83,7 +84,6 @@ func TestParseRunForwardSettings(t *testing.T) {
 		"-m", "3049:relative/nfs",
 		"-S", "445:/remote/smb",
 		"-s", "1445:relative/smb",
-		"--tunnel", "1:any",
 	)
 
 	got, err := parseRunForwardSettings(ctx)
@@ -105,6 +105,24 @@ func TestParseRunForwardSettings(t *testing.T) {
 	}
 	if got.SMBReverseDynamicForwardPath != common.GetFullPath("relative/smb") {
 		t.Fatalf("SMB reverse path = %q", got.SMBReverseDynamicForwardPath)
+	}
+	if got.TunnelEnabled || got.TunnelLocal != 0 || got.TunnelRemote != 0 {
+		t.Fatalf("unexpected tunnel = enabled:%t local:%d remote:%d", got.TunnelEnabled, got.TunnelLocal, got.TunnelRemote)
+	}
+}
+
+func TestParseRunForwardSettingsTunnel(t *testing.T) {
+	ctx := newLsshTestContext(t, "--tunnel", "1:any")
+
+	got, err := parseRunForwardSettings(ctx)
+	if runtime.GOOS == "windows" {
+		if err == nil || !strings.Contains(err.Error(), "not supported on Windows") {
+			t.Fatalf("parseRunForwardSettings() error = %v", err)
+		}
+		return
+	}
+	if err != nil {
+		t.Fatalf("parseRunForwardSettings() error = %v", err)
 	}
 	if !got.TunnelEnabled || got.TunnelLocal != 1 || got.TunnelRemote != -1 {
 		t.Fatalf("tunnel = enabled:%t local:%d remote:%d", got.TunnelEnabled, got.TunnelLocal, got.TunnelRemote)
