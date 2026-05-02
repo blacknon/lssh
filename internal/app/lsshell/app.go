@@ -7,18 +7,12 @@ package lsshell
 import (
 	"fmt"
 	"os"
-	"regexp"
-	"runtime"
 	"sort"
 
-	"github.com/blacknon/lssh/internal/check"
 	"github.com/blacknon/lssh/internal/common"
 	conf "github.com/blacknon/lssh/internal/config"
-	"github.com/blacknon/lssh/internal/list"
 	pshell "github.com/blacknon/lssh/internal/pshell"
-	sshcmd "github.com/blacknon/lssh/internal/ssh"
 	"github.com/blacknon/lssh/internal/version"
-	"golang.org/x/crypto/ssh/terminal"
 
 	"github.com/urfave/cli"
 )
@@ -82,10 +76,9 @@ USAGE:
 
 	// Run command action
 	app.Action = func(c *cli.Context) error {
-		// show help messages
 		if c.Bool("help") {
 			cli.ShowAppHelp(c)
-			os.Exit(0)
+			return nil
 		}
 
 		hosts := c.StringSlice("host")
@@ -105,110 +98,29 @@ USAGE:
 			return configErr
 		}
 
-		// Set `exec command` or `shell` flag
-		isMulti := true
-
-		// Extraction server name list from 'data'
 		names := conf.GetNameList(data)
 		sort.Strings(names)
 
-		// Check list flag
 		if c.Bool("list") {
 			fmt.Fprintf(os.Stdout, "lssh Server List:\n")
 			for v := range names {
 				fmt.Fprintf(os.Stdout, "  %s\n", names[v])
 			}
-			os.Exit(0)
+			return nil
 		}
 
-		selected := []string{}
-		if len(hosts) > 0 {
-			if !check.ExistServer(hosts, names) {
-				fmt.Fprintln(os.Stderr, "Input Server not found from list.")
-				os.Exit(1)
-			} else {
-				selected = hosts
-			}
-		} else {
-			if len(names) == 0 {
-				fmt.Fprintln(os.Stderr, "No servers matched the current config conditions.")
-				os.Exit(1)
-			}
-			// View List And Get Select Line
-			l := new(list.ListInfo)
-			l.Prompt = "lssh>>"
-			l.NameList = names
-			l.DataList = data
-			l.MultiFlag = isMulti
-
-			l.View()
-			selected = l.SelectName
-			if len(selected) == 0 {
-				fmt.Fprintln(os.Stderr, "Selection cancelled.")
-				os.Exit(1)
-			}
-			if selected[0] == "ServerName" {
-				fmt.Fprintln(os.Stderr, "Server not selected.")
-				os.Exit(1)
-			}
-		}
-
-		r := new(sshcmd.Run)
-		r.ServerList = selected
-		r.Conf = data
-		r.ControlMasterOverride = controlMasterOverride
-
-		// is tty
-		r.IsTerm = c.Bool("term")
-
-		// Set port forwards
-		var err error
-		var forwards []*conf.PortForward
-
-		// Set remote port forwarding
-		for _, forwardargs := range c.StringSlice("R") {
-			f := new(conf.PortForward)
-			f.Mode = "R"
-
-			// If only numbers are passed as arguments, treat as Reverse Dynamic Port Forward
-			if regexp.MustCompile(`^[0-9]+$`).Match([]byte(forwardargs)) {
-				r.ReverseDynamicPortForward = forwardargs
-			} else {
-				f.Local, f.Remote, err = common.ParseForwardPort(forwardargs)
-				forwards = append(forwards, f)
-			}
-		}
-
-		// if err
+		selected, err := selectServers(hosts, names, data, true, promptServerSelection)
 		if err != nil {
-			fmt.Printf("Error: %s \n", err)
+			return err
 		}
 
-		// Local/Remote port forwarding port
-		r.PortForward = forwards
-		r.HTTPReverseDynamicPortForward = c.String("r")
-		if nfsReverseForwarding := c.String("m"); nfsReverseForwarding != "" {
-			port, path, err := common.ParseNFSForwardPortPath(nfsReverseForwarding)
-			if err != nil {
-				return err
-			}
-			r.NFSReverseDynamicForwardPort = port
-			r.NFSReverseDynamicForwardPath = common.GetFullPath(path)
+		r, err := buildRun(c, data, selected, controlMasterOverride)
+		if err != nil {
+			return err
 		}
-
-		// Get stdin data(pipe)
-		if runtime.GOOS != "windows" {
-			stdin := 0
-			if !terminal.IsTerminal(stdin) {
-				r.IsStdinPipe = true
-			}
-		}
-
-		// create AuthMap
 		r.CreateAuthMethodMap()
 
-		err = pshell.Shell(r)
-		return err
+		return pshell.Shell(r)
 	}
 	return app
 }
