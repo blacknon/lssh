@@ -304,17 +304,21 @@ USAGE:
 			}
 
 			run := &sshcmd.Run{
-				Conf:                          data,
-				ControlMasterOverride:         controlMasterOverride,
-				PortForward:                   forwards,
-				DynamicPortForward:            c.String("D"),
-				HTTPDynamicPortForward:        c.String("d"),
-				ReverseDynamicPortForward:     forwardConfig.ReverseDynamicPortForward,
-				HTTPReverseDynamicPortForward: forwardConfig.HTTPReverseDynamicPortForward,
-				NFSReverseDynamicForwardPort:  forwardConfig.NFSReverseDynamicForwardPort,
-				NFSReverseDynamicForwardPath:  forwardConfig.NFSReverseDynamicForwardPath,
-				SMBReverseDynamicForwardPort:  forwardConfig.SMBReverseDynamicForwardPort,
-				SMBReverseDynamicForwardPath:  forwardConfig.SMBReverseDynamicForwardPath,
+				Conf: data,
+				RunSessionConfig: sshcmd.RunSessionConfig{
+					ControlMasterOverride: controlMasterOverride,
+				},
+				RunForwardConfig: sshcmd.RunForwardConfig{
+					PortForward:                   forwards,
+					DynamicPortForward:            c.String("D"),
+					HTTPDynamicPortForward:        c.String("d"),
+					ReverseDynamicPortForward:     forwardConfig.ReverseDynamicPortForward,
+					HTTPReverseDynamicPortForward: forwardConfig.HTTPReverseDynamicPortForward,
+					NFSReverseDynamicForwardPort:  forwardConfig.NFSReverseDynamicForwardPort,
+					NFSReverseDynamicForwardPath:  forwardConfig.NFSReverseDynamicForwardPath,
+					SMBReverseDynamicForwardPort:  forwardConfig.SMBReverseDynamicForwardPort,
+					SMBReverseDynamicForwardPath:  forwardConfig.SMBReverseDynamicForwardPath,
+				},
 			}
 			forwardConfig.ControlMasterOverride = controlMasterOverride
 			if nfsForwarding := c.String("M"); nfsForwarding != "" {

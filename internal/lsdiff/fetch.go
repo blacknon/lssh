@@ -16,9 +16,11 @@ import (
 
 func FetchDocuments(config conf.Config, targets []Target, controlMasterOverride *bool) ([]Document, error) {
 	run := &sshl.Run{
-		ServerList:            targetHosts(targets),
-		Conf:                  config,
-		ControlMasterOverride: controlMasterOverride,
+		ServerList: targetHosts(targets),
+		Conf:       config,
+		RunSessionConfig: sshl.RunSessionConfig{
+			ControlMasterOverride: controlMasterOverride,
+		},
 	}
 	run.CreateAuthMethodMap()
 

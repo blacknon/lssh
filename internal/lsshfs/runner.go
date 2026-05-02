@@ -277,9 +277,11 @@ func createMountConn(r *Runner) (mountConn, error) {
 		}
 
 		run := &lsshssh.Run{
-			ServerList:            []string{r.Host},
-			Conf:                  r.Config,
-			ControlMasterOverride: r.ControlMasterOverride,
+			ServerList: []string{r.Host},
+			Conf:       r.Config,
+			RunSessionConfig: lsshssh.RunSessionConfig{
+				ControlMasterOverride: r.ControlMasterOverride,
+			},
 		}
 		run.CreateAuthMethodMap()
 
@@ -298,9 +300,11 @@ func createMountConn(r *Runner) (mountConn, error) {
 	}
 
 	run := &lsshssh.Run{
-		ServerList:            []string{r.Host},
-		Conf:                  r.Config,
-		ControlMasterOverride: r.ControlMasterOverride,
+		ServerList: []string{r.Host},
+		Conf:       r.Config,
+		RunSessionConfig: lsshssh.RunSessionConfig{
+			ControlMasterOverride: r.ControlMasterOverride,
+		},
 	}
 	run.CreateAuthMethodMap()
 

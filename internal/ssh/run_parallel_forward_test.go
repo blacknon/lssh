@@ -94,17 +94,19 @@ func TestPrepareParallelForwardConfigUsesRunOverrides(t *testing.T) {
 				},
 			},
 		},
-		ReverseDynamicPortForward:     "3080",
-		HTTPReverseDynamicPortForward: "38080",
-		NFSReverseDynamicForwardPort:  "4049",
-		NFSReverseDynamicForwardPath:  "/override-local",
-		SMBReverseDynamicForwardPort:  "2445",
-		SMBReverseDynamicForwardPath:  "/override-smb-local",
-		PortForward: []*conf.PortForward{
-			{
-				Mode:   "R",
-				Local:  "localhost:40080",
-				Remote: "localhost:80",
+		RunForwardConfig: RunForwardConfig{
+			ReverseDynamicPortForward:     "3080",
+			HTTPReverseDynamicPortForward: "38080",
+			NFSReverseDynamicForwardPort:  "4049",
+			NFSReverseDynamicForwardPath:  "/override-local",
+			SMBReverseDynamicForwardPort:  "2445",
+			SMBReverseDynamicForwardPath:  "/override-smb-local",
+			PortForward: []*conf.PortForward{
+				{
+					Mode:   "R",
+					Local:  "localhost:40080",
+					Remote: "localhost:80",
+				},
 			},
 		},
 	}
@@ -152,9 +154,11 @@ func TestParallelIgnoredFeatures(t *testing.T) {
 				},
 			},
 		},
-		TunnelEnabled: true,
-		TunnelLocal:   0,
-		TunnelRemote:  1,
+		RunForwardConfig: RunForwardConfig{
+			TunnelEnabled: true,
+			TunnelLocal:   0,
+			TunnelRemote:  1,
+		},
 	}
 
 	got := r.ParallelIgnoredFeatures("target")

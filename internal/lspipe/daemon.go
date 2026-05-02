@@ -347,11 +347,15 @@ func (d *Daemon) runConnectorCommand(host string, req Request, sendEvent func(Ev
 	}
 
 	run := &lssh.Run{
-		Conf:                  d.Config,
-		ControlMasterOverride: d.ControlMasterOverride,
-		EnableStdoutMutex:     false,
-		EnableHeader:          false,
-		DisableHeader:         true,
+		Conf: d.Config,
+		RunSessionConfig: lssh.RunSessionConfig{
+			ControlMasterOverride: d.ControlMasterOverride,
+		},
+		RunCommandConfig: lssh.RunCommandConfig{
+			EnableHeader:  false,
+			DisableHeader: true,
+		},
+		EnableStdoutMutex: false,
 	}
 
 	var stdin io.Reader
@@ -472,12 +476,16 @@ func (d *Daemon) connect(host string) (sessionConn, error) {
 	}
 
 	run := &lssh.Run{
-		ServerList:            []string{host},
-		Conf:                  d.Config,
-		ControlMasterOverride: d.ControlMasterOverride,
-		EnableStdoutMutex:     false,
-		EnableHeader:          false,
-		DisableHeader:         true,
+		ServerList: []string{host},
+		Conf:       d.Config,
+		RunSessionConfig: lssh.RunSessionConfig{
+			ControlMasterOverride: d.ControlMasterOverride,
+		},
+		RunCommandConfig: lssh.RunCommandConfig{
+			EnableHeader:  false,
+			DisableHeader: true,
+		},
+		EnableStdoutMutex: false,
 	}
 	run.CreateAuthMethodMap()
 

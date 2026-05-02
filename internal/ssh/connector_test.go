@@ -17,13 +17,13 @@ func TestConnectorLocalRCEnabledDefaultConfig(t *testing.T) {
 }
 
 func TestConnectorLocalRCEnabledRespectsNotLocalRC(t *testing.T) {
-	if connectorLocalRCEnabled(&Run{IsNotBashrc: true}, conf.ServerConfig{LocalRcUse: "yes"}) {
+	if connectorLocalRCEnabled(&Run{RunSessionConfig: RunSessionConfig{IsNotBashrc: true}}, conf.ServerConfig{LocalRcUse: "yes"}) {
 		t.Fatal("connectorLocalRCEnabled() = true, want false with --not-localrc")
 	}
 }
 
 func TestConnectorLocalRCEnabledRespectsLocalRCFlag(t *testing.T) {
-	if !connectorLocalRCEnabled(&Run{IsBashrc: true}, conf.ServerConfig{LocalRcUse: "no"}) {
+	if !connectorLocalRCEnabled(&Run{RunSessionConfig: RunSessionConfig{IsBashrc: true}}, conf.ServerConfig{LocalRcUse: "no"}) {
 		t.Fatal("connectorLocalRCEnabled() = false, want true with --localrc")
 	}
 }
@@ -148,7 +148,7 @@ func TestConnectorForwardingSharesShellForSharedRuntimeOnly(t *testing.T) {
 	}, shared) {
 		t.Fatal("connectorForwardingSharesShell() = true, want false when local forward is also configured")
 	}
-	if (&Run{IsNone: true}).connectorForwardingSharesShell(conf.ServerConfig{DynamicPortForward: "11080"}, shared) {
+	if (&Run{RunCommandConfig: RunCommandConfig{IsNone: true}}).connectorForwardingSharesShell(conf.ServerConfig{DynamicPortForward: "11080"}, shared) {
 		t.Fatal("connectorForwardingSharesShell() = true, want false with --not-execute")
 	}
 }

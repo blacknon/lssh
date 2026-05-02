@@ -162,12 +162,12 @@ func TestSharedTerminalLocalRCEnabled(t *testing.T) {
 		t.Fatal("sharedTerminalLocalRCEnabled() = false, want true from config")
 	}
 
-	if sharedTerminalLocalRCEnabled(serverConf, &sshrun.Run{IsNotBashrc: true}) {
+	if sharedTerminalLocalRCEnabled(serverConf, &sshrun.Run{RunSessionConfig: sshrun.RunSessionConfig{IsNotBashrc: true}}) {
 		t.Fatal("sharedTerminalLocalRCEnabled() = true, want false with --not-localrc")
 	}
 
 	serverConf.LocalRcUse = "no"
-	if !sharedTerminalLocalRCEnabled(serverConf, &sshrun.Run{IsBashrc: true}) {
+	if !sharedTerminalLocalRCEnabled(serverConf, &sshrun.Run{RunSessionConfig: sshrun.RunSessionConfig{IsBashrc: true}}) {
 		t.Fatal("sharedTerminalLocalRCEnabled() = false, want true with --localrc")
 	}
 }

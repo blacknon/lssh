@@ -25,15 +25,33 @@ import (
 
 // TOOD(blacknon): なんかProxyのポートが表示おかしいので、修正する(v0.7.0)
 
-// Run
-type Run struct {
-	ServerList []string
-	Conf       conf.Config
-
+type RunSessionConfig struct {
 	// ControlMasterOverride temporarily overrides the config setting for
 	// this run. nil means use the config value as-is.
 	ControlMasterOverride *bool
 
+	// x11 forwarding (-X option)
+	X11 bool
+
+	// Trusted X11 flag (-Y option)
+	X11Trusted bool
+
+	// use or not-use local bashrc.
+	// IsNotBashrc takes precedence.
+	IsBashrc    bool
+	IsNotBashrc bool
+
+	// ConnectorAttachSession resumes a connector-managed shell session by id.
+	ConnectorAttachSession string
+
+	// ConnectorDetach starts a connector-managed shell session without attaching.
+	ConnectorDetach bool
+
+	// ShareConnect reuses the monitor SSH connection for interactive terminals.
+	ShareConnect bool
+}
+
+type RunCommandConfig struct {
 	// Mode value in
 	//     - shell
 	//     - cmd
@@ -48,17 +66,18 @@ type Run struct {
 	// not run (-N option)
 	IsNone bool
 
-	// x11 forwarding (-X option)
-	X11 bool
+	// Exec command
+	ExecCmd []string
 
-	// Trusted X11 flag (-Y option)
-	X11Trusted bool
+	// enable/disable print header in command mode
+	EnableHeader  bool
+	DisableHeader bool
 
-	// use or not-use local bashrc.
-	// IsNotBashrc takes precedence.
-	IsBashrc    bool
-	IsNotBashrc bool
+	// StdinData from pipe flag
+	IsStdinPipe bool
+}
 
+type RunForwardConfig struct {
 	// local/remote Port Forwarding
 	PortForward []*conf.PortForward
 
@@ -124,19 +143,16 @@ type Run struct {
 	TunnelEnabled bool
 	TunnelLocal   int
 	TunnelRemote  int
+}
 
-	// Exec command
-	ExecCmd []string
+// Run
+type Run struct {
+	ServerList []string
+	Conf       conf.Config
 
-	// ConnectorAttachSession resumes a connector-managed shell session by id.
-	ConnectorAttachSession string
-
-	// ConnectorDetach starts a connector-managed shell session without attaching.
-	ConnectorDetach bool
-
-	// enable/disable print header in command mode
-	EnableHeader  bool
-	DisableHeader bool
+	RunSessionConfig
+	RunCommandConfig
+	RunForwardConfig
 
 	// Agent is ssh-agent.
 	// In agent.Agent or agent.ExtendedAgent.
@@ -147,12 +163,6 @@ type Run struct {
 
 	// Mutex for parallel execution of output to stdout with goroutine
 	stdoutMutex sync.Mutex
-
-	// StdinData from pipe flag
-	IsStdinPipe bool
-
-	// ShareConnect reuses the monitor SSH connection for interactive terminals.
-	ShareConnect bool
 
 	// AuthMethodMap is
 	// map of AuthMethod summarized in Run overall
