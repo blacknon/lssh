@@ -167,7 +167,11 @@ These provider implementations are currently bundled in this repository.
 
 <table>
   <tr>
-    <td valign="top" width="100%">
+    <td valign="top" width="50%">
+      <strong><a href="./provider/inventory/provider-inventory-ansible/README.md">provider-inventory-ansible</a></strong><br />
+      Build host entries from local Ansible inventory files.
+    </td>
+    <td valign="top" width="50%">
       <strong><a href="./provider/inventory/provider-inventory-proxmox/README.md">provider-inventory-proxmox</a></strong><br />
       Build host entries from Proxmox inventory.
     </td>

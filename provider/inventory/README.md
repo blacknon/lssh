@@ -4,6 +4,7 @@ Inventory Providers
 Inventory providers generate `server` entries dynamically from external systems.
 
 - [`provider-inventory-proxmox`](./provider-inventory-proxmox/README.md)
+- [`provider-inventory-ansible`](./provider-inventory-ansible/README.md)
 
 Mixed-capability providers that also implement `inventory.list` are documented under [../mixed/README.md](../mixed/README.md).
 

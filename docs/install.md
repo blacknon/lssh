@@ -111,6 +111,7 @@ The same task first builds the current provider set from this repository, includ
 - `provider-inventory-azure-compute`
 - `provider-mixed-gcp-compute`
 - `provider-inventory-gcp-compute`
+- `provider-inventory-ansible`
 - `provider-inventory-proxmox`
 - `provider-secret-onepassword`
 - `provider-secret-bitwarden`

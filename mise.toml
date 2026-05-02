@@ -106,6 +106,7 @@ run = """
     go build -o provider-inventory-azure-compute ./provider/mixed/provider-mixed-azure-compute
     go build -o provider-mixed-gcp-compute ./provider/mixed/provider-mixed-gcp-compute
     go build -o provider-inventory-gcp-compute ./provider/mixed/provider-mixed-gcp-compute
+    go build -o provider-inventory-ansible ./provider/inventory/provider-inventory-ansible
     go build -o provider-inventory-proxmox ./provider/inventory/provider-inventory-proxmox
     go build -o provider-secret-onepassword ./provider/secret/provider-secret-onepassword
     go build -o provider-secret-bitwarden ./provider/secret/provider-secret-bitwarden
@@ -125,6 +126,7 @@ run = """
     rm -f provider-inventory-azure-compute
     rm -f provider-mixed-gcp-compute
     rm -f provider-inventory-gcp-compute
+    rm -f provider-inventory-ansible
     rm -f provider-inventory-proxmox
     rm -f provider-secret-onepassword
     rm -f provider-secret-bitwarden
@@ -162,6 +164,7 @@ run = """
     install_binary provider-inventory-azure-compute "$HOME/.config/lssh/providers/provider-inventory-azure-compute"
     install_binary provider-mixed-gcp-compute "$HOME/.config/lssh/providers/provider-mixed-gcp-compute"
     install_binary provider-inventory-gcp-compute "$HOME/.config/lssh/providers/provider-inventory-gcp-compute"
+    install_binary provider-inventory-ansible "$HOME/.config/lssh/providers/provider-inventory-ansible"
     install_binary provider-inventory-proxmox "$HOME/.config/lssh/providers/provider-inventory-proxmox"
     install_binary provider-secret-onepassword "$HOME/.config/lssh/providers/provider-secret-onepassword"
     install_binary provider-secret-bitwarden "$HOME/.config/lssh/providers/provider-secret-bitwarden"
@@ -179,6 +182,7 @@ run = """
     go test -v ./provider/connector/provider-connector-winrm
     go test -v ./provider/mixed/provider-mixed-azure-compute
     go test -v ./provider/mixed/provider-mixed-gcp-compute
+    go test -v ./provider/inventory/provider-inventory-ansible
     go test -v ./provider/inventory/provider-inventory-proxmox
     go test -v ./provider/secret/provider-secret-onepassword
     go test -v ./provider/secret/provider-secret-bitwarden
