@@ -7,13 +7,11 @@ package lscp
 import (
 	"fmt"
 	"os"
-	"sort"
 	"strings"
 
 	"github.com/blacknon/lssh/internal/app/apputil"
 	"github.com/blacknon/lssh/internal/check"
 	"github.com/blacknon/lssh/internal/common"
-	conf "github.com/blacknon/lssh/internal/config"
 	"github.com/blacknon/lssh/internal/scp"
 	"github.com/blacknon/lssh/internal/version"
 	"github.com/urfave/cli"
@@ -82,36 +80,26 @@ USAGE:
 		}
 
 		hosts := c.StringSlice("host")
-		confpath := c.String("file")
 		controlMasterOverride, controlMasterErr := common.GetControlMasterOverride(c)
 		if controlMasterErr != nil {
 			return controlMasterErr
 		}
 
-		if handled, err := conf.HandleGenerateConfigMode(c.String("generate-lssh-conf"), os.Stdout); handled {
+		data, handled, err := apputil.LoadConfigWithGenerateMode(c, os.Stdout, os.Stderr)
+		if handled {
 			return err
 		}
-
-		// Get config data
-		data, err := conf.ReadWithFallback(confpath, os.Stderr)
 		if err != nil {
 			return err
 		}
 
-		// Get Server Name List (and sort List)
-		allNames := conf.GetNameList(data)
-		names := append([]string(nil), allNames...)
-		names, err = data.FilterServersByOperation(names, "sftp_transport")
+		allNames, names, err := apputil.SortedServerNames(data, "sftp_transport")
 		if err != nil {
 			return err
 		}
-		sort.Strings(names)
 
 		if c.Bool("list") {
-			fmt.Fprintln(os.Stdout, "lssh Server List:")
-			for _, name := range names {
-				fmt.Fprintf(os.Stdout, "  %s\n", name)
-			}
+			apputil.PrintServerList(os.Stdout, names)
 			return nil
 		}
 
