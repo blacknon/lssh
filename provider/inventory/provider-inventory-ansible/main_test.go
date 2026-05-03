@@ -29,13 +29,17 @@ web
 	if len(hosts) != 2 {
 		t.Fatalf("hosts = %d, want 2", len(hosts))
 	}
-	if hosts[0].Vars["ansible_user"] != "ubuntu" {
-		t.Fatalf("ansible_user = %q", hosts[0].Vars["ansible_user"])
+	byName := map[string]ansibleHostEntry{}
+	for _, host := range hosts {
+		byName[host.Name] = host
 	}
-	if hosts[1].Vars["ansible_ssh_private_key_file"] != "~/.ssh/web.pem" {
-		t.Fatalf("private key = %q", hosts[1].Vars["ansible_ssh_private_key_file"])
+	if byName["web01"].Vars["ansible_user"] != "ubuntu" {
+		t.Fatalf("ansible_user = %q", byName["web01"].Vars["ansible_user"])
 	}
-	if got := hosts[0].Groups; len(got) != 2 || got[0] != "prod" || got[1] != "web" {
+	if byName["web02"].Vars["ansible_ssh_private_key_file"] != "~/.ssh/web.pem" {
+		t.Fatalf("private key = %q", byName["web02"].Vars["ansible_ssh_private_key_file"])
+	}
+	if got := byName["web01"].Groups; len(got) != 2 || got[0] != "prod" || got[1] != "web" {
 		t.Fatalf("groups = %#v", got)
 	}
 }

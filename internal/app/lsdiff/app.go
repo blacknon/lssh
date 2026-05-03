@@ -9,6 +9,7 @@ import (
 	"os"
 	"sort"
 
+	"github.com/blacknon/lssh/internal/app/apputil"
 	"github.com/blacknon/lssh/internal/check"
 	"github.com/blacknon/lssh/internal/common"
 	conf "github.com/blacknon/lssh/internal/config"
@@ -68,7 +69,7 @@ USAGE:
 	app.Action = func(c *cli.Context) error {
 		if c.Bool("help") {
 			cli.ShowAppHelp(c)
-			os.Exit(0)
+			return nil
 		}
 
 		if handled, err := conf.HandleGenerateConfigMode(c.String("generate-lssh-conf"), os.Stdout); handled {
@@ -155,15 +156,27 @@ func resolveDiffTargets(config conf.Config, allNames, supportedNames, flagHosts,
 	if len(flagHosts) < 2 {
 		return nil, fmt.Errorf("select at least two hosts")
 	}
-	if !check.ExistServer(flagHosts, allNames) {
-		return nil, fmt.Errorf("selected host not found from list")
-	}
-	if !check.ExistServer(flagHosts, supportedNames) {
-		return nil, fmt.Errorf("selected host does not support SFTP-based transfer")
+	selected, err := apputil.SelectOperationHosts(
+		flagHosts,
+		allNames,
+		supportedNames,
+		config,
+		"sftp_transport",
+		"no servers matched the current config conditions",
+		"selected host does not support SFTP-based transfer",
+		"lsdiff>>",
+		true,
+		apputil.PromptServerSelection,
+	)
+	if err != nil {
+		if err.Error() == "Input Server not found from list." {
+			return nil, fmt.Errorf("selected host not found from list")
+		}
+		return nil, err
 	}
 
-	targets := make([]diffapp.Target, 0, len(flagHosts))
-	for _, host := range flagHosts {
+	targets := make([]diffapp.Target, 0, len(selected))
+	for _, host := range selected {
 		targets = append(targets, diffapp.Target{
 			Host:       host,
 			RemotePath: target.RemotePath,

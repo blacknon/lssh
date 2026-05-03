@@ -15,10 +15,8 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/blacknon/lssh/internal/check"
 	"github.com/blacknon/lssh/internal/common"
 	conf "github.com/blacknon/lssh/internal/config"
-	"github.com/blacknon/lssh/internal/list"
 	mountfs "github.com/blacknon/lssh/internal/lsshfs"
 	"github.com/blacknon/lssh/internal/version"
 	"github.com/urfave/cli"
@@ -102,7 +100,7 @@ USAGE:
 
 		if c.Bool("help") {
 			cli.ShowAppHelp(c)
-			os.Exit(0)
+			return nil
 		}
 
 		if handled, err := conf.HandleGenerateConfigMode(c.String("generate-lssh-conf"), os.Stdout); handled {
@@ -160,42 +158,13 @@ USAGE:
 		}
 
 		flagHosts := c.StringSlice("host")
-		if len(flagHosts) > 1 {
-			return fmt.Errorf("lsshfs only supports a single host")
-		}
-		if len(flagHosts) > 0 && !check.ExistServer(flagHosts, names) {
-			return fmt.Errorf("input server not found from list")
-		}
-		if specHost != "" && !check.ExistServer([]string{specHost}, names) {
-			return fmt.Errorf("input server not found from list")
-		}
-
-		selectedHost := ""
-		switch {
-		case specHost != "" && len(flagHosts) == 1 && specHost != flagHosts[0]:
-			return fmt.Errorf("host in remote path and --host do not match")
-		case specHost != "":
-			selectedHost = specHost
-		case len(flagHosts) == 1:
-			selectedHost = flagHosts[0]
-		default:
-			if len(names) == 0 {
-				return fmt.Errorf("no servers matched the current config conditions")
-			}
-			l := new(list.ListInfo)
-			l.Prompt = "lsshfs>>"
-			l.NameList = names
-			l.DataList = data
-			l.MultiFlag = false
-			l.View()
-			if len(l.SelectName) == 0 || l.SelectName[0] == "ServerName" {
-				return fmt.Errorf("selection cancelled")
-			}
-			selectedHost = l.SelectName[0]
+		selectedHost, appendHostFlag, err := selectMountHost(flagHosts, names, data, specHost)
+		if err != nil {
+			return err
 		}
 
 		if !c.Bool("foreground") && os.Getenv("_LSSHFS_DAEMON") != "1" {
-			return spawnBackgroundProcess(selectedHost, specHost == "" && len(flagHosts) == 0)
+			return spawnBackgroundProcess(selectedHost, appendHostFlag)
 		}
 
 		runner := &mountfs.Runner{
