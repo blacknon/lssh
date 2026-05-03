@@ -9,10 +9,8 @@ import (
 	"os"
 	"sort"
 
-	"github.com/blacknon/lssh/internal/check"
 	"github.com/blacknon/lssh/internal/common"
 	conf "github.com/blacknon/lssh/internal/config"
-	"github.com/blacknon/lssh/internal/list"
 	"github.com/blacknon/lssh/internal/sftp"
 	"github.com/blacknon/lssh/internal/version"
 	"github.com/urfave/cli"
@@ -68,10 +66,9 @@ USAGE:
 	app.HideHelp = true
 
 	app.Action = func(c *cli.Context) error {
-		// show help messages
 		if c.Bool("help") {
 			cli.ShowAppHelp(c)
-			os.Exit(0)
+			return nil
 		}
 
 		controlMasterOverride, controlMasterErr := common.GetControlMasterOverride(c)
@@ -106,46 +103,12 @@ USAGE:
 			for _, name := range names {
 				fmt.Fprintf(os.Stdout, "  %s\n", name)
 			}
-			os.Exit(0)
+			return nil
 		}
 
-		selected := []string{}
-		if len(hosts) > 0 {
-			filteredHosts, err := data.FilterServersByOperation(hosts, "sftp_transport")
-			if err != nil {
-				return err
-			}
-			if !check.ExistServer(hosts, allNames) {
-				fmt.Fprintln(os.Stderr, "Input Server not found from list.")
-				os.Exit(1)
-			}
-			if len(filteredHosts) != len(hosts) {
-				fmt.Fprintln(os.Stderr, "Input Server does not support SFTP-based transfer.")
-				os.Exit(1)
-			}
-			selected = hosts
-		} else {
-			if len(names) == 0 {
-				fmt.Fprintln(os.Stderr, "No servers matched the current config conditions.")
-				os.Exit(1)
-			}
-
-			l := new(list.ListInfo)
-			l.Prompt = "lsftp>>"
-			l.NameList = names
-			l.DataList = data
-			l.MultiFlag = true
-			l.View()
-
-			selected = l.SelectName
-			if len(selected) == 0 {
-				fmt.Fprintln(os.Stderr, "Selection cancelled.")
-				os.Exit(1)
-			}
-			if selected[0] == "ServerName" {
-				fmt.Fprintln(os.Stderr, "Server not selected.")
-				os.Exit(1)
-			}
+		selected, err := selectSFTPServers(hosts, allNames, names, data, promptServerSelection)
+		if err != nil {
+			return err
 		}
 
 		// scp struct
