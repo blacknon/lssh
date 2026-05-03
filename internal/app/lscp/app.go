@@ -10,6 +10,7 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/blacknon/lssh/internal/app/apputil"
 	"github.com/blacknon/lssh/internal/check"
 	"github.com/blacknon/lssh/internal/common"
 	conf "github.com/blacknon/lssh/internal/config"
@@ -122,30 +123,40 @@ USAGE:
 		fromArgs := c.Args()[:c.NArg()-1]
 		toArg := c.Args()[c.NArg()-1]
 
+		fromSpecs := make([]apputil.TransferPathSpec, 0, len(fromArgs))
 		isFromInRemote := false
 		isFromInLocal := false
 		for _, from := range fromArgs {
-			isFromRemote, _, err := check.ParseScpPathE(from)
+			spec, err := apputil.ParseTransferPathSpec(from)
 			if err != nil {
 				return err
 			}
+			fromSpecs = append(fromSpecs, spec)
 
-			if isFromRemote {
+			if spec.IsRemote {
 				isFromInRemote = true
 			} else {
 				isFromInLocal = true
 			}
 		}
-		isToRemote, _, err := check.ParseScpPathE(toArg)
+		toSpec, err := apputil.ParseTransferPathSpec(toArg)
 		if err != nil {
 			return err
 		}
 
-		if err := check.ValidateCopyTypes(isFromInRemote, isFromInLocal, isToRemote, len(hosts)); err != nil {
+		if err := check.ValidateCopyTypes(isFromInRemote, isFromInLocal, toSpec.IsRemote, len(hosts)); err != nil {
 			return err
 		}
 
-		fromServer, toServer, err := selectSCPServers(hosts, allNames, names, data, isFromInRemote, isToRemote)
+		fromServer, toServer, err := selectSCPServers(hosts, allNames, names, data, isFromInRemote, toSpec.IsRemote)
+		if err != nil {
+			return err
+		}
+		preparedFrom, err := apputil.PrepareTransferSourcePaths(fromSpecs)
+		if err != nil {
+			return err
+		}
+		preparedTo, err := apputil.PrepareTransferDestinationPath(toSpec)
 		if err != nil {
 			return err
 		}
@@ -155,42 +166,15 @@ USAGE:
 		scp.ControlMasterOverride = controlMasterOverride
 
 		// set from info
-		for _, from := range fromArgs {
-			isFromRemote, fromPath, err := check.ParseScpPathE(from)
-			if err != nil {
-				return err
-			}
-			displayFromPath := fromPath
-
-			// Check local file exisits
-			if !isFromRemote {
-				_, err := os.Stat(common.GetFullPath(fromPath))
-				if err != nil {
-					fmt.Fprintf(os.Stderr, "not found path %s \n", fromPath)
-					os.Exit(1)
-				}
-				fromPath = common.GetFullPath(fromPath)
-			}
-
-			// set from data
-			scp.From.IsRemote = isFromRemote
-			if isFromRemote {
-				fromPath = check.EscapePath(fromPath)
-			}
-			scp.From.Path = append(scp.From.Path, fromPath)
-			scp.From.DisplayPath = append(scp.From.DisplayPath, displayFromPath)
+		for _, from := range preparedFrom {
+			scp.From.IsRemote = from.IsRemote
+			scp.From.Path = append(scp.From.Path, from.Path)
+			scp.From.DisplayPath = append(scp.From.DisplayPath, from.DisplayPath)
 		}
 		scp.From.Server = fromServer
 
-		isToRemote, toPath, err := check.ParseScpPathE(toArg)
-		if err != nil {
-			return err
-		}
-		scp.To.IsRemote = isToRemote
-		if isToRemote {
-			toPath = check.EscapePath(toPath)
-		}
-		scp.To.Path = []string{toPath}
+		scp.To.IsRemote = preparedTo.IsRemote
+		scp.To.Path = []string{preparedTo.Path}
 		scp.To.Server = toServer
 
 		scp.Parallel = c.Int("parallel") > 1
@@ -207,7 +191,7 @@ USAGE:
 		}
 
 		// print to
-		if !isToRemote {
+		if !toSpec.IsRemote {
 			fmt.Fprintf(os.Stderr, "To   local:%s\n", scp.To.Path)
 		} else {
 			fmt.Fprintf(os.Stderr, "To   remote(%s):%s\n", strings.Join(scp.To.Server, ","), scp.To.Path)

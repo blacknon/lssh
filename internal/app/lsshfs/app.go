@@ -15,6 +15,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/blacknon/lssh/internal/app/apputil"
 	"github.com/blacknon/lssh/internal/common"
 	conf "github.com/blacknon/lssh/internal/config"
 	mountfs "github.com/blacknon/lssh/internal/lsshfs"
@@ -217,83 +218,24 @@ func spawnBackgroundProcess(selectedHost string, appendHostFlag bool) error {
 		args = insertHostFlag(args, selectedHost)
 	}
 
-	exe, err := osExecutableFn()
+	pid, err := apputil.StartBackgroundProcess(apputil.BackgroundLaunchConfig{
+		GOOS:             runtime.GOOS,
+		Args:             args,
+		DaemonEnvName:    "_LSSHFS_DAEMON",
+		ReadyFileEnvName: "_LSSHFS_READY_FILE",
+		ReadyTimeout:     backgroundReadyTimeout,
+		ExtraEnv:         backgroundDebugEnv(args),
+		Stdout:           os.Stdout,
+		Stderr:           os.Stderr,
+		Executable:       osExecutableFn,
+		Command:          execCommandFn,
+		Prepare: func(cmd *exec.Cmd) {
+			if runtime.GOOS != "windows" {
+				cmd.SysProcAttr = daemonSysProcAttr()
+			}
+		},
+	})
 	if err != nil {
-		return err
-	}
-
-	var rpipe *os.File
-	var wpipe *os.File
-	if runtime.GOOS != "windows" {
-		rpipe, wpipe, err = os.Pipe()
-		if err != nil {
-			return err
-		}
-	}
-
-	var readyPath string
-	if runtime.GOOS == "windows" {
-		readyDir, err := os.MkdirTemp("", "lsshfs-ready-*")
-		if err != nil {
-			return err
-		}
-		defer os.RemoveAll(readyDir)
-		readyPath = filepath.Join(readyDir, "ready")
-	}
-
-	cmd := exec.Command(exe, args...)
-	cmd.Env = append(os.Environ(), "_LSSHFS_DAEMON=1")
-	if os.Getenv("LSSHFS_DEBUG") == "1" {
-		if len(args) > 0 {
-			if logPath := debugLogPath(args[len(args)-1]); logPath != "" {
-				cmd.Env = append(cmd.Env, "LSSHFS_DEBUG_LOG="+logPath, "GO_SSHLIB_DEBUG_LOG="+logPath)
-			}
-		}
-	}
-	if readyPath != "" {
-		cmd.Env = append(cmd.Env, "_LSSHFS_READY_FILE="+readyPath)
-	}
-	if runtime.GOOS != "windows" {
-		cmd.ExtraFiles = []*os.File{wpipe}
-		cmd.SysProcAttr = daemonSysProcAttr()
-	}
-
-	devnull, _ := os.OpenFile(os.DevNull, os.O_RDWR, 0)
-	if devnull != nil {
-		cmd.Stdin = devnull
-	}
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
-
-	if err := cmd.Start(); err != nil {
-		return err
-	}
-
-	pid := 0
-	if cmd.Process != nil {
-		pid = cmd.Process.Pid
-	}
-
-	if runtime.GOOS != "windows" && wpipe != nil {
-		_ = wpipe.Close()
-	}
-	if runtime.GOOS != "windows" && rpipe != nil {
-		buf := make([]byte, 16)
-		n, _ := rpipe.Read(buf)
-		_ = rpipe.Close()
-		if n > 0 {
-			fmt.Fprintf(os.Stderr, "Mounted in background (pid %d)\n", pid)
-			if os.Getenv("LSSHFS_DEBUG") == "1" && len(args) > 0 {
-				if logPath := debugLogPath(args[len(args)-1]); logPath != "" {
-					fmt.Fprintf(os.Stderr, "Debug log: %s\n", logPath)
-				}
-			}
-			os.Exit(0)
-		}
-		return fmt.Errorf("background start failed")
-	}
-
-	if err := waitForBackgroundReadyFile(readyPath, backgroundReadyTimeout); err != nil {
 		return err
 	}
 
@@ -305,6 +247,22 @@ func spawnBackgroundProcess(selectedHost string, appendHostFlag bool) error {
 	}
 	os.Exit(0)
 	return nil
+}
+
+func backgroundDebugEnv(args []string) []string {
+	if os.Getenv("LSSHFS_DEBUG") != "1" || len(args) == 0 {
+		return nil
+	}
+
+	logPath := debugLogPath(args[len(args)-1])
+	if logPath == "" {
+		return nil
+	}
+
+	return []string{
+		"LSSHFS_DEBUG_LOG=" + logPath,
+		"GO_SSHLIB_DEBUG_LOG=" + logPath,
+	}
 }
 
 func insertHostFlag(args []string, host string) []string {
@@ -337,41 +295,11 @@ func insertHostFlag(args []string, host string) []string {
 }
 
 func notifyParentReady() {
-	if os.Getenv("_LSSHFS_DAEMON") != "1" {
-		return
-	}
-
-	if readyPath := strings.TrimSpace(os.Getenv("_LSSHFS_READY_FILE")); readyPath != "" {
-		_ = os.WriteFile(readyPath, []byte("OK\n"), 0o600)
-	}
-
-	f := os.NewFile(uintptr(3), "lsshfs_ready")
-	if f == nil {
-		return
-	}
-	defer f.Close()
-
-	_, _ = f.Write([]byte("OK\n"))
+	apputil.NotifyBackgroundReady("_LSSHFS_DAEMON", "_LSSHFS_READY_FILE")
 }
 
 func waitForBackgroundReadyFile(path string, timeout time.Duration) error {
-	if strings.TrimSpace(path) == "" {
-		return nil
-	}
-
-	deadline := time.Now().Add(timeout)
-	for time.Now().Before(deadline) {
-		data, err := os.ReadFile(path)
-		if err == nil && len(data) > 0 {
-			return nil
-		}
-		if err != nil && !os.IsNotExist(err) {
-			return err
-		}
-		time.Sleep(200 * time.Millisecond)
-	}
-
-	return fmt.Errorf("background start failed")
+	return apputil.WaitForBackgroundReadyFile(path, timeout)
 }
 
 func printMountRecords() error {
