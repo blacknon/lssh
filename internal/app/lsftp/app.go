@@ -7,8 +7,8 @@ package lsftp
 import (
 	"os"
 
-	"github.com/blacknon/lssh/internal/app/apputil"
 	"github.com/blacknon/lssh/internal/common"
+	"github.com/blacknon/lssh/internal/core/apputil"
 	"github.com/blacknon/lssh/internal/sftp"
 	"github.com/blacknon/lssh/internal/version"
 	"github.com/urfave/cli"

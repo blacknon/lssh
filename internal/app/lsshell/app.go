@@ -7,8 +7,8 @@ package lsshell
 import (
 	"os"
 
-	"github.com/blacknon/lssh/internal/app/apputil"
 	"github.com/blacknon/lssh/internal/common"
+	"github.com/blacknon/lssh/internal/core/apputil"
 	pshell "github.com/blacknon/lssh/internal/pshell"
 	"github.com/blacknon/lssh/internal/version"
 

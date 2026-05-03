@@ -9,9 +9,9 @@ import (
 	"os"
 	"strings"
 
-	"github.com/blacknon/lssh/internal/app/apputil"
 	"github.com/blacknon/lssh/internal/check"
 	"github.com/blacknon/lssh/internal/common"
+	"github.com/blacknon/lssh/internal/core/apputil"
 	"github.com/blacknon/lssh/internal/scp"
 	"github.com/blacknon/lssh/internal/version"
 	"github.com/urfave/cli"

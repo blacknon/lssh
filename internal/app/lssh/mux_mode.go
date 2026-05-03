@@ -7,8 +7,8 @@ import (
 	"runtime"
 	"strings"
 
-	"github.com/blacknon/lssh/internal/app/apputil"
 	conf "github.com/blacknon/lssh/internal/config"
+	"github.com/blacknon/lssh/internal/core/apputil"
 	lsmuxsession "github.com/blacknon/lssh/internal/lsmuxsession"
 	"github.com/blacknon/lssh/internal/mux"
 	"github.com/urfave/cli"

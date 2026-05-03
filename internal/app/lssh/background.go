@@ -6,7 +6,7 @@ import (
 	"os/exec"
 	"runtime"
 
-	"github.com/blacknon/lssh/internal/app/apputil"
+	"github.com/blacknon/lssh/internal/core/apputil"
 )
 
 func buildBackgroundArgs(allArgs, selectedHosts, explicitHosts []string) []string {

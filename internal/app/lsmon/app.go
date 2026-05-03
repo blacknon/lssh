@@ -14,8 +14,8 @@ import (
 
 	_ "net/http/pprof"
 
-	"github.com/blacknon/lssh/internal/app/apputil"
 	"github.com/blacknon/lssh/internal/common"
+	"github.com/blacknon/lssh/internal/core/apputil"
 	mon "github.com/blacknon/lssh/internal/monitor"
 	"github.com/blacknon/lssh/internal/version"
 

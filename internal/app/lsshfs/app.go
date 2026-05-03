@@ -14,9 +14,9 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/blacknon/lssh/internal/app/apputil"
 	"github.com/blacknon/lssh/internal/common"
 	conf "github.com/blacknon/lssh/internal/config"
+	"github.com/blacknon/lssh/internal/core/apputil"
 	mountfs "github.com/blacknon/lssh/internal/lsshfs"
 	"github.com/blacknon/lssh/internal/version"
 	"github.com/urfave/cli"

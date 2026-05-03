@@ -15,10 +15,10 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/blacknon/lssh/internal/app/apputil"
 	"github.com/blacknon/lssh/internal/check"
 	"github.com/blacknon/lssh/internal/common"
 	conf "github.com/blacknon/lssh/internal/config"
+	"github.com/blacknon/lssh/internal/core/apputil"
 	"github.com/blacknon/lssh/internal/list"
 	pipeapp "github.com/blacknon/lssh/internal/lspipe"
 	"github.com/blacknon/lssh/internal/version"

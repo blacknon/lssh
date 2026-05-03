@@ -1,8 +1,8 @@
 package lssync
 
 import (
-	"github.com/blacknon/lssh/internal/app/apputil"
 	conf "github.com/blacknon/lssh/internal/config"
+	"github.com/blacknon/lssh/internal/core/apputil"
 	lsync "github.com/blacknon/lssh/internal/sync"
 	"github.com/urfave/cli"
 )

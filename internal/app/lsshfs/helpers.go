@@ -3,8 +3,8 @@ package lsshfs
 import (
 	"fmt"
 
-	"github.com/blacknon/lssh/internal/app/apputil"
 	conf "github.com/blacknon/lssh/internal/config"
+	"github.com/blacknon/lssh/internal/core/apputil"
 )
 
 func selectMountHost(flagHosts, names []string, data conf.Config, specHost string) (selectedHost string, appendHostFlag bool, err error) {

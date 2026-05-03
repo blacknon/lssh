@@ -1,8 +1,8 @@
 package lscp
 
 import (
-	"github.com/blacknon/lssh/internal/app/apputil"
 	conf "github.com/blacknon/lssh/internal/config"
+	"github.com/blacknon/lssh/internal/core/apputil"
 )
 
 func selectSCPServers(hosts, allNames, names []string, data conf.Config, isFromRemote, isToRemote bool) (fromServer, toServer []string, err error) {
