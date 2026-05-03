@@ -6,7 +6,6 @@ import (
 	"os/exec"
 	"runtime"
 	"strings"
-	"time"
 
 	"github.com/blacknon/lssh/internal/app/apputil"
 	conf "github.com/blacknon/lssh/internal/config"
@@ -66,23 +65,26 @@ func runMuxChild(data conf.Config, names, command []string, stdinData []byte, ho
 }
 
 func buildMuxDaemonArgs(allArgs []string, name, socketPath string) []string {
-	args := apputil.FilterCLIArgs(allArgs, map[string]bool{
-		"--mux-detach":        true,
-		"--mux-attach":        true,
-		"--mux-list-sessions": true,
-		"--mux-kill-session":  true,
-		"--mux-daemon":        true,
-		"--mux-child":         true,
-	}, map[string]bool{
-		"--mux-session":     true,
-		"--mux-socket-path": true,
+	return apputil.BuildPersistentSessionArgs(apputil.PersistentSessionArgsConfig{
+		AllArgs: allArgs,
+		BareFlags: map[string]bool{
+			"--mux-detach":        true,
+			"--mux-attach":        true,
+			"--mux-list-sessions": true,
+			"--mux-kill-session":  true,
+			"--mux-daemon":        true,
+			"--mux-child":         true,
+		},
+		ValueFlags: map[string]bool{
+			"--mux-session":     true,
+			"--mux-socket-path": true,
+		},
+		DaemonFlag:  "--mux-daemon",
+		SessionFlag: "--mux-session",
+		SocketFlag:  "--mux-socket-path",
+		Name:        name,
+		SocketPath:  socketPath,
 	})
-	args = append(args, "--mux-daemon", "--mux-session", name)
-	if strings.TrimSpace(socketPath) != "" {
-		args = append(args, "--mux-socket-path", socketPath)
-	}
-
-	return args
 }
 
 func runMuxDaemon(confpath, muxSessionName, muxSocketPath string) error {
@@ -96,15 +98,15 @@ func runMuxDaemon(confpath, muxSessionName, muxSocketPath string) error {
 
 	childArgs := apputil.FilterCLIArgs(apputil.CurrentCLIArgs(), map[string]bool{"--mux-daemon": true}, nil)
 	childArgs = append(childArgs, "--mux-child")
-	daemon := &lsmuxsession.Daemon{
+	return apputil.RunMuxSessionDaemon(apputil.MuxSessionDaemonConfig{
 		Name:       muxSessionName,
 		ConfigPath: confpath,
 		SocketPath: muxSocketPath,
 		Exe:        exe,
 		Args:       childArgs,
 		Env:        append(os.Environ(), "_LSMUX_CHILD=1"),
-	}
-	return daemon.Run(notifyLsshMuxParentReady)
+		Ready:      notifyLsshMuxParentReady,
+	})
 }
 
 func runPersistentMuxSession(c *cli.Context, data conf.Config, muxSessionName, muxSocketPath string) error {
@@ -137,47 +139,20 @@ func ensureLsshMuxSession(name, socketPath string) (lsmuxsession.Session, error)
 
 func spawnLsshMuxSession(name, socketPath string) (lsmuxsession.Session, error) {
 	args := buildMuxDaemonArgs(apputil.CurrentCLIArgs(), name, socketPath)
-
-	exe, err := os.Executable()
-	if err != nil {
-		return lsmuxsession.Session{}, err
-	}
-	var rpipe *os.File
-	var wpipe *os.File
-	if runtime.GOOS != "windows" {
-		rpipe, wpipe, err = os.Pipe()
-		if err != nil {
-			return lsmuxsession.Session{}, err
-		}
-	}
-	cmd := exec.Command(exe, args...)
-	cmd.Env = append(os.Environ(), "_LSMUX_DAEMON=1")
-	if runtime.GOOS != "windows" {
-		cmd.ExtraFiles = []*os.File{wpipe}
-		cmd.SysProcAttr = daemonSysProcAttr()
-	}
-	devnull, _ := os.OpenFile(os.DevNull, os.O_RDWR, 0)
-	if devnull != nil {
-		cmd.Stdin = devnull
-	}
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
-	if err := cmd.Start(); err != nil {
-		return lsmuxsession.Session{}, err
-	}
-	if runtime.GOOS != "windows" && wpipe != nil {
-		_ = wpipe.Close()
-	}
-	if runtime.GOOS != "windows" && rpipe != nil {
-		buf := make([]byte, 16)
-		n, _ := rpipe.Read(buf)
-		_ = rpipe.Close()
-		if n == 0 {
-			return lsmuxsession.Session{}, fmt.Errorf("background start failed")
-		}
-	}
-	time.Sleep(200 * time.Millisecond)
-	return lsmuxsession.ResolveSession(name)
+	return apputil.SpawnMuxSession(apputil.MuxSessionSpawnConfig{
+		GOOS:          runtime.GOOS,
+		Name:          name,
+		DaemonEnvName: "_LSMUX_DAEMON",
+		Args:          args,
+		Stdout:        os.Stdout,
+		Stderr:        os.Stderr,
+		Prepare: func(cmd *exec.Cmd) {
+			if runtime.GOOS != "windows" {
+				cmd.SysProcAttr = daemonSysProcAttr()
+			}
+		},
+		Resolve: lsmuxsession.ResolveSession,
+	})
 }
 
 func filterLsshMuxSessionValueFlags(args []string) []string {

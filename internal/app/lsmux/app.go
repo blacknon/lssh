@@ -12,7 +12,6 @@ import (
 	"regexp"
 	"runtime"
 	"strings"
-	"time"
 
 	"github.com/blacknon/lssh/internal/app/apputil"
 	"github.com/blacknon/lssh/internal/check"
@@ -201,15 +200,15 @@ USAGE:
 			}
 			childArgs := apputil.FilterCLIArgs(apputil.CurrentCLIArgs(), map[string]bool{"--mux-daemon": true}, nil)
 			childArgs = append(childArgs, "--mux-child")
-			daemon := &lsmuxsession.Daemon{
+			return apputil.RunMuxSessionDaemon(apputil.MuxSessionDaemonConfig{
 				Name:       sessionName,
 				ConfigPath: c.String("file"),
 				SocketPath: socketPath,
 				Exe:        exe,
 				Args:       childArgs,
 				Env:        append(os.Environ(), "_LSMUX_CHILD=1"),
-			}
-			return daemon.Run(notifyMuxParentReady)
+				Ready:      notifyMuxParentReady,
+			})
 		}
 
 		if sessionName != "" || c.Bool("detach") {
@@ -298,65 +297,40 @@ func ensureMuxSession(name, socketPath string) (lsmuxsession.Session, error) {
 }
 
 func spawnMuxSession(name, socketPath string) (lsmuxsession.Session, error) {
-	args := apputil.FilterCLIArgs(apputil.CurrentCLIArgs(), map[string]bool{
-		"--detach":        true,
-		"--attach":        true,
-		"--list-sessions": true,
-		"--kill-session":  true,
-		"--mux-daemon":    true,
-		"--mux-child":     true,
-	}, map[string]bool{
-		"--session":     true,
-		"--socket-path": true,
+	args := apputil.BuildPersistentSessionArgs(apputil.PersistentSessionArgsConfig{
+		AllArgs: apputil.CurrentCLIArgs(),
+		BareFlags: map[string]bool{
+			"--detach":        true,
+			"--attach":        true,
+			"--list-sessions": true,
+			"--kill-session":  true,
+			"--mux-daemon":    true,
+			"--mux-child":     true,
+		},
+		ValueFlags: map[string]bool{
+			"--session":     true,
+			"--socket-path": true,
+		},
+		DaemonFlag:  "--mux-daemon",
+		SessionFlag: "--session",
+		SocketFlag:  "--socket-path",
+		Name:        name,
+		SocketPath:  socketPath,
 	})
-	args = append(args, "--mux-daemon", "--session", name)
-	if strings.TrimSpace(socketPath) != "" {
-		args = append(args, "--socket-path", socketPath)
-	}
-
-	exe, err := os.Executable()
-	if err != nil {
-		return lsmuxsession.Session{}, err
-	}
-
-	var rpipe *os.File
-	var wpipe *os.File
-	if runtime.GOOS != "windows" {
-		rpipe, wpipe, err = os.Pipe()
-		if err != nil {
-			return lsmuxsession.Session{}, err
-		}
-	}
-
-	cmd := exec.Command(exe, args...)
-	cmd.Env = append(os.Environ(), "_LSMUX_DAEMON=1")
-	if runtime.GOOS != "windows" {
-		cmd.ExtraFiles = []*os.File{wpipe}
-		cmd.SysProcAttr = daemonSysProcAttr()
-	}
-	devnull, _ := os.OpenFile(os.DevNull, os.O_RDWR, 0)
-	if devnull != nil {
-		cmd.Stdin = devnull
-	}
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
-
-	if err := cmd.Start(); err != nil {
-		return lsmuxsession.Session{}, err
-	}
-	if runtime.GOOS != "windows" && wpipe != nil {
-		_ = wpipe.Close()
-	}
-	if runtime.GOOS != "windows" && rpipe != nil {
-		buf := make([]byte, 16)
-		n, _ := rpipe.Read(buf)
-		_ = rpipe.Close()
-		if n == 0 {
-			return lsmuxsession.Session{}, fmt.Errorf("background start failed")
-		}
-	}
-	time.Sleep(200 * time.Millisecond)
-	return lsmuxsession.ResolveSession(name)
+	return apputil.SpawnMuxSession(apputil.MuxSessionSpawnConfig{
+		GOOS:          runtime.GOOS,
+		Name:          name,
+		DaemonEnvName: "_LSMUX_DAEMON",
+		Args:          args,
+		Stdout:        os.Stdout,
+		Stderr:        os.Stderr,
+		Prepare: func(cmd *exec.Cmd) {
+			if runtime.GOOS != "windows" {
+				cmd.SysProcAttr = daemonSysProcAttr()
+			}
+		},
+		Resolve: lsmuxsession.ResolveSession,
+	})
 }
 
 func filterMuxSessionValueFlags(args []string) []string {
