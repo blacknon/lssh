@@ -15,6 +15,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/blacknon/lssh/internal/app/apputil"
 	"github.com/blacknon/lssh/internal/check"
 	"github.com/blacknon/lssh/internal/common"
 	conf "github.com/blacknon/lssh/internal/config"
@@ -250,55 +251,9 @@ func spawnDaemon(c *cli.Context, name string, hosts []string) error {
 		args = append(args, "-H", host)
 	}
 
-	exe, err := os.Executable()
+	pid, err := startBackgroundLspipeProcess(args)
 	if err != nil {
 		return err
-	}
-
-	var rpipe *os.File
-	var wpipe *os.File
-	if runtime.GOOS != "windows" {
-		rpipe, wpipe, err = os.Pipe()
-		if err != nil {
-			return err
-		}
-	}
-
-	cmd := exec.Command(exe, args...)
-	cmd.Env = append(os.Environ(), "_LSPipe_DAEMON=1")
-	if runtime.GOOS != "windows" {
-		cmd.ExtraFiles = []*os.File{wpipe}
-		cmd.SysProcAttr = daemonSysProcAttr()
-	}
-
-	devnull, _ := os.OpenFile(os.DevNull, os.O_RDWR, 0)
-	if devnull != nil {
-		cmd.Stdin = devnull
-	}
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
-
-	if err := cmd.Start(); err != nil {
-		return err
-	}
-
-	pid := 0
-	if cmd.Process != nil {
-		pid = cmd.Process.Pid
-	}
-
-	if runtime.GOOS != "windows" && wpipe != nil {
-		_ = wpipe.Close()
-	}
-	if runtime.GOOS != "windows" && rpipe != nil {
-		buf := make([]byte, 16)
-		n, _ := rpipe.Read(buf)
-		_ = rpipe.Close()
-		if n > 0 {
-			fmt.Fprintf(os.Stdout, "lspipe session %q is ready in background (pid %d)\n", name, pid)
-			return nil
-		}
-		return fmt.Errorf("background start failed")
 	}
 
 	fmt.Fprintf(os.Stdout, "lspipe session %q is ready in background (pid %d)\n", name, pid)
@@ -366,17 +321,7 @@ func selectedHosts(c *cli.Context) []string {
 }
 
 func notifyParentReady() {
-	if os.Getenv("_LSPipe_DAEMON") != "1" {
-		return
-	}
-
-	f := os.NewFile(uintptr(3), "lspipe_ready")
-	if f == nil {
-		return
-	}
-	defer f.Close()
-
-	_, _ = f.Write([]byte("OK\n"))
+	apputil.NotifyBackgroundReady("_LSPipe_DAEMON", "")
 }
 
 func listSessions() error {
@@ -522,58 +467,33 @@ func spawnFIFOWorker(c *cli.Context, sessionName, fifoName string, hosts []strin
 		args = append(args, "-H", host)
 	}
 
-	exe, err := os.Executable()
+	pid, err := startBackgroundLspipeProcess(args)
 	if err != nil {
-		return err
-	}
-
-	var rpipe *os.File
-	var wpipe *os.File
-	if runtime.GOOS != "windows" {
-		rpipe, wpipe, err = os.Pipe()
-		if err != nil {
-			return err
-		}
-	}
-
-	cmd := exec.Command(exe, args...)
-	cmd.Env = append(os.Environ(), "_LSPipe_DAEMON=1")
-	if runtime.GOOS != "windows" {
-		cmd.ExtraFiles = []*os.File{wpipe}
-		cmd.SysProcAttr = daemonSysProcAttr()
-	}
-
-	devnull, _ := os.OpenFile(os.DevNull, os.O_RDWR, 0)
-	if devnull != nil {
-		cmd.Stdin = devnull
-	}
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
-
-	if err := cmd.Start(); err != nil {
-		return err
+		return fmt.Errorf("background fifo start failed: %w", err)
 	}
 
 	record, err := loadFIFORecordFn(sessionName, fifoName)
 	if err == nil {
-		record.PID = cmd.Process.Pid
+		record.PID = pid
 		_ = saveFIFORecordFn(record)
 	}
 
-	if runtime.GOOS != "windows" && wpipe != nil {
-		_ = wpipe.Close()
-	}
-	if runtime.GOOS != "windows" && rpipe != nil {
-		buf := make([]byte, 16)
-		n, _ := rpipe.Read(buf)
-		_ = rpipe.Close()
-		if n > 0 {
-			return nil
-		}
-		return fmt.Errorf("background fifo start failed")
-	}
-
 	return nil
+}
+
+func startBackgroundLspipeProcess(args []string) (int, error) {
+	return apputil.StartBackgroundProcess(apputil.BackgroundLaunchConfig{
+		GOOS:          runtime.GOOS,
+		Args:          args,
+		DaemonEnvName: "_LSPipe_DAEMON",
+		Stdout:        os.Stdout,
+		Stderr:        os.Stderr,
+		Prepare: func(cmd *exec.Cmd) {
+			if runtime.GOOS != "windows" {
+				cmd.SysProcAttr = daemonSysProcAttr()
+			}
+		},
+	})
 }
 
 func runFIFOWorker(c *cli.Context, sessionName string) error {
