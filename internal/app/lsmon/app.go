@@ -8,14 +8,12 @@ package lsmon
 
 import (
 	"fmt"
-	"log"
 	"os"
 	"os/user"
 	"path/filepath"
 	"sort"
 	"strings"
 
-	"net/http"
 	_ "net/http/pprof"
 
 	"github.com/blacknon/lssh/internal/app/apputil"
@@ -96,13 +94,11 @@ USAGE:
 		}
 		logpath = getAbsPath(logpath)
 
-		logfile, lerr := os.OpenFile(logpath, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
-		if lerr != nil {
-			log.Fatal(lerr)
+		logfile, err := setupLogOutput(logpath)
+		if err != nil {
+			return err
 		}
 		defer logfile.Close()
-
-		log.SetOutput(logfile)
 
 		hosts := c.StringSlice("host")
 		confpath := c.String("file")
@@ -115,9 +111,6 @@ USAGE:
 			return err
 		}
 
-		debug := c.Bool("debug")
-
-		// Get config data
 		data, err := conf.ReadWithFallback(confpath, os.Stderr)
 		if err != nil {
 			return err
@@ -159,11 +152,7 @@ USAGE:
 		r.Conf = data
 		r.Conf.Common.ConnectTimeout = 5
 
-		if debug {
-			go func() {
-				log.Println(http.ListenAndServe("localhost:6060", nil))
-			}()
-		}
+		startDebugServer(c.Bool("debug"))
 
 		// create AuthMap
 		r.CreateAuthMethodMap()

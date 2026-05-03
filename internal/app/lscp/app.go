@@ -13,7 +13,6 @@ import (
 	"github.com/blacknon/lssh/internal/check"
 	"github.com/blacknon/lssh/internal/common"
 	conf "github.com/blacknon/lssh/internal/config"
-	"github.com/blacknon/lssh/internal/list"
 	"github.com/blacknon/lssh/internal/scp"
 	"github.com/blacknon/lssh/internal/version"
 	"github.com/urfave/cli"
@@ -76,10 +75,9 @@ USAGE:
 	app.HideHelp = true
 
 	app.Action = func(c *cli.Context) error {
-		// show help messages
 		if c.Bool("help") {
 			cli.ShowAppHelp(c)
-			os.Exit(0)
+			return nil
 		}
 
 		hosts := c.StringSlice("host")
@@ -113,14 +111,11 @@ USAGE:
 			for _, name := range names {
 				fmt.Fprintf(os.Stdout, "  %s\n", name)
 			}
-			os.Exit(0)
+			return nil
 		}
 
-		// check count args
 		if len(c.Args()) < 2 {
-			fmt.Fprintln(os.Stderr, "Too few arguments.")
-			cli.ShowAppHelp(c)
-			os.Exit(1)
+			return fmt.Errorf("Too few arguments.")
 		}
 
 		// Set args path
@@ -150,100 +145,9 @@ USAGE:
 			return err
 		}
 
-		selected := []string{}
-		toServer := []string{}
-		fromServer := []string{}
-
-		// view server list
-		switch {
-		// connectHost is set
-		case len(hosts) != 0:
-			filteredHosts, err := data.FilterServersByOperation(hosts, "sftp_transport")
-			if err != nil {
-				return err
-			}
-			if check.ExistServer(hosts, allNames) == false {
-				fmt.Fprintln(os.Stderr, "Input Server not found from list.")
-				os.Exit(1)
-			} else if len(filteredHosts) != len(hosts) {
-				fmt.Fprintln(os.Stderr, "Input Server does not support SFTP-based transfer.")
-				os.Exit(1)
-			} else {
-				toServer = hosts
-			}
-
-		// remote to remote scp
-		case isFromInRemote && isToRemote:
-			if len(names) == 0 {
-				fmt.Fprintln(os.Stderr, "No servers matched the current config conditions.")
-				os.Exit(1)
-			}
-			// View From list
-			from_l := new(list.ListInfo)
-			from_l.Prompt = "lscp(from)>>"
-			from_l.NameList = names
-			from_l.DataList = data
-			from_l.MultiFlag = false
-			from_l.View()
-			fromServer = from_l.SelectName
-
-			// Check selected
-			if len(fromServer) == 0 {
-				fmt.Fprintln(os.Stderr, "Selection cancelled.")
-				os.Exit(1)
-			}
-			if fromServer[0] == "ServerName" {
-				fmt.Fprintln(os.Stderr, "Server not selected.")
-				os.Exit(1)
-			}
-
-			// View to list
-			to_l := new(list.ListInfo)
-			to_l.Prompt = "lscp(to)>>"
-			to_l.NameList = names
-			to_l.DataList = data
-			to_l.MultiFlag = true
-			to_l.View()
-			toServer = to_l.SelectName
-			if len(toServer) == 0 {
-				fmt.Fprintln(os.Stderr, "Selection cancelled.")
-				os.Exit(1)
-			}
-
-			if toServer[0] == "ServerName" {
-				fmt.Fprintln(os.Stderr, "Server not selected.")
-				os.Exit(1)
-			}
-
-		default:
-			if len(names) == 0 {
-				fmt.Fprintln(os.Stderr, "No servers matched the current config conditions.")
-				os.Exit(1)
-			}
-			// View List And Get Select Line
-			l := new(list.ListInfo)
-			l.Prompt = "lscp>>"
-			l.NameList = names
-			l.DataList = data
-			l.MultiFlag = true
-			l.View()
-
-			selected = l.SelectName
-			// Check selected
-			if len(selected) == 0 {
-				fmt.Fprintln(os.Stderr, "Selection cancelled.")
-				os.Exit(1)
-			}
-			if selected[0] == "ServerName" {
-				fmt.Fprintln(os.Stderr, "Server not selected.")
-				os.Exit(1)
-			}
-
-			if isFromInRemote {
-				fromServer = selected
-			} else {
-				toServer = selected
-			}
+		fromServer, toServer, err := selectSCPServers(hosts, allNames, names, data, isFromInRemote, isToRemote)
+		if err != nil {
+			return err
 		}
 
 		// scp struct
