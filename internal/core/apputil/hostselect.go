@@ -6,7 +6,7 @@ import (
 
 	"github.com/blacknon/lssh/internal/check"
 	conf "github.com/blacknon/lssh/internal/config"
-	"github.com/blacknon/lssh/internal/list"
+	"github.com/blacknon/lssh/internal/core/list"
 )
 
 type ServerSelectionPrompt func(prompt string, names []string, data conf.Config, isMulti bool) ([]string, error)

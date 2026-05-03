@@ -10,7 +10,7 @@ import (
 
 	"github.com/blacknon/lssh/internal/check"
 	conf "github.com/blacknon/lssh/internal/config"
-	"github.com/blacknon/lssh/internal/list"
+	"github.com/blacknon/lssh/internal/core/list"
 )
 
 func ResolveTargets(config conf.Config, args []string) ([]Target, error) {

@@ -12,7 +12,7 @@ import (
 	"sync"
 
 	conf "github.com/blacknon/lssh/internal/config"
-	"github.com/blacknon/lssh/internal/list"
+	"github.com/blacknon/lssh/internal/core/list"
 	"github.com/blacknon/tvxterm"
 	"github.com/gdamore/tcell/v2"
 	"github.com/rivo/tview"

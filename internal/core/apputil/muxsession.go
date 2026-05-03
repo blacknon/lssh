@@ -5,7 +5,7 @@ import (
 	"os/exec"
 	"time"
 
-	lsmuxsession "github.com/blacknon/lssh/internal/lsmuxsession"
+	lsmuxsession "github.com/blacknon/lssh/internal/core/lsmuxsession"
 )
 
 type PersistentSessionArgsConfig struct {
