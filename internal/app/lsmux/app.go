@@ -11,10 +11,10 @@ import (
 	"os/exec"
 	"regexp"
 	"runtime"
-	"sort"
 	"strings"
 	"time"
 
+	"github.com/blacknon/lssh/internal/app/apputil"
 	"github.com/blacknon/lssh/internal/check"
 	"github.com/blacknon/lssh/internal/common"
 	conf "github.com/blacknon/lssh/internal/config"
@@ -84,18 +84,17 @@ USAGE:
 	app.Action = func(c *cli.Context) error {
 		if c.Bool("help") {
 			cli.ShowAppHelp(c)
-			os.Exit(0)
+			return nil
 		}
 
-		if handled, err := conf.HandleGenerateConfigMode(c.String("generate-lssh-conf"), os.Stdout); handled {
+		data, handled, err := apputil.LoadConfigWithGenerateMode(c, os.Stdout, os.Stderr)
+		if handled {
 			return err
 		}
 		controlMasterOverride, controlMasterErr := common.GetControlMasterOverride(c)
 		if controlMasterErr != nil {
 			return controlMasterErr
 		}
-
-		data, err := conf.ReadWithFallback(c.String("file"), os.Stderr)
 		if err != nil {
 			return err
 		}
@@ -113,14 +112,13 @@ USAGE:
 		if c.Bool("attach") {
 			return attachMuxSession(sessionName, data)
 		}
-		names := conf.GetNameList(data)
-		sort.Strings(names)
+		_, names, err := apputil.SortedServerNames(data, "")
+		if err != nil {
+			return err
+		}
 
 		if c.Bool("list") {
-			fmt.Fprintln(os.Stdout, "lssh Server List:")
-			for _, name := range names {
-				fmt.Fprintf(os.Stdout, "  %s\n", name)
-			}
+			apputil.PrintServerList(os.Stdout, names)
 			return nil
 		}
 
@@ -201,13 +199,7 @@ USAGE:
 			if exeErr != nil {
 				return exeErr
 			}
-			childArgs := make([]string, 0, len(os.Args))
-			for _, arg := range os.Args[1:] {
-				if arg == "--mux-daemon" {
-					continue
-				}
-				childArgs = append(childArgs, arg)
-			}
+			childArgs := apputil.FilterCLIArgs(apputil.CurrentCLIArgs(), map[string]bool{"--mux-daemon": true}, nil)
 			childArgs = append(childArgs, "--mux-child")
 			daemon := &lsmuxsession.Daemon{
 				Name:       sessionName,
@@ -306,15 +298,17 @@ func ensureMuxSession(name, socketPath string) (lsmuxsession.Session, error) {
 }
 
 func spawnMuxSession(name, socketPath string) (lsmuxsession.Session, error) {
-	args := make([]string, 0, len(os.Args)+6)
-	for _, arg := range os.Args[1:] {
-		switch arg {
-		case "--detach", "--attach", "--list-sessions", "--kill-session", "--mux-daemon", "--mux-child":
-			continue
-		}
-		args = append(args, arg)
-	}
-	args = filterMuxSessionValueFlags(args)
+	args := apputil.FilterCLIArgs(apputil.CurrentCLIArgs(), map[string]bool{
+		"--detach":        true,
+		"--attach":        true,
+		"--list-sessions": true,
+		"--kill-session":  true,
+		"--mux-daemon":    true,
+		"--mux-child":     true,
+	}, map[string]bool{
+		"--session":     true,
+		"--socket-path": true,
+	})
 	args = append(args, "--mux-daemon", "--session", name)
 	if strings.TrimSpace(socketPath) != "" {
 		args = append(args, "--socket-path", socketPath)
@@ -366,31 +360,12 @@ func spawnMuxSession(name, socketPath string) (lsmuxsession.Session, error) {
 }
 
 func filterMuxSessionValueFlags(args []string) []string {
-	filtered := make([]string, 0, len(args))
-	skipNext := false
-	for _, arg := range args {
-		if skipNext {
-			skipNext = false
-			continue
-		}
-		switch arg {
-		case "--session", "--socket-path":
-			skipNext = true
-			continue
-		}
-		filtered = append(filtered, arg)
-	}
-	return filtered
+	return apputil.FilterCLIArgs(args, nil, map[string]bool{
+		"--session":     true,
+		"--socket-path": true,
+	})
 }
 
 func notifyMuxParentReady() {
-	if os.Getenv("_LSMUX_DAEMON") != "1" {
-		return
-	}
-	f := os.NewFile(uintptr(3), "lsmux_ready")
-	if f == nil {
-		return
-	}
-	defer f.Close()
-	_, _ = f.Write([]byte("OK\n"))
+	apputil.NotifyBackgroundReady("_LSMUX_DAEMON", "")
 }

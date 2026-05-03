@@ -107,10 +107,11 @@ USAGE:
 	app.Action = func(c *cli.Context) error {
 		if c.Bool("help") {
 			cli.ShowAppHelp(c)
-			os.Exit(0)
+			return nil
 		}
 
-		if handled, err := conf.HandleGenerateConfigMode(c.String("generate-lssh-conf"), os.Stdout); handled {
+		config, handled, err := apputil.LoadConfigWithGenerateMode(c, os.Stdout, os.Stderr)
+		if handled {
 			return err
 		}
 
@@ -118,8 +119,6 @@ USAGE:
 		if controlMasterErr != nil {
 			return controlMasterErr
 		}
-
-		config, err := conf.ReadWithFallback(c.String("file"), os.Stderr)
 		if err != nil {
 			return err
 		}
@@ -244,7 +243,7 @@ func resolveCreateHosts(c *cli.Context, config conf.Config) ([]string, error) {
 
 func spawnDaemon(c *cli.Context, name string, hosts []string) error {
 	args := make([]string, 0, len(os.Args)+4+len(hosts)*2)
-	args = append(args, os.Args[1:]...)
+	args = append(args, apputil.CurrentCLIArgs()...)
 	args = filterNonDaemonArgs(args)
 	args = append(args, "--daemon", "--name", name)
 	for _, host := range hosts {
@@ -460,7 +459,7 @@ func ensureFIFOBridge(c *cli.Context, sessionName string) error {
 
 func spawnFIFOWorker(c *cli.Context, sessionName, fifoName string, hosts []string) error {
 	args := make([]string, 0, len(os.Args)+8+len(hosts)*2)
-	args = append(args, os.Args[1:]...)
+	args = append(args, apputil.CurrentCLIArgs()...)
 	args = filterNonDaemonArgs(args)
 	args = append(args, "--fifo-worker", "--name", sessionName, "--fifo-name", fifoName)
 	for _, host := range hosts {

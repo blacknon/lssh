@@ -7,7 +7,6 @@ package lsdiff
 import (
 	"fmt"
 	"os"
-	"sort"
 
 	"github.com/blacknon/lssh/internal/app/apputil"
 	"github.com/blacknon/lssh/internal/check"
@@ -72,7 +71,8 @@ USAGE:
 			return nil
 		}
 
-		if handled, err := conf.HandleGenerateConfigMode(c.String("generate-lssh-conf"), os.Stdout); handled {
+		config, handled, err := apputil.LoadConfigWithGenerateMode(c, os.Stdout, os.Stderr)
+		if handled {
 			return err
 		}
 
@@ -80,25 +80,17 @@ USAGE:
 		if controlMasterErr != nil {
 			return controlMasterErr
 		}
-
-		config, err := conf.ReadWithFallback(c.String("file"), os.Stderr)
 		if err != nil {
 			return err
 		}
 
-		allNames := conf.GetNameList(config)
-		names := append([]string(nil), allNames...)
-		names, err = config.FilterServersByOperation(names, "sftp_transport")
+		allNames, names, err := apputil.SortedServerNames(config, "sftp_transport")
 		if err != nil {
 			return err
 		}
-		sort.Strings(names)
 
 		if c.Bool("list") {
-			fmt.Fprintln(os.Stdout, "lssh Server List:")
-			for _, name := range names {
-				fmt.Fprintf(os.Stdout, "  %s\n", name)
-			}
+			apputil.PrintServerList(os.Stdout, names)
 			return nil
 		}
 

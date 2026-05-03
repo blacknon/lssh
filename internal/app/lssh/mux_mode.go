@@ -8,6 +8,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/blacknon/lssh/internal/app/apputil"
 	conf "github.com/blacknon/lssh/internal/config"
 	lsmuxsession "github.com/blacknon/lssh/internal/lsmuxsession"
 	"github.com/blacknon/lssh/internal/mux"
@@ -65,15 +66,17 @@ func runMuxChild(data conf.Config, names, command []string, stdinData []byte, ho
 }
 
 func buildMuxDaemonArgs(allArgs []string, name, socketPath string) []string {
-	args := make([]string, 0, len(allArgs)+4)
-	for _, arg := range allArgs {
-		switch arg {
-		case "--mux-detach", "--mux-attach", "--mux-list-sessions", "--mux-kill-session", "--mux-daemon", "--mux-child":
-			continue
-		}
-		args = append(args, arg)
-	}
-	args = filterLsshMuxSessionValueFlags(args)
+	args := apputil.FilterCLIArgs(allArgs, map[string]bool{
+		"--mux-detach":        true,
+		"--mux-attach":        true,
+		"--mux-list-sessions": true,
+		"--mux-kill-session":  true,
+		"--mux-daemon":        true,
+		"--mux-child":         true,
+	}, map[string]bool{
+		"--mux-session":     true,
+		"--mux-socket-path": true,
+	})
 	args = append(args, "--mux-daemon", "--mux-session", name)
 	if strings.TrimSpace(socketPath) != "" {
 		args = append(args, "--mux-socket-path", socketPath)
@@ -91,13 +94,7 @@ func runMuxDaemon(confpath, muxSessionName, muxSocketPath string) error {
 		return err
 	}
 
-	childArgs := make([]string, 0, len(os.Args))
-	for _, arg := range os.Args[1:] {
-		if arg == "--mux-daemon" {
-			continue
-		}
-		childArgs = append(childArgs, arg)
-	}
+	childArgs := apputil.FilterCLIArgs(apputil.CurrentCLIArgs(), map[string]bool{"--mux-daemon": true}, nil)
 	childArgs = append(childArgs, "--mux-child")
 	daemon := &lsmuxsession.Daemon{
 		Name:       muxSessionName,
@@ -139,7 +136,7 @@ func ensureLsshMuxSession(name, socketPath string) (lsmuxsession.Session, error)
 }
 
 func spawnLsshMuxSession(name, socketPath string) (lsmuxsession.Session, error) {
-	args := buildMuxDaemonArgs(os.Args[1:], name, socketPath)
+	args := buildMuxDaemonArgs(apputil.CurrentCLIArgs(), name, socketPath)
 
 	exe, err := os.Executable()
 	if err != nil {
@@ -184,33 +181,14 @@ func spawnLsshMuxSession(name, socketPath string) (lsmuxsession.Session, error) 
 }
 
 func filterLsshMuxSessionValueFlags(args []string) []string {
-	filtered := make([]string, 0, len(args))
-	skipNext := false
-	for _, arg := range args {
-		if skipNext {
-			skipNext = false
-			continue
-		}
-		switch arg {
-		case "--mux-session", "--mux-socket-path":
-			skipNext = true
-			continue
-		}
-		filtered = append(filtered, arg)
-	}
-	return filtered
+	return apputil.FilterCLIArgs(args, nil, map[string]bool{
+		"--mux-session":     true,
+		"--mux-socket-path": true,
+	})
 }
 
 func notifyLsshMuxParentReady() {
-	if os.Getenv("_LSMUX_DAEMON") != "1" {
-		return
-	}
-	f := os.NewFile(uintptr(3), "lsmux_ready")
-	if f == nil {
-		return
-	}
-	defer f.Close()
-	_, _ = f.Write([]byte("OK\n"))
+	apputil.NotifyBackgroundReady("_LSMUX_DAEMON", "")
 }
 
 func listLsshMuxSessions() error {

@@ -10,7 +10,6 @@ import (
 	"os/exec"
 	"path/filepath"
 	"runtime"
-	"sort"
 	"strings"
 	"syscall"
 	"time"
@@ -104,7 +103,8 @@ USAGE:
 			return nil
 		}
 
-		if handled, err := conf.HandleGenerateConfigMode(c.String("generate-lssh-conf"), os.Stdout); handled {
+		data, handled, err := apputil.LoadConfigWithGenerateMode(c, os.Stdout, os.Stderr)
+		if handled {
 			return err
 		}
 
@@ -124,18 +124,16 @@ USAGE:
 			return controlMasterErr
 		}
 
-		data, err := conf.ReadWithFallback(c.String("file"), os.Stderr)
 		if err != nil {
 			return err
 		}
-		names := conf.GetNameList(data)
-		sort.Strings(names)
+		_, names, err := apputil.SortedServerNames(data, "")
+		if err != nil {
+			return err
+		}
 
 		if c.Bool("list") {
-			fmt.Fprintln(os.Stdout, "lssh Server List:")
-			for _, name := range names {
-				fmt.Fprintf(os.Stdout, "  %s\n", name)
-			}
+			apputil.PrintServerList(os.Stdout, names)
 			return nil
 		}
 
@@ -206,13 +204,7 @@ func lsshfsMountOptions(cfg conf.Config, goos string, cliOptions []string) []str
 }
 
 func spawnBackgroundProcess(selectedHost string, appendHostFlag bool) error {
-	args := make([]string, 0, len(os.Args))
-	for _, arg := range os.Args[1:] {
-		if arg == "--foreground" {
-			continue
-		}
-		args = append(args, arg)
-	}
+	args := apputil.FilterCLIArgs(apputil.CurrentCLIArgs(), map[string]bool{"--foreground": true}, nil)
 
 	if appendHostFlag {
 		args = insertHostFlag(args, selectedHost)
