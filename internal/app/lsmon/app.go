@@ -12,21 +12,17 @@ import (
 	"os"
 	"os/user"
 	"path/filepath"
-	"runtime"
 	"sort"
 	"strings"
 
 	"net/http"
 	_ "net/http/pprof"
 
-	"github.com/blacknon/lssh/internal/check"
+	"github.com/blacknon/lssh/internal/app/apputil"
 	"github.com/blacknon/lssh/internal/common"
 	conf "github.com/blacknon/lssh/internal/config"
-	"github.com/blacknon/lssh/internal/list"
 	mon "github.com/blacknon/lssh/internal/monitor"
-	sshcmd "github.com/blacknon/lssh/internal/ssh"
 	"github.com/blacknon/lssh/internal/version"
-	"golang.org/x/crypto/ssh/terminal"
 
 	"github.com/urfave/cli"
 )
@@ -89,10 +85,9 @@ USAGE:
 
 	// Run command action
 	app.Action = func(c *cli.Context) error {
-		// show help messages
 		if c.Bool("help") {
 			cli.ShowAppHelp(c)
-			os.Exit(0)
+			return nil
 		}
 
 		logpath := c.String("logfile")
@@ -128,10 +123,6 @@ USAGE:
 			return err
 		}
 
-		// Set `exec command` or `shell` flag
-		isMulti := true
-
-		// Extraction server name list from 'data'
 		allNames := conf.GetNameList(data)
 		names := append([]string(nil), allNames...)
 		names, err = data.FilterServersByOperation(names, "sftp_transport")
@@ -140,70 +131,33 @@ USAGE:
 		}
 		sort.Strings(names)
 
-		// Check list flag
 		if c.Bool("list") {
 			fmt.Fprintf(os.Stdout, "lssh Server List:\n")
 			for v := range names {
 				fmt.Fprintf(os.Stdout, "  %s\n", names[v])
 			}
-			os.Exit(0)
+			return nil
 		}
 
-		selected := []string{}
-		if len(hosts) > 0 {
-			filteredHosts, err := data.FilterServersByOperation(hosts, "sftp_transport")
-			if err != nil {
-				return err
-			}
-			if !check.ExistServer(hosts, allNames) {
-				fmt.Fprintln(os.Stderr, "Input Server not found from list.")
-				os.Exit(1)
-			} else if len(filteredHosts) != len(hosts) {
-				fmt.Fprintln(os.Stderr, "Input Server does not support SFTP-based monitoring.")
-				os.Exit(1)
-			} else {
-				selected = hosts
-			}
-		} else {
-			if len(names) == 0 {
-				fmt.Fprintln(os.Stderr, "No servers matched the current config conditions.")
-				os.Exit(1)
-			}
-			// View List And Get Select Line
-			l := new(list.ListInfo)
-			l.Prompt = "lsmon>>"
-			l.NameList = names
-			l.DataList = data
-			l.MultiFlag = isMulti
-
-			l.View()
-			selected = l.SelectName
-			if len(selected) == 0 {
-				fmt.Fprintln(os.Stderr, "Selection cancelled.")
-				os.Exit(1)
-			}
-			if selected[0] == "ServerName" {
-				fmt.Fprintln(os.Stderr, "Server not selected.")
-				os.Exit(1)
-			}
+		selected, err := apputil.SelectOperationHosts(
+			hosts,
+			allNames,
+			names,
+			data,
+			"sftp_transport",
+			"No servers matched the current config conditions.",
+			"Input Server does not support SFTP-based monitoring.",
+			"lsmon>>",
+			true,
+			apputil.PromptServerSelection,
+		)
+		if err != nil {
+			return err
 		}
 
-		r := new(sshcmd.Run)
-		r.ServerList = selected
+		r := buildRun(c, selected, controlMasterOverride, c.Bool("share-connect"))
 		r.Conf = data
-		r.ControlMasterOverride = controlMasterOverride
 		r.Conf.Common.ConnectTimeout = 5
-		r.ShareConnect = c.Bool("share-connect")
-		r.IsBashrc = c.Bool("localrc")
-		r.IsNotBashrc = c.Bool("not-localrc")
-
-		// Get stdin data(pipe)
-		if runtime.GOOS != "windows" {
-			stdin := 0
-			if !terminal.IsTerminal(stdin) {
-				r.IsStdinPipe = true
-			}
-		}
 
 		if debug {
 			go func() {

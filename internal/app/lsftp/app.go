@@ -9,6 +9,7 @@ import (
 	"os"
 	"sort"
 
+	"github.com/blacknon/lssh/internal/app/apputil"
 	"github.com/blacknon/lssh/internal/common"
 	conf "github.com/blacknon/lssh/internal/config"
 	"github.com/blacknon/lssh/internal/sftp"
@@ -106,7 +107,18 @@ USAGE:
 			return nil
 		}
 
-		selected, err := selectSFTPServers(hosts, allNames, names, data, promptServerSelection)
+		selected, err := apputil.SelectOperationHosts(
+			hosts,
+			allNames,
+			names,
+			data,
+			"sftp_transport",
+			"No servers matched the current config conditions.",
+			"Input Server does not support SFTP-based transfer.",
+			"lsftp>>",
+			true,
+			apputil.PromptServerSelection,
+		)
 		if err != nil {
 			return err
 		}

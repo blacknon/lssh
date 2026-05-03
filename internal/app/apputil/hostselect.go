@@ -1,6 +1,7 @@
-package lsftp
+package apputil
 
 import (
+	"errors"
 	"fmt"
 
 	"github.com/blacknon/lssh/internal/check"
@@ -8,9 +9,9 @@ import (
 	"github.com/blacknon/lssh/internal/list"
 )
 
-type serverSelectionPrompt func(prompt string, names []string, data conf.Config, isMulti bool) ([]string, error)
+type ServerSelectionPrompt func(prompt string, names []string, data conf.Config, isMulti bool) ([]string, error)
 
-func promptServerSelection(prompt string, names []string, data conf.Config, isMulti bool) ([]string, error) {
+func PromptServerSelection(prompt string, names []string, data conf.Config, isMulti bool) ([]string, error) {
 	l := new(list.ListInfo)
 	l.Prompt = prompt
 	l.NameList = names
@@ -21,9 +22,9 @@ func promptServerSelection(prompt string, names []string, data conf.Config, isMu
 	return l.SelectName, nil
 }
 
-func selectSFTPServers(hosts, allNames, names []string, data conf.Config, prompt serverSelectionPrompt) ([]string, error) {
+func SelectOperationHosts(hosts, allNames, names []string, data conf.Config, operation, emptyMessage, unsupportedMessage, promptName string, isMulti bool, prompt ServerSelectionPrompt) ([]string, error) {
 	if len(hosts) > 0 {
-		filteredHosts, err := data.FilterServersByOperation(hosts, "sftp_transport")
+		filteredHosts, err := data.FilterServersByOperation(hosts, operation)
 		if err != nil {
 			return nil, err
 		}
@@ -31,16 +32,16 @@ func selectSFTPServers(hosts, allNames, names []string, data conf.Config, prompt
 			return nil, fmt.Errorf("Input Server not found from list.")
 		}
 		if len(filteredHosts) != len(hosts) {
-			return nil, fmt.Errorf("Input Server does not support SFTP-based transfer.")
+			return nil, errors.New(unsupportedMessage)
 		}
 		return hosts, nil
 	}
 
 	if len(names) == 0 {
-		return nil, fmt.Errorf("No servers matched the current config conditions.")
+		return nil, errors.New(emptyMessage)
 	}
 
-	selected, err := prompt("lsftp>>", names, data, true)
+	selected, err := prompt(promptName, names, data, isMulti)
 	if err != nil {
 		return nil, err
 	}
