@@ -45,3 +45,17 @@ func TestSelectOperationHosts(t *testing.T) {
 		}
 	})
 }
+
+func TestValidateTransferCopyTypes(t *testing.T) {
+	t.Run("mixed", func(t *testing.T) {
+		if err := ValidateTransferCopyTypes(true, true, false, 0); err == nil {
+			t.Fatal("expected error")
+		}
+	})
+
+	t.Run("valid", func(t *testing.T) {
+		if err := ValidateTransferCopyTypes(true, false, false, 0); err != nil {
+			t.Fatalf("ValidateTransferCopyTypes() error = %v", err)
+		}
+	})
+}

@@ -7,6 +7,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/blacknon/lssh/internal/app/apputil"
 	conf "github.com/blacknon/lssh/internal/config"
 	lsync "github.com/blacknon/lssh/internal/sync"
 	"github.com/urfave/cli"
@@ -48,7 +49,7 @@ func TestValidateCopyTypes(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			err := validateCopyTypes(tt.remote, tt.local, tt.to, tt.hosts)
+			err := apputil.ValidateTransferCopyTypes(tt.remote, tt.local, tt.to, tt.hosts)
 			if tt.wantErr == "" {
 				if err != nil {
 					t.Fatalf("validateCopyTypes() error = %v", err)
@@ -94,7 +95,7 @@ func TestSelectSyncServers(t *testing.T) {
 	}
 
 	t.Run("explicit hosts", func(t *testing.T) {
-		from, to, err := selectSyncServers([]string{"web01"}, []string{"web01", "db01"}, []string{"web01", "db01"}, cfg, nil, lsync.PathSpec{}, false, false, nil)
+		from, to, err := selectSyncServers([]string{"web01"}, []string{"web01", "db01"}, []string{"web01", "db01"}, cfg, nil, lsync.PathSpec{}, false, false, apputil.PromptServerSelection)
 		if err != nil {
 			t.Fatalf("selectSyncServers() error = %v", err)
 		}

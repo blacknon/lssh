@@ -7,6 +7,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/blacknon/lssh/internal/app/apputil"
 	"github.com/blacknon/lssh/internal/common"
 	conf "github.com/blacknon/lssh/internal/config"
 	"github.com/blacknon/lssh/internal/version"
@@ -116,11 +117,11 @@ USAGE:
 			return err
 		}
 		isToRemote := targetSpec.IsRemote
-		if err := validateCopyTypes(isFromInRemote, isFromInLocal, isToRemote, len(hosts)); err != nil {
+		if err := apputil.ValidateTransferCopyTypes(isFromInRemote, isFromInLocal, isToRemote, len(hosts)); err != nil {
 			return err
 		}
 
-		fromServer, toServer, err := selectSyncServers(hosts, names, allNames, data, explicitSourceHosts, targetSpec, isFromInRemote, isToRemote, promptServerSelection)
+		fromServer, toServer, err := selectSyncServers(hosts, names, allNames, data, explicitSourceHosts, targetSpec, isFromInRemote, isToRemote, apputil.PromptServerSelection)
 		if err != nil {
 			return err
 		}
