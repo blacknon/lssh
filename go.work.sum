@@ -7,6 +7,12 @@ cyphar.com/go-pathrs v0.2.1/go.mod h1:y8f1EMG7r+hCuFf/rXsKqMJrJAUoADZGNh5/vZPKcG
 github.com/GoogleCloudPlatform/opentelemetry-operations-go/detectors/gcp v1.31.0/go.mod h1:P4WPRUkOhJC13W//jWpyfJNDAIpvRbAUIYLX/4jtlE0=
 github.com/absfs/fstools v0.9.1/go.mod h1:KQVk2BrHQLScHpGQz1bgvqklysYvfklGe8QxUCbfBuc=
 github.com/blacknon/go-nfs-sshlib v0.0.3/go.mod h1:jaCmHgFoj8j08rGrBnhJ4nFO7nUWs4xFrUd2vEPwyx8=
+github.com/blacknon/tvxterm v0.1.3 h1:XfQM7KCqsjkGIAgMCyJirdRzDsxpCdCjnlR5RAroreg=
+github.com/blacknon/tvxterm v0.1.3/go.mod h1:kHmIOKuqQCwHLuz24QND2qt9bah5wTeCia4VOFI/V8w=
+github.com/blacknon/tvxterm v0.1.4 h1:GeHZTyli5L+xsPgQuVESvD19LsakidNBVpottnITrI0=
+github.com/blacknon/tvxterm v0.1.4/go.mod h1:kHmIOKuqQCwHLuz24QND2qt9bah5wTeCia4VOFI/V8w=
+github.com/blacknon/tvxterm v0.1.5 h1:rvUXsgg9AwhRGcfXmo6r8KSRWKqiAmrA0TETUnh/LhE=
+github.com/blacknon/tvxterm v0.1.5/go.mod h1:kHmIOKuqQCwHLuz24QND2qt9bah5wTeCia4VOFI/V8w=
 github.com/cenkalti/backoff/v4 v4.3.0/go.mod h1:Y3VNntkOUPxTVeUxJ/G5vcM//AlwfmyYozVcomhLiZE=
 github.com/clipperhouse/stringish v0.1.1/go.mod h1:v/WhFtE1q0ovMta2+m+UbpZ+2/HEXNWYXQgCt4hdOzA=
 github.com/cncf/xds/go v0.0.0-20251210132809-ee656c7534f5/go.mod h1:KdCmV+x/BuvyMxRnYBlmVaq4OLiKW6iRQfvC62cvdkI=

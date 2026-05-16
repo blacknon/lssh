@@ -61,6 +61,65 @@ func TestProviderPackagesOnlyUseApprovedInternalPackages(t *testing.T) {
 	}
 }
 
+func TestCorePackagesDoNotImportAppPackages(t *testing.T) {
+	files := repositoryGoFiles(t)
+
+	for _, path := range files {
+		if strings.Contains(path, string(filepath.Separator)+"vendor"+string(filepath.Separator)) {
+			continue
+		}
+
+		pkgPath := importPathFromFile(path)
+		if !strings.HasPrefix(pkgPath, "github.com/blacknon/lssh/internal/core/") {
+			continue
+		}
+
+		imports := parseImports(t, path)
+		for _, imported := range imports {
+			if strings.HasPrefix(imported, "github.com/blacknon/lssh/internal/app/") {
+				t.Errorf("%s imports app package %s", pkgPath, imported)
+			}
+		}
+	}
+}
+
+func TestCorePackagesOnlyUseApprovedInternalPackages(t *testing.T) {
+	files := repositoryGoFiles(t)
+	allowedPrefixes := []string{
+		"github.com/blacknon/lssh/internal/core/",
+		"github.com/blacknon/lssh/internal/common",
+		"github.com/blacknon/lssh/internal/config",
+		"github.com/blacknon/lssh/internal/connectorruntime",
+		"github.com/blacknon/lssh/internal/output",
+		"github.com/blacknon/lssh/internal/ssh",
+		"github.com/blacknon/lssh/internal/ssh_config",
+		"github.com/blacknon/lssh/internal/termenv",
+		"github.com/blacknon/lssh/internal/textcolsafe",
+	}
+
+	for _, path := range files {
+		if strings.Contains(path, string(filepath.Separator)+"vendor"+string(filepath.Separator)) {
+			continue
+		}
+
+		pkgPath := importPathFromFile(path)
+		if !strings.HasPrefix(pkgPath, "github.com/blacknon/lssh/internal/core/") {
+			continue
+		}
+
+		imports := parseImports(t, path)
+		for _, imported := range imports {
+			if !strings.HasPrefix(imported, "github.com/blacknon/lssh/internal/") {
+				continue
+			}
+			if hasAllowedPrefix(imported, allowedPrefixes) {
+				continue
+			}
+			t.Errorf("%s imports non-core internal package %s", pkgPath, imported)
+		}
+	}
+}
+
 func repositoryGoFiles(t *testing.T) []string {
 	t.Helper()
 
@@ -111,4 +170,13 @@ func importPathFromFile(path string) string {
 		return "github.com/blacknon/lssh/" + filepath.ToSlash(filepath.Dir(cleaned))
 	}
 	return "github.com/blacknon/lssh/" + filepath.ToSlash(filepath.Dir(cleaned))
+}
+
+func hasAllowedPrefix(value string, prefixes []string) bool {
+	for _, prefix := range prefixes {
+		if strings.HasPrefix(value, prefix) {
+			return true
+		}
+	}
+	return false
 }

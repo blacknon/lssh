@@ -18,6 +18,7 @@ type MuxConfig struct {
 	PageList             string `toml:"page_list" yaml:"page_list"`
 	ClosePane            string `toml:"close_pane" yaml:"close_pane"`
 	Broadcast            string `toml:"broadcast" yaml:"broadcast"`
+	CopyMode             string `toml:"copy_mode" yaml:"copy_mode"`
 	Transfer             string `toml:"transfer" yaml:"transfer"`
 	DetachClient         string `toml:"detach_client" yaml:"detach_client"`
 	FocusBorderColor     string `toml:"focus_border_color" yaml:"focus_border_color"`
@@ -68,6 +69,9 @@ func (m MuxConfig) ApplyDefaults() MuxConfig {
 	}
 	if m.Broadcast == "" {
 		m.Broadcast = "b"
+	}
+	if m.CopyMode == "" {
+		m.CopyMode = "["
 	}
 	if m.Transfer == "" {
 		m.Transfer = "f"

@@ -5,26 +5,16 @@
 package lsmux
 
 import (
-	"fmt"
-	"io"
 	"os"
-	"os/exec"
-	"regexp"
-	"runtime"
 	"strings"
 
-	"github.com/blacknon/lssh/internal/check"
+	applssh "github.com/blacknon/lssh/internal/app/lssh"
 	"github.com/blacknon/lssh/internal/common"
-	conf "github.com/blacknon/lssh/internal/config"
-	"github.com/blacknon/lssh/internal/core/apputil"
-	lsmuxsession "github.com/blacknon/lssh/internal/core/lsmuxsession"
-	"github.com/blacknon/lssh/internal/mux"
 	"github.com/blacknon/lssh/internal/version"
 	"github.com/urfave/cli"
-	"golang.org/x/crypto/ssh/terminal"
 )
 
-// Lsmux creates the lsmux CLI app.
+// Lsmux creates a compatibility wrapper app that forwards to `lssh -P`.
 func Lsmux() (app *cli.App) {
 	defConf := common.GetDefaultConfigPath()
 
@@ -45,11 +35,14 @@ VERSION:
 USAGE:
     lsmux
     lsmux command...
+
+NOTE:
+    lsmux is a compatibility wrapper for 'lssh -P'.
 `
 
 	app = cli.NewApp()
 	app.Name = "lsmux"
-	app.Usage = "TUI mux style SSH client with host selector and pane management."
+	app.Usage = "Compatibility wrapper for the lssh mux UI (`lssh -P`)."
 	app.Copyright = "blacknon(blacknon@orebibou.com)"
 	app.Version = version.AppVersion(app.Name)
 	app.EnableBashCompletion = true
@@ -86,260 +79,54 @@ USAGE:
 			return nil
 		}
 
-		data, handled, err := apputil.LoadConfigWithGenerateMode(c, os.Stdout, os.Stderr)
-		if handled {
-			return err
-		}
-		controlMasterOverride, controlMasterErr := common.GetControlMasterOverride(c)
-		if controlMasterErr != nil {
-			return controlMasterErr
-		}
-		if err != nil {
-			return err
-		}
-		socketPath := c.String("socket-path")
-		if strings.TrimSpace(socketPath) == "" {
-			socketPath = data.Mux.SocketPath
-		}
-		sessionName := c.String("session")
-		if c.Bool("list-sessions") {
-			return listMuxSessions()
-		}
-		if c.Bool("kill-session") {
-			return killMuxSession(sessionName)
-		}
-		if c.Bool("attach") {
-			return attachMuxSession(sessionName, data)
-		}
-		_, names, err := apputil.SortedServerNames(data, "")
-		if err != nil {
-			return err
-		}
-
-		if c.Bool("list") {
-			apputil.PrintServerList(os.Stdout, names)
-			return nil
-		}
-
-		initialHosts := c.StringSlice("host")
-		if len(initialHosts) > 0 && !check.ExistServer(initialHosts, names) {
-			return fmt.Errorf("input server not found from list")
-		}
-		forwardConfig := mux.SessionOptions{
-			ControlMasterOverride: controlMasterOverride,
-			IsBashrc:              c.Bool("localrc"),
-			IsNotBashrc:           c.Bool("not-localrc"),
-		}
-		if c.Bool("enable-transfer") && c.Bool("disable-transfer") {
-			return fmt.Errorf("--enable-transfer and --disable-transfer cannot be used together")
-		}
-		if c.Bool("enable-transfer") {
-			enabled := true
-			forwardConfig.TransferEnabled = &enabled
-		}
-		if c.Bool("disable-transfer") {
-			enabled := false
-			forwardConfig.TransferEnabled = &enabled
-		}
-
-		var forwards []*conf.PortForward
-		for _, forwardargs := range c.StringSlice("R") {
-			f := new(conf.PortForward)
-			f.Mode = "R"
-
-			if regexp.MustCompile(`^[0-9]+$`).Match([]byte(forwardargs)) {
-				forwardConfig.ReverseDynamicPortForward = forwardargs
-				continue
-			}
-
-			f.Local, f.Remote, err = common.ParseForwardPort(forwardargs)
-			if err != nil {
-				return err
-			}
-			forwards = append(forwards, f)
-		}
-		forwardConfig.PortForward = forwards
-		forwardConfig.HTTPReverseDynamicPortForward = c.String("r")
-		if nfsReverseForwarding := c.String("m"); nfsReverseForwarding != "" {
-			port, path, err := common.ParseNFSForwardPortPath(nfsReverseForwarding)
-			if err != nil {
-				return err
-			}
-			forwardConfig.NFSReverseDynamicForwardPort = port
-			forwardConfig.NFSReverseDynamicForwardPath = common.GetFullPath(path)
-		}
-
-		var (
-			stdinData []byte
-			readErr   error
-		)
-		if len(c.Args()) > 0 && runtime.GOOS != "windows" {
-			stdin := 0
-			if !terminal.IsTerminal(stdin) {
-				stdinData, readErr = io.ReadAll(os.Stdin)
-				if readErr != nil {
-					return readErr
-				}
-			}
-		}
-
-		if c.Bool("mux-child") {
-			manager, err := mux.NewManager(data, names, c.Args(), stdinData, initialHosts, c.Bool("hold"), c.Bool("allow-layout-change"), forwardConfig)
-			if err != nil {
-				return err
-			}
-			return manager.Run()
-		}
-		if c.Bool("mux-daemon") {
-			if sessionName == "" {
-				sessionName = lsmuxsession.DefaultSessionName
-			}
-			exe, exeErr := os.Executable()
-			if exeErr != nil {
-				return exeErr
-			}
-			childArgs := apputil.FilterCLIArgs(apputil.CurrentCLIArgs(), map[string]bool{"--mux-daemon": true}, nil)
-			childArgs = append(childArgs, "--mux-child")
-			return apputil.RunMuxSessionDaemon(apputil.MuxSessionDaemonConfig{
-				Name:       sessionName,
-				ConfigPath: c.String("file"),
-				SocketPath: socketPath,
-				Exe:        exe,
-				Args:       childArgs,
-				Env:        append(os.Environ(), "_LSMUX_CHILD=1"),
-				Ready:      notifyMuxParentReady,
-			})
-		}
-
-		if sessionName != "" || c.Bool("detach") {
-			if runtime.GOOS == "windows" {
-				return fmt.Errorf("persistent lsmux sessions are not supported on Windows yet")
-			}
-			if sessionName == "" {
-				sessionName = lsmuxsession.DefaultSessionName
-			}
-			session, err := ensureMuxSession(sessionName, socketPath)
-			if err != nil {
-				return err
-			}
-			if c.Bool("detach") {
-				fmt.Fprintf(os.Stdout, "lsmux session %q is running in background (pid %d)\n", session.Name, session.PID)
-				return nil
-			}
-			return lsmuxsession.Attach(session, lsmuxsession.AttachOptions{
-				PrefixSpec: data.Mux.Prefix,
-				DetachSpec: data.Mux.DetachClient,
-			})
-		}
-
-		manager, err := mux.NewManager(data, names, c.Args(), stdinData, initialHosts, c.Bool("hold"), c.Bool("allow-layout-change"), forwardConfig)
-		if err != nil {
-			return err
-		}
-		return manager.Run()
+		return runCompatLsmux(TranslateCompatArgs(common.NormalizeGenerateLSSHConfArgs(os.Args)))
 	}
 
 	return app
 }
 
-func listMuxSessions() error {
-	sessions, err := lsmuxsession.ListSessions()
-	if err != nil {
-		return err
+func TranslateCompatArgs(args []string) []string {
+	if len(args) == 0 {
+		return []string{"lsmux", "-P"}
 	}
-	if len(sessions) == 0 {
-		fmt.Fprintln(os.Stdout, "No lsmux sessions.")
-		return nil
-	}
-	for i := range sessions {
-		lsmuxsession.MarkSessionAlive(&sessions[i])
-		fmt.Fprintln(os.Stdout, lsmuxsession.FormatSessionSummary(sessions[i]))
-	}
-	return nil
-}
 
-func killMuxSession(name string) error {
-	if strings.TrimSpace(name) == "" {
-		name = lsmuxsession.DefaultSessionName
-	}
-	session, err := lsmuxsession.LoadSession(name)
-	if err != nil {
-		return err
-	}
-	if session.PID > 0 {
-		process, findErr := os.FindProcess(session.PID)
-		if findErr == nil {
-			_ = process.Kill()
+	result := make([]string, 0, len(args)+1)
+	result = append(result, args[0], "-P")
+
+	for i := 1; i < len(args); i++ {
+		arg := args[i]
+		switch {
+		case arg == "--session":
+			result = append(result, "--mux-session")
+		case strings.HasPrefix(arg, "--session="):
+			result = append(result, "--mux-session="+strings.TrimPrefix(arg, "--session="))
+		case arg == "--socket-path":
+			result = append(result, "--mux-socket-path")
+		case strings.HasPrefix(arg, "--socket-path="):
+			result = append(result, "--mux-socket-path="+strings.TrimPrefix(arg, "--socket-path="))
+		case arg == "--attach":
+			result = append(result, "--mux-attach")
+		case arg == "--detach":
+			result = append(result, "--mux-detach")
+		case arg == "--list-sessions":
+			result = append(result, "--mux-list-sessions")
+		case arg == "--kill-session":
+			result = append(result, "--mux-kill-session")
+		default:
+			result = append(result, arg)
 		}
 	}
-	return lsmuxsession.RemoveSession(name)
+
+	return result
 }
 
-func attachMuxSession(name string, cfg conf.Config) error {
-	if strings.TrimSpace(name) == "" {
-		name = lsmuxsession.DefaultSessionName
-	}
-	session, err := lsmuxsession.ResolveSession(name)
-	if err != nil {
-		return err
-	}
-	return lsmuxsession.Attach(session, lsmuxsession.AttachOptions{
-		PrefixSpec: cfg.Mux.Prefix,
-		DetachSpec: cfg.Mux.DetachClient,
-	})
-}
+func runCompatLsmux(args []string) error {
+	origArgs := os.Args
+	os.Args = append([]string(nil), args...)
+	defer func() {
+		os.Args = origArgs
+	}()
 
-func ensureMuxSession(name, socketPath string) (lsmuxsession.Session, error) {
-	if session, err := lsmuxsession.ResolveSession(name); err == nil {
-		return session, nil
-	}
-	return spawnMuxSession(name, socketPath)
-}
-
-func spawnMuxSession(name, socketPath string) (lsmuxsession.Session, error) {
-	args := apputil.BuildPersistentSessionArgs(apputil.PersistentSessionArgsConfig{
-		AllArgs: apputil.CurrentCLIArgs(),
-		BareFlags: map[string]bool{
-			"--detach":        true,
-			"--attach":        true,
-			"--list-sessions": true,
-			"--kill-session":  true,
-			"--mux-daemon":    true,
-			"--mux-child":     true,
-		},
-		ValueFlags: map[string]bool{
-			"--session":     true,
-			"--socket-path": true,
-		},
-		DaemonFlag:  "--mux-daemon",
-		SessionFlag: "--session",
-		SocketFlag:  "--socket-path",
-		Name:        name,
-		SocketPath:  socketPath,
-	})
-	return apputil.SpawnMuxSession(apputil.MuxSessionSpawnConfig{
-		GOOS:          runtime.GOOS,
-		Name:          name,
-		DaemonEnvName: "_LSMUX_DAEMON",
-		Args:          args,
-		Stdout:        os.Stdout,
-		Stderr:        os.Stderr,
-		Prepare: func(cmd *exec.Cmd) {
-			if runtime.GOOS != "windows" {
-				cmd.SysProcAttr = daemonSysProcAttr()
-			}
-		},
-		Resolve: lsmuxsession.ResolveSession,
-	})
-}
-
-func filterMuxSessionValueFlags(args []string) []string {
-	return apputil.FilterCLIArgs(args, nil, map[string]bool{
-		"--session":     true,
-		"--socket-path": true,
-	})
-}
-
-func notifyMuxParentReady() {
-	apputil.NotifyBackgroundReady("_LSMUX_DAEMON", "")
+	app := applssh.Lssh()
+	return app.Run(common.ParseArgs(app.Flags, args))
 }

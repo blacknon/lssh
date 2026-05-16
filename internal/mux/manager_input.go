@@ -6,6 +6,7 @@ package mux
 
 import (
 	"fmt"
+	"unicode/utf8"
 
 	"github.com/blacknon/tvxterm"
 	"github.com/gdamore/tcell/v2"
@@ -15,6 +16,9 @@ import (
 func (m *Manager) captureMouse(event *tcell.EventMouse, action tview.MouseAction) (*tcell.EventMouse, tview.MouseAction) {
 	if event == nil || m.currentPage == nil {
 		return event, action
+	}
+	if m.copyMode {
+		return m.captureCopyModeMouse(event, action)
 	}
 	if action == tview.MouseLeftDown {
 		x, y := event.Position()
@@ -82,6 +86,9 @@ func (m *Manager) captureMouse(event *tcell.EventMouse, action tview.MouseAction
 func (m *Manager) captureInput(event *tcell.EventKey) *tcell.EventKey {
 	if event == nil {
 		return nil
+	}
+	if m.copyMode {
+		return m.captureCopyModeInput(event)
 	}
 
 	if m.selectorFocus != nil && (m.app.GetFocus() == m.selectorFocus || (m.currentPage != nil && m.currentPage.focus != nil && m.currentPage.focus.transient)) {
@@ -194,10 +201,14 @@ func (m *Manager) captureInput(event *tcell.EventKey) *tcell.EventKey {
 		m.refreshPaneStyles()
 		m.updateStatus("")
 		return nil
+	case m.bindings["copy_mode"].match(event):
+		m.enterCopyMode()
+		return nil
 	case m.bindings["transfer"].match(event):
 		m.showTransfer()
 		return nil
 	default:
+		m.updateStatus("")
 		return event
 	}
 }
@@ -293,6 +304,9 @@ func (m *Manager) updateStatus(message string) {
 }
 
 func (m *Manager) statusLead() string {
+	if m.copyMode {
+		return m.copyModeHelp()
+	}
 	if m.prefixActive {
 		return m.prefixHelp()
 	}
@@ -309,12 +323,13 @@ func (m *Manager) prefixHelp() string {
 		transferKey = "disabled"
 	}
 	return fmt.Sprintf(
-		"[yellow]Prefix[-]: %s  [yellow]new-page[-]: %s  [yellow]new-pane[-]: %s  [yellow]split-h[-]: %s  [yellow]split-v[-]: %s  [yellow]transfer[-]: %s\n[yellow]next-pane[-]: %s  [yellow]next-page[-]: %s  [yellow]prev-page[-]: %s  [yellow]pages[-]: %s  [yellow]close[-]: %s  [yellow]broadcast[-]: %s  [yellow]quit[-]: %s",
+		"[yellow]Prefix[-]: %s  [yellow]new-page[-]: %s  [yellow]new-pane[-]: %s  [yellow]split-h[-]: %s  [yellow]split-v[-]: %s  [yellow]copy[-]: %s  [yellow]transfer[-]: %s\n[yellow]next-pane[-]: %s  [yellow]next-page[-]: %s  [yellow]prev-page[-]: %s  [yellow]pages[-]: %s  [yellow]close[-]: %s  [yellow]broadcast[-]: %s  [yellow]quit[-]: %s",
 		m.conf.Mux.Prefix,
 		m.conf.Mux.NewPage,
 		m.conf.Mux.NewPane,
 		m.conf.Mux.SplitHorizontal,
 		m.conf.Mux.SplitVertical,
+		m.conf.Mux.CopyMode,
 		transferKey,
 		m.conf.Mux.NextPane,
 		m.conf.Mux.NextPage,
@@ -324,6 +339,10 @@ func (m *Manager) prefixHelp() string {
 		m.conf.Mux.Broadcast,
 		m.conf.Mux.Quit,
 	)
+}
+
+func (m *Manager) copyModeHelp() string {
+	return "[yellow]Copy Mode[-]: drag to select  [yellow]copy[-]: release / Enter / y  [yellow]scroll[-]: PgUp PgDn wheel  [yellow]cancel[-]: Esc"
 }
 
 func (m *Manager) showTransfer() {
@@ -350,6 +369,183 @@ func (m *Manager) showTransfer() {
 	if focus := p.focusPrimitive(); focus != nil {
 		m.app.SetFocus(focus)
 	}
+}
+
+func (m *Manager) enterCopyMode() {
+	if m.currentPage == nil || m.currentPage.focus == nil || m.currentPage.focus.term == nil {
+		m.updateStatus("[red]copy mode unavailable[-]: select a connected pane")
+		return
+	}
+	m.currentPage.focus.term.ClearSelection()
+	m.copyMode = true
+	m.updateStatus("[gray]copy mode[-]: drag to select, release to copy")
+}
+
+func (m *Manager) exitCopyMode(clearSelection bool) {
+	if clearSelection && m.currentPage != nil && m.currentPage.focus != nil && m.currentPage.focus.term != nil {
+		m.currentPage.focus.term.ClearSelection()
+	}
+	m.copyMode = false
+}
+
+func (m *Manager) captureCopyModeInput(event *tcell.EventKey) *tcell.EventKey {
+	if event == nil {
+		return nil
+	}
+
+	switch {
+	case event.Key() == tcell.KeyEsc || event.Key() == tcell.KeyCtrlC:
+		m.exitCopyMode(true)
+		m.updateStatus("[gray]copy mode cancelled[-]")
+		return nil
+	case event.Key() == tcell.KeyEnter:
+		m.copyFocusedSelectionToClipboard()
+		return nil
+	case event.Key() == tcell.KeyPgUp:
+		m.scrollFocused(true)
+		return nil
+	case event.Key() == tcell.KeyPgDn:
+		m.scrollFocused(false)
+		return nil
+	case event.Key() == tcell.KeyUp:
+		if m.currentPage != nil && m.currentPage.focus != nil && m.currentPage.focus.term != nil {
+			m.currentPage.focus.term.ScrollbackUp(1)
+		}
+		m.updateStatus("")
+		return nil
+	case event.Key() == tcell.KeyDown:
+		if m.currentPage != nil && m.currentPage.focus != nil && m.currentPage.focus.term != nil {
+			m.currentPage.focus.term.ScrollbackDown(1)
+		}
+		m.updateStatus("")
+		return nil
+	case event.Key() == tcell.KeyRune && (event.Rune() == 'y' || event.Rune() == 'Y'):
+		m.copyFocusedSelectionToClipboard()
+		return nil
+	default:
+		return nil
+	}
+}
+
+func (m *Manager) captureCopyModeMouse(event *tcell.EventMouse, action tview.MouseAction) (*tcell.EventMouse, tview.MouseAction) {
+	if event == nil || m.currentPage == nil || m.currentPage.focus == nil || m.currentPage.focus.term == nil {
+		return nil, action
+	}
+
+	term := m.currentPage.focus.term
+	x, y := event.Position()
+	if !term.InRect(x, y) {
+		if action == tview.MouseLeftDown {
+			m.exitCopyMode(true)
+			return m.captureMouse(event, action)
+		}
+		return nil, action
+	}
+
+	switch action {
+	case tview.MouseLeftDown:
+		term.StartSelection(x, y)
+		m.updateStatus("[gray]copy mode[-]: selecting...")
+		return nil, action
+	case tview.MouseMove:
+		if event.Buttons()&tcell.Button1 != 0 {
+			term.UpdateSelection(x, y)
+			return nil, action
+		}
+	case tview.MouseLeftUp:
+		term.UpdateSelection(x, y)
+		m.copyFocusedSelectionToClipboard()
+		return nil, action
+	case tview.MouseScrollUp:
+		term.ScrollbackUp(3)
+		m.updateStatus("")
+		return nil, action
+	case tview.MouseScrollDown:
+		term.ScrollbackDown(3)
+		m.updateStatus("")
+		return nil, action
+	}
+	return nil, action
+}
+
+func (m *Manager) copyFocusedSelectionToClipboard() {
+	if m.currentPage == nil || m.currentPage.focus == nil || m.currentPage.focus.term == nil {
+		m.exitCopyMode(true)
+		m.updateStatus("[red]copy failed[-]: no active pane")
+		return
+	}
+
+	text := m.currentPage.focus.term.SelectedText()
+	if text == "" {
+		m.updateStatus("[red]copy failed[-]: no selection")
+		return
+	}
+
+	if err := setClipboardText(m.screen, text); err == nil {
+		m.exitCopyMode(true)
+		m.updateStatus(fmt.Sprintf("[green]copied[-]: %d chars to clipboard", utf8.RuneCountInString(text)))
+		return
+	}
+
+	m.exitCopyMode(true)
+	m.updateStatus(fmt.Sprintf("[yellow]copied[-]: %d chars (clipboard unavailable in this terminal)", utf8.RuneCountInString(text)))
+}
+
+func (m *Manager) handlePaste(text string, next func(string, func(p tview.Primitive)), setFocus func(p tview.Primitive)) {
+	if text == "" {
+		return
+	}
+	if !m.shouldBroadcastPaste() {
+		if next != nil {
+			next(text, setFocus)
+		}
+		return
+	}
+	if m.broadcastPaste(text) {
+		return
+	}
+	if next != nil {
+		next(text, setFocus)
+	}
+}
+
+func (m *Manager) shouldBroadcastPaste() bool {
+	if !m.broadcastAll {
+		return false
+	}
+	if m.focusedAuxiliaryPrimitiveActive() {
+		return false
+	}
+	return m.currentPage != nil && m.currentPage.focus != nil && m.currentPage.focus.term != nil
+}
+
+func (m *Manager) focusedAuxiliaryPrimitiveActive() bool {
+	if m.selectorFocus != nil && (m.app.GetFocus() == m.selectorFocus || (m.currentPage != nil && m.currentPage.focus != nil && m.currentPage.focus.transient)) {
+		return true
+	}
+	if m.currentPage != nil && m.currentPage.focus != nil {
+		focusTarget := m.currentPage.focus.focusPrimitive()
+		if focusTarget != nil && m.app.GetFocus() == focusTarget && m.currentPage.focus.term != nil && focusTarget != m.currentPage.focus.term {
+			return true
+		}
+	}
+	return false
+}
+
+func (m *Manager) broadcastPaste(text string) bool {
+	if text == "" {
+		return false
+	}
+	sent := false
+	for _, page := range m.sessionPages {
+		for _, p := range page.panes {
+			if p == nil || p.transient || p.term == nil || p.failed || p.exited {
+				continue
+			}
+			sent = p.term.SendPaste(text) || sent
+		}
+	}
+	return sent
 }
 
 func (m *Manager) broadcastKey(event *tcell.EventKey) {

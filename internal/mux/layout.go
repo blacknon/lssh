@@ -227,6 +227,12 @@ type centeredPrimitive struct {
 	innerHeight   int
 }
 
+type managerRoot struct {
+	*tview.Box
+	child   tview.Primitive
+	manager *Manager
+}
+
 func newBadgeOverlay(child tview.Primitive, label string, color tcell.Color) *badgeOverlay {
 	return &badgeOverlay{
 		Box:   tview.NewBox(),
@@ -254,6 +260,14 @@ func newCenteredPrimitive(child tview.Primitive, width, height int) *centeredPri
 		child:         child,
 		desiredWidth:  width,
 		desiredHeight: height,
+	}
+}
+
+func newManagerRoot(child tview.Primitive, manager *Manager) *managerRoot {
+	return &managerRoot{
+		Box:     tview.NewBox(),
+		child:   child,
+		manager: manager,
 	}
 }
 
@@ -519,4 +533,73 @@ func (c *centeredPrimitive) updateInnerRect(x, y, width, height int) {
 	c.innerHeight = innerHeight
 	c.innerX = x + (width-innerWidth)/2
 	c.innerY = y + (height-innerHeight)/2
+}
+
+func (r *managerRoot) Draw(screen tcell.Screen) {
+	if r.child == nil {
+		return
+	}
+	x, y, width, height := r.GetRect()
+	r.child.SetRect(x, y, width, height)
+	r.child.Draw(screen)
+}
+
+func (r *managerRoot) SetRect(x, y, width, height int) {
+	r.Box.SetRect(x, y, width, height)
+	if r.child != nil {
+		r.child.SetRect(x, y, width, height)
+	}
+}
+
+func (r *managerRoot) GetRect() (int, int, int, int) {
+	return r.Box.GetRect()
+}
+
+func (r *managerRoot) InputHandler() func(event *tcell.EventKey, setFocus func(p tview.Primitive)) {
+	if r.child == nil {
+		return nil
+	}
+	return r.child.InputHandler()
+}
+
+func (r *managerRoot) PasteHandler() func(text string, setFocus func(p tview.Primitive)) {
+	return r.WrapPasteHandler(func(text string, setFocus func(p tview.Primitive)) {
+		var next func(string, func(p tview.Primitive))
+		if r.child != nil {
+			next = r.child.PasteHandler()
+		}
+		if r.manager == nil {
+			if next != nil {
+				next(text, setFocus)
+			}
+			return
+		}
+		r.manager.handlePaste(text, next, setFocus)
+	})
+}
+
+func (r *managerRoot) MouseHandler() func(action tview.MouseAction, event *tcell.EventMouse, setFocus func(p tview.Primitive)) (consumed bool, capture tview.Primitive) {
+	if r.child == nil {
+		return nil
+	}
+	return r.child.MouseHandler()
+}
+
+func (r *managerRoot) Focus(delegate func(p tview.Primitive)) {
+	if r.child != nil {
+		r.child.Focus(delegate)
+	}
+}
+
+func (r *managerRoot) Blur() {
+	if r.child != nil {
+		r.child.Blur()
+	}
+}
+
+func (r *managerRoot) HasFocus() bool {
+	if r.child == nil {
+		return false
+	}
+	return r.child.HasFocus()
 }

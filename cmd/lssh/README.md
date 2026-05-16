@@ -166,6 +166,12 @@ Notes:
 - when attached, the default detach key is `Ctrl+A d`; this follows `mux.prefix` + `mux.detach_client`
 - `--enable-transfer` / `--disable-transfer` also apply in `-P` mode and can override `mux.transfer_enabled`
 
+`lssh -P` also uses the same tmux-like copy mode as `lsmux`.
+By default, press `Ctrl+A [` to enter copy mode, drag to select text in the focused pane, and release the mouse button to copy it to your local clipboard.
+You can also press `Enter` or `y` to copy, and `Esc` to cancel copy mode.
+Outside copy mode, mouse input keeps going to the remote application, so tools such as `htop`, `vim`, or `less` keep their normal mouse behavior.
+If you want to change the key, use `mux.copy_mode` in your config.
+
 ### terminal log
 
 You can record terminal session logs while connected to a host.

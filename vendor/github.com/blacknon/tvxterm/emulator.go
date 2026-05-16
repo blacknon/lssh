@@ -302,6 +302,24 @@ func (e *Emulator) SnapshotAt(offset int) Snapshot {
 	}
 }
 
+func (e *Emulator) allRows() [][]Cell {
+	e.mu.RLock()
+	defer e.mu.RUnlock()
+
+	allRows := make([][]Cell, 0, len(e.scrollback)+len(e.cells))
+	for _, row := range e.scrollback {
+		copied := make([]Cell, len(row))
+		copy(copied, row)
+		allRows = append(allRows, copied)
+	}
+	for _, row := range e.cells {
+		copied := make([]Cell, len(row))
+		copy(copied, row)
+		allRows = append(allRows, copied)
+	}
+	return allRows
+}
+
 // Snapshot is an immutable copy of the emulator's visible state.
 type Snapshot struct {
 	Cols           int

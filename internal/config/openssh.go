@@ -19,7 +19,7 @@ import (
 	"strings"
 
 	"github.com/blacknon/lssh/internal/common"
-	"github.com/kevinburke/ssh_config"
+	ssh_config "github.com/blacknon/lssh/internal/ssh_config"
 )
 
 type openSSHConfigEntry struct {

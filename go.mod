@@ -13,14 +13,13 @@ require (
 	github.com/blacknon/crypto11 v1.6.2-0.20260315101107-fd111b1d25ce // indirect
 	github.com/blacknon/go-sshlib v0.1.34
 	github.com/blacknon/go-x11auth v0.1.0 // indirect
-	github.com/blacknon/tvxterm v0.1.3
+	github.com/blacknon/tvxterm v0.1.5
 	github.com/c-bata/go-prompt v0.2.6
 	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/dchest/bcrypt_pbkdf v0.0.0-20150205184540-83f37f9c154a // indirect
 	github.com/disiqueira/gotree v1.0.0
 	github.com/dustin/go-humanize v1.0.1
 	github.com/kballard/go-shellquote v0.0.0-20180428030007-95032a82bc51
-	github.com/kevinburke/ssh_config v1.6.0
 	github.com/kr/fs v0.1.0 // indirect
 	github.com/lunixbochs/vtclean v1.0.0 // indirect
 	github.com/mattn/go-colorable v0.1.14 // indirect
@@ -87,5 +86,3 @@ require (
 
 // replace
 replace github.com/c-bata/go-prompt v0.2.6 => github.com/blacknon/go-prompt v0.2.7
-
-replace github.com/kevinburke/ssh_config => ./internal/ssh_config

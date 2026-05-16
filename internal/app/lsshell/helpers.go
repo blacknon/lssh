@@ -5,9 +5,9 @@ import (
 	"regexp"
 	"runtime"
 
-	"github.com/blacknon/lssh/internal/check"
 	"github.com/blacknon/lssh/internal/common"
 	conf "github.com/blacknon/lssh/internal/config"
+	"github.com/blacknon/lssh/internal/core/check"
 	"github.com/blacknon/lssh/internal/core/list"
 	sshcmd "github.com/blacknon/lssh/internal/ssh"
 	"github.com/urfave/cli"

@@ -3,8 +3,8 @@ package lssh
 import (
 	"fmt"
 
-	"github.com/blacknon/lssh/internal/check"
 	conf "github.com/blacknon/lssh/internal/config"
+	"github.com/blacknon/lssh/internal/core/check"
 	"github.com/blacknon/lssh/internal/core/list"
 )
 

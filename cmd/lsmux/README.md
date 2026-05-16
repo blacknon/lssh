@@ -8,7 +8,10 @@ lsmux
 
 ## About
 
-`lsmux` is a pure Go, tmux-like SSH client that lets you select hosts from your `lssh` inventory and manage multiple remote sessions in a pane-based TUI. It is designed for operators who want to view several servers at once, run commands in dedicated panes, and keep the flexibility of `lssh` host selection while working in a terminal multiplexer style workflow.
+The mux UI is a pure Go, tmux-like SSH client that lets you select hosts from your `lssh` inventory and manage multiple remote sessions in a pane-based TUI. It is designed for operators who want to view several servers at once, run commands in dedicated panes, and keep the flexibility of `lssh` host selection while working in a terminal multiplexer style workflow.
+
+`lsmux` is a compatibility wrapper around `lssh -P`.
+It keeps the traditional `lsmux` command name, but the mux UI implementation now lives in `lssh` itself.
 
 Also, you can transfer files to a remote host directly from the target pane.
 
@@ -17,7 +20,7 @@ Also, you can transfer files to a remote host directly from the target pane.
 ```shell
 $ lsmux --help
 NAME:
-    lsmux - TUI mux style SSH client with host selector and pane management.
+    lsmux - Compatibility wrapper for the lssh mux UI (`lssh -P`).
 USAGE:
     lsmux [options] [command...]
 
@@ -53,13 +56,26 @@ USAGE:
     lsmux
     lsmux command...
 
+NOTE:
+    lsmux is a compatibility wrapper for 'lssh -P'.
+
+```
+
+Recommended:
+
+```shell
+# preferred equivalent
+lssh -P
+
+# command mode
+lssh -P hostname
 ```
 
 ## Overview
 
 ### terminal connect
 
-`lsmux` opens interactive SSH sessions inside panes, so you can work with multiple hosts on a single screen.
+`lssh -P` opens interactive SSH sessions inside panes, and `lsmux` forwards to the same implementation, so you can work with multiple hosts on a single screen.
 Hosts can be selected from your `lssh` inventory, and each pane keeps its own terminal state while sharing the same TUI workspace.
 This makes it easy to monitor several servers side by side without leaving the multiplexer interface.
 
@@ -69,13 +85,13 @@ This makes it easy to monitor several servers side by side without leaving the m
   <img src="./img/command.gif" width="77%" />
 </p>
 
-You can start `lsmux` with a command argument to create command panes instead of interactive shells.
+You can start `lsmux` or `lssh -P` with a command argument to create command panes instead of interactive shells.
 This is useful for running one-shot remote commands such as `hostname`, `tail`, or health-check scripts while keeping the results visible in separate panes.
 If `--hold` is enabled, finished command panes remain open so you can review their output after execution.
 
 ### forwarding
 
-`lsmux` supports SSH forwarding features in the same workflow as regular remote sessions.
+`lssh -P` supports SSH forwarding features in the same workflow as regular remote sessions, and `lsmux` keeps compatibility with those options.
 You can open panes for connections that rely on reverse-side forwarding and continue working while forwarded connections stay active in the background of the selected pane.
 This is helpful when you need terminal access and SSH-based network access at the same time.
 
@@ -90,16 +106,16 @@ Examples:
 
 ```shell
 # remote port forwarding for each selected pane
-lsmux -R 10080:localhost:80
+lssh -P -R 10080:localhost:80
 
 # reverse dynamic forwarding (SOCKS-like listener on each remote host)
-lsmux -R 1080
+lssh -P -R 1080
 
 # HTTP reverse dynamic forwarding on each remote host
-lsmux -r 18080
+lssh -P -r 18080
 
 # NFS reverse dynamic forwarding on each remote host
-lsmux -m 2049:/path/to/local
+lssh -P -m 2049:/path/to/local
 ```
 
 ### file transfer
@@ -111,6 +127,18 @@ lsmux -m 2049:/path/to/local
 Files can be transferred directly to the remote host represented by the active pane.
 This allows you to move scripts, configuration files, or small assets to the target server without leaving `lsmux` or opening a separate transfer tool.
 It fits well with the pane-oriented workflow when you want to upload a file and then verify it immediately in the same session.
+
+### copy mode
+
+`lsmux` also includes a tmux-like copy mode for copying pane text to your local clipboard without stealing normal mouse behavior from tools such as `htop`, `vim`, or `less`.
+
+- Press `Ctrl+A [` to enter copy mode by default.
+- Drag with the mouse inside the focused pane to select text.
+- Release the mouse button to copy the selection to the local clipboard.
+- Press `Enter` or `y` to copy the current selection.
+- Press `Esc` to cancel copy mode.
+
+While copy mode is active, mouse drag is used for local text selection instead of being sent to the remote application. Outside copy mode, mouse events keep working normally inside the pane.
 
 ### config
 
@@ -134,6 +162,7 @@ prev_page = "p"
 page_list = "w"
 close_pane = "x"
 broadcast = "b"
+copy_mode = "["
 transfer = "f"
 detach_client = "d"
 transfer_enabled = true
@@ -161,6 +190,7 @@ mux:
   page_list: "w"
   close_pane: "x"
   broadcast: "b"
+  copy_mode: "["
   transfer: "f"
   detach_client: "d"
   transfer_enabled: true
@@ -188,6 +218,7 @@ Available `mux` settings:
 - `page_list`: show the page list. Default: `w`
 - `close_pane`: close the current pane. Default: `x`
 - `broadcast`: toggle broadcast input to all panes on the page. Default: `b`
+- `copy_mode`: enter tmux-like copy mode for local text selection and clipboard copy. Default: `[`
 - `transfer`: open file transfer for the active pane. Default: `f`
 - `detach_client`: key used after the prefix to detach an attached persistent client. Default: `d`
 - `transfer_enabled`: allow the transfer UI in `lsmux`. Default: `true`

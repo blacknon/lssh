@@ -539,7 +539,7 @@ It is supported on Linux and macOS, and is not available when `lssh` runs on Win
 ## Terminal log
 
 You can record interactive terminal output to local log files with the `[log]` section.
-These settings are shared by commands that open remote terminals, including `lssh`, `lsshell`, and mux-based views(`lssh -P`, `lsmux`).
+These settings are shared by commands that open remote terminals, including `lssh`, `lsshell`, and mux-based views such as `lssh -P` and the `lsmux` compatibility command.
 
 ```toml
 [log]
@@ -1022,7 +1022,7 @@ Available `shell` settings:
 
 ## Multiplexer settings with `[mux]`
 
-Use `[mux]` to customize `lsmux` key bindings and pane colors.
+Use `[mux]` to customize the multiplexer UI used by `lssh -P` and the `lsmux` compatibility command.
 This section affects only the multiplexer UI. Host connection settings such as `addr`, `user`, `key`, and proxy settings remain under `[common]` and `[server.<name>]`.
 
 ```toml
@@ -1039,6 +1039,7 @@ prev_page = "p"
 page_list = "w"
 close_pane = "x"
 broadcast = "b"
+copy_mode = "["
 transfer = "f"
 detach_client = "d"
 transfer_enabled = true
@@ -1054,8 +1055,8 @@ done_title_color = "gray"
 
 Available `mux` settings:
 
-- `prefix`: prefix key used before `lsmux` subcommands. Default: `Ctrl+A`
-- `quit`: quit `lsmux`. Default: `&`
+- `prefix`: prefix key used before mux subcommands. Default: `Ctrl+A`
+- `quit`: quit the mux UI. Default: `&`
 - `new_page`: create a new page. Default: `c`
 - `new_pane`: open a host selector and add a pane. Default: `s`
 - `split_horizontal`: split the current pane horizontally. Default: `"`
@@ -1066,9 +1067,10 @@ Available `mux` settings:
 - `page_list`: show the page list. Default: `w`
 - `close_pane`: close the current pane. Default: `x`
 - `broadcast`: toggle broadcast input to all panes on the page. Default: `b`
+- `copy_mode`: enter tmux-like copy mode for local text selection and clipboard copy. Default: `[`
 - `transfer`: open file transfer for the active pane. Default: `f`
 - `detach_client`: key used after the prefix to detach an attached persistent client. Default: `d`
-- `transfer_enabled`: allow the transfer UI in `lsmux`. Default: `true`
+- `transfer_enabled`: allow the transfer UI in the mux UI. Default: `true`
 - `scrollbar`: show the built-in `tvxterm` scrollbar in each pane. Default: `false`
 - `socket_path`: unix socket path template for persistent sessions. `<Name>` is replaced with the session name.
 - `focus_border_color`, `focus_title_color`: colors for the focused pane. Default: `green`

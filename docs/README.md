@@ -19,7 +19,7 @@ If you are new to the project, start with the root [`README.md`](../README.md), 
 - [../cmd/lsdiff/README.md](../cmd/lsdiff/README.md): multi-host remote file diff viewer
 - [../cmd/lsshfs/README.md](../cmd/lsshfs/README.md): single-host SSH mounts
 - [../cmd/lsshell/README.md](../cmd/lsshell/README.md): multi-host shell
-- [../cmd/lsmux/README.md](../cmd/lsmux/README.md): pane-based SSH workspace
+- [../cmd/lsmux/README.md](../cmd/lsmux/README.md): compatibility wrapper for the pane-based SSH workspace
 - [../cmd/lspipe/README.md](../cmd/lspipe/README.md): persistent multi-host pipe sessions
 - [../cmd/lsmon/README.md](../cmd/lsmon/README.md): monitoring UI
 

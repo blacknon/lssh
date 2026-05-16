@@ -3,8 +3,9 @@ package tvxterm
 import (
 	"fmt"
 	"io"
-	"os"
 	"math"
+	"os"
+	"strings"
 	"sync"
 	"unicode/utf8"
 
@@ -37,6 +38,18 @@ type View struct {
 	scrollOffset  int
 	scrollbar     bool
 	lastTitle     string
+	selection     selectionState
+}
+
+type selectionCell struct {
+	row int
+	col int
+}
+
+type selectionState struct {
+	active  bool
+	anchor  selectionCell
+	current selectionCell
 }
 
 // New creates a terminal view bound to the given tview application.
@@ -133,6 +146,7 @@ func (v *View) Draw(screen tcell.Screen) {
 	v.emu.Resize(contentWidth, height)
 	v.resizeBackend(contentWidth, height)
 	ss := v.emu.SnapshotAt(v.scrollOffset)
+	viewStart := v.visibleRowStart(ss)
 
 	for row := 0; row < ss.Rows; row++ {
 		for col := 0; col < ss.Cols; col++ {
@@ -140,7 +154,11 @@ func (v *View) Draw(screen tcell.Screen) {
 			if cell.Occupied && cell.Width == 0 {
 				continue
 			}
-			screen.SetContent(x+col, y+row, cell.Ch, cell.Comb, drawStyle(cell.Style, ss.ReverseVideo))
+			style := drawStyle(cell.Style, ss.ReverseVideo)
+			if v.selectionContains(viewStart+row, col) {
+				style = selectionStyle(style)
+			}
+			screen.SetContent(x+col, y+row, cell.Ch, cell.Comb, style)
 		}
 	}
 
@@ -234,6 +252,104 @@ func (v *View) SendPaste(text string) bool {
 	}
 	v.sendInput(backend, payload)
 	return true
+}
+
+// StartSelection begins a local text selection using screen coordinates.
+func (v *View) StartSelection(screenX, screenY int) bool {
+	cell, ok := v.selectionCellFromScreen(screenX, screenY)
+	if !ok {
+		return false
+	}
+
+	v.mu.Lock()
+	v.selection.active = true
+	v.selection.anchor = cell
+	v.selection.current = cell
+	v.mu.Unlock()
+	v.requestRedrawAsync()
+	return true
+}
+
+// UpdateSelection adjusts the active selection using screen coordinates.
+func (v *View) UpdateSelection(screenX, screenY int) bool {
+	cell, ok := v.selectionCellFromScreen(screenX, screenY)
+	if !ok {
+		return false
+	}
+
+	v.mu.Lock()
+	if !v.selection.active {
+		v.selection.active = true
+		v.selection.anchor = cell
+	}
+	v.selection.current = cell
+	v.mu.Unlock()
+	v.requestRedrawAsync()
+	return true
+}
+
+// ClearSelection removes the current local text selection.
+func (v *View) ClearSelection() {
+	v.mu.Lock()
+	v.selection = selectionState{}
+	v.mu.Unlock()
+	v.requestRedrawAsync()
+}
+
+// HasSelection reports whether a non-empty local text selection exists.
+func (v *View) HasSelection() bool {
+	v.mu.RLock()
+	defer v.mu.RUnlock()
+	if !v.selection.active {
+		return false
+	}
+	return v.selection.anchor != v.selection.current
+}
+
+// SelectedText returns the currently selected terminal text.
+func (v *View) SelectedText() string {
+	v.mu.RLock()
+	sel := v.selection
+	v.mu.RUnlock()
+	if !sel.active {
+		return ""
+	}
+
+	rows := v.emu.allRows()
+	start, end, ok := normalizeSelectionRange(sel, rows)
+	if !ok {
+		return ""
+	}
+
+	var out strings.Builder
+	for rowIndex := start.row; rowIndex <= end.row; rowIndex++ {
+		row := rows[rowIndex]
+		if len(row) == 0 {
+			if rowIndex < end.row {
+				out.WriteByte('\n')
+			}
+			continue
+		}
+
+		from := 0
+		to := len(row) - 1
+		if rowIndex == start.row {
+			from = clamp(start.col, 0, len(row)-1)
+		}
+		if rowIndex == end.row {
+			to = clamp(end.col, 0, len(row)-1)
+		}
+		if from > to {
+			from, to = to, from
+		}
+
+		line := strings.TrimRight(cellsToString(row[from:to+1]), " ")
+		out.WriteString(line)
+		if rowIndex < end.row {
+			out.WriteByte('\n')
+		}
+	}
+	return out.String()
 }
 
 func (v *View) Focus(delegate func(p tview.Primitive)) {
@@ -413,6 +529,133 @@ func (v *View) drawScrollbar(screen tcell.Screen, x, y, height int) {
 		}
 		screen.SetContent(x, y+row, ch, nil, style)
 	}
+}
+
+func (v *View) selectionContains(row, col int) bool {
+	v.mu.RLock()
+	sel := v.selection
+	v.mu.RUnlock()
+	if !sel.active {
+		return false
+	}
+	start, end, ok := orderedSelectionRange(sel)
+	if !ok {
+		return false
+	}
+	if row < start.row || row > end.row {
+		return false
+	}
+	if start.row == end.row {
+		return col >= start.col && col <= end.col
+	}
+	if row == start.row {
+		return col >= start.col
+	}
+	if row == end.row {
+		return col <= end.col
+	}
+	return true
+}
+
+func (v *View) visibleRowStart(ss Snapshot) int {
+	return max(0, ss.ScrollbackRows-v.scrollOffset)
+}
+
+func (v *View) selectionCellFromScreen(screenX, screenY int) (selectionCell, bool) {
+	x, y, width, height := v.GetInnerRect()
+	if width <= 0 || height <= 0 {
+		return selectionCell{}, false
+	}
+
+	contentWidth, _, _ := v.layout(width)
+	if contentWidth <= 0 {
+		return selectionCell{}, false
+	}
+	if screenX < x || screenX >= x+contentWidth || screenY < y || screenY >= y+height {
+		return selectionCell{}, false
+	}
+
+	ss := v.emu.Snapshot()
+	localCol := clamp(screenX-x, 0, max(0, contentWidth-1))
+	localRow := clamp(screenY-y, 0, max(0, ss.Rows-1))
+	cell := selectionCell{
+		row: v.visibleRowStart(ss) + localRow,
+		col: localCol,
+	}
+
+	rows := v.emu.allRows()
+	if len(rows) == 0 {
+		return selectionCell{}, false
+	}
+	cell.row = clamp(cell.row, 0, len(rows)-1)
+	cell.col = normalizeSelectionColumn(rows[cell.row], cell.col)
+	return cell, true
+}
+
+func orderedSelectionRange(sel selectionState) (selectionCell, selectionCell, bool) {
+	if !sel.active {
+		return selectionCell{}, selectionCell{}, false
+	}
+	start := sel.anchor
+	end := sel.current
+	if start.row > end.row || (start.row == end.row && start.col > end.col) {
+		start, end = end, start
+	}
+	return start, end, true
+}
+
+func normalizeSelectionRange(sel selectionState, rows [][]Cell) (selectionCell, selectionCell, bool) {
+	start, end, ok := orderedSelectionRange(sel)
+	if !ok || len(rows) == 0 {
+		return selectionCell{}, selectionCell{}, false
+	}
+
+	start.row = clamp(start.row, 0, len(rows)-1)
+	end.row = clamp(end.row, 0, len(rows)-1)
+	start.col = normalizeSelectionColumn(rows[start.row], start.col)
+	end.col = normalizeSelectionColumn(rows[end.row], end.col)
+	return start, end, true
+}
+
+func normalizeSelectionColumn(row []Cell, col int) int {
+	if len(row) == 0 {
+		return 0
+	}
+	col = clamp(col, 0, len(row)-1)
+	for col > 0 && row[col].Occupied && row[col].Width == 0 {
+		col--
+	}
+	return col
+}
+
+func cellsToString(row []Cell) string {
+	var out strings.Builder
+	for _, cell := range row {
+		if cell.Occupied && cell.Width == 0 {
+			continue
+		}
+		if !cell.Occupied {
+			out.WriteRune(' ')
+			continue
+		}
+		ch := cell.Ch
+		if ch == 0 {
+			ch = ' '
+		}
+		out.WriteRune(ch)
+		if len(cell.Comb) > 0 {
+			out.WriteString(string(cell.Comb))
+		}
+	}
+	return out.String()
+}
+
+func selectionStyle(style tcell.Style) tcell.Style {
+	fg, bg, attr := style.Decompose()
+	if fg == tcell.ColorDefault && bg == tcell.ColorDefault {
+		return tcell.StyleDefault.Foreground(tcell.ColorBlack).Background(tcell.ColorWhite).Attributes(attr)
+	}
+	return tcell.StyleDefault.Foreground(bg).Background(fg).Attributes(attr)
 }
 
 func scrollbarThumb(height, rows, offset int) (start, size int) {
@@ -614,6 +857,16 @@ func mouseReportCode(action tview.MouseAction, event *tcell.EventMouse, ss Snaps
 	case tview.MouseLeftUp, tview.MouseMiddleUp, tview.MouseRightUp:
 		if ss.MouseX10 {
 			return 0, 0, false
+		}
+		if ss.MouseSGR {
+			switch action {
+			case tview.MouseLeftUp:
+				return 0, 'm', true
+			case tview.MouseMiddleUp:
+				return 1, 'm', true
+			case tview.MouseRightUp:
+				return 2, 'm', true
+			}
 		}
 		return 3, 'm', true
 	case tview.MouseScrollUp:

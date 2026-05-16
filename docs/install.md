@@ -56,11 +56,11 @@ For package manager publishing guidance such as `winget`, `Scoop`, `Homebrew`, a
 | Package | Includes | Best for |
 | --- | --- | --- |
 | `lssh-complete_*` | all suite commands, bundled providers, and command completions | A single archive with the full suite plus provider-backed workflows |
-| `lssh_*` | `lssh`, `lscp`, `lsftp`, `lssync`, `lsdiff`, `lsshfs`, `lsmon`, `lsshell`, `lsmux`, `lspipe` | Full installation of the entire tool suite |
+| `lssh_*` | `lssh`, `lscp`, `lsftp`, `lssync`, `lsdiff`, `lsshfs`, `lsmon`, `lsshell`, `lsmux`, `lspipe` | Full installation of the entire tool suite, including the `lsmux` compatibility command |
 | `lssh-core_*` | `lssh` | SSH access and forwarding only |
 | `lssh-transfer_*` | `lscp`, `lsftp`, `lssync`, `lsdiff`, `lsshfs` | File transfer, diff, and mount workflows only |
 | `lssh-monitor_*` | `lsmon` | Monitoring multiple remote hosts |
-| `lssh-sysadmin_*` | `lsshell`, `lsmux`, `lspipe` | Parallel shell and multi-host operations |
+| `lssh-sysadmin_*` | `lsshell`, `lsmux`, `lspipe` | Parallel shell and multi-host operations, including the `lsmux` compatibility command |
 | `lssh-providers_*` | bundled provider executables | Provider-backed inventory, connector, and secret workflows |
 
 ## go install
@@ -79,6 +79,8 @@ go install github.com/blacknon/lssh/cmd/lsmon@latest
 go install github.com/blacknon/lssh/cmd/lsmux@latest
 go install github.com/blacknon/lssh/cmd/lspipe@latest
 ```
+
+`cmd/lsmux` is available for compatibility, but new mux workflows should generally use `lssh -P`.
 
 ### Provider binaries
 
@@ -137,7 +139,7 @@ brew install blacknon/lssh/lssh
 - Linux: FUSE support and a working `fusermount`/FUSE setup are required.
 - macOS: `mount_nfs` is used locally, so the client must allow local NFS mounts.
 - Windows: `lsshfs` is currently not supported.
-- The repository intentionally replaces `github.com/kevinburke/ssh_config` with the vendored fork at `./internal/ssh_config` so the generated config and parser behavior stay in sync with `lssh`.
+- The repository uses the bundled fork in `./internal/ssh_config` directly so the generated config and parser behavior stay in sync with `lssh`.
 
 ## Shell completion
 

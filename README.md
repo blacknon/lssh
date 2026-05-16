@@ -279,7 +279,7 @@ The `lssh` project includes multiple tools for SSH-centered workflows.
       <a href="./cmd/lsmux/README.md"><img src="./cmd/lsmux/img/term.gif" alt="lsmux preview" width="100%" /></a><br />
       <strong><a href="./cmd/lsmux/README.md">lsmux</a></strong><br />
       <code>sysadmin</code> / <code>beta</code><br />
-      Pane-based SSH workspace for multi-host terminal workflows.
+      Compatibility wrapper for the `lssh -P` pane-based SSH workspace.
     </td>
     <td valign="top" width="33%">
       <a href="./cmd/lsmon/README.md"><img src="./cmd/lsmon/img/lsmon.gif" alt="lsmon preview" width="100%" /></a><br />
@@ -340,16 +340,16 @@ They overlap with parts of the suite, but each usually covers a narrower slice o
 | Project | Closest `lssh` command(s) | Main focus | How it differs from `lssh` |
 | --- | --- | --- | --- |
 | [`sshs`](https://github.com/quantumsheep/sshs) | [`lssh`](./cmd/lssh/README.md) | TUI-based SSH host picker | Similar in spirit to a focused host picker, but `lssh` also covers parallel execution, forwarding, mux workflows, and provider/connector-backed targets. |
-| [`ClusterSSH (cssh)`](https://github.com/duncs/clusterssh) | [`lssh -P`](./cmd/lssh/README.md), [`lsmux`](./cmd/lsmux/README.md), [`lsshell`](./cmd/lsshell/README.md) | Multi-host interactive administration | Strong for broadcast typing into multiple terminals; `lsshell` and `lsmux` are a closer fit when you want synchronized shell workflows inside one suite. |
+| [`ClusterSSH (cssh)`](https://github.com/duncs/clusterssh) | [`lssh -P`](./cmd/lssh/README.md), [`lsshell`](./cmd/lsshell/README.md) | Multi-host interactive administration | Strong for broadcast typing into multiple terminals; `lsshell` and `lssh -P` are a closer fit when you want synchronized shell workflows inside one suite. |
 | [`pssh`](https://github.com/lilydjwg/pssh) | [`lssh -p`](./cmd/lssh/README.md), [`lscp`](./cmd/lscp/README.md), [`lssync`](./cmd/lssync/README.md) | Parallel command execution and transfer tools | A good fit for parallel CLI jobs, while `lssh` adds TUI host selection, interactive workflows, and a more integrated multi-command toolset. |
-| [`tmuxinator`](https://github.com/tmuxinator/tmuxinator) | [`lssh -P`](./cmd/lssh/README.md), [`lsmux`](./cmd/lsmux/README.md) | tmux session layout management | Great for predefined tmux workspaces, but it is not an SSH host picker or transfer tool by itself. `lsmux` is SSH-oriented from the start. |
+| [`tmuxinator`](https://github.com/tmuxinator/tmuxinator) | [`lssh -P`](./cmd/lssh/README.md) | tmux session layout management | Great for predefined tmux workspaces, but it is not an SSH host picker or transfer tool by itself. `lssh -P` is SSH-oriented from the start. |
 
 ### How the `lssh` suite is different
 
 - [`lssh`](./cmd/lssh/README.md) combines host selection, interactive SSH, parallel command execution, forwarding, and connector/provider-backed targets.
 - [`lsshell`](./cmd/lsshell/README.md) focuses on parallel interactive shell workflows instead of just launching many terminals.
 - [`lscp`](./cmd/lscp/README.md), [`lsftp`](./cmd/lsftp/README.md), and [`lssync`](./cmd/lssync/README.md) cover file transfer and synchronization as first-class commands in the same suite.
-- [`lsmux`](./cmd/lsmux/README.md) provides a pane-based SSH workspace rather than only session templating.
+- [`lssh -P`](./cmd/lssh/README.md) provides a pane-based SSH workspace, and [`lsmux`](./cmd/lsmux/README.md) remains available as a compatibility wrapper for that workflow.
 - [`lspipe`](./cmd/lspipe/README.md) keeps selected hosts reusable from local pipelines and automation.
 
 ## License

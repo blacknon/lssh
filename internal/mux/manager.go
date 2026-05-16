@@ -43,6 +43,7 @@ type Manager struct {
 	bindings              map[string]keyBinding
 
 	root   *tview.Flex
+	view   tview.Primitive
 	pages  *tview.Pages
 	status *tview.TextView
 
@@ -51,6 +52,8 @@ type Manager struct {
 	selectorFocus tview.Primitive
 	broadcastAll  bool
 	prefixActive  bool
+	copyMode      bool
+	screen        tcell.Screen
 
 	nextPageID int
 	nextPaneID int
@@ -99,6 +102,7 @@ func NewManager(cfg conf.Config, names []string, command []string, stdinData []b
 		"page_list":        cfg.Mux.PageList,
 		"close_pane":       cfg.Mux.ClosePane,
 		"broadcast":        cfg.Mux.Broadcast,
+		"copy_mode":        cfg.Mux.CopyMode,
 		"transfer":         cfg.Mux.Transfer,
 	}
 
@@ -114,13 +118,14 @@ func NewManager(cfg conf.Config, names []string, command []string, stdinData []b
 	status := tview.NewTextView().
 		SetDynamicColors(true).
 		SetWrap(true)
-	status.SetBorder(true).SetTitle("lsmux")
+	status.SetBorder(true).SetTitle("mux")
 
 	pages := tview.NewPages()
 	root := tview.NewFlex().
 		SetDirection(tview.FlexRow).
 		AddItem(pages, 0, 1, true).
 		AddItem(status, 3, 0, false)
+	view := newManagerRoot(root, nil)
 
 	m := &Manager{
 		app:                   app,
@@ -135,6 +140,7 @@ func NewManager(cfg conf.Config, names []string, command []string, stdinData []b
 		factory:               NewSessionFactory(cfg, command, options),
 		bindings:              parsed,
 		root:                  root,
+		view:                  view,
 		pages:                 pages,
 		status:                status,
 		nextPageID:            1,
@@ -144,9 +150,13 @@ func NewManager(cfg conf.Config, names []string, command []string, stdinData []b
 	if options.TransferEnabled != nil {
 		m.transferEnabled = *options.TransferEnabled
 	}
+	view.manager = m
 
 	m.app.SetInputCapture(m.captureInput)
 	m.app.SetMouseCapture(m.captureMouse)
+	m.app.SetAfterDrawFunc(func(screen tcell.Screen) {
+		m.screen = screen
+	})
 
 	return m, nil
 }
@@ -161,11 +171,11 @@ func (m *Manager) Run() error {
 	} else {
 		m.showSelector(selectorInitial)
 	}
-	return m.app.SetRoot(m.root, true).EnableMouse(true).EnablePaste(true).Run()
+	return m.app.SetRoot(m.view, true).EnableMouse(true).EnablePaste(true).Run()
 }
 
 func (m *Manager) showSelector(mode selectorMode) {
-	selector := list.NewTviewSelector(m.app, "lsmux>>", m.conf, m.names, true)
+	selector := list.NewTviewSelector(m.app, "mux>>", m.conf, m.names, true)
 	selectorDirection := tview.FlexColumn
 	if mode == selectorSplitHorizontal {
 		selectorDirection = tview.FlexRow

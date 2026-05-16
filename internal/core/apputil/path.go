@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/blacknon/lssh/internal/check"
 	"github.com/blacknon/lssh/internal/common"
+	"github.com/blacknon/lssh/internal/core/check"
 )
 
 type TransferPathSpec struct {
