@@ -3,7 +3,7 @@ package ssh
 import (
 	"os"
 
-	"golang.org/x/crypto/ssh/terminal"
+	terminal "golang.org/x/term"
 )
 
 func runNativeInteractiveSession(run func() error) error {

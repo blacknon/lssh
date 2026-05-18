@@ -15,7 +15,7 @@ import (
 	conf "github.com/blacknon/lssh/internal/config"
 	"github.com/blacknon/lssh/internal/connectorruntime"
 	"golang.org/x/crypto/ssh"
-	"golang.org/x/crypto/ssh/terminal"
+	terminal "golang.org/x/term"
 )
 
 // TODO(blacknon): Parallel ssh接続時に1ホストづつ接続しているので、goroutineで並列接続させるようにする(v0.7.0)

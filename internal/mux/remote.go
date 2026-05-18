@@ -28,7 +28,7 @@ import (
 	"github.com/creack/pty"
 	"github.com/kballard/go-shellquote"
 	"github.com/pkg/sftp"
-	"golang.org/x/crypto/ssh/terminal"
+	terminal "golang.org/x/term"
 )
 
 // RemoteSession owns a mux pane SSH connection.

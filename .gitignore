@@ -12,6 +12,7 @@
 # cache
 .gocache
 .cache
+.gomodcache
 
 # Binary programs
 /lssh

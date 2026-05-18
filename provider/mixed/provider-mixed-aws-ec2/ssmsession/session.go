@@ -28,7 +28,7 @@ import (
 	"github.com/blacknon/lssh/providerapi"
 	"github.com/google/uuid"
 	"github.com/kballard/go-shellquote"
-	"golang.org/x/crypto/ssh/terminal"
+	terminal "golang.org/x/term"
 )
 
 const (

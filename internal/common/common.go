@@ -20,7 +20,6 @@ import (
 	"log"
 	"math/rand"
 	"os"
-	"os/user"
 	"path/filepath"
 	"reflect"
 	"regexp"
@@ -30,7 +29,7 @@ import (
 	sshlib "github.com/blacknon/go-sshlib"
 
 	"github.com/urfave/cli"
-	"golang.org/x/crypto/ssh/terminal"
+	terminal "golang.org/x/term"
 )
 
 var characterRunes = []rune("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789")
@@ -185,15 +184,23 @@ func MapToStruct(mapVal map[string]interface{}, val interface{}) (ok bool) {
 // GetFullPath returns a fullpath of path.
 // Expands `~` to user directory ($HOME environment variable).
 func GetFullPath(path string) (fullPath string) {
-	usr, _ := user.Current()
-	fullPath = strings.Replace(path, "~", usr.HomeDir, 1)
+	if path == "~" || strings.HasPrefix(path, "~/") {
+		if home, err := os.UserHomeDir(); err == nil && home != "" {
+			if path == "~" {
+				path = home
+			} else {
+				path = filepath.Join(home, strings.TrimPrefix(path, "~/"))
+			}
+		}
+	}
+
+	fullPath = path
 	fullPath, _ = filepath.Abs(fullPath)
 
 	// ファイルがシンボリックリンクかどうかを確認
 	info, err := os.Lstat(fullPath)
 	if err != nil {
-		fmt.Println("Error:", err)
-		return
+		return fullPath
 	}
 
 	// シンボリックリンクの場合、実体パスを取得
@@ -744,11 +751,10 @@ func GetDefaultConfigPath() (path string) {
 	// get XDG_CONFIG_HOME
 	xdgConfigHome := os.Getenv("XDG_CONFIG_HOME")
 
-	// get user
-	usr, _ := user.Current()
-
-	// get home dir
-	home := usr.HomeDir
+	home, err := os.UserHomeDir()
+	if err != nil {
+		home = ""
+	}
 
 	candidates := GetDefaultConfigCandidates(home, xdgConfigHome)
 	for _, candidate := range candidates {

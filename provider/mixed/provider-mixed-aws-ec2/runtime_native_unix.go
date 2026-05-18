@@ -10,7 +10,7 @@ import (
 
 	"github.com/blacknon/lssh/internal/connectorruntime"
 	"github.com/blacknon/lssh/provider/mixed/provider-mixed-aws-ec2/ssmsession"
-	"golang.org/x/crypto/ssh/terminal"
+	terminal "golang.org/x/term"
 )
 
 func runNativeSSMShell(cfg ssmsession.Config) error {

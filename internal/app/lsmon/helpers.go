@@ -7,7 +7,7 @@ import (
 
 	sshcmd "github.com/blacknon/lssh/internal/ssh"
 	"github.com/urfave/cli"
-	"golang.org/x/crypto/ssh/terminal"
+	terminal "golang.org/x/term"
 )
 
 func buildRun(c *cli.Context, selected []string, controlMasterOverride *bool, shareConnect bool) *sshcmd.Run {

@@ -3,12 +3,12 @@ package conf
 import (
 	"bytes"
 	"errors"
+	"fmt"
 	"log"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
-	"time"
 
 	"github.com/blacknon/lssh/providerapi"
 )
@@ -1216,12 +1216,26 @@ func TestReadInventoryProvidersFetchesProvidersInParallel(t *testing.T) {
 	dir := t.TempDir()
 	providerPathA := filepath.Join(dir, "lssh-provider-fake-inventory-a")
 	providerPathB := filepath.Join(dir, "lssh-provider-fake-inventory-b")
+	runningDir := filepath.Join(dir, "running")
+	overlapFile := filepath.Join(dir, "overlap")
+	if err := os.MkdirAll(runningDir, 0o755); err != nil {
+		t.Fatalf("mkdir running dir: %v", err)
+	}
 
-	script := `#!/bin/sh
-sleep 0.3
+	script := fmt.Sprintf(`#!/bin/sh
+marker="%s/$(basename "$0").$$"
+touch "$marker"
+for _ in 1 2 3 4 5; do
+  count=$(find "%s" -mindepth 1 -maxdepth 1 | wc -l | tr -d ' ')
+  if [ "$count" -gt 1 ]; then
+    touch "%s"
+  fi
+  sleep 0.2
+done
+rm -f "$marker"
 cat >/dev/null
-printf '%s' '{"version":"v1","result":{"servers":[{"name":"aws:web-1","config":{"addr":"10.0.0.10"}}]}}'
-`
+printf '%%s' '{"version":"v1","result":{"servers":[{"name":"aws:web-1","config":{"addr":"10.0.0.10"}}]}}'
+`, runningDir, runningDir, overlapFile)
 	if err := os.WriteFile(providerPathA, []byte(script), 0o755); err != nil {
 		t.Fatalf("write provider A: %v", err)
 	}
@@ -1244,12 +1258,11 @@ printf '%s' '{"version":"v1","result":{"servers":[{"name":"aws:web-1","config":{
 		},
 	}
 
-	start := time.Now()
 	if err := cfg.ReadInventoryProviders(); err != nil {
 		t.Fatalf("ReadInventoryProviders() error = %v", err)
 	}
-	if elapsed := time.Since(start); elapsed >= 900*time.Millisecond {
-		t.Fatalf("ReadInventoryProviders() took %v, want parallel execution under 900ms", elapsed)
+	if _, err := os.Stat(overlapFile); err != nil {
+		t.Fatalf("provider fetches did not overlap: %v", err)
 	}
 }
 
@@ -1314,12 +1327,26 @@ func TestReadInventoryProvidersHonorsMaxParallel(t *testing.T) {
 	providerPathA := filepath.Join(dir, "lssh-provider-fake-inventory-a")
 	providerPathB := filepath.Join(dir, "lssh-provider-fake-inventory-b")
 	providerPathC := filepath.Join(dir, "lssh-provider-fake-inventory-c")
+	runningDir := filepath.Join(dir, "running")
+	overlapFile := filepath.Join(dir, "overlap")
+	if err := os.MkdirAll(runningDir, 0o755); err != nil {
+		t.Fatalf("mkdir running dir: %v", err)
+	}
 
-	script := `#!/bin/sh
-sleep 0.3
+	script := fmt.Sprintf(`#!/bin/sh
+marker="%s/$(basename "$0").$$"
+touch "$marker"
+for _ in 1 2 3 4 5; do
+  count=$(find "%s" -mindepth 1 -maxdepth 1 | wc -l | tr -d ' ')
+  if [ "$count" -gt 1 ]; then
+    touch "%s"
+  fi
+  sleep 0.2
+done
+rm -f "$marker"
 cat >/dev/null
-printf '%s' '{"version":"v1","result":{"servers":[{"name":"aws:web-1","config":{"addr":"10.0.0.10"}}]}}'
-`
+printf '%%s' '{"version":"v1","result":{"servers":[{"name":"aws:web-1","config":{"addr":"10.0.0.10"}}]}}'
+`, runningDir, runningDir, overlapFile)
 	if err := os.WriteFile(providerPathA, []byte(script), 0o755); err != nil {
 		t.Fatalf("write provider A: %v", err)
 	}
@@ -1352,12 +1379,11 @@ printf '%s' '{"version":"v1","result":{"servers":[{"name":"aws:web-1","config":{
 		},
 	}
 
-	start := time.Now()
 	if err := cfg.ReadInventoryProviders(); err != nil {
 		t.Fatalf("ReadInventoryProviders() error = %v", err)
 	}
-	if elapsed := time.Since(start); elapsed < 800*time.Millisecond {
-		t.Fatalf("ReadInventoryProviders() took %v, want max_parallel=1 to serialize inventory fetches", elapsed)
+	if _, err := os.Stat(overlapFile); !os.IsNotExist(err) {
+		t.Fatalf("provider fetches overlapped despite max_parallel=1")
 	}
 }
 

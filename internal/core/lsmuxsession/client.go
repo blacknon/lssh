@@ -14,7 +14,7 @@ import (
 	"syscall"
 	"unicode/utf8"
 
-	"golang.org/x/crypto/ssh/terminal"
+	terminal "golang.org/x/term"
 )
 
 type AttachOptions struct {

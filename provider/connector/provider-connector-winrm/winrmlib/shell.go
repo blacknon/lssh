@@ -12,7 +12,7 @@ import (
 	"sync"
 
 	"github.com/masterzen/winrm"
-	"golang.org/x/crypto/ssh/terminal"
+	terminal "golang.org/x/term"
 )
 
 var ErrUnsupported = errors.New("unsupported")

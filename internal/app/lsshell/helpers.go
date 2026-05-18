@@ -11,7 +11,7 @@ import (
 	"github.com/blacknon/lssh/internal/core/list"
 	sshcmd "github.com/blacknon/lssh/internal/ssh"
 	"github.com/urfave/cli"
-	"golang.org/x/crypto/ssh/terminal"
+	terminal "golang.org/x/term"
 )
 
 var numericPortPattern = regexp.MustCompile(`^[0-9]+$`)

@@ -13,7 +13,7 @@ import (
 	"regexp"
 
 	"github.com/blacknon/lssh/internal/common"
-	"golang.org/x/crypto/ssh/terminal"
+	terminal "golang.org/x/term"
 )
 
 const defaultOpenSSHConfigPath = "~/.ssh/config"
